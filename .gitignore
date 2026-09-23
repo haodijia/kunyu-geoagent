@@ -1,0 +1,87 @@
+# Operating systems
+.DS_Store
+._*
+Thumbs.db
+Desktop.ini
+
+# Editors and IDEs
+.idea/
+.vscode/
+*.code-workspace
+*.swp
+*.swo
+*~
+
+# Local environment and secrets
+.env
+.env.*
+!.env.example
+!.env.*.example
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+.venv/
+venv/
+env/
+ENV/
+.uv/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.pyright/
+.hypothesis/
+.coverage
+.coverage.*
+coverage.xml
+htmlcov/
+.tox/
+.nox/
+pip-wheel-metadata/
+*.egg-info/
+.eggs/
+build/
+dist/
+site/
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Node.js and frontend tooling
+node_modules/
+.pnpm-store/
+.npm/
+.yarn/cache/
+.yarn/unplugged/
+.yarn/build-state.yml
+.yarn/install-state.gz
+.next/
+.nuxt/
+.svelte-kit/
+.vite/
+.parcel-cache/
+.turbo/
+coverage/
+*.tsbuildinfo
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Logs, caches, and temporary files
+*.log
+.cache/
+.tmp/
+tmp/
+temp/
+*.tmp
+*.temp
+
+# Local databases
+*.db
+*.sqlite
+*.sqlite3
+*.db-journal
