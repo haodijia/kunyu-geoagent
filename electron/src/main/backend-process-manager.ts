@@ -2,6 +2,8 @@ import { spawn, type ChildProcess } from "node:child_process";
 import { randomBytes } from "node:crypto";
 import path from "node:path";
 
+import type { RuntimeConnection } from "../shared/runtime";
+
 const API_VERSION = "1";
 const BACKEND_HOST = "127.0.0.1";
 const BACKEND_PORT = 8000;
@@ -26,17 +28,11 @@ interface HealthResponse {
   api_version: "1";
 }
 
-export interface BackendConnection {
-  baseUrl: string;
-  apiVersion: "1";
-  sessionToken: string;
-}
-
 export class BackendProcessManager {
   private child: ChildProcess | null = null;
   private state: BackendProcessState = "idle";
 
-  async start(): Promise<BackendConnection> {
+  async start(): Promise<RuntimeConnection> {
     if (this.state !== "idle") {
       throw new Error(`Cannot start backend from ${this.state} state.`);
     }
