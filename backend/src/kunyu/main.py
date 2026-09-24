@@ -4,6 +4,7 @@ from contextlib import asynccontextmanager
 
 from fastapi import Depends, FastAPI
 
+from kunyu.api.messages import router as messages_router
 from kunyu.api.sessions import router as sessions_router
 from kunyu.api.system import require_desktop_session, router as system_router
 from kunyu.api.workspaces import router as workspaces_router
@@ -32,6 +33,7 @@ def create_app(session_token: str | None = None) -> FastAPI:
     app.include_router(system_router)
     app.include_router(workspaces_router)
     app.include_router(sessions_router)
+    app.include_router(messages_router)
     return app
 
 
