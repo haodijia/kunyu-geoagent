@@ -10,6 +10,7 @@ import {
 } from "./backend-diagnostics";
 
 const API_VERSION = "1";
+const APP_DATA_DIRECTORY_ENV = "KUNYU_APP_DATA_DIR";
 const BACKEND_HOST = "127.0.0.1";
 const BACKEND_PORT = 8000;
 const FORCE_KILL_WAIT_MS = 1_000;
@@ -46,13 +47,21 @@ export class BackendProcessManager {
   private backendPid: number | null = null;
   private child: ChildProcess | null = null;
   private connection: RuntimeConnection | null = null;
+  private appDataDirectory: string | null = null;
   private readonly logs = new BackendLogCollector();
   private state: BackendProcessState = "idle";
   private stopPromise: Promise<void> | null = null;
 
-  async start(): Promise<RuntimeConnection> {
+  async start(appDataDirectory?: string): Promise<RuntimeConnection> {
     if (this.state !== "idle") {
       throw new Error(`Cannot start backend from ${this.state} state.`);
+    }
+
+    if (appDataDirectory !== undefined) {
+      this.appDataDirectory = appDataDirectory;
+    }
+    if (this.appDataDirectory === null) {
+      throw new Error("Backend app data directory is unavailable.");
     }
 
     this.state = "starting";
@@ -66,6 +75,7 @@ export class BackendProcessManager {
         cwd: repositoryRoot,
         env: {
           ...process.env,
+          [APP_DATA_DIRECTORY_ENV]: this.appDataDirectory,
           [SESSION_TOKEN_ENV]: sessionToken
         },
         stdio: ["ignore", "pipe", "pipe"],

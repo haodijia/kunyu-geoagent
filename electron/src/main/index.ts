@@ -135,7 +135,7 @@ if (!hasSingleInstanceLock) {
 async function startDesktop(): Promise<void> {
   let connection: RuntimeConnection;
   try {
-    connection = await backendProcessManager.start();
+    connection = await backendProcessManager.start(app.getPath("userData"));
   } catch (error: unknown) {
     backendFailure = toBackendFailure(error);
     console.error("Backend startup failed.", error);
