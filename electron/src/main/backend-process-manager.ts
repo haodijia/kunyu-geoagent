@@ -7,13 +7,22 @@ import type { RuntimeConnection } from "../shared/runtime";
 const API_VERSION = "1";
 const BACKEND_HOST = "127.0.0.1";
 const BACKEND_PORT = 8000;
+const FORCE_KILL_WAIT_MS = 1_000;
 const HEALTH_TIMEOUT_MS = 5_000;
 const MAX_READY_LINE_LENGTH = 16_384;
 const SESSION_HEADER = "X-Kunyu-Session";
 const SESSION_TOKEN_ENV = "KUNYU_SESSION_TOKEN";
+const SHUTDOWN_REQUEST_TIMEOUT_MS = 2_000;
+const SHUTDOWN_TIMEOUT_MS = 5_000;
 const STARTUP_TIMEOUT_MS = 15_000;
 
-type BackendProcessState = "idle" | "starting" | "ready" | "failed";
+type BackendProcessState =
+  | "idle"
+  | "starting"
+  | "ready"
+  | "stopping"
+  | "stopped"
+  | "failed";
 
 interface ReadyMessage {
   type: "ready";
@@ -30,7 +39,9 @@ interface HealthResponse {
 
 export class BackendProcessManager {
   private child: ChildProcess | null = null;
+  private connection: RuntimeConnection | null = null;
   private state: BackendProcessState = "idle";
+  private stopPromise: Promise<void> | null = null;
 
   async start(): Promise<RuntimeConnection> {
     if (this.state !== "idle") {
@@ -69,23 +80,33 @@ export class BackendProcessManager {
         throw new Error("Backend exited during its health check.");
       }
 
+      const connection: RuntimeConnection = {
+        baseUrl,
+        apiVersion: readyMessage.api_version,
+        sessionToken
+      };
+      this.connection = connection;
       this.state = "ready";
       child.once("exit", (code, signal) => {
         if (this.child !== child || this.state !== "ready") {
           return;
         }
 
+        this.child = null;
+        this.connection = null;
         this.state = "failed";
         console.error(
           `Backend exited unexpectedly (code=${String(code)}, signal=${String(signal)}).`
         );
       });
+      child.once("error", (error) => {
+        if (this.child === child && this.state === "ready") {
+          this.state = "failed";
+          console.error("Backend process error.", error);
+        }
+      });
 
-      return {
-        baseUrl,
-        apiVersion: readyMessage.api_version,
-        sessionToken
-      };
+      return connection;
     } catch (error: unknown) {
       this.state = "failed";
       if (child.exitCode === null && child.signalCode === null) {
@@ -93,6 +114,91 @@ export class BackendProcessManager {
       }
       throw error;
     }
+  }
+
+  stop(): Promise<void> {
+    if (this.stopPromise === null) {
+      this.stopPromise = this.stopInternal();
+    }
+
+    return this.stopPromise;
+  }
+
+  private async stopInternal(): Promise<void> {
+    const child = this.child;
+    const connection = this.connection;
+    this.state = "stopping";
+
+    if (child === null || child.exitCode !== null || child.signalCode !== null) {
+      this.finishStop();
+      return;
+    }
+
+    if (connection !== null) {
+      try {
+        await this.requestGracefulShutdown(connection);
+      } catch (error: unknown) {
+        console.error("Backend graceful shutdown request failed.", this.asError(error));
+      }
+
+      if (await this.waitForExit(child, SHUTDOWN_TIMEOUT_MS)) {
+        this.finishStop();
+        return;
+      }
+    }
+
+    child.kill("SIGKILL");
+    await this.waitForExit(child, FORCE_KILL_WAIT_MS);
+    this.finishStop();
+  }
+
+  private finishStop(): void {
+    this.child = null;
+    this.connection = null;
+    this.state = "stopped";
+  }
+
+  private async requestGracefulShutdown(connection: RuntimeConnection): Promise<void> {
+    const controller = new AbortController();
+    const timeout = setTimeout(
+      () => controller.abort(),
+      SHUTDOWN_REQUEST_TIMEOUT_MS
+    );
+
+    try {
+      const response = await fetch(`${connection.baseUrl}/api/v1/system/shutdown`, {
+        method: "POST",
+        headers: {
+          [SESSION_HEADER]: connection.sessionToken
+        },
+        signal: controller.signal
+      });
+
+      if (response.status !== 202) {
+        throw new Error(`Backend shutdown returned HTTP ${response.status}.`);
+      }
+    } finally {
+      clearTimeout(timeout);
+    }
+  }
+
+  private waitForExit(child: ChildProcess, timeoutMs: number): Promise<boolean> {
+    if (child.exitCode !== null || child.signalCode !== null) {
+      return Promise.resolve(true);
+    }
+
+    return new Promise((resolve) => {
+      const onExit = (): void => {
+        clearTimeout(timeout);
+        resolve(true);
+      };
+      const timeout = setTimeout(() => {
+        child.off("exit", onExit);
+        resolve(false);
+      }, timeoutMs);
+
+      child.once("exit", onExit);
+    });
   }
 
   private waitForReady(child: ChildProcess): Promise<ReadyMessage> {

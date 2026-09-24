@@ -59,4 +59,9 @@ def run_desktop(app_factory: Callable[[str], FastAPI]) -> None:
         access_log=False,
     )
     server = DesktopServer(config, ready_message)
+
+    def request_shutdown() -> None:
+        server.should_exit = True
+
+    app.state.shutdown_callback = request_shutdown
     server.run()

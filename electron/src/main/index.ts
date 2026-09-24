@@ -11,6 +11,8 @@ import {
 const FRONTEND_DEVELOPMENT_URL = "http://127.0.0.1:5173";
 let mainWindow: BrowserWindow | null = null;
 let runtimeConnection: RuntimeConnection | null = null;
+let allowQuit = false;
+let shutdownStarted = false;
 const backendProcessManager = new BackendProcessManager();
 
 const hasSingleInstanceLock = app.requestSingleInstanceLock();
@@ -29,6 +31,29 @@ if (!hasSingleInstanceLock) {
     }
 
     event.returnValue = runtimeConnection;
+  });
+
+  app.on("before-quit", (event) => {
+    if (allowQuit) {
+      return;
+    }
+
+    event.preventDefault();
+    if (shutdownStarted) {
+      return;
+    }
+
+    shutdownStarted = true;
+    runtimeConnection = null;
+    void backendProcessManager
+      .stop()
+      .catch((error: unknown) => {
+        console.error("Backend shutdown failed.", error);
+      })
+      .finally(() => {
+        allowQuit = true;
+        app.quit();
+      });
   });
 
   app.on("second-instance", () => {

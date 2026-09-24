@@ -12,6 +12,7 @@ def create_app(session_token: str | None = None) -> FastAPI:
         dependencies=[Depends(require_desktop_session)],
     )
     app.state.session_token = session_token
+    app.state.shutdown_callback = None
     app.include_router(system_router)
     return app
 
