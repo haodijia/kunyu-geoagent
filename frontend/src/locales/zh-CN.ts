@@ -7,7 +7,9 @@ export const zhCN = {
     geoSkill: "GeoSkill",
     explore: "探索",
     scheduledTasks: "定时任务",
-    settings: "设置"
+    settings: "设置",
+    collapseSidebar: "收起侧边栏",
+    expandSidebar: "展开侧边栏"
   },
   connection: {
     eyebrow: "坤舆智枢",
