@@ -19,9 +19,9 @@ class Base(DeclarativeBase):
     pass
 
 
-class ProjectRecord(Base):
-    __tablename__ = "projects"
-    __table_args__ = (Index("ix_projects_updated_at", "updated_at"),)
+class WorkspaceRecord(Base):
+    __tablename__ = "workspaces"
+    __table_args__ = (Index("ix_workspaces_updated_at", "updated_at"),)
 
     id: Mapped[str] = mapped_column(String(64), primary_key=True)
     name: Mapped[str] = mapped_column(String(200), nullable=False)
@@ -33,15 +33,15 @@ class ProjectRecord(Base):
     )
 
 
-class ThreadRecord(Base):
-    __tablename__ = "threads"
+class SessionRecord(Base):
+    __tablename__ = "sessions"
     __table_args__ = (
-        Index("ix_threads_project_updated_at", "project_id", "updated_at"),
+        Index("ix_sessions_workspace_updated_at", "workspace_id", "updated_at"),
     )
 
     id: Mapped[str] = mapped_column(String(64), primary_key=True)
-    project_id: Mapped[str] = mapped_column(
-        ForeignKey("projects.id", ondelete="CASCADE"), nullable=False
+    workspace_id: Mapped[str] = mapped_column(
+        ForeignKey("workspaces.id", ondelete="CASCADE"), nullable=False
     )
     title: Mapped[str] = mapped_column(String(200), nullable=False)
     created_at: Mapped[datetime] = mapped_column(
@@ -56,12 +56,17 @@ class MessageRecord(Base):
     __tablename__ = "messages"
     __table_args__ = (
         CheckConstraint("sequence > 0", name="ck_messages_sequence_positive"),
-        Index("ix_messages_thread_sequence", "thread_id", "sequence", unique=True),
+        Index(
+            "ix_messages_session_sequence",
+            "session_id",
+            "sequence",
+            unique=True,
+        ),
     )
 
     id: Mapped[str] = mapped_column(String(64), primary_key=True)
-    thread_id: Mapped[str] = mapped_column(
-        ForeignKey("threads.id", ondelete="CASCADE"), nullable=False
+    session_id: Mapped[str] = mapped_column(
+        ForeignKey("sessions.id", ondelete="CASCADE"), nullable=False
     )
     sequence: Mapped[int] = mapped_column(Integer, nullable=False)
     role: Mapped[str] = mapped_column(String(32), nullable=False)
@@ -76,16 +81,16 @@ class AgentEventRecord(Base):
     __table_args__ = (
         CheckConstraint("sequence > 0", name="ck_agent_events_sequence_positive"),
         Index(
-            "ix_agent_events_thread_sequence",
-            "thread_id",
+            "ix_agent_events_session_sequence",
+            "session_id",
             "sequence",
             unique=True,
         ),
     )
 
     id: Mapped[str] = mapped_column(String(64), primary_key=True)
-    thread_id: Mapped[str] = mapped_column(
-        ForeignKey("threads.id", ondelete="CASCADE"), nullable=False
+    session_id: Mapped[str] = mapped_column(
+        ForeignKey("sessions.id", ondelete="CASCADE"), nullable=False
     )
     sequence: Mapped[int] = mapped_column(Integer, nullable=False)
     event_type: Mapped[str] = mapped_column(String(100), nullable=False)
