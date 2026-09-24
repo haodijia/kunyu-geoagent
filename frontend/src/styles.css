@@ -1,119 +1,46 @@
-*,
-*::before,
-*::after {
-  box-sizing: border-box;
-}
+@import "tailwindcss";
 
-html,
-body,
-#root {
-  min-height: 100%;
-  margin: 0;
-}
-
-body {
-  background: #f4f6f3;
-  color: #17201a;
-  font-family:
+@theme inline {
+  --font-sans:
     Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
     sans-serif;
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-border: var(--border);
+  --color-ring: var(--ring);
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
 }
 
-button {
-  border: 1px solid #b8c1b9;
-  border-radius: 8px;
-  background: #ffffff;
-  color: inherit;
-  cursor: pointer;
-  font: inherit;
-  padding: 8px 12px;
+:root {
+  --background: oklch(0.985 0.004 145);
+  --foreground: oklch(0.205 0.02 145);
+  --primary: oklch(0.55 0.17 145);
+  --primary-foreground: oklch(0.985 0 0);
+  --accent: oklch(0.96 0.015 145);
+  --accent-foreground: oklch(0.25 0.025 145);
+  --border: oklch(0.91 0.008 145);
+  --ring: oklch(0.55 0.17 145);
+  --radius: 0.625rem;
 }
 
-button:hover {
-  background: #f0f4f0;
-}
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
 
-.connection-page {
-  align-items: center;
-  display: flex;
-  justify-content: center;
-  min-height: 100vh;
-  padding: 32px;
-}
+  html,
+  body,
+  #root {
+    min-height: 100%;
+  }
 
-.connection-card {
-  background: #ffffff;
-  border: 1px solid #dce2dc;
-  border-radius: 16px;
-  box-shadow: 0 16px 48px rgb(36 54 40 / 8%);
-  max-width: 520px;
-  padding: 32px;
-  width: 100%;
-}
-
-.connection-card h1 {
-  font-size: 24px;
-  margin: 4px 0 24px;
-}
-
-.connection-eyebrow {
-  color: #5b6d5f;
-  font-size: 13px;
-  font-weight: 700;
-  letter-spacing: 0.08em;
-  margin: 0;
-  text-transform: uppercase;
-}
-
-.connection-status {
-  align-items: center;
-  display: flex;
-  font-weight: 600;
-  gap: 10px;
-  margin-bottom: 20px;
-}
-
-.connection-status__indicator {
-  background: #9aa39b;
-  border-radius: 50%;
-  height: 10px;
-  width: 10px;
-}
-
-.connection-status--healthy .connection-status__indicator {
-  background: #23834d;
-}
-
-.connection-status--failed .connection-status__indicator {
-  background: #bc3d35;
-}
-
-.connection-error {
-  color: #8f2f29;
-  font-size: 14px;
-  overflow-wrap: anywhere;
-}
-
-.connection-details {
-  border-top: 1px solid #e6eae6;
-  display: grid;
-  gap: 12px;
-  margin: 20px 0 0;
-  padding-top: 20px;
-}
-
-.connection-details div {
-  display: grid;
-  gap: 4px;
-}
-
-.connection-details dt {
-  color: #667068;
-  font-size: 12px;
-}
-
-.connection-details dd {
-  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-  margin: 0;
-  overflow-wrap: anywhere;
+  body {
+    @apply m-0 bg-background font-sans text-foreground antialiased;
+  }
 }

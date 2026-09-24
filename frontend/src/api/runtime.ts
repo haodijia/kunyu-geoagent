@@ -8,7 +8,7 @@ export class RuntimeConnectionError extends Error {
 export function getRuntimeConnection(): Window["kunyu"] {
   if (!("kunyu" in window)) {
     throw new RuntimeConnectionError(
-      "Desktop runtime connection is unavailable."
+      "桌面运行时连接不可用。"
     );
   }
 

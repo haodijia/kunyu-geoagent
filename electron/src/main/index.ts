@@ -204,6 +204,12 @@ function createWindow(preloadFile: string): BrowserWindow {
     height: 800,
     minWidth: 960,
     minHeight: 640,
+    ...(process.platform === "darwin"
+      ? {
+          titleBarStyle: "hidden" as const,
+          trafficLightPosition: { x: 10, y: 13 }
+        }
+      : {}),
     webPreferences: {
       contextIsolation: true,
       nodeIntegration: false,

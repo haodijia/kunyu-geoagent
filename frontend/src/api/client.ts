@@ -43,7 +43,7 @@ export async function* streamEvents(
   if (response.body === null) {
     throw new ApiError(
       response.status,
-      "Event stream response has no body.",
+      "事件流响应缺少正文。",
       null
     );
   }
@@ -83,7 +83,7 @@ async function request(
   accept: string
 ): Promise<Response> {
   if (!path.startsWith("/api/")) {
-    throw new Error(`API path must start with /api/: ${path}`);
+    throw new Error(`接口路径必须以 /api/ 开头：${path}`);
   }
 
   const connection = getRuntimeConnection();
@@ -110,7 +110,7 @@ async function throwApiError(response: Response): Promise<never> {
     ? ((await response.json()) as unknown)
     : await response.text();
   const message =
-    extractErrorMessage(details) ?? `Request failed (${response.status}).`;
+    extractErrorMessage(details) ?? `请求失败（${response.status}）。`;
   throw new ApiError(response.status, message, details);
 }
 
