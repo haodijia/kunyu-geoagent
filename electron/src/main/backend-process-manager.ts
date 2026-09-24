@@ -3,6 +3,11 @@ import { randomBytes } from "node:crypto";
 import path from "node:path";
 
 import type { RuntimeConnection } from "../shared/runtime";
+import {
+  BackendLogCollector,
+  BackendStartupError,
+  type BackendStartupErrorType
+} from "./backend-diagnostics";
 
 const API_VERSION = "1";
 const BACKEND_HOST = "127.0.0.1";
@@ -38,8 +43,10 @@ interface HealthResponse {
 }
 
 export class BackendProcessManager {
+  private backendPid: number | null = null;
   private child: ChildProcess | null = null;
   private connection: RuntimeConnection | null = null;
+  private readonly logs = new BackendLogCollector();
   private state: BackendProcessState = "idle";
   private stopPromise: Promise<void> | null = null;
 
@@ -49,6 +56,7 @@ export class BackendProcessManager {
     }
 
     this.state = "starting";
+    this.logs.reset();
     const sessionToken = randomBytes(32).toString("base64url");
     const repositoryRoot = path.resolve(__dirname, "../../..");
     const child = spawn(
@@ -68,16 +76,29 @@ export class BackendProcessManager {
 
     child.stderr?.setEncoding("utf8");
     child.stderr?.on("data", (chunk: string) => {
-      process.stderr.write(`[backend] ${chunk}`);
+      for (const line of this.logs.capture(chunk, sessionToken)) {
+        process.stderr.write(`[backend] ${line}\n`);
+      }
+    });
+    child.stderr?.on("end", () => {
+      const line = this.logs.flush(sessionToken);
+      if (line !== null) {
+        process.stderr.write(`[backend] ${line}\n`);
+      }
     });
 
     try {
       const readyMessage = await this.waitForReady(child);
+      this.backendPid = readyMessage.pid;
       const baseUrl = `http://${readyMessage.host}:${readyMessage.port}`;
       await this.checkHealth(baseUrl, sessionToken);
 
       if (child.exitCode !== null || child.signalCode !== null) {
-        throw new Error("Backend exited during its health check.");
+        throw this.createStartupError(
+          "process_exit",
+          "Backend exited during its health check.",
+          child.exitCode
+        );
       }
 
       const connection: RuntimeConnection = {
@@ -92,6 +113,7 @@ export class BackendProcessManager {
           return;
         }
 
+        this.backendPid = null;
         this.child = null;
         this.connection = null;
         this.state = "failed";
@@ -109,11 +131,19 @@ export class BackendProcessManager {
       return connection;
     } catch (error: unknown) {
       this.state = "failed";
-      if (child.exitCode === null && child.signalCode === null) {
-        child.kill();
-      }
-      throw error;
+      await this.terminateChild(child);
+      this.backendPid = null;
+      this.child = null;
+      this.connection = null;
+      throw this.decorateStartupError(error, child.exitCode);
     }
+  }
+
+  async restart(): Promise<RuntimeConnection> {
+    await this.stop();
+    this.state = "idle";
+    this.stopPromise = null;
+    return this.start();
   }
 
   stop(): Promise<void> {
@@ -129,7 +159,13 @@ export class BackendProcessManager {
     const connection = this.connection;
     this.state = "stopping";
 
-    if (child === null || child.exitCode !== null || child.signalCode !== null) {
+    if (child === null) {
+      this.finishStop();
+      return;
+    }
+
+    if (child.exitCode !== null || child.signalCode !== null) {
+      await this.terminateChild(child);
       this.finishStop();
       return;
     }
@@ -147,15 +183,64 @@ export class BackendProcessManager {
       }
     }
 
-    child.kill("SIGKILL");
-    await this.waitForExit(child, FORCE_KILL_WAIT_MS);
+    await this.terminateChild(child);
     this.finishStop();
   }
 
   private finishStop(): void {
+    this.backendPid = null;
     this.child = null;
     this.connection = null;
     this.state = "stopped";
+  }
+
+  private async terminateChild(child: ChildProcess): Promise<void> {
+    if (this.backendPid !== null && this.isProcessRunning(this.backendPid)) {
+      process.kill(this.backendPid, "SIGKILL");
+    }
+
+    if (child.exitCode === null && child.signalCode === null) {
+      child.kill("SIGKILL");
+      await this.waitForExit(child, FORCE_KILL_WAIT_MS);
+    }
+  }
+
+  private isProcessRunning(pid: number): boolean {
+    try {
+      process.kill(pid, 0);
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  private createStartupError(
+    type: BackendStartupErrorType,
+    message: string,
+    exitCode: number | null = null
+  ): BackendStartupError {
+    return new BackendStartupError({
+      type,
+      message,
+      exitCode,
+      logs: this.logs.snapshot()
+    });
+  }
+
+  private decorateStartupError(
+    error: unknown,
+    exitCode: number | null
+  ): BackendStartupError {
+    if (error instanceof BackendStartupError) {
+      return this.createStartupError(
+        error.details.type,
+        error.details.message,
+        error.details.exitCode ?? exitCode
+      );
+    }
+
+    const message = error instanceof Error ? error.message : "Unknown backend startup error.";
+    return this.createStartupError("unknown_error", message, exitCode);
   }
 
   private async requestGracefulShutdown(connection: RuntimeConnection): Promise<void> {
@@ -204,7 +289,9 @@ export class BackendProcessManager {
   private waitForReady(child: ChildProcess): Promise<ReadyMessage> {
     const stdout = child.stdout;
     if (stdout === null) {
-      return Promise.reject(new Error("Backend stdout is unavailable."));
+      return Promise.reject(
+        this.createStartupError("protocol_error", "Backend stdout is unavailable.")
+      );
     }
 
     return new Promise((resolve, reject) => {
@@ -220,7 +307,7 @@ export class BackendProcessManager {
         clearTimeout(timeout);
         stdout.off("data", onData);
         child.off("error", onError);
-        child.off("exit", onExit);
+        child.off("close", onClose);
 
         if (error !== null) {
           reject(error);
@@ -233,7 +320,12 @@ export class BackendProcessManager {
       const onData = (chunk: Buffer): void => {
         buffer += chunk.toString("utf8");
         if (buffer.length > MAX_READY_LINE_LENGTH) {
-          finish(new Error("Backend ready message exceeds the protocol limit."));
+          finish(
+            this.createStartupError(
+              "protocol_error",
+              "Backend ready message exceeds the protocol limit."
+            )
+          );
           return;
         }
 
@@ -251,25 +343,37 @@ export class BackendProcessManager {
       };
 
       const onError = (error: Error): void => {
-        finish(new Error(`Failed to start backend: ${error.message}`));
+        finish(
+          this.createStartupError(
+            "spawn_error",
+            `Failed to start backend: ${error.message}`
+          )
+        );
       };
 
-      const onExit = (code: number | null, signal: NodeJS.Signals | null): void => {
+      const onClose = (code: number | null, signal: NodeJS.Signals | null): void => {
         finish(
-          new Error(
-            `Backend exited before ready (code=${String(code)}, signal=${String(signal)}).`
+          this.createStartupError(
+            "process_exit",
+            `Backend exited before ready (code=${String(code)}, signal=${String(signal)}).`,
+            code
           )
         );
       };
 
       const timeout = setTimeout(() => {
-        finish(new Error(`Backend did not become ready within ${STARTUP_TIMEOUT_MS}ms.`));
+        finish(
+          this.createStartupError(
+            "startup_timeout",
+            `Backend did not become ready within ${STARTUP_TIMEOUT_MS}ms.`
+          )
+        );
       }, STARTUP_TIMEOUT_MS);
 
       stdout.setEncoding("utf8");
       stdout.on("data", onData);
       child.once("error", onError);
-      child.once("exit", onExit);
+      child.once("close", onClose);
     });
   }
 
@@ -278,7 +382,10 @@ export class BackendProcessManager {
     try {
       value = JSON.parse(line);
     } catch {
-      throw new Error("Backend emitted invalid ready JSON.");
+      throw this.createStartupError(
+        "protocol_error",
+        "Backend emitted invalid ready JSON."
+      );
     }
 
     if (
@@ -297,7 +404,10 @@ export class BackendProcessManager {
       !("api_version" in value) ||
       value.api_version !== API_VERSION
     ) {
-      throw new Error("Backend ready message does not match the desktop protocol.");
+      throw this.createStartupError(
+        "protocol_error",
+        "Backend ready message does not match the desktop protocol."
+      );
     }
 
     return value as ReadyMessage;
@@ -316,18 +426,33 @@ export class BackendProcessManager {
       });
 
       if (!response.ok) {
-        throw new Error(`Backend health check returned HTTP ${response.status}.`);
+        throw this.createStartupError(
+          "health_error",
+          `Backend health check returned HTTP ${response.status}.`
+        );
       }
 
       const value: unknown = await response.json();
       if (!this.isHealthResponse(value)) {
-        throw new Error("Backend health response does not match the desktop protocol.");
+        throw this.createStartupError(
+          "health_error",
+          "Backend health response does not match the desktop protocol."
+        );
       }
     } catch (error: unknown) {
       if (controller.signal.aborted) {
-        throw new Error(`Backend health check timed out after ${HEALTH_TIMEOUT_MS}ms.`);
+        throw this.createStartupError(
+          "health_error",
+          `Backend health check timed out after ${HEALTH_TIMEOUT_MS}ms.`
+        );
       }
-      throw this.asError(error);
+      if (error instanceof BackendStartupError) {
+        throw error;
+      }
+      throw this.createStartupError(
+        "health_error",
+        `Backend health check failed: ${this.asError(error).message}`
+      );
     } finally {
       clearTimeout(timeout);
     }
