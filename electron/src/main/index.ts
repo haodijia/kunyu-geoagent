@@ -1,7 +1,10 @@
 import { app, BrowserWindow } from "electron";
 import path from "node:path";
 
+import { BackendProcessManager } from "./backend-process-manager";
+
 let mainWindow: BrowserWindow | null = null;
+const backendProcessManager = new BackendProcessManager();
 
 const hasSingleInstanceLock = app.requestSingleInstanceLock();
 
@@ -20,10 +23,16 @@ if (!hasSingleInstanceLock) {
     mainWindow.focus();
   });
 
-  app.whenReady().then(createMainWindow).catch((error: unknown) => {
-    console.error("Failed to create the desktop window.", error);
-    app.quit();
-  });
+  app.whenReady()
+    .then(async () => {
+      const connection = await backendProcessManager.start();
+      console.info(`Backend is ready at ${connection.baseUrl}.`);
+      createMainWindow();
+    })
+    .catch((error: unknown) => {
+      console.error("Desktop startup failed.", error);
+      app.quit();
+    });
 
   app.on("window-all-closed", () => {
     app.quit();
