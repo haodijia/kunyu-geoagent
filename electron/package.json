@@ -1,0 +1,17 @@
+{
+  "name": "kunyu-electron",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Kunyu desktop shell",
+  "packageManager": "npm@12.0.2",
+  "main": "dist/main/index.js",
+  "scripts": {
+    "build": "tsc --project tsconfig.json",
+    "start": "npm run build && electron .",
+    "typecheck": "tsc --project tsconfig.json --noEmit"
+  },
+  "devDependencies": {
+    "electron": "44.4.5",
+    "typescript": "7.0.2"
+  }
+}

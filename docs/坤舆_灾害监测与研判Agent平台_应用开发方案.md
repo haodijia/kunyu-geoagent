@@ -728,7 +728,7 @@ React、Agent 和外部客户端使用相同场景定义与应用服务。Agent 
 | --- | --- |
 | 体系结构 | B/S、前后端分离；React—FastAPI 服务—OGE 平台协作 |
 | 开发平台 | OGE 开发中心与开放服务，本地 Windows/macOS/Linux 环境 |
-| 开发工具 | VS Code、Git、pnpm、uv、OGE 在线编辑器；QGIS 核验成果，ESA SNAP 准备 SAR 数据 |
+| 开发工具 | VS Code、Git、npm、uv、OGE 在线编辑器；QGIS 核验成果，ESA SNAP 准备 SAR 数据 |
 | 开发语言 | 前端 TypeScript/TSX、HTML/CSS；后端、自研 Agent 和 OGE 脚本使用 Python |
 | 前端框架 | React、OpenLayers、ECharts；重点片区三维展示使用 CesiumJS |
 | 后端框架 | FastAPI、Pydantic、Uvicorn；HTTPX 适配 OGE 与模型接口 |
@@ -743,7 +743,7 @@ React、Agent 和外部客户端使用相同场景定义与应用服务。Agent 
 | 资源预算 | 示范部署暂按 4 vCPU、8 GB 内存、100 GB 磁盘规划，按任务、地形与成果规模实测调整；OGE 计算资源另计 |
 | 网络与凭证 | OGE 与模型服务网络，授权数据访问；账号、AppKey 和模型凭证由后端管理 |
 
-前端依赖通过 pnpm 管理，Python 后端与本地脚本通过 uv 管理环境和锁定依赖，OGE 脚本使用平台提供的运行环境。部署包包含服务配置、数据库迁移、健康检查、持久目录和操作说明。示范部署配置低并发 Worker，记录 API 响应、作业排队、OGE 计算和报告生成耗时，再据实调整资源。
+前端依赖通过 npm 管理，Python 后端与本地脚本通过 uv 管理环境和锁定依赖，OGE 脚本使用平台提供的运行环境。部署包包含服务配置、数据库迁移、健康检查、持久目录和操作说明。示范部署配置低并发 Worker，记录 API 响应、作业排队、OGE 计算和报告生成耗时，再据实调整资源。
 
 #### 4.8.3 自主代码结构与模块协作
 
