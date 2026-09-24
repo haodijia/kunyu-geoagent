@@ -4,6 +4,7 @@ from contextlib import asynccontextmanager
 
 from fastapi import Depends, FastAPI
 
+from kunyu.api.sessions import router as sessions_router
 from kunyu.api.system import require_desktop_session, router as system_router
 from kunyu.api.workspaces import router as workspaces_router
 from kunyu.desktop import DesktopConfigurationError, run_desktop
@@ -30,6 +31,7 @@ def create_app(session_token: str | None = None) -> FastAPI:
     app.state.shutdown_callback = None
     app.include_router(system_router)
     app.include_router(workspaces_router)
+    app.include_router(sessions_router)
     return app
 
 

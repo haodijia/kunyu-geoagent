@@ -1,10 +1,9 @@
-from datetime import UTC, datetime
-
 from sqlalchemy import select
 
 from kunyu.domain.workspaces import Workspace
 from kunyu.persistence.database import Database
 from kunyu.persistence.models import WorkspaceRecord
+from kunyu.persistence.time import as_utc
 
 
 class SQLAlchemyWorkspaceRepository:
@@ -40,12 +39,6 @@ def _to_domain(record: WorkspaceRecord) -> Workspace:
     return Workspace(
         id=record.id,
         name=record.name,
-        created_at=_as_utc(record.created_at),
-        updated_at=_as_utc(record.updated_at),
+        created_at=as_utc(record.created_at),
+        updated_at=as_utc(record.updated_at),
     )
-
-
-def _as_utc(value: datetime) -> datetime:
-    if value.tzinfo is None:
-        return value.replace(tzinfo=UTC)
-    return value.astimezone(UTC)
