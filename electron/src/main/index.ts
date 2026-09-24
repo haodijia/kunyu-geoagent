@@ -20,6 +20,9 @@ const hasSingleInstanceLock = app.requestSingleInstanceLock();
 if (!hasSingleInstanceLock) {
   app.quit();
 } else {
+  process.once("SIGINT", () => app.quit());
+  process.once("SIGTERM", () => app.quit());
+
   ipcMain.on(RUNTIME_CONNECTION_CHANNEL, (event) => {
     if (
       mainWindow === null ||

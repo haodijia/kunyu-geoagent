@@ -33,6 +33,24 @@
 
 项目目前处于设计与开发阶段，首期围绕“榕江县洪涝影响研判”打通完整业务链路。
 
+## 本地开发
+
+首次运行前安装各子工程依赖：
+
+```bash
+npm install --prefix electron
+npm install --prefix frontend
+uv sync --project backend
+```
+
+在项目根目录用一条命令启动 Vite、Electron 和由 Electron 管理的 FastAPI：
+
+```bash
+npm run dev
+```
+
+关闭 Electron 窗口或终止该命令时，开发服务会统一退出。
+
 ## 功能特点
 
 - **任务线程工作区** — 一次请求、方案确认、工具执行、结果解释和成果导出都保留在同一线程中
