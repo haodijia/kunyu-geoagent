@@ -4,6 +4,7 @@ import { useState } from "react";
 import { matchPath, useLocation, useNavigate } from "react-router-dom";
 
 import { SidebarItem } from "@/components/navigation/SidebarItem";
+import { sessionOverviewPath } from "@/features/sessions/routes";
 import { SidebarCreateForm } from "@/features/workspaces/SidebarCreateForm";
 import { WorkspaceGroup } from "@/features/workspaces/WorkspaceGroup";
 import {
@@ -12,7 +13,6 @@ import {
   listWorkspaces,
   workspaceQueryKeys
 } from "@/features/workspaces/api";
-import { sessionOverviewPath } from "@/features/workspaces/routes";
 import { zhCN } from "@/locales/zh-CN";
 
 const shellContent = zhCN.shell;

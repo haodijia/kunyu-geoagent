@@ -24,6 +24,23 @@ export const zhCN = {
     loadingSessions: "正在加载会话…",
     emptySessions: "暂无会话"
   },
+  sessionWorkspace: {
+    loading: "正在加载会话…",
+    workspaceMismatch: "此会话不属于当前工作空间。",
+    viewNavigation: "会话视图",
+    overview: "总览",
+    analysisMode: "分析模式",
+    conversation: "对话",
+    trace: "轨迹",
+    map: "地图",
+    overviewEmptyDescription: "会话活动将在这里汇总展示。",
+    conversationEmptyTitle: "暂无对话",
+    conversationEmptyDescription: "发送第一条消息后，对话内容将在这里显示。",
+    traceEmptyTitle: "暂无轨迹",
+    traceEmptyDescription: "Agent 开始执行任务后，运行轨迹将在这里显示。",
+    mapEmptyTitle: "地图尚无图层",
+    mapEmptyDescription: "会话产生空间数据后，相关图层将在这里显示。"
+  },
   connection: {
     eyebrow: "坤舆智枢",
     title: "桌面服务连接",

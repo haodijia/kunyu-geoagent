@@ -1,5 +1,6 @@
 import { Button } from "@/components/ui/button";
 import { Tooltip } from "@/components/ui/tooltip";
+import { cn } from "@/lib/utils";
 
 function SidebarToggleIcon() {
   return (
@@ -50,6 +51,24 @@ export function AppTitlebar({
           </Button>
         </Tooltip>
       </div>
+      <div
+        id="session-titlebar-title-slot"
+        className={cn(
+          "pointer-events-none absolute inset-y-0 flex max-w-[38%] items-center transition-[left] duration-200 ease-out",
+          sidebarCollapsed
+            ? "left-[124px]"
+            : "left-[300px] max-[820px]:left-[252px]"
+        )}
+      />
+      <div
+        id="session-titlebar-mode-slot"
+        className={cn(
+          "absolute top-1/2 -translate-x-1/2 -translate-y-1/2 transition-[left] duration-200 ease-out [-webkit-app-region:no-drag]",
+          sidebarCollapsed
+            ? "left-[calc((100%+56px)/2)]"
+            : "left-[calc((100%+280px)/2)] max-[820px]:left-[calc((100%+232px)/2)]"
+        )}
+      />
     </header>
   );
 }

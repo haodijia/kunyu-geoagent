@@ -4,13 +4,13 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 
 import { SidebarCreateForm } from "@/features/workspaces/SidebarCreateForm";
+import { sessionOverviewPath } from "@/features/sessions/routes";
 import {
   createSession,
   listSessions,
   type Workspace,
   workspaceQueryKeys
 } from "@/features/workspaces/api";
-import { sessionOverviewPath } from "@/features/workspaces/routes";
 import { cn } from "@/lib/utils";
 import { zhCN } from "@/locales/zh-CN";
 

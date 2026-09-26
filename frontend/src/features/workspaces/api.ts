@@ -1,16 +1,9 @@
 import { requestJson } from "@/api/client";
+import type { SessionSummary } from "@/features/sessions/api";
 
 export interface Workspace {
   readonly id: string;
   readonly name: string;
-  readonly created_at: string;
-  readonly updated_at: string;
-}
-
-export interface SessionSummary {
-  readonly id: string;
-  readonly workspace_id: string;
-  readonly title: string;
   readonly created_at: string;
   readonly updated_at: string;
 }
