@@ -1,10 +1,11 @@
-import { AlarmClock, Box, Ellipsis, Plus, Settings } from "lucide-react";
+import { Settings } from "lucide-react";
 import { Outlet } from "react-router-dom";
 
 import kunyuLogo from "../../../assets/kunyu.svg?raw";
 import { useAppUiStore } from "@/app/store";
 import { AppTitlebar } from "@/components/layout/AppTitlebar";
 import { SidebarItem } from "@/components/navigation/SidebarItem";
+import { TaskSidebarContent } from "@/features/workspaces/TaskSidebarContent";
 import { cn } from "@/lib/utils";
 import { zhCN } from "@/locales/zh-CN";
 
@@ -57,33 +58,15 @@ export function AppShell() {
             )}
           </div>
 
-          <nav className="grid gap-0.5" aria-label={content.navigationLabel}>
-            <SidebarItem
-              collapsed={sidebarCollapsed}
-              framedIcon
-              icon={<Plus size={14} strokeWidth={2} />}
-              label={content.newChat}
-            />
-            <SidebarItem
-              collapsed={sidebarCollapsed}
-              icon={<Box size={16} strokeWidth={1.8} />}
-              label={content.geoSkill}
-            />
-            <SidebarItem
-              collapsed={sidebarCollapsed}
-              icon={<Ellipsis size={18} strokeWidth={2.4} />}
-              label={content.explore}
-            />
-            <SidebarItem
-              collapsed={sidebarCollapsed}
-              icon={<AlarmClock size={16} strokeWidth={1.8} />}
-              label={content.scheduledTasks}
-            />
-          </nav>
+          <TaskSidebarContent
+            collapsed={sidebarCollapsed}
+            onRequestExpand={toggleSidebar}
+          />
 
-          <div className="mt-auto grid shrink-0 border-t border-slate-200 py-2">
+          <div className="grid shrink-0 border-t border-slate-200 py-2">
             <SidebarItem
               collapsed={sidebarCollapsed}
+              disabled
               icon={<Settings size={16} strokeWidth={1.8} />}
               label={content.settings}
             />

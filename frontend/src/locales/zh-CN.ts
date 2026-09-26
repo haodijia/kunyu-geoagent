@@ -11,6 +11,19 @@ export const zhCN = {
     collapseSidebar: "收起侧边栏",
     expandSidebar: "展开侧边栏"
   },
+  workspaceSidebar: {
+    workspaces: "工作空间",
+    createWorkspace: "新建工作空间",
+    workspaceNamePlaceholder: "工作空间名称",
+    loadingWorkspaces: "正在加载工作空间…",
+    emptyWorkspaces: "暂无工作空间，点击加号创建。",
+    createSession: "新建会话",
+    createSessionIn: "在此新建会话：",
+    sessionTitlePlaceholder: "会话标题",
+    defaultSessionTitle: "新会话",
+    loadingSessions: "正在加载会话…",
+    emptySessions: "暂无会话"
+  },
   connection: {
     eyebrow: "坤舆智枢",
     title: "桌面服务连接",

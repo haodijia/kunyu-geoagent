@@ -13,6 +13,10 @@ export const router = createHashRouter([
         element: <ConnectionStatusPage />
       },
       {
+        path: "workspaces/:workspaceId/sessions/:sessionId/overview",
+        element: null
+      },
+      {
         path: "*",
         element: <Navigate to="/" replace />
       }
