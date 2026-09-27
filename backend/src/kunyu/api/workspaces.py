@@ -1,7 +1,7 @@
 from datetime import datetime
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Response, status
 from pydantic import BaseModel, ConfigDict, Field
 
 from kunyu.api.dependencies import get_database
@@ -10,7 +10,7 @@ from kunyu.application.workspaces import (
     WorkspaceNotFoundError,
     WorkspaceService,
 )
-from kunyu.domain.workspaces import Workspace
+from kunyu.domain.workspaces import Workspace, WorkspaceNotEmptyError
 from kunyu.persistence.database import Database
 from kunyu.persistence.workspaces import SQLAlchemyWorkspaceRepository
 
@@ -85,3 +85,16 @@ def get_workspace(
             detail=str(error),
         ) from error
     return WorkspaceResponse.from_domain(workspace)
+
+
+@router.delete("/{workspace_id}", status_code=204)
+def remove_workspace(
+    workspace_id: str, service: WorkspaceServiceDependency
+) -> Response:
+    try:
+        service.remove(workspace_id)
+    except WorkspaceNotFoundError as error:
+        raise HTTPException(status_code=404, detail=str(error)) from error
+    except WorkspaceNotEmptyError as error:
+        raise HTTPException(status_code=409, detail=str(error)) from error
+    return Response(status_code=204)

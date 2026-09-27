@@ -33,6 +33,14 @@ class WorkspaceRecord(Base):
     )
 
 
+class WorkspaceRemovalRecord(Base):
+    __tablename__ = "workspace_removals"
+
+    workspace_id: Mapped[str] = mapped_column(
+        ForeignKey("workspaces.id", ondelete="CASCADE"), primary_key=True
+    )
+
+
 class SessionArchiveRecord(Base):
     __tablename__ = "session_archives"
 

@@ -24,6 +24,12 @@ export const zhCN = {
   workspaceSidebar: {
     close: "关闭",
     workspaceActions: "工作空间操作",
+    removeWorkspace: "移除工作空间",
+    removeWorkspaceTitle: "移除此工作空间？",
+    removeWorkspaceDescription: (name: string) => `将“${name}”从工作空间列表移除。已有归档会话仍会保留，恢复会话时会重新显示此工作空间。`,
+    removing: "正在移除…",
+    removeSuccess: "工作空间已移除",
+    removeFailed: "移除失败，请刷新列表后重试。",
     archiveWorkspace: "归档工作空间",
     archiveWorkspaceTitle: "归档此工作空间？",
     archiveWorkspaceDescription: (name: string, count: number) => `将“${name}”中的 ${count} 个会话移入归档。工作空间会保留，可继续新建会话；归档内容可在设置中恢复。`,

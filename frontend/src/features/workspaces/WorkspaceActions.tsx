@@ -4,16 +4,17 @@
  * Kunyu adaptations: data access, localization, and Tailwind utility syntax.
  */
 import { Dropdown, Menu, Message } from "@arco-design/web-react";
-import { FolderClose, MoreOne } from "@icon-park/react";
+import { DeleteOne, FolderClose, MoreOne } from "@icon-park/react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
+import { useLocation, useNavigate } from "react-router-dom";
 import { AionModal } from "@/components/ui/AionModal";
 import {
   setSessionArchived,
   sessionQueryKeys,
   type SessionSummary
 } from "@/features/sessions/api";
-import { workspaceQueryKeys, type Workspace } from "./api";
+import { removeWorkspace, workspaceQueryKeys, type Workspace } from "./api";
 import { clearLastSessionRoute, readLastSessionRoute } from "@/app/storage";
 import { parseSessionRoute } from "@/features/sessions/routes";
 import { zhCN } from "@/locales/zh-CN";
@@ -27,15 +28,35 @@ export function WorkspaceActions({
   readonly workspace: Workspace;
   readonly sessions: readonly SessionSummary[];
 }) {
-  const [open, setOpen] = useState(false);
-  const [archiveProjectLoading, setArchiveProjectLoading] = useState(false);
+  const [action, setAction] = useState<"archive" | "remove" | null>(null);
+  const removing = action === "remove";
+  const navigate = useNavigate();
+  const location = useLocation();
+  const [pending, setPending] = useState(false);
   const queryClient = useQueryClient();
-  const handleArchiveProjectCancel = () => {
-    if (!archiveProjectLoading) setOpen(false);
+  const handleCancel = () => {
+    if (!pending) setAction(null);
   };
-  const handleArchiveProjectConfirm = async () => {
-    setArchiveProjectLoading(true);
+  const handleConfirm = async () => {
+    setPending(true);
     try {
+      if (removing) {
+        await removeWorkspace(workspace.id);
+        const stored = readLastSessionRoute();
+        if (
+          stored !== null &&
+          parseSessionRoute(stored)?.workspaceId === workspace.id
+        )
+          clearLastSessionRoute();
+        if (parseSessionRoute(location.pathname)?.workspaceId === workspace.id)
+          await navigate("/", { replace: true });
+        setAction(null);
+        await queryClient.invalidateQueries({
+          queryKey: workspaceQueryKeys.all
+        });
+        Message.success(content.removeSuccess);
+        return;
+      }
       const results = await Promise.allSettled(
         sessions.map(async (session) => {
           const updated = await setSessionArchived(session.id, true);
@@ -64,24 +85,33 @@ export function WorkspaceActions({
       ]);
       if (successCount > 0) Message.success(content.archiveCount(successCount));
       if (successCount < sessions.length) Message.error(content.archiveFailed);
-      setOpen(false);
+      setAction(null);
     } catch (error) {
-      console.error("[workspaces] Archive failed", error);
-      Message.error(content.archiveFailed);
+      console.error("[workspaces] Action failed", error);
+      Message.error(removing ? content.removeFailed : content.archiveFailed);
     } finally {
-      setArchiveProjectLoading(false);
+      setPending(false);
     }
   };
   const projectMenu = (
     <Menu
       onClickMenuItem={() => {
-        if (sessions.length > 0) setOpen(true);
+        setAction(sessions.length === 0 ? "remove" : "archive");
       }}
     >
-      <Menu.Item key="archive" disabled={sessions.length === 0}>
+      <Menu.Item
+        key={sessions.length === 0 ? "remove" : "archive"}
+        disabled={pending}
+      >
         <span className="flex items-center gap-[8px]">
-          <FolderClose theme="outline" size="14" />
-          {content.archiveWorkspace}
+          {sessions.length === 0 ? (
+              <DeleteOne theme="outline" size="14" />
+            ) : (
+              <FolderClose theme="outline" size="14" />
+            )}
+          {sessions.length === 0
+            ? content.removeWorkspace
+            : content.archiveWorkspace}
         </span>
       </Menu.Item>
     </Menu>
@@ -110,14 +140,16 @@ export function WorkspaceActions({
         </button>
       </Dropdown>
       <AionModal
-        visible={open}
+        visible={action !== null}
         style={{ width: "400px" }}
         header={{
-          title: content.archiveWorkspaceTitle,
+          title: removing
+            ? content.removeWorkspaceTitle
+            : content.archiveWorkspaceTitle,
           showClose: true,
           style: { borderBottom: "none" }
         }}
-        onCancel={handleArchiveProjectCancel}
+        onCancel={handleCancel}
         footer={
           <div className="flex justify-end gap-[12px] pt-[16px]">
             <button
@@ -127,21 +159,21 @@ export function WorkspaceActions({
                 border: "1px solid var(--color-border-2)",
                 backgroundColor: "var(--color-fill-2)",
                 color: "var(--color-text-1)",
-                cursor: archiveProjectLoading ? "not-allowed" : "pointer",
-                opacity: archiveProjectLoading ? 0.55 : 1
+                cursor: pending ? "not-allowed" : "pointer",
+                opacity: pending ? 0.55 : 1
               }}
               onMouseEnter={(event) => {
-                if (!archiveProjectLoading)
+                if (!pending)
                   event.currentTarget.style.backgroundColor =
                     "var(--color-fill-3)";
               }}
               onMouseLeave={(event) => {
-                if (!archiveProjectLoading)
+                if (!pending)
                   event.currentTarget.style.backgroundColor =
                     "var(--color-fill-2)";
               }}
-              onClick={handleArchiveProjectCancel}
-              disabled={archiveProjectLoading}
+              onClick={handleCancel}
+              disabled={pending}
             >
               {content.cancel}
             </button>
@@ -152,31 +184,40 @@ export function WorkspaceActions({
                 border: "1px solid rgb(var(--primary-6))",
                 backgroundColor: "transparent",
                 color: "rgb(var(--primary-6))",
-                cursor: archiveProjectLoading ? "not-allowed" : "pointer",
-                opacity: archiveProjectLoading ? 0.55 : 1
+                cursor: pending ? "not-allowed" : "pointer",
+                opacity: pending ? 0.55 : 1
               }}
               onMouseEnter={(event) => {
-                if (!archiveProjectLoading) {
+                if (!pending) {
                   event.currentTarget.style.backgroundColor =
                     "rgba(var(--primary-6), 0.08)";
                 }
               }}
               onMouseLeave={(event) => {
-                if (!archiveProjectLoading)
+                if (!pending)
                   event.currentTarget.style.backgroundColor = "transparent";
               }}
-              onClick={() => void handleArchiveProjectConfirm()}
-              disabled={archiveProjectLoading}
+              onClick={() => void handleConfirm()}
+              disabled={pending}
             >
-              {archiveProjectLoading
-                ? content.processing
-                : content.archiveWorkspace}
+              {pending
+                ? removing
+                  ? content.removing
+                  : content.processing
+                : removing
+                  ? content.removeWorkspace
+                  : content.archiveWorkspace}
             </button>
           </div>
         }
       >
         <div className="text-[14px] leading-[22px] text-t-secondary">
-          {content.archiveWorkspaceDescription(workspace.name, sessions.length)}
+          {removing
+            ? content.removeWorkspaceDescription(workspace.name)
+            : content.archiveWorkspaceDescription(
+                workspace.name,
+                sessions.length
+              )}
         </div>
       </AionModal>
     </>

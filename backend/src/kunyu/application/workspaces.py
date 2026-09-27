@@ -1,3 +1,4 @@
+import logging
 from collections.abc import Callable
 from datetime import UTC, datetime
 from uuid import uuid4
@@ -47,6 +48,13 @@ class WorkspaceService:
             updated_at=now,
         )
         return self._repository.add(workspace)
+
+    def remove(self, workspace_id: str) -> None:
+        if not self._repository.remove(workspace_id):
+            raise WorkspaceNotFoundError(workspace_id)
+        logging.getLogger(__name__).info(
+            "Removed workspace %s from the active list", workspace_id
+        )
 
     def get(self, workspace_id: str) -> Workspace:
         workspace = self._repository.get(workspace_id)

@@ -15,6 +15,7 @@ from kunyu.persistence.models import (
     SessionArchiveRecord,
     SessionRecord,
     WorkspaceRecord,
+    WorkspaceRemovalRecord,
 )
 from kunyu.persistence.time import as_utc
 
@@ -26,7 +27,8 @@ class SQLAlchemySessionRepository:
     def set_archived(self, session_id: str, archived: bool) -> bool:
         with self._database.sessions.begin() as session:
             session.execute(text("BEGIN IMMEDIATE"))
-            if session.get(SessionRecord, session_id) is None:
+            record = session.get(SessionRecord, session_id)
+            if record is None:
                 return False
             if archived:
                 session.execute(
@@ -35,6 +37,11 @@ class SQLAlchemySessionRepository:
                     .on_conflict_do_nothing()
                 )
             else:
+                session.execute(
+                    delete(WorkspaceRemovalRecord).where(
+                        WorkspaceRemovalRecord.workspace_id == record.workspace_id
+                    )
+                )
                 session.execute(
                     delete(SessionArchiveRecord).where(
                         SessionArchiveRecord.session_id == session_id
@@ -125,10 +132,15 @@ class SQLAlchemySessionRepository:
 
     def add(self, session: Session, created_event: AgentEvent) -> Session | None:
         with self._database.sessions.begin() as database_session:
+            database_session.execute(text("BEGIN IMMEDIATE"))
             workspace_record = database_session.get(
                 WorkspaceRecord, session.workspace_id
             )
-            if workspace_record is None:
+            if (
+                workspace_record is None
+                or database_session.get(WorkspaceRemovalRecord, session.workspace_id)
+                is not None
+            ):
                 return None
 
             session_record = SessionRecord(
