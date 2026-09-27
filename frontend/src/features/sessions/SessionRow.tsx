@@ -73,7 +73,6 @@ export function SessionRow({
           event.preventDefault();
           openSession();
         }}
-
       >
         <span className="min-w-0 flex-1 truncate text-[14px] text-t-primary">
           {session.title}
@@ -84,7 +83,7 @@ export function SessionRow({
             aria-label={content.archiveSession}
             aria-busy={archive.isPending}
             disabled={archive.isPending}
-            className="absolute end-[8px] top-1/2 flex size-[20px] -translate-y-1/2 cursor-pointer items-center justify-center rounded-[4px] border-0 bg-transparent p-0 text-t-tertiary transition-colors hover:bg-fill-2 hover:text-t-primary focus-visible:outline-2 focus-visible:outline-offset-2 disabled:cursor-wait disabled:opacity-50"
+            className="absolute end-[8px] top-1/2 hidden size-[20px] -translate-y-1/2 cursor-pointer items-center justify-center rounded-[4px] border-0 bg-transparent p-0 text-t-tertiary transition-colors group-hover:flex group-focus-within:flex hover:bg-fill-2 hover:text-t-primary focus-visible:outline-2 focus-visible:outline-offset-2 disabled:cursor-wait disabled:opacity-50"
             onClick={(event) => {
               event.stopPropagation();
               archive.mutate();
