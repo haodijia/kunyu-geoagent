@@ -5,7 +5,7 @@ import {
   DropdownMenuContent,
   DropdownMenuItem
 } from "@/components/ui/dropdown-menu";
-import { DeleteOne, MoreOne } from "@icon-park/react";
+import { Ellipsis, X } from "lucide-react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useLocation, useNavigate } from "react-router-dom";
 import { clearLastSessionRoute, readLastSessionRoute } from "@/app/storage";
@@ -55,20 +55,15 @@ export function WorkspaceActions({
           className="sider-action-btn hidden size-[20px] cursor-pointer items-center justify-center rounded-[4px] border-0 p-0 text-t-secondary transition-colors group-hover:flex group-focus-within:flex hover:text-t-primary data-[state=open]:flex"
           onClick={(event) => event.stopPropagation()}
         >
-          <MoreOne
-            theme="outline"
-            size="14"
-            fill="currentColor"
-            className="block leading-none"
-          />
+          <Ellipsis size={16} strokeWidth={1.75} aria-hidden="true" />
         </button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="end">
+      <DropdownMenuContent align="start" alignOffset={-8}>
         <DropdownMenuItem
           disabled={removal.isPending}
           onSelect={() => removal.mutate()}
         >
-          <DeleteOne theme="outline" size="14" />
+          <X strokeWidth={1.75} aria-hidden="true" />
           {content.removeWorkspace}
         </DropdownMenuItem>
       </DropdownMenuContent>
