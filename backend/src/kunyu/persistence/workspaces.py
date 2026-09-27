@@ -1,9 +1,10 @@
 from sqlalchemy import select, text
 from sqlalchemy.dialects.sqlite import insert
 
-from kunyu.domain.workspaces import Workspace, WorkspaceNotEmptyError
+from kunyu.domain.workspaces import Workspace
 from kunyu.persistence.database import Database
 from kunyu.persistence.models import (
+    SessionArchiveRecord,
     SessionRecord,
     WorkspaceRecord,
     WorkspaceRemovalRecord,
@@ -20,16 +21,16 @@ class SQLAlchemyWorkspaceRepository:
             session.execute(text("BEGIN IMMEDIATE"))
             if session.get(WorkspaceRecord, workspace_id) is None:
                 return False
-            active_session = session.scalar(
-                select(SessionRecord.id)
-                .where(
-                    SessionRecord.workspace_id == workspace_id,
-                    ~SessionRecord.archive.has(),
+            session.execute(
+                insert(SessionArchiveRecord)
+                .from_select(
+                    ["session_id"],
+                    select(SessionRecord.id).where(
+                        SessionRecord.workspace_id == workspace_id
+                    ),
                 )
-                .limit(1)
+                .on_conflict_do_nothing()
             )
-            if active_session is not None:
-                raise WorkspaceNotEmptyError("Workspace still has active sessions.")
             session.execute(
                 insert(WorkspaceRemovalRecord)
                 .values(workspace_id=workspace_id)

@@ -10,7 +10,7 @@ from kunyu.application.workspaces import (
     WorkspaceNotFoundError,
     WorkspaceService,
 )
-from kunyu.domain.workspaces import Workspace, WorkspaceNotEmptyError
+from kunyu.domain.workspaces import Workspace
 from kunyu.persistence.database import Database
 from kunyu.persistence.workspaces import SQLAlchemyWorkspaceRepository
 
@@ -95,6 +95,4 @@ def remove_workspace(
         service.remove(workspace_id)
     except WorkspaceNotFoundError as error:
         raise HTTPException(status_code=404, detail=str(error)) from error
-    except WorkspaceNotEmptyError as error:
-        raise HTTPException(status_code=409, detail=str(error)) from error
     return Response(status_code=204)

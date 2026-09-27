@@ -11,10 +11,6 @@ class Workspace:
     updated_at: datetime
 
 
-class WorkspaceNotEmptyError(ValueError):
-    pass
-
-
 class WorkspaceRepository(Protocol):
     def remove(self, workspace_id: str) -> bool: ...
 
