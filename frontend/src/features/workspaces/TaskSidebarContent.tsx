@@ -1,9 +1,10 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { AlarmClock, Box, Ellipsis, Plus } from "lucide-react";
+import { AlarmClock, Box, CirclePlus, Ellipsis, Plus, SquarePen } from "lucide-react";
 import { useState } from "react";
 import { matchPath, useLocation, useNavigate } from "react-router-dom";
 
 import { SidebarItem } from "@/components/navigation/SidebarItem";
+import { Tooltip } from "@/components/ui/tooltip";
 import { sessionOverviewPath } from "@/features/sessions/routes";
 import { SidebarCreateForm } from "@/features/workspaces/SidebarCreateForm";
 import { WorkspaceGroup } from "@/features/workspaces/WorkspaceGroup";
@@ -60,6 +61,7 @@ export function TaskSidebarContent({
       void navigate(sessionOverviewPath(session.workspace_id, session.id));
     }
   });
+  const newChatUnavailable = workspacesQuery.isPending || workspacesQuery.isError;
 
   function handleNewChat() {
     const firstWorkspace = workspacesQuery.data?.[0];
@@ -76,15 +78,33 @@ export function TaskSidebarContent({
   return (
     <div className="flex min-h-0 flex-1 flex-col">
       <nav className="grid shrink-0 gap-0.5" aria-label={shellContent.navigationLabel}>
-        <SidebarItem
-          collapsed={collapsed}
-          framedIcon
-          icon={<Plus size={14} strokeWidth={2} />}
-          label={shellContent.newChat}
-          onClick={handleNewChat}
-          disabled={workspacesQuery.isPending || workspacesQuery.isError}
-          pending={createSessionMutation.isPending}
-        />
+        <div className="flex items-center">
+          <div className="min-w-0 flex-1">
+            <SidebarItem
+              collapsed={collapsed}
+              icon={<SquarePen size={16} strokeWidth={1.9} />}
+              label={shellContent.newChat}
+              onClick={handleNewChat}
+              disabled={newChatUnavailable}
+              pending={createSessionMutation.isPending}
+            />
+          </div>
+          {collapsed ? null : (
+            <Tooltip label={content.createSession}>
+              <button
+                type="button"
+                className="mr-2.5 flex size-8 shrink-0 items-center justify-center rounded-lg text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-950 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50 aria-disabled:cursor-default aria-disabled:hover:bg-transparent disabled:pointer-events-none"
+                onClick={newChatUnavailable ? undefined : handleNewChat}
+                disabled={createSessionMutation.isPending}
+                aria-disabled={newChatUnavailable || undefined}
+                aria-busy={createSessionMutation.isPending || undefined}
+                aria-label={content.createSession}
+              >
+                <CirclePlus size={16} strokeWidth={1.8} aria-hidden="true" />
+              </button>
+            </Tooltip>
+          )}
+        </div>
         <SidebarItem
           collapsed={collapsed}
           disabled

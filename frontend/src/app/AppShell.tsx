@@ -1,4 +1,4 @@
-import { Settings } from "lucide-react";
+import { Bell, Search, Settings } from "lucide-react";
 import { Outlet } from "react-router-dom";
 
 import kunyuLogo from "../../../assets/kunyu.svg?raw";
@@ -55,6 +55,24 @@ export function AppShell() {
               <span className="text-base font-semibold tracking-tight">
                 {content.productName}
               </span>
+            )}
+            {sidebarCollapsed ? null : (
+              <div className="ml-auto flex items-center gap-1 text-slate-500">
+                <span
+                  className="flex size-8 items-center justify-center"
+                  role="img"
+                  aria-label={content.search}
+                >
+                  <Search size={16} strokeWidth={1.8} aria-hidden="true" />
+                </span>
+                <span
+                  className="flex size-8 items-center justify-center"
+                  role="img"
+                  aria-label={content.notifications}
+                >
+                  <Bell size={16} strokeWidth={1.8} aria-hidden="true" />
+                </span>
+              </div>
             )}
           </div>
 

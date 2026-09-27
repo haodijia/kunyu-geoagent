@@ -10,6 +10,8 @@ export const zhCN = {
     sidebarLabel: "任务侧边栏",
     navigationLabel: "主要导航",
     newChat: "新会话",
+    search: "搜索",
+    notifications: "通知",
     geoSkill: "GeoSkill",
     explore: "探索",
     scheduledTasks: "定时任务",

@@ -6,7 +6,6 @@ import { cn } from "@/lib/utils";
 interface SidebarItemProps {
   readonly collapsed: boolean;
   readonly disabled?: boolean;
-  readonly framedIcon?: boolean;
   readonly icon: ReactNode;
   readonly label: string;
   readonly pending?: boolean;
@@ -16,7 +15,6 @@ interface SidebarItemProps {
 export function SidebarItem({
   collapsed,
   disabled = false,
-  framedIcon = false,
   icon,
   label,
   pending = false,
@@ -37,11 +35,7 @@ export function SidebarItem({
         aria-busy={pending || undefined}
       >
         <span
-          className={cn(
-            "flex size-[22px] shrink-0 items-center justify-center text-slate-700",
-            framedIcon &&
-              "rounded-md border border-slate-200 bg-slate-50 transition-colors"
-          )}
+          className="flex size-[22px] shrink-0 items-center justify-center text-slate-700"
           aria-hidden="true"
         >
           {icon}
