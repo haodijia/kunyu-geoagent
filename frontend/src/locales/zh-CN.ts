@@ -24,7 +24,6 @@ export const zhCN = {
   workspaceSidebar: {
     close: "关闭",
     workspaceActions: "工作空间操作",
-    sessionActions: "会话操作",
     archiveWorkspace: "归档工作空间",
     archiveWorkspaceTitle: "归档此工作空间？",
     archiveWorkspaceDescription: (name: string, count: number) => `将“${name}”中的 ${count} 个会话移入归档，工作空间将从侧边栏隐藏。内容仍会保留，可在设置中恢复。`,
