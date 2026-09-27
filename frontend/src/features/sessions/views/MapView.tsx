@@ -81,17 +81,17 @@ export function MapView() {
   }, [session.id, session.workspace_id, setMapViewport]);
 
   return (
-    <div className="relative h-full overflow-hidden bg-slate-100">
+    <div className="relative h-full overflow-hidden bg-muted">
       <div ref={mapTargetRef} className="absolute inset-0" />
       <div className="pointer-events-none absolute inset-0 flex items-center justify-center px-8">
-        <div className="max-w-sm rounded-2xl border border-slate-200 bg-white/95 px-7 py-6 text-center shadow-sm backdrop-blur">
-          <span className="mx-auto mb-3 flex size-10 items-center justify-center rounded-xl bg-slate-100 text-slate-600">
+        <div className="max-w-sm rounded-2xl border border-border bg-background/95 px-7 py-6 text-center shadow-sm backdrop-blur">
+          <span className="mx-auto mb-3 flex size-10 items-center justify-center rounded-xl bg-muted text-secondary-foreground">
             <MapPinned className="size-5" strokeWidth={1.7} aria-hidden="true" />
           </span>
-          <h1 className="m-0 text-base font-semibold tracking-tight text-slate-950">
+          <h1 className="m-0 text-base font-semibold tracking-normal text-foreground">
             {content.mapEmptyTitle}
           </h1>
-          <p className="mt-2 mb-0 text-sm leading-6 text-slate-500">
+          <p className="mt-2 mb-0 text-sm leading-6 text-muted-foreground">
             {content.mapEmptyDescription}
           </p>
         </div>

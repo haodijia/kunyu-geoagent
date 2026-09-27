@@ -10,7 +10,7 @@ interface SessionComposerProps {
 export function SessionComposer({ compact = false }: SessionComposerProps) {
   const { draft, changeDraft, sendMessage, messagesQuery, mutation } = useSessionMessages();
   const session = useSessionWorkspace();
-  if (session.archived) return <p className="px-6 py-3 text-sm text-slate-500">{zhCN.archivedSessions.readOnly}</p>;
+  if (session.archived) return <p className="px-6 py-3 text-sm text-muted-foreground">{zhCN.archivedSessions.readOnly}</p>;
   if (messagesQuery.data === undefined) return null;
   return <ConversationComposer draft={draft} onDraftChange={changeDraft} onSubmit={sendMessage}
     compact={compact} pending={mutation.isPending}

@@ -93,7 +93,7 @@ export function TaskSidebarContent({
             <Tooltip label={content.createSession}>
               <button
                 type="button"
-                className="mr-2.5 flex size-8 shrink-0 items-center justify-center rounded-lg text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-950 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50 aria-disabled:cursor-default aria-disabled:hover:bg-transparent disabled:pointer-events-none"
+                className="mr-2.5 flex size-8 shrink-0 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50 aria-disabled:cursor-default aria-disabled:hover:bg-transparent disabled:pointer-events-none"
                 onClick={newChatUnavailable ? undefined : handleNewChat}
                 disabled={createSessionMutation.isPending}
                 aria-disabled={newChatUnavailable || undefined}
@@ -126,14 +126,14 @@ export function TaskSidebarContent({
       </nav>
 
       {collapsed ? null : (
-        <div className="mt-2 flex min-h-0 flex-1 flex-col border-t border-slate-200 pt-2">
+        <div className="mt-2 flex min-h-0 flex-1 flex-col border-t border-border pt-2">
           <div className="flex h-8 shrink-0 items-center px-2">
-            <h2 className="m-0 flex-1 text-xs font-medium text-slate-500">
+            <h2 className="m-0 flex-1 text-xs font-medium text-muted-foreground">
               {content.workspaces}
             </h2>
             <button
               type="button"
-              className="flex size-7 items-center justify-center rounded-md text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-950"
+              className="flex size-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
               onClick={() => setWorkspaceFormOpen(true)}
               aria-label={content.createWorkspace}
             >
@@ -156,22 +156,22 @@ export function TaskSidebarContent({
           ) : null}
 
           {createSessionMutation.isError ? (
-            <p className="m-0 px-2 py-1 text-xs leading-4 text-red-600" role="alert">
+            <p className="m-0 px-2 py-1 text-xs leading-4 text-destructive" role="alert">
               {createSessionMutation.error.message}
             </p>
           ) : null}
           {workspacesQuery.isPending ? (
-            <p className="m-0 px-2 py-2 text-xs text-slate-400">
+            <p className="m-0 px-2 py-2 text-xs text-muted-foreground">
               {content.loadingWorkspaces}
             </p>
           ) : null}
           {workspacesQuery.isError ? (
-            <p className="m-0 px-2 py-2 text-xs leading-4 text-red-600" role="alert">
+            <p className="m-0 px-2 py-2 text-xs leading-4 text-destructive" role="alert">
               {workspacesQuery.error.message}
             </p>
           ) : null}
           {workspacesQuery.data?.length === 0 && !workspaceFormOpen ? (
-            <p className="m-0 px-2 py-2 text-xs leading-4 text-slate-400">
+            <p className="m-0 px-2 py-2 text-xs leading-4 text-muted-foreground">
               {content.emptyWorkspaces}
             </p>
           ) : null}

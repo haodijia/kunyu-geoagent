@@ -50,7 +50,7 @@ export function TraceView() {
   }, []);
 
   return (
-    <div ref={root} lang="zh" className="trajectory-surface relative flex h-full min-h-0 flex-col overflow-hidden bg-white">
+    <div ref={root} lang="zh" className="trajectory-surface relative flex h-full min-h-0 flex-col overflow-hidden bg-background">
       <TrajectoryToolbar t={t} actualDuration={actualDuration}
         onActualDurationChange={value => { setActualDuration(value); setRange(null); }}
         actualTime={actualTime} onActualTimeChange={value => { setActualTime(value); setRange(null); }}
@@ -62,8 +62,8 @@ export function TraceView() {
         selectedIndex={selectedIndex} searchMatchIndexes={searchMatches}
         onRecordSelect={selectRecord} onRecordFocus={setFocusedIndex} />
       {eventStream.status !== "connected" && <EventStreamNotice error={eventStream.error} status={eventStream.status} />}
-      {messagesQuery.isPending && <p className="m-0 border-b border-black/10 py-2 text-center text-xs">{zhCN.conversation.loading}</p>}
-      {messagesQuery.isError && <div role="alert" className="flex items-center justify-center gap-3 bg-red-50 py-2 text-xs text-red-700">
+      {messagesQuery.isPending && <p className="m-0 border-b border-border py-2 text-center text-xs">{zhCN.conversation.loading}</p>}
+      {messagesQuery.isError && <div role="alert" className="flex items-center justify-center gap-3 bg-destructive/10 py-2 text-xs text-destructive">
         {zhCN.trajectory.loadMessagesFailed}
         <button type="button" onClick={() => void messagesQuery.refetch()}>{zhCN.conversation.retry}</button>
       </div>}

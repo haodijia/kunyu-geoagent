@@ -30,7 +30,7 @@ export function SessionTitlebar() {
   return (
     <>
       {createPortal(
-        <div className="flex min-w-0 items-center gap-2 text-sm font-medium text-slate-800">
+        <div className="flex min-w-0 items-center gap-2 text-sm font-medium text-foreground">
           <FolderClosed className="size-4 shrink-0" strokeWidth={1.8} />
           <span className="truncate">{session.title}</span>
         </div>,

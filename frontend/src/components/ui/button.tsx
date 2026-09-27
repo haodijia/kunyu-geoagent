@@ -12,13 +12,19 @@ const buttonVariants = cva(
   {
     variants: {
       variant: {
-        default: "bg-primary text-primary-foreground hover:bg-primary/90",
+        default: "bg-primary text-primary-foreground hover:bg-primary-hover",
         outline:
-          "border bg-background shadow-xs hover:bg-accent hover:text-accent-foreground"
+          "border bg-background shadow-xs hover:bg-accent hover:text-accent-foreground",
+        secondary: "bg-secondary text-secondary-foreground hover:bg-accent",
+        ghost: "hover:bg-accent hover:text-accent-foreground",
+        destructive:
+          "bg-destructive text-destructive-foreground hover:bg-destructive/90"
       },
       size: {
         default: "h-10 px-4 py-2",
-        icon: "size-10"
+        icon: "size-10",
+        sm: "h-8 gap-1.5 rounded-md px-3 text-xs",
+        "icon-sm": "size-7 rounded-md"
       }
     },
     defaultVariants: {
@@ -29,7 +35,8 @@ const buttonVariants = cva(
 );
 
 export interface ButtonProps
-  extends ButtonHTMLAttributes<HTMLButtonElement>,
+  extends
+    ButtonHTMLAttributes<HTMLButtonElement>,
     VariantProps<typeof buttonVariants> {
   readonly asChild?: boolean;
 }

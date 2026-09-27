@@ -1,6 +1,8 @@
 import { Check, X } from "lucide-react";
 import { type FormEvent, useId, useState } from "react";
 import { zhCN } from "@/locales/zh-CN";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
 
 interface SidebarCreateFormProps {
   readonly error: string | null;
@@ -33,9 +35,9 @@ export function SidebarCreateForm({
         {label}
       </label>
       <div className="flex items-center gap-1">
-        <input
+        <Input
           id={inputId}
-          className="h-8 min-w-0 flex-1 rounded-md border border-slate-300 bg-white px-2 text-sm text-slate-900 outline-none placeholder:text-slate-400 focus:border-slate-500 focus:ring-2 focus:ring-slate-200"
+          className="h-8 min-w-0 flex-1 rounded-md border border-input bg-background px-2 text-sm text-foreground outline-none placeholder:text-muted-foreground focus:border-ring focus:ring-2 focus:ring-ring/50"
           value={value}
           onChange={(event) => setValue(event.target.value)}
           placeholder={placeholder}
@@ -44,26 +46,30 @@ export function SidebarCreateForm({
           required
           disabled={pending}
         />
-        <button
+        <Button
+          variant="ghost"
+          size="icon-sm"
           type="submit"
-          className="flex size-8 items-center justify-center rounded-md text-slate-600 transition-colors hover:bg-slate-100 hover:text-slate-950 disabled:pointer-events-none disabled:opacity-40"
+          className="flex size-8 items-center justify-center rounded-md text-secondary-foreground transition-colors hover:bg-muted hover:text-foreground disabled:pointer-events-none disabled:opacity-40"
           aria-label={label}
           disabled={pending || value.trim().length === 0}
         >
           <Check className="size-4" aria-hidden="true" />
-        </button>
-        <button
+        </Button>
+        <Button
+          variant="ghost"
+          size="icon-sm"
           type="button"
-          className="flex size-8 items-center justify-center rounded-md text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-950 disabled:pointer-events-none disabled:opacity-40"
+          className="flex size-8 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:pointer-events-none disabled:opacity-40"
           onClick={onCancel}
           aria-label={zhCN.workspaceSidebar.cancel}
           disabled={pending}
         >
           <X className="size-4" aria-hidden="true" />
-        </button>
+        </Button>
       </div>
       {error === null ? null : (
-        <p className="m-0 text-xs leading-4 text-red-600" role="alert">
+        <p className="m-0 text-xs leading-4 text-destructive" role="alert">
           {error}
         </p>
       )}

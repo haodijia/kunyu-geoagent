@@ -28,7 +28,7 @@ export function TrajectoryInspector({ record, onClose }: Props) {
 
   const label = record.kind === "user" ? content.user : content.unsupported;
   const preview = record.kind === "user"
-    ? <div className="[overflow-wrap:anywhere] [&_ul]:list-disc [&_ul]:pl-5 [&_ol]:list-decimal [&_ol]:pl-5 [&_pre]:overflow-x-auto [&_pre]:rounded [&_pre]:bg-slate-50 [&_pre]:p-3 [&_blockquote]:border-l-2 [&_blockquote]:pl-3"><Markdown remarkPlugins={[remarkGfm]}>{record.text}</Markdown></div>
+    ? <div className="[overflow-wrap:anywhere] [&_ul]:list-disc [&_ul]:pl-5 [&_ol]:list-decimal [&_ol]:pl-5 [&_pre]:overflow-x-auto [&_pre]:rounded [&_pre]:bg-muted [&_pre]:p-3 [&_blockquote]:border-l-2 [&_blockquote]:pl-3"><Markdown remarkPlugins={[remarkGfm]}>{record.text}</Markdown></div>
     : <p>{content.unsupportedDescription}</p>;
   return (
     <aside ref={aside} className={css.details} aria-label={content.details}
@@ -80,13 +80,13 @@ export function TrajectoryInspector({ record, onClose }: Props) {
       <div className={`${css.detailBody} ${tab === "summary" ? css.detailBodySummary : ""}`} role="tabpanel" id={`${id}-panel`} aria-labelledby={`${id}-${tab}`}>
         {tab === "summary" && <>
           <dl className={css.overview}>
-            {record.source !== null && <div><dt>{content.source}</dt><dd><button type="button" className="inline-flex items-center gap-1" onClick={() => setTab("source")}>{content.user}<ChevronRight size={11} className="text-[rgb(173,178,184)]" /></button></dd></div>}
+            {record.source !== null && <div><dt>{content.source}</dt><dd><button type="button" className="inline-flex items-center gap-1" onClick={() => setTab("source")}>{content.user}<ChevronRight size={11} className="text-muted-foreground" /></button></dd></div>}
             <div><dt>{content.status}</dt><dd>{record.kind === "user" ? content.completed : content.unsupported}</dd></div>
             <div><dt>{content.duration}</dt><dd>{record.kind === "user" ? content.instantDuration : "—"}</dd></div>
           </dl>
           <div className={css.overviewSections}>
             <section className={css.overviewSection}>
-              <button type="button" className="flex w-full items-center gap-1 px-[14px] py-2 text-left text-xs text-[rgb(129,133,140)] hover:text-black" onClick={() => setTab("preview")}>
+              <button type="button" className="flex w-full items-center gap-1 px-[14px] py-2 text-left text-xs text-muted-foreground hover:text-foreground" onClick={() => setTab("preview")}>
                 {content.preview}<ChevronRight size={12} />
               </button>
               <div className={css.markdownPreview}>{preview}</div>
@@ -98,7 +98,7 @@ export function TrajectoryInspector({ record, onClose }: Props) {
           <div className={css.sourceBlockHeader}><span className={css.sourceBlockLabel}>{content.textBlock}</span></div>
           <pre className={css.sourceBlockContent}>{record.text}</pre>
         </section></div>}
-        {tab === "source" && record.source !== null && <div className="p-[14px] font-mono text-xs leading-5"><details open><summary className="cursor-pointer text-[rgb(129,133,140)]">{content.source}</summary><pre className="m-0 whitespace-pre-wrap py-2">{JSON.stringify(record.source, null, 2)}</pre></details></div>}
+        {tab === "source" && record.source !== null && <div className="p-[14px] font-mono text-xs leading-5"><details open><summary className="cursor-pointer text-muted-foreground">{content.source}</summary><pre className="m-0 whitespace-pre-wrap py-2">{JSON.stringify(record.source, null, 2)}</pre></details></div>}
       </div>
     </aside>
   );

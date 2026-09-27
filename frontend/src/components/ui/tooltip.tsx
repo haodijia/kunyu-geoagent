@@ -17,7 +17,13 @@ export function TooltipProvider({ children }: PropsWithChildren) {
   );
 }
 
-export function Tooltip({ children, label, visible = true, side = "right", delayMs = 300 }: TooltipProps) {
+export function Tooltip({
+  children,
+  label,
+  visible = true,
+  side = "right",
+  delayMs = 300
+}: TooltipProps) {
   if (!visible) {
     return children;
   }
@@ -29,10 +35,10 @@ export function Tooltip({ children, label, visible = true, side = "right", delay
         <TooltipPrimitive.Content
           side={side}
           sideOffset={12}
-          className="z-[100] rounded-md bg-slate-950 px-2.5 py-1.5 text-xs font-medium whitespace-nowrap text-white shadow-lg"
+          className="z-[110] max-w-[min(24rem,calc(100vw-2rem))] rounded-md bg-foreground px-2.5 py-1.5 text-xs font-medium break-words text-background shadow-lg"
         >
           {label}
-          <TooltipPrimitive.Arrow className="fill-slate-950" />
+          <TooltipPrimitive.Arrow className="fill-foreground" />
         </TooltipPrimitive.Content>
       </TooltipPrimitive.Portal>
     </TooltipPrimitive.Root>

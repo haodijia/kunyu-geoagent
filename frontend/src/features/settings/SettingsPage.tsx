@@ -1,7 +1,3 @@
-/**
- * Adapted from mu's SettingsPageHeader.tsx and SettingsPageWrapper.tsx.
- * Copyright 2025 AionUi (aionui.com). SPDX-License-Identifier: Apache-2.0
- */
 import type { ReactNode } from "react";
 
 export function SettingsPageWrapper({
@@ -29,12 +25,12 @@ export function SettingsPageHeader({
 }) {
   return (
     <div className="sticky top-0 z-10 -mt-[16px] bg-[var(--bg-1)] pt-[16px] md:-mt-[24px] md:pt-[24px]">
-      <div className="flex min-h-[34px] items-center justify-between gap-[8px] sm:gap-[16px]">
+      <div className="flex min-h-[34px] flex-wrap items-center justify-between gap-[8px] sm:gap-[16px]">
         <h1 className="m-0 min-w-0 flex-1 text-[18px] leading-[1.3] font-semibold text-t-primary md:text-[20px]">
           {title}
         </h1>
         {actions ? (
-          <div className="flex shrink-0 flex-wrap items-center justify-end gap-[8px]">
+          <div className="flex max-w-full flex-wrap items-center justify-end gap-[8px]">
             {actions}
           </div>
         ) : null}

@@ -1,11 +1,13 @@
-/**
- * Adapted from mu: session data, local translations, and Tailwind utility syntax.
- * @license
- * Copyright 2025 AionUi (aionui.com)
- * SPDX-License-Identifier: Apache-2.0
- */
-
-import { Button, Checkbox, Empty, Spin } from "@arco-design/web-react";
+import { Inbox, LoaderCircle } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
+import {
+  AlertDialog,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogTitle,
+  AlertDialogDescription
+} from "@/components/ui/alert-dialog";
 import {
   DeleteOne,
   FolderClose,
@@ -30,6 +32,10 @@ const dateFormat = new Intl.DateTimeFormat("zh-CN", {
 
 export function ArchivedSessionsPage() {
   const {
+    deleteRequest,
+    deleting,
+    confirmDelete,
+    cancelDelete,
     archivedBlocks,
     total,
     isLoading,
@@ -63,9 +69,10 @@ export function ArchivedSessionsPage() {
     >
       {selectionMode ? (
         <Checkbox
+          aria-label={row.name}
           checked={selectedKeys.has(row.key)}
           onClick={(event) => event.stopPropagation()}
-          onChange={(checked) => setRowSelected(row, checked)}
+          onCheckedChange={(checked) => setRowSelected(row, checked === true)}
         />
       ) : null}
       <span className="size-[20px] flex items-center justify-center shrink-0 leading-none">
@@ -88,17 +95,18 @@ export function ArchivedSessionsPage() {
       {!selectionMode ? (
         <div className="shrink-0 flex items-center gap-[6px]">
           <Button
-            type="text"
-            size="small"
-            status="danger"
-            icon={<DeleteOne theme="outline" size="14" />}
+            variant="ghost"
+            size="icon-sm"
+            className="text-destructive hover:text-destructive"
             aria-label={content.delete}
             title={content.delete}
             onClick={() => handleDelete(row)}
-          />
+          >
+            <DeleteOne theme="outline" size="14" />
+          </Button>
           <Button
-            type="secondary"
-            size="mini"
+            variant="secondary"
+            size="sm"
             className="h-[28px]! px-[10px]!"
             onClick={() => void handleRestore(row)}
           >
@@ -116,28 +124,35 @@ export function ArchivedSessionsPage() {
         description={content.description}
         actions={
           total > 0 ? (
-            <div className="flex min-w-0 items-center justify-end gap-[10px]">
+            <div className="flex min-w-0 flex-wrap items-center justify-end gap-[10px]">
               {selectionMode ? (
-                <div className="flex items-center gap-[10px]">
+                <div className="flex flex-wrap items-center justify-end gap-[10px]">
                   <span className="text-[13px] text-t-secondary">
                     {content.selectedCount(selectedRows.length)}
                   </span>
-                  <Checkbox
-                    checked={allRowsSelected}
-                    onChange={handleSelectAll}
-                  >
+                  <label className="flex items-center gap-2 text-xs">
+                    <Checkbox
+                      checked={
+                        allRowsSelected
+                          ? true
+                          : selectedRows.length > 0
+                            ? "indeterminate"
+                            : false
+                      }
+                      onCheckedChange={handleSelectAll}
+                    />
                     {content.selectAll}
-                  </Checkbox>
+                  </label>
                   <Button
-                    size="small"
-                    type="secondary"
+                    size="sm"
+                    variant="secondary"
                     onClick={handleCancelSelectionMode}
                   >
                     {content.cancelSelect}
                   </Button>
                   <Button
-                    size="small"
-                    status="warning"
+                    size="sm"
+                    variant="destructive"
                     disabled={selectedRows.length === 0}
                     onClick={handleDeleteSelected}
                   >
@@ -146,11 +161,11 @@ export function ArchivedSessionsPage() {
                 </div>
               ) : (
                 <Button
-                  size="small"
-                  type="secondary"
-                  icon={<ListCheckbox theme="outline" size="14" />}
+                  size="sm"
+                  variant="secondary"
                   onClick={() => setSelectionMode(true)}
                 >
+                  <ListCheckbox theme="outline" size="14" />
                   {content.multiSelect}
                 </Button>
               )}
@@ -160,17 +175,24 @@ export function ArchivedSessionsPage() {
       />
 
       {loadError ? (
-        <p role="alert" className="text-[13px] text-red-600">
+        <p role="alert" className="text-[13px] text-destructive">
           {content.loadFailed}
         </p>
       ) : null}
       {isLoading ? (
         <div className="flex items-center justify-center py-[64px]">
-          <Spin />
+          <LoaderCircle
+            className="size-5 animate-spin text-muted-foreground"
+            role="status"
+            aria-label={content.loading}
+          />
         </div>
       ) : total === 0 ? (
         <div className="flex items-center justify-center py-[64px]">
-          <Empty description={content.empty} />
+          <div className="flex flex-col items-center gap-3 text-sm text-muted-foreground">
+            <Inbox className="size-8" aria-hidden="true" />
+            {content.empty}
+          </div>
         </div>
       ) : (
         <div className="mt-[16px] flex flex-col gap-[12px]">
@@ -187,9 +209,15 @@ export function ArchivedSessionsPage() {
                   <div className="flex items-center gap-[8px] px-[2px]">
                     {selectionMode ? (
                       <Checkbox
-                        checked={blockSelected}
-                        indeterminate={blockPartiallySelected}
-                        onChange={(checked) => setBlockSelected(block, checked)}
+                        aria-label={block.name}
+                        checked={
+                          blockPartiallySelected
+                            ? "indeterminate"
+                            : blockSelected
+                        }
+                        onCheckedChange={(checked) =>
+                          setBlockSelected(block, checked === true)
+                        }
                       />
                     ) : null}
                     <FolderClose
@@ -210,11 +238,15 @@ export function ArchivedSessionsPage() {
                   {block.hasMore ? (
                     <div className="flex justify-center">
                       <Button
-                        type="text"
-                        size="small"
-                        loading={loadingTokens.has(block.scopeToken)}
+                        variant="ghost"
+                        size="sm"
+                        disabled={loadingTokens.has(block.scopeToken)}
+                        aria-busy={loadingTokens.has(block.scopeToken)}
                         onClick={() => void handleLoadMore(block)}
                       >
+                        {loadingTokens.has(block.scopeToken) && (
+                          <LoaderCircle className="size-3.5 animate-spin" />
+                        )}
                         {content.loadMore}
                       </Button>
                     </div>
@@ -228,5 +260,45 @@ export function ArchivedSessionsPage() {
     </>
   );
 
-  return <SettingsPageWrapper>{body}</SettingsPageWrapper>;
+  return (
+    <SettingsPageWrapper>
+      {body}
+      <AlertDialog
+        open={deleteRequest !== null}
+        onOpenChange={(open) => {
+          if (!open) cancelDelete();
+        }}
+      >
+        {deleteRequest !== null && (
+          <AlertDialogContent
+            onEscapeKeyDown={(event) => {
+              if (deleting) event.preventDefault();
+            }}
+          >
+            <AlertDialogTitle>{deleteRequest.title}</AlertDialogTitle>
+            <AlertDialogDescription>
+              {deleteRequest.description}
+            </AlertDialogDescription>
+            <div className="flex justify-end gap-2">
+              <AlertDialogCancel asChild>
+                <Button variant="outline" size="sm" disabled={deleting}>
+                  {zhCN.workspaceSidebar.cancel}
+                </Button>
+              </AlertDialogCancel>
+              <Button
+                variant="destructive"
+                size="sm"
+                disabled={deleting}
+                aria-busy={deleting}
+                onClick={() => void confirmDelete()}
+              >
+                {deleting && <LoaderCircle className="size-3.5 animate-spin" />}
+                {deleteRequest.label}
+              </Button>
+            </div>
+          </AlertDialogContent>
+        )}
+      </AlertDialog>
+    </SettingsPageWrapper>
+  );
 }

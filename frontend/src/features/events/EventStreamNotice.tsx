@@ -31,8 +31,8 @@ export function EventStreamNotice({
     <div
       className={
         failed
-          ? "flex items-center gap-2 rounded-lg bg-red-50 px-3 py-2 text-xs text-red-700"
-          : "flex items-center gap-2 rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-700"
+          ? "flex items-center gap-2 rounded-lg bg-destructive/10 px-3 py-2 text-xs text-destructive"
+          : "flex items-center gap-2 rounded-lg bg-warning/10 px-3 py-2 text-xs text-warning"
       }
       role={failed ? "alert" : "status"}
       title={error ?? undefined}

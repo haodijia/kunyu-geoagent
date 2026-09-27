@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Plus } from "@icon-park/react";
-import { Tooltip } from "@arco-design/web-react";
+import { Tooltip } from "@/components/ui/tooltip";
 import WorkspaceCollapse from "./WorkspaceCollapse";
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
@@ -63,7 +63,7 @@ export function WorkspaceGroup({
       }
       trailing={
         <span className="flex items-center gap-[6px]">
-          <Tooltip content={content.createSession} position="top">
+          <Tooltip label={content.createSession} side="top">
             <button
               type="button"
               className="sider-action-btn hidden size-[20px] cursor-pointer items-center justify-center rounded-[4px] border-0 p-0 text-t-secondary transition-colors group-hover:flex group-focus-within:flex hover:text-t-primary"
@@ -100,20 +100,20 @@ export function WorkspaceGroup({
       ) : null}
 
       {sessionsQuery.isPending ? (
-        <p className="m-0 px-8 py-1 text-xs text-slate-400">
+        <p className="m-0 px-8 py-1 text-xs text-muted-foreground">
           {content.loadingSessions}
         </p>
       ) : null}
       {sessionsQuery.isError ? (
         <p
-          className="m-0 px-8 py-1 text-xs leading-4 text-red-600"
+          className="m-0 px-8 py-1 text-xs leading-4 text-destructive"
           role="alert"
         >
           {sessionsQuery.error.message}
         </p>
       ) : null}
       {sessionsQuery.data?.length === 0 ? (
-        <p className="m-0 px-8 py-1 text-xs text-slate-400">
+        <p className="m-0 px-8 py-1 text-xs text-muted-foreground">
           {content.emptySessions}
         </p>
       ) : null}

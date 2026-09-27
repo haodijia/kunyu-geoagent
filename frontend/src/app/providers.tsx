@@ -3,6 +3,7 @@ import type { PropsWithChildren } from "react";
 import { useState } from "react";
 
 import { TooltipProvider } from "@/components/ui/tooltip";
+import { Toaster } from "@/components/ui/sonner";
 
 export function AppProviders({ children }: PropsWithChildren) {
   const [queryClient] = useState(
@@ -20,6 +21,7 @@ export function AppProviders({ children }: PropsWithChildren) {
   return (
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>{children}</TooltipProvider>
+      <Toaster />
     </QueryClientProvider>
   );
 }

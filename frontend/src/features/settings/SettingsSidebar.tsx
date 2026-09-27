@@ -1,8 +1,4 @@
-/**
- * Adapted from mu's SettingsSider.tsx. Copyright 2025 AionUi (aionui.com).
- * SPDX-License-Identifier: Apache-2.0
- */
-import { Tooltip } from "@arco-design/web-react";
+import { Tooltip } from "@/components/ui/tooltip";
 import { Inbox } from "@icon-park/react";
 import { useNavigate } from "react-router-dom";
 import { cn } from "@/lib/utils";
@@ -30,9 +26,9 @@ export function SettingsSidebar({
           </div>
         )}
         <Tooltip
-          content={zhCN.archivedSessions.title}
-          position="right"
-          disabled={!collapsed}
+          label={zhCN.archivedSessions.title}
+          side="right"
+          visible={collapsed}
         >
           <button
             type="button"
