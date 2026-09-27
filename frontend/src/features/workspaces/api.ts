@@ -25,9 +25,7 @@ export function createWorkspace(name: string): Promise<Workspace> {
   });
 }
 
-export function listSessions(
-  workspaceId: string
-): Promise<SessionSummary[]> {
+export function listSessions(workspaceId: string): Promise<SessionSummary[]> {
   return requestJson<SessionSummary[]>(
     `/api/v1/workspaces/${encodeURIComponent(workspaceId)}/sessions`
   );
@@ -43,5 +41,15 @@ export function createSession(
       method: "POST",
       body: JSON.stringify({ title })
     }
+  );
+}
+
+export function removeWorkspace(
+  workspaceId: string,
+  dryRun = false
+): Promise<{ session_count: number }> {
+  return requestJson(
+    `/api/v1/workspaces/${encodeURIComponent(workspaceId)}?dry_run=${dryRun}`,
+    { method: "DELETE" }
   );
 }

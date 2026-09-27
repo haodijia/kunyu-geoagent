@@ -69,6 +69,7 @@ function SessionWorkspaceContent({
     if (
       sessionQuery.data !== undefined &&
       sessionQuery.data.workspace_id === workspaceId &&
+      !sessionQuery.data.archived &&
       parseSessionRoute(location.pathname) !== null
     ) {
       writeLastSessionRoute(location.pathname);

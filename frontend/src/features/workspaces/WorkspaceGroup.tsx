@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { FolderClosed, MessageCircle, Plus } from "lucide-react";
+import { FolderClosed, Plus } from "lucide-react";
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 
@@ -11,7 +11,8 @@ import {
   type Workspace,
   workspaceQueryKeys
 } from "@/features/workspaces/api";
-import { cn } from "@/lib/utils";
+import { WorkspaceActions } from "./WorkspaceActions";
+import { SessionRow } from "@/features/sessions/SessionRow";
 import { zhCN } from "@/locales/zh-CN";
 
 const content = zhCN.workspaceSidebar;
@@ -53,6 +54,7 @@ export function WorkspaceGroup({
         <h3 className="m-0 min-w-0 flex-1 truncate text-sm font-medium">
           {workspace.name}
         </h3>
+        <WorkspaceActions workspace={workspace} />
         <button
           type="button"
           className="flex size-6 shrink-0 items-center justify-center rounded-md text-slate-400 opacity-0 transition-colors hover:bg-slate-100 hover:text-slate-800 focus-visible:opacity-100 group-hover:opacity-100"
@@ -93,34 +95,9 @@ export function WorkspaceGroup({
         </p>
       ) : null}
       <div className="grid gap-0.5">
-        {sessionsQuery.data?.map((session) => {
-          const selected = session.id === activeSessionId;
-          return (
-            <button
-              key={session.id}
-              type="button"
-              className={cn(
-                "flex h-8 min-w-0 items-center gap-2 rounded-md pr-2 pl-8 text-left text-sm transition-colors",
-                selected
-                  ? "bg-slate-200 text-slate-950"
-                  : "text-slate-600 hover:bg-slate-100 hover:text-slate-950"
-              )}
-              onClick={() =>
-                void navigate(
-                  sessionOverviewPath(session.workspace_id, session.id)
-                )
-              }
-              aria-current={selected ? "page" : undefined}
-            >
-              <MessageCircle
-                className="size-3.5 shrink-0"
-                strokeWidth={1.8}
-                aria-hidden="true"
-              />
-              <span className="truncate">{session.title}</span>
-            </button>
-          );
-        })}
+        {sessionsQuery.data?.map((session) => (
+          <SessionRow key={session.id} session={session} selected={session.id === activeSessionId} />
+        ))}
       </div>
     </section>
   );

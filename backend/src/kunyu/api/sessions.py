@@ -28,6 +28,7 @@ class SessionSummaryResponse(BaseModel):
     id: str
     workspace_id: str
     title: str
+    archived: bool
     created_at: datetime
     updated_at: datetime
 
@@ -37,6 +38,7 @@ class SessionSummaryResponse(BaseModel):
             id=session.id,
             workspace_id=session.workspace_id,
             title=session.title,
+            archived=session.archived,
             created_at=session.created_at,
             updated_at=session.updated_at,
         )
@@ -92,6 +94,31 @@ def list_sessions(
             detail=str(error),
         ) from error
     return [SessionSummaryResponse.from_domain(item) for item in sessions]
+
+
+@router.get("/sessions/archived", response_model=list[SessionSummaryResponse])
+def list_archived_sessions(
+    service: SessionServiceDependency,
+) -> list[SessionSummaryResponse]:
+    return [
+        SessionSummaryResponse.from_domain(item) for item in service.list_archived()
+    ]
+
+
+class ArchiveSessionRequest(BaseModel):
+    archived: bool
+
+
+@router.post("/sessions/{session_id}/archive", response_model=SessionSummaryResponse)
+def archive_session(
+    session_id: str, request: ArchiveSessionRequest, service: SessionServiceDependency
+) -> SessionSummaryResponse:
+    try:
+        return SessionSummaryResponse.from_domain(
+            service.set_archived(session_id, request.archived)
+        )
+    except SessionNotFoundError as error:
+        raise HTTPException(status_code=404, detail=str(error)) from error
 
 
 @router.get("/sessions/{session_id}", response_model=SessionSummaryResponse)

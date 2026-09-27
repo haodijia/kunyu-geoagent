@@ -12,9 +12,18 @@ class Session:
     title: str
     created_at: datetime
     updated_at: datetime
+    archived: bool = False
+
+
+class SessionArchivedError(ValueError):
+    pass
 
 
 class SessionRepository(Protocol):
+    def set_archived(self, session_id: str, archived: bool) -> bool: ...
+
+    def list_archived(self) -> list[Session]: ...
+
     def add(self, session: Session, created_event: AgentEvent) -> Session | None: ...
 
     def get(self, session_id: str) -> Session | None: ...

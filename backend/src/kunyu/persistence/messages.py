@@ -4,6 +4,7 @@ from sqlalchemy import func, select, text
 
 from kunyu.domain.events import AgentEvent
 from kunyu.domain.messages import Message, MessageRole
+from kunyu.domain.sessions import SessionArchivedError
 from kunyu.persistence.database import Database
 from kunyu.persistence.models import (
     AgentEventRecord,
@@ -33,6 +34,9 @@ class SQLAlchemyMessageRepository:
             if session_record is None:
                 database_session.rollback()
                 return None
+
+            if session_record.archive is not None:
+                raise SessionArchivedError("Archived sessions cannot receive messages.")
 
             message_sequence_statement = select(
                 func.max(MessageRecord.sequence)

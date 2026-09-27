@@ -1,6 +1,7 @@
 import { Navigate, createHashRouter, useParams } from "react-router-dom";
 
 import { useAppUiStore } from "@/app/store";
+import { ArchivedSessionsPage } from "@/features/sessions/ArchivedSessionsPage";
 import { SessionWorkspace } from "@/features/sessions/SessionWorkspace";
 import { ConversationView } from "@/features/sessions/views/ConversationView";
 import { OverviewView } from "@/features/sessions/views/OverviewView";
@@ -23,6 +24,7 @@ export const router = createHashRouter([
     path: "/",
     element: <AppShell />,
     children: [
+      { path: "settings/archived", element: <ArchivedSessionsPage /> },
       {
         index: true,
         element: <LaunchPage />

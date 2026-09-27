@@ -12,7 +12,7 @@ from sqlalchemy import (
     Text,
     func,
 )
-from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
+from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
 
 class Base(DeclarativeBase):
@@ -33,6 +33,14 @@ class WorkspaceRecord(Base):
     )
 
 
+class SessionArchiveRecord(Base):
+    __tablename__ = "session_archives"
+
+    session_id: Mapped[str] = mapped_column(
+        ForeignKey("sessions.id", ondelete="CASCADE"), primary_key=True
+    )
+
+
 class SessionRecord(Base):
     __tablename__ = "sessions"
     __table_args__ = (
@@ -44,6 +52,9 @@ class SessionRecord(Base):
         ForeignKey("workspaces.id", ondelete="CASCADE"), nullable=False
     )
     title: Mapped[str] = mapped_column(String(200), nullable=False)
+    archive: Mapped[SessionArchiveRecord | None] = relationship(
+        lazy="joined", passive_deletes="all"
+    )
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.current_timestamp(), nullable=False
     )

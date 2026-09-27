@@ -16,6 +16,7 @@ from kunyu.application.messages import (
 from kunyu.application.sessions import SessionNotFoundError
 from kunyu.domain.events import AgentEvent
 from kunyu.domain.messages import Message
+from kunyu.domain.sessions import SessionArchivedError
 from kunyu.persistence.database import Database
 from kunyu.persistence.messages import SQLAlchemyMessageRepository
 
@@ -91,6 +92,8 @@ def append_message(
         message = service.append_user_message(
             session_id, request.role, request.content
         )
+    except SessionArchivedError as error:
+        raise HTTPException(status_code=409, detail=str(error)) from error
     except EmptyMessageError as error:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,

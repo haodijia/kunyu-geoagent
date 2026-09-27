@@ -69,6 +69,7 @@ export function LaunchPage() {
     );
     if (
       !workspaceExists ||
+      sessionQuery.data.archived ||
       sessionQuery.data.workspace_id !== storedRoute.workspaceId
     ) {
       clearLastSessionRoute();

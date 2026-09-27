@@ -22,6 +22,12 @@ export const zhCN = {
     expandSidebar: "展开侧边栏"
   },
   workspaceSidebar: {
+    moreActions: "更多操作：",
+    removeWorkspace: "移除工作空间",
+    archiveSession: "归档会话",
+    processing: "正在处理…",
+    loadingRemoval: "正在统计工作空间中的会话…",
+    removeDescription: (name: string, count: number) => `将永久移除“${name}”及其 ${count} 个会话（包含已归档会话）、消息和轨迹记录。此操作无法撤销。`,
     workspaces: "工作空间",
     createWorkspace: "新建工作空间",
     workspaceNamePlaceholder: "工作空间名称",
@@ -34,6 +40,14 @@ export const zhCN = {
     loadingSessions: "正在加载会话…",
     emptySessions: "暂无会话",
     cancel: "取消"
+  },
+  archivedSessions: {
+    title: "已归档会话",
+    description: "按工作空间查看归档内容，恢复后可继续对话。",
+    empty: "暂无已归档会话",
+    loading: "正在加载归档会话…",
+    restore: "恢复会话",
+    readOnly: "此会话已归档，恢复后可继续发送消息。"
   },
   workspaceStart: {
     eyebrow: "继续研判",

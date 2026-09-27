@@ -1,14 +1,29 @@
-from sqlalchemy import select
+from sqlalchemy import func, select, text
 
 from kunyu.domain.workspaces import Workspace
 from kunyu.persistence.database import Database
-from kunyu.persistence.models import WorkspaceRecord
+from kunyu.persistence.models import SessionRecord, WorkspaceRecord
 from kunyu.persistence.time import as_utc
 
 
 class SQLAlchemyWorkspaceRepository:
     def __init__(self, database: Database) -> None:
         self._database = database
+
+    def remove(self, workspace_id: str, dry_run: bool) -> int | None:
+        with self._database.sessions.begin() as session:
+            session.execute(text("BEGIN IMMEDIATE"))
+            workspace = session.get(WorkspaceRecord, workspace_id)
+            if workspace is None:
+                return None
+            count = session.scalar(
+                select(func.count())
+                .select_from(SessionRecord)
+                .where(SessionRecord.workspace_id == workspace_id)
+            )
+            if not dry_run:
+                session.delete(workspace)
+            return count
 
     def add(self, workspace: Workspace) -> Workspace:
         record = WorkspaceRecord(

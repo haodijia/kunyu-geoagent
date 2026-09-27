@@ -1,15 +1,49 @@
-from sqlalchemy import select
+from sqlalchemy import delete, select, text
+from sqlalchemy.dialects.sqlite import insert
 
 from kunyu.domain.events import AgentEvent
 from kunyu.domain.sessions import Session
 from kunyu.persistence.database import Database
-from kunyu.persistence.models import AgentEventRecord, SessionRecord, WorkspaceRecord
+from kunyu.persistence.models import (
+    AgentEventRecord,
+    SessionArchiveRecord,
+    SessionRecord,
+    WorkspaceRecord,
+)
 from kunyu.persistence.time import as_utc
 
 
 class SQLAlchemySessionRepository:
     def __init__(self, database: Database) -> None:
         self._database = database
+
+    def set_archived(self, session_id: str, archived: bool) -> bool:
+        with self._database.sessions.begin() as session:
+            session.execute(text("BEGIN IMMEDIATE"))
+            if session.get(SessionRecord, session_id) is None:
+                return False
+            if archived:
+                session.execute(
+                    insert(SessionArchiveRecord)
+                    .values(session_id=session_id)
+                    .on_conflict_do_nothing()
+                )
+            else:
+                session.execute(
+                    delete(SessionArchiveRecord).where(
+                        SessionArchiveRecord.session_id == session_id
+                    )
+                )
+            return True
+
+    def list_archived(self) -> list[Session]:
+        with self._database.sessions() as session:
+            records = session.scalars(
+                select(SessionRecord)
+                .where(SessionRecord.archive.has())
+                .order_by(SessionRecord.updated_at.desc(), SessionRecord.id.desc())
+            ).all()
+            return [_to_domain(record) for record in records]
 
     def add(self, session: Session, created_event: AgentEvent) -> Session | None:
         with self._database.sessions.begin() as database_session:
@@ -39,7 +73,10 @@ class SQLAlchemySessionRepository:
             database_session.flush()
             database_session.add(event_record)
 
-        return _to_domain(session_record)
+            database_session.flush()
+            result = _to_domain(session_record)
+
+        return result
 
     def get(self, session_id: str) -> Session | None:
         with self._database.sessions() as database_session:
@@ -49,7 +86,9 @@ class SQLAlchemySessionRepository:
     def list_for_workspace(self, workspace_id: str) -> list[Session] | None:
         statement = (
             select(SessionRecord)
-            .where(SessionRecord.workspace_id == workspace_id)
+            .where(
+                SessionRecord.workspace_id == workspace_id, ~SessionRecord.archive.has()
+            )
             .order_by(SessionRecord.updated_at.desc(), SessionRecord.id.desc())
         )
         with self._database.sessions() as database_session:
@@ -64,6 +103,7 @@ def _to_domain(record: SessionRecord) -> Session:
         id=record.id,
         workspace_id=record.workspace_id,
         title=record.title,
+        archived=record.archive is not None,
         created_at=as_utc(record.created_at),
         updated_at=as_utc(record.updated_at),
     )

@@ -7,7 +7,8 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from kunyu.api.messages import router as messages_router
 from kunyu.api.sessions import router as sessions_router
-from kunyu.api.system import require_desktop_session, router as system_router
+from kunyu.api.system import require_desktop_session
+from kunyu.api.system import router as system_router
 from kunyu.api.workspaces import router as workspaces_router
 from kunyu.desktop import DesktopConfigurationError, run_desktop
 from kunyu.persistence.database import Database
@@ -33,7 +34,7 @@ def create_app(session_token: str | None = None) -> FastAPI:
     app.add_middleware(
         CORSMiddleware,
         allow_origins=list(DESKTOP_RENDERER_ORIGINS),
-        allow_methods=["GET", "POST"],
+        allow_methods=["GET", "POST", "DELETE"],
         allow_headers=["Accept", "Content-Type", SESSION_HEADER],
     )
     app.state.session_token = session_token

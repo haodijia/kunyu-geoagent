@@ -1,5 +1,5 @@
-import { Bell, Search, Settings } from "lucide-react";
-import { Outlet } from "react-router-dom";
+import { Archive, Bell, Search, Settings } from "lucide-react";
+import { Outlet, useNavigate } from "react-router-dom";
 
 import kunyuLogo from "../../../assets/kunyu.svg?raw";
 import { useAppUiStore } from "@/app/store";
@@ -12,6 +12,7 @@ import { zhCN } from "@/locales/zh-CN";
 const content = zhCN.shell;
 
 export function AppShell() {
+  const navigate = useNavigate();
   const sidebarCollapsed = useAppUiStore((state) => state.sidebarCollapsed);
   const toggleSidebar = useAppUiStore((state) => state.toggleSidebar);
   const toggleLabel = sidebarCollapsed
@@ -82,6 +83,8 @@ export function AppShell() {
           />
 
           <div className="grid shrink-0 border-t border-slate-200 py-2">
+            <SidebarItem collapsed={sidebarCollapsed} icon={<Archive size={16} strokeWidth={1.8} />}
+              label={zhCN.archivedSessions.title} onClick={() => void navigate("/settings/archived")} />
             <SidebarItem
               collapsed={sidebarCollapsed}
               disabled

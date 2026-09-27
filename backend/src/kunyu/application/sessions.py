@@ -1,3 +1,4 @@
+import logging
 from collections.abc import Callable
 from datetime import UTC, datetime
 from uuid import uuid4
@@ -63,6 +64,15 @@ class SessionService:
         if created_session is None:
             raise WorkspaceNotFoundError(workspace_id)
         return created_session
+
+    def set_archived(self, session_id: str, archived: bool) -> Session:
+        if not self._repository.set_archived(session_id, archived):
+            raise SessionNotFoundError(session_id)
+        logging.getLogger(__name__).info("Session %s archived=%s", session_id, archived)
+        return self.get(session_id)
+
+    def list_archived(self) -> list[Session]:
+        return self._repository.list_archived()
 
     def get(self, session_id: str) -> Session:
         session = self._repository.get(session_id)
