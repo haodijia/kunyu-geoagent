@@ -41,6 +41,19 @@ export const zhCN = {
     mapEmptyTitle: "地图尚无图层",
     mapEmptyDescription: "会话产生空间数据后，相关图层将在这里显示。"
   },
+  conversation: {
+    loading: "正在加载对话…",
+    loadFailed: "无法加载对话，请确认本地服务正在运行。",
+    retry: "重新加载",
+    emptyTitle: "开始一段对话",
+    emptyDescription: "描述你想完成的空间任务，消息将保存在当前会话中。",
+    composerLabel: "消息输入框",
+    composerPlaceholder: "描述你想完成的空间任务…",
+    composerHint: "Enter 发送，Shift + Enter 换行",
+    send: "发送消息",
+    sending: "正在发送",
+    sendFailed: "发送失败，请确认本地服务正在运行后重试。"
+  },
   connection: {
     eyebrow: "坤舆智枢",
     title: "桌面服务连接",
