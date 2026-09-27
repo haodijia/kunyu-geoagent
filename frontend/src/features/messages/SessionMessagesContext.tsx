@@ -1,11 +1,14 @@
-import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
+import { createContext, useContext, useEffect, type ReactNode } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useAppUiStore } from "@/app/store";
 import { useSessionEvents } from "@/features/events/SessionEventContext";
 import { appendUserMessage, listMessages, messageQueryKeys, type UserMessage } from "./api";
 
 function useMessages(sessionId: string) {
   const queryClient = useQueryClient();
-  const [draft, setDraft] = useState("");
+  const draft = useAppUiStore((state) => state.composerDraftBySession[sessionId] ?? "");
+  const clearComposerDraft = useAppUiStore((state) => state.clearComposerDraft);
+  const setComposerDraft = useAppUiStore((state) => state.setComposerDraft);
   const { records } = useSessionEvents();
   const queryKey = messageQueryKeys.session(sessionId);
   const messagesQuery = useQuery({ queryKey, queryFn: async () => {
@@ -26,13 +29,13 @@ function useMessages(sessionId: string) {
         if (current.some(item => item.id === message.id)) return current;
         return [...current, message].sort((left, right) => left.sequence - right.sequence);
       });
-      setDraft("");
+      clearComposerDraft(sessionId);
     },
     onError: error => console.error("[messages] Failed to send message.", { sessionId, error })
   });
   return {
     draft, messagesQuery, mutation,
-    changeDraft: (value: string) => { mutation.reset(); setDraft(value); },
+    changeDraft: (value: string) => { mutation.reset(); setComposerDraft(sessionId, value); },
     sendMessage: () => { if (!mutation.isPending && draft.trim()) mutation.mutate(draft); }
   };
 }
