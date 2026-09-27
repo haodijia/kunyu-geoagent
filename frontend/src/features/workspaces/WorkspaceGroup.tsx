@@ -81,12 +81,7 @@ export function WorkspaceGroup({
               />
             </button>
           </Tooltip>
-          {sessionsQuery.data && (
-            <WorkspaceActions
-              workspace={workspace}
-              sessions={sessionsQuery.data}
-            />
-          )}
+          <WorkspaceActions workspace={workspace} />
         </span>
       }
     >

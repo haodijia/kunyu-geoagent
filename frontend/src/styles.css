@@ -56,14 +56,10 @@
   }
 }
 
-/* From mu's layout.css and arco-override.css. */
+/* From mu's layout.css. */
 .sider-action-btn { background-color: var(--bg-2); }
 .sider-action-btn:hover { background-color: var(--bg-1); }
-.aionui-modal .arco-modal-content {
-  background: var(--dialog-fill-0) !important;
-  border: 1px solid var(--border-base) !important;
-  border-radius: 16px !important;
-}
+
 
 /* mu/styles/themes/base.css: align IconPark icons with their labels. */
 .i-icon {
