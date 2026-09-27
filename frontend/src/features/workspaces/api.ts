@@ -43,3 +43,9 @@ export function createSession(
     }
   );
 }
+
+export function removeWorkspace(workspaceId: string): Promise<void> {
+  return requestJson(`/api/v1/workspaces/${encodeURIComponent(workspaceId)}`, {
+    method: "DELETE"
+  });
+}

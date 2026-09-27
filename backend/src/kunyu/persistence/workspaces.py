@@ -1,14 +1,41 @@
-from sqlalchemy import select
+from sqlalchemy import select, text
+from sqlalchemy.dialects.sqlite import insert
 
-from kunyu.domain.workspaces import Workspace
+from kunyu.domain.workspaces import Workspace, WorkspaceNotEmptyError
 from kunyu.persistence.database import Database
-from kunyu.persistence.models import WorkspaceRecord
+from kunyu.persistence.models import (
+    SessionRecord,
+    WorkspaceRecord,
+    WorkspaceRemovalRecord,
+)
 from kunyu.persistence.time import as_utc
 
 
 class SQLAlchemyWorkspaceRepository:
     def __init__(self, database: Database) -> None:
         self._database = database
+
+    def remove(self, workspace_id: str) -> bool:
+        with self._database.sessions.begin() as session:
+            session.execute(text("BEGIN IMMEDIATE"))
+            if session.get(WorkspaceRecord, workspace_id) is None:
+                return False
+            active_session = session.scalar(
+                select(SessionRecord.id)
+                .where(
+                    SessionRecord.workspace_id == workspace_id,
+                    ~SessionRecord.archive.has(),
+                )
+                .limit(1)
+            )
+            if active_session is not None:
+                raise WorkspaceNotEmptyError("Workspace still has active sessions.")
+            session.execute(
+                insert(WorkspaceRemovalRecord)
+                .values(workspace_id=workspace_id)
+                .on_conflict_do_nothing()
+            )
+            return True
 
     def add(self, workspace: Workspace) -> Workspace:
         record = WorkspaceRecord(
@@ -27,8 +54,10 @@ class SQLAlchemyWorkspaceRepository:
             return _to_domain(record) if record is not None else None
 
     def list_recent(self) -> list[Workspace]:
-        statement = select(WorkspaceRecord).order_by(
-            WorkspaceRecord.updated_at.desc(), WorkspaceRecord.id.desc()
+        statement = (
+            select(WorkspaceRecord)
+            .where(~WorkspaceRecord.id.in_(select(WorkspaceRemovalRecord.workspace_id)))
+            .order_by(WorkspaceRecord.updated_at.desc(), WorkspaceRecord.id.desc())
         )
         with self._database.sessions() as session:
             records = session.scalars(statement).all()
