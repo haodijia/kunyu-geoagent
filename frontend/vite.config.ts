@@ -5,6 +5,16 @@ import { fileURLToPath, URL } from "node:url";
 
 export default defineConfig({
   base: "./",
+  css: { modules: { generateScopedName: "[name]__[local]" } },
+  build: {
+    rollupOptions: {
+      output: {
+        entryFileNames: "assets/[name].js",
+        chunkFileNames: "assets/[name].js",
+        assetFileNames: "assets/[name][extname]"
+      }
+    }
+  },
   plugins: [react(), tailwindcss()],
   optimizeDeps: {
     include: ["@radix-ui/react-tooltip"]

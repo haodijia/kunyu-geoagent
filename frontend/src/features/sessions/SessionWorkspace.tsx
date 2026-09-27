@@ -3,6 +3,8 @@ import { useEffect } from "react";
 import { Outlet, useLocation, useParams } from "react-router-dom";
 
 import { useAppUiStore, type AnalysisMode } from "@/app/store";
+import { SessionEventProvider } from "@/features/events/SessionEventContext";
+import { SessionMessagesProvider } from "@/features/messages/SessionMessagesContext";
 import { getSession, sessionQueryKeys } from "@/features/sessions/api";
 import { SessionTitlebar } from "@/features/sessions/SessionTitlebar";
 import { SessionWorkspaceProvider } from "@/features/sessions/SessionWorkspaceContext";
@@ -83,12 +85,19 @@ function SessionWorkspaceContent({
 
   return (
     <SessionWorkspaceProvider session={sessionQuery.data}>
-      <section className="flex h-full min-h-0 flex-col bg-white">
-        <SessionTitlebar />
-        <div className="min-h-0 flex-1 overflow-hidden">
-          <Outlet />
-        </div>
-      </section>
+      <SessionEventProvider
+        key={sessionQuery.data.id}
+        sessionId={sessionQuery.data.id}
+      >
+        <SessionMessagesProvider sessionId={sessionQuery.data.id}>
+        <section className="flex h-full min-h-0 flex-col bg-white">
+          <SessionTitlebar />
+          <div className="min-h-0 flex-1 overflow-hidden">
+            <Outlet />
+          </div>
+        </section>
+        </SessionMessagesProvider>
+      </SessionEventProvider>
     </SessionWorkspaceProvider>
   );
 }

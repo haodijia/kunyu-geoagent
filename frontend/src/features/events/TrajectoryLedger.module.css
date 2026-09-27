@@ -1,0 +1,409 @@
+.split {
+  --dsh-scrollbar-thumb: var(--dsw-alias-scrollbar-bg-l2);
+  --dsh-scrollbar-thumb-hover: var(--dsw-alias-scrollbar-hover-l2);
+
+  position: relative;
+  display: flex;
+  flex: 1;
+  width: 100%;
+  min-height: 0;
+  overflow: hidden;
+  background: var(--dsw-alias-bg-layer-1);
+  container-type: inline-size;
+}
+
+.tablePane {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  padding-bottom: var(--dsh-trajectory-bottom-clearance, 0px);
+  container: trajectory-table / inline-size;
+}
+
+.table:not([data-scroll-ready='true']) {
+  visibility: hidden;
+}
+
+.table {
+  --trajectory-turn-accent: color-mix(
+    in srgb,
+    var(--dsw-static-blue-500) 22%,
+    var(--dsw-alias-bg-layer-1)
+  );
+
+  width: 100%;
+  min-width: 0;
+  border-spacing: 0;
+  table-layout: fixed;
+  color: var(--dsw-alias-label-primary);
+  background: var(--dsw-alias-bg-layer-1);
+  font: var(--dsw-font-xxs-12);
+}
+
+.eventColumn {
+  width: 122px;
+}
+
+.eventColumn:where(:lang(zh)) {
+  width: 84px;
+}
+
+.contentColumn {
+  width: auto;
+}
+
+.table th {
+  position: sticky;
+  top: 0;
+  z-index: 3;
+  box-sizing: border-box;
+  height: 30px;
+  padding: 0 8px;
+  overflow: hidden;
+  border-bottom: 0.5px solid var(--dsw-alias-border-l2);
+  color: var(--dsw-alias-label-tertiary);
+  background: var(--dsw-specific-sidebar-fill);
+  font: var(--dsw-font-xxs-12);
+  font-weight: 500;
+  text-align: left;
+  text-overflow: ellipsis;
+  user-select: none;
+  white-space: nowrap;
+}
+
+.table td {
+  box-sizing: border-box;
+  height: 30px;
+  padding: 0 8px;
+  overflow: hidden;
+  border-bottom: 0.5px solid var(--dsw-alias-border-l1);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.table tbody tr:not([data-collapsed-summary]):not([data-virtual-spacer]):not([data-history-load]) {
+  cursor: default;
+  outline: none;
+  transition:
+    background-color 120ms var(--ds-ease-in-out),
+    opacity 120ms var(--ds-ease-in-out);
+}
+
+.table tbody tr[data-timeline-focus='outside'] {
+  opacity: 0.24;
+}
+
+.table tbody tr:not([data-collapsed-summary]):not([data-virtual-spacer]):not([data-history-load]):not([data-selected='true']):hover {
+  background: var(--dsw-alias-interactive-bg-hover);
+}
+
+.table tbody tr[data-request-only='true']:hover {
+  background: transparent;
+}
+
+.table tbody tr[data-request-only='true'] td {
+  height: 0;
+  padding-top: 0;
+  padding-bottom: 0;
+  border-bottom: 0;
+}
+
+.table tbody tr[data-terminal-request-boundary='true'] td {
+  height: 9px;
+}
+
+.table tbody tr[data-request-only='true'] .turnRail {
+  top: -15px;
+  bottom: 0;
+}
+
+.table tbody tr:not([data-collapsed-summary]):focus-visible {
+  box-shadow: inset 0 0 0 1px var(--dsw-alias-state-business-primary);
+}
+
+.table tbody tr[data-selected='true'] {
+  background: var(--dsw-alias-interactive-bg-active);
+}
+
+.event {
+  position: relative;
+}
+
+.turnRail,
+.selectionRail {
+  position: absolute;
+  left: 0;
+  background: var(--dsw-alias-brand-primary-new-colorprimary-new-color);
+  pointer-events: none;
+}
+
+.turnRail {
+  z-index: 4;
+  top: -1px;
+  bottom: -1px;
+  width: 2px;
+  background: var(--trajectory-turn-accent);
+}
+
+.table tbody tr[data-turn-end='true'] .turnRail {
+  bottom: 0;
+}
+
+.selectionRail {
+  z-index: 5;
+  top: 0;
+  bottom: 0;
+  width: 3px;
+}
+
+.table tbody tr[data-error='true'] .turnRail {
+  background: color-mix(
+    in srgb,
+    var(--dsw-alias-state-error-primary) 22%,
+    var(--dsw-alias-bg-layer-1)
+  );
+}
+
+.table tbody tr[data-error='true'] .selectionRail {
+  background: var(--dsw-alias-state-error-primary);
+}
+
+.table tbody tr[data-turn-start='true'] td {
+  position: relative;
+  overflow: visible;
+}
+
+.table tbody tr[data-turn-start='true']:not(:first-child) td::before {
+  position: absolute;
+  z-index: 1;
+  top: 0;
+  right: 0;
+  left: 0;
+  height: 2px;
+  background: var(--dsw-alias-border-l1);
+  content: '';
+  pointer-events: none;
+  transform: translateY(-50%);
+}
+
+.event {
+  overflow: visible !important;
+  padding-right: 4px !important;
+  padding-left: 36px !important;
+}
+
+.turnLabel {
+  position: absolute;
+  z-index: 3;
+  top: 0;
+  left: 0;
+  display: inline-grid;
+  flex: none;
+  align-items: center;
+  box-sizing: border-box;
+  width: max-content;
+  padding: 1px 5px;
+  border-radius: 0 0 2px;
+  color: var(--dsw-alias-label-tertiary);
+  background: var(--dsw-alias-bg-module-platform);
+  font: 8px/10px var(--ds-font-family-code);
+  font-variant-numeric: tabular-nums;
+  user-select: none;
+  white-space: nowrap;
+}
+
+.turnLabelFull,
+.turnLabelCompact {
+  grid-area: 1 / 1;
+  max-width: 64px;
+  overflow: hidden;
+  opacity: 1;
+  white-space: nowrap;
+}
+
+.turnLabelCompact {
+  max-width: 0;
+  opacity: 0;
+}
+
+.turnLabelActive {
+  color: color-mix(
+    in srgb,
+    var(--dsw-static-blue-500) 55%,
+    var(--dsw-alias-label-tertiary)
+  );
+  background: var(--trajectory-turn-accent);
+}
+
+.eventInner {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  min-width: 0;
+  height: 100%;
+}
+
+.kindSlot {
+  display: flex;
+  flex: none;
+  align-items: flex-end;
+  justify-content: flex-end;
+  width: 76px;
+}
+
+.kindSlot:where(:lang(zh)) {
+  width: 44px;
+}
+
+.kindSlot :global([role='tooltip']) {
+  border: 0;
+  background: var(--dsw-alias-bg-layer-2);
+  box-shadow: var(--dsw-elevation-panel);
+  color: var(--dsw-alias-label-primary);
+}
+
+.content {
+  padding-left: 4px !important;
+  color: var(--dsw-alias-label-primary);
+}
+
+.kindTag {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  box-sizing: border-box;
+  height: 19px;
+  padding: 0 5px;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  font-size: 10px;
+  line-height: 16px;
+  font-weight: 650;
+  letter-spacing: 0.035em;
+  user-select: none;
+}
+
+.kindTagIcon {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 0;
+  height: 13px;
+  overflow: hidden;
+  opacity: 0;
+  transform: scale(0.8);
+}
+
+.kindTagLabel {
+  display: inline-block;
+  max-width: 72px;
+  overflow: hidden;
+  opacity: 1;
+  white-space: nowrap;
+}
+
+@container trajectory-table (max-width: 620px) {
+  .eventColumn {
+    width: 50px;
+  }
+
+  .event {
+    padding-right: 3px !important;
+    padding-left: 28px !important;
+  }
+
+  .kindSlot {
+    width: 19px;
+  }
+
+  .kindTagIcon {
+    width: 13px;
+    opacity: 1;
+    transform: scale(1);
+  }
+
+  .kindTagLabel {
+    max-width: 0;
+    opacity: 0;
+  }
+
+  .turnLabelFull {
+    max-width: 0;
+    opacity: 0;
+  }
+
+  .turnLabelCompact {
+    max-width: 64px;
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+
+  .eventColumn,
+  .kindSlot {
+    transition-property: width;
+  }
+
+  .event {
+    transition-property: padding-right, padding-left;
+  }
+
+  .kindTag {
+    transition-property: padding-right, padding-left;
+  }
+
+  .kindTagIcon {
+    transition-property: width, opacity, transform;
+  }
+
+  .kindTagLabel,
+  .turnLabelFull,
+  .turnLabelCompact {
+    transition-property: max-width, opacity;
+  }
+}
+
+.user {
+  color: var(--dsw-alias-state-business-primary);
+  background: var(--dsw-alias-state-business-tertiary);
+}
+
+.systemNeutral {
+  color: var(--dsw-alias-label-secondary);
+  background: var(--dsw-alias-bg-module-platform);
+}
+
+.contentText {
+  display: block;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.table tbody tr[data-collapsed-summary='turn'] td,
+.table tbody tr[data-collapsed-summary='assistant'] td {
+  height: 20px;
+}
+
+.table tbody tr[data-collapsed-summary] {
+  cursor: pointer;
+  outline: none;
+  transition: background-color 120ms var(--ds-ease-in-out);
+}
+
+.table tbody tr[data-collapsed-summary]:hover {
+  background: var(--dsw-alias-interactive-bg-hover);
+}
+
+.table tbody tr[data-collapsed-summary]:focus-visible {
+  box-shadow: inset 0 0 0 1px var(--dsw-alias-state-business-primary);
+}
+
+.table tbody tr[data-kind='subtool'] .content {
+  padding-left: 26px;
+}

@@ -33,7 +33,8 @@ export async function requestJson<ResponseBody>(
 
 export async function* streamEvents(
   path: string,
-  signal?: AbortSignal
+  signal?: AbortSignal,
+  onOpen?: () => void
 ): AsyncGenerator<ServerSentEvent> {
   const response = await request(
     path,
@@ -49,6 +50,7 @@ export async function* streamEvents(
   }
 
   const reader = response.body.getReader();
+  onOpen?.();
   const decoder = new TextDecoder();
   let buffer = "";
 
@@ -73,6 +75,7 @@ export async function* streamEvents(
       }
     }
   } finally {
+    await reader.cancel();
     reader.releaseLock();
   }
 }

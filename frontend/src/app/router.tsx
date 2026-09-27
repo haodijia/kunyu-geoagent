@@ -4,7 +4,6 @@ import { useAppUiStore } from "@/app/store";
 import { SessionWorkspace } from "@/features/sessions/SessionWorkspace";
 import { ConversationView } from "@/features/sessions/views/ConversationView";
 import { OverviewView } from "@/features/sessions/views/OverviewView";
-import { TraceView } from "@/features/sessions/views/TraceView";
 import { ConnectionStatusPage } from "../features/system/ConnectionStatusPage";
 import { AppShell } from "./AppShell";
 
@@ -50,7 +49,10 @@ export const router = createHashRouter([
           },
           {
             path: "analysis/trace",
-            element: <TraceView />
+            lazy: async () => {
+              const { TraceView } = await import("@/features/sessions/views/TraceView");
+              return { Component: TraceView };
+            }
           },
           {
             path: "map",
