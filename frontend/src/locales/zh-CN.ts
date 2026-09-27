@@ -12,6 +12,8 @@ export const zhCN = {
     newChat: "新会话",
     search: "搜索",
     notifications: "通知",
+    more: "更多",
+    share: "分享",
     geoSkill: "GeoSkill",
     explore: "探索",
     scheduledTasks: "定时任务",

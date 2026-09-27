@@ -1,6 +1,11 @@
+import { Ellipsis, Share } from "lucide-react";
+
 import { Button } from "@/components/ui/button";
 import { Tooltip } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
+import { zhCN } from "@/locales/zh-CN";
+
+const content = zhCN.shell;
 
 function SidebarToggleIcon() {
   return (
@@ -69,6 +74,23 @@ export function AppTitlebar({
             : "left-[calc((100%+280px)/2)] max-[820px]:left-[calc((100%+232px)/2)]"
         )}
       />
+      <div className="ml-auto mr-4 flex shrink-0 items-center gap-5 text-slate-500 [-webkit-app-region:no-drag] max-[640px]:hidden">
+        <span
+          className="flex size-8 items-center justify-center"
+          role="img"
+          aria-label={content.more}
+        >
+          <Ellipsis size={19} strokeWidth={2} aria-hidden="true" />
+        </span>
+        <span
+          className="flex h-8 items-center gap-2 text-sm font-medium"
+          role="img"
+          aria-label={content.share}
+        >
+          <Share size={18} strokeWidth={1.8} aria-hidden="true" />
+          <span aria-hidden="true">{content.share}</span>
+        </span>
+      </div>
     </header>
   );
 }
