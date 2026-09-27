@@ -1,11 +1,17 @@
 import { useQuery } from "@tanstack/react-query";
-import { useEffect } from "react";
-import { Outlet, useLocation, useParams } from "react-router-dom";
+import { useEffect, useLayoutEffect } from "react";
+import { Navigate, Outlet, useLocation, useParams } from "react-router-dom";
 
+import { ApiError } from "@/api/client";
 import { useAppUiStore, type AnalysisMode } from "@/app/store";
+import {
+  clearLastSessionRoute,
+  writeLastSessionRoute
+} from "@/app/storage";
 import { SessionEventProvider } from "@/features/events/SessionEventContext";
 import { SessionMessagesProvider } from "@/features/messages/SessionMessagesContext";
 import { getSession, sessionQueryKeys } from "@/features/sessions/api";
+import { parseSessionRoute } from "@/features/sessions/routes";
 import { SessionTitlebar } from "@/features/sessions/SessionTitlebar";
 import { SessionWorkspaceProvider } from "@/features/sessions/SessionWorkspaceContext";
 import { zhCN } from "@/locales/zh-CN";
@@ -59,6 +65,16 @@ function SessionWorkspaceContent({
     }
   }, [analysisMode, sessionId, setAnalysisMode]);
 
+  useEffect(() => {
+    if (
+      sessionQuery.data !== undefined &&
+      sessionQuery.data.workspace_id === workspaceId &&
+      parseSessionRoute(location.pathname) !== null
+    ) {
+      writeLastSessionRoute(location.pathname);
+    }
+  }, [location.pathname, sessionQuery.data, workspaceId]);
+
   if (sessionQuery.isPending) {
     return (
       <div className="flex h-full items-center justify-center text-sm text-slate-500">
@@ -68,6 +84,9 @@ function SessionWorkspaceContent({
   }
 
   if (sessionQuery.isError) {
+    if (sessionQuery.error instanceof ApiError && sessionQuery.error.status === 404) {
+      return <InvalidSessionRedirect />;
+    }
     return (
       <div className="flex h-full items-center justify-center px-8 text-center text-sm text-red-600" role="alert">
         {sessionQuery.error.message}
@@ -76,11 +95,7 @@ function SessionWorkspaceContent({
   }
 
   if (sessionQuery.data.workspace_id !== workspaceId) {
-    return (
-      <div className="flex h-full items-center justify-center px-8 text-center text-sm text-red-600" role="alert">
-        {content.workspaceMismatch}
-      </div>
-    );
+    return <InvalidSessionRedirect />;
   }
 
   return (
@@ -100,4 +115,11 @@ function SessionWorkspaceContent({
       </SessionEventProvider>
     </SessionWorkspaceProvider>
   );
+}
+
+function InvalidSessionRedirect() {
+  useLayoutEffect(() => {
+    clearLastSessionRoute();
+  }, []);
+  return <Navigate to="/" replace />;
 }

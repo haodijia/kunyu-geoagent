@@ -24,9 +24,23 @@ export const zhCN = {
     loadingSessions: "正在加载会话…",
     emptySessions: "暂无会话"
   },
+  workspaceStart: {
+    eyebrow: "继续研判",
+    title: "最近工作空间",
+    description: "打开已有会话继续工作，或从左侧新建工作空间和会话。",
+    loading: "正在读取工作空间…",
+    restoring: "正在恢复上次会话…",
+    loadFailed: "无法读取工作空间，请确认本地服务正在运行。",
+    restoreFailed: "无法恢复上次会话，请稍后重试。",
+    retry: "重新加载",
+    emptyTitle: "还没有工作空间",
+    emptyDescription: "从左侧工作空间区域新建一个工作空间开始使用。",
+    loadingSessions: "正在读取会话…",
+    loadSessionsFailed: "无法读取此工作空间的会话。",
+    emptySessions: "此工作空间暂无会话。"
+  },
   sessionWorkspace: {
     loading: "正在加载会话…",
-    workspaceMismatch: "此会话不属于当前工作空间。",
     viewNavigation: "会话视图",
     overview: "总览",
     analysisMode: "分析模式",
@@ -79,17 +93,4 @@ export const zhCN = {
     reconnecting: "事件流已断开，正在恢复连接…",
     failed: "无法连接会话事件流"
   },
-  connection: {
-    eyebrow: "坤舆智枢",
-    title: "桌面服务连接",
-    checking: "正在检查本地服务…",
-    healthy: "本地服务运行正常",
-    failed: "无法连接本地服务",
-    failedDescription: "请确认本地服务已经启动，然后重新检查连接。",
-    showDetails: "查看连接信息",
-    hideDetails: "隐藏连接信息",
-    apiVersion: "接口版本",
-    serviceAddress: "服务地址",
-    retry: "重新检查"
-  }
 } as const;

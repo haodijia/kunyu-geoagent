@@ -4,7 +4,7 @@ import { useAppUiStore } from "@/app/store";
 import { SessionWorkspace } from "@/features/sessions/SessionWorkspace";
 import { ConversationView } from "@/features/sessions/views/ConversationView";
 import { OverviewView } from "@/features/sessions/views/OverviewView";
-import { ConnectionStatusPage } from "../features/system/ConnectionStatusPage";
+import { LaunchPage } from "@/features/workspaces/LaunchPage";
 import { AppShell } from "./AppShell";
 
 function AnalysisIndexRedirect() {
@@ -25,7 +25,7 @@ export const router = createHashRouter([
     children: [
       {
         index: true,
-        element: <ConnectionStatusPage />
+        element: <LaunchPage />
       },
       {
         path: "workspaces/:workspaceId/sessions/:sessionId",

@@ -5,13 +5,16 @@ import {
   type MapContext,
   type MapViewport
 } from "@/features/sessions/map-context";
+import {
+  readSidebarCollapsed,
+  writeSidebarCollapsed
+} from "@/app/storage";
 
 export type AnalysisMode = "conversation" | "trace";
 
 interface AppUiState {
   readonly analysisModeBySession: Readonly<Record<string, AnalysisMode>>;
   readonly composerDraftBySession: Readonly<Record<string, string>>;
-  readonly connectionDetailsVisible: boolean;
   readonly mapContextBySession: Readonly<Record<string, MapContext>>;
   readonly sidebarCollapsed: boolean;
   readonly clearComposerDraft: (sessionId: string) => void;
@@ -23,16 +26,14 @@ interface AppUiState {
     workspaceId: string,
     viewport: MapViewport
   ) => void;
-  readonly toggleConnectionDetails: () => void;
   readonly toggleSidebar: () => void;
 }
 
 export const useAppUiStore = create<AppUiState>((set) => ({
   analysisModeBySession: {},
   composerDraftBySession: {},
-  connectionDetailsVisible: false,
   mapContextBySession: {},
-  sidebarCollapsed: false,
+  sidebarCollapsed: readSidebarCollapsed(),
   clearComposerDraft: (sessionId) =>
     set((state) => ({
       composerDraftBySession: {
@@ -79,12 +80,10 @@ export const useAppUiStore = create<AppUiState>((set) => ({
         }
       };
     }),
-  toggleConnectionDetails: () =>
-    set((state) => ({
-      connectionDetailsVisible: !state.connectionDetailsVisible
-    })),
   toggleSidebar: () =>
-    set((state) => ({
-      sidebarCollapsed: !state.sidebarCollapsed
-    }))
+    set((state) => {
+      const sidebarCollapsed = !state.sidebarCollapsed;
+      writeSidebarCollapsed(sidebarCollapsed);
+      return { sidebarCollapsed };
+    })
 }));
