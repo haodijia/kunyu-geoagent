@@ -85,19 +85,3 @@ def get_workspace(
             detail=str(error),
         ) from error
     return WorkspaceResponse.from_domain(workspace)
-
-
-class RemoveWorkspaceResponse(BaseModel):
-    session_count: int
-
-
-@router.delete("/{workspace_id}", response_model=RemoveWorkspaceResponse)
-def remove_workspace(
-    workspace_id: str, service: WorkspaceServiceDependency, dry_run: bool = False
-) -> RemoveWorkspaceResponse:
-    try:
-        return RemoveWorkspaceResponse(
-            session_count=service.remove(workspace_id, dry_run)
-        )
-    except WorkspaceNotFoundError as error:
-        raise HTTPException(status_code=404, detail=str(error)) from error

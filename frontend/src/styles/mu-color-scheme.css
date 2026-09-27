@@ -1,0 +1,200 @@
+/*
+ * mu colour scheme: white and black, with light lavender and light pink as a small accent.
+ *
+ * The page is neutral: the content surface is white with black text in light, near-black with white
+ * text in dark. The titlebar and the sidebar take the faintest grey (--bg-2), set apart by hairlines, so
+ * the structure shows without the page looking grey. Boxes on the page are white with a hairline, not grey
+ * fills. Both message inputs share one surface (--mu-composer-bg), the page's own in both appearances, so their
+ * hairline alone marks them as fields. In dark, dialogs sit on the card surface (--dialog-fill-0, #1a1a1a) inside
+ * a hairline. The brand colours only mark what can be acted on or what is chosen:
+ * primary buttons and the send button (a light lavender fill, a pink-to-lavender wash, dark text on
+ * both), the selected row's thin bar, focus rings, selection, links and small dots. The judge keeps
+ * pink as its mark, on a tint that is all but white.
+ *
+ * It is the default scheme (index.html carries data-color-scheme='mu'). Every variable the upstream
+ * default scheme defines is defined again here, in both appearances, because the upstream dark block
+ * is scoped to data-color-scheme='default' and would no longer match. Setting the attribute back to
+ * 'default' brings the upstream colours back untouched.
+ *
+ * Selectors keep the upstream specificity (0,1,0 and 0,2,0) on purpose: theme tokens and custom CSS
+ * themes are appended later in <head> and must keep winning (see tokensToCss.ts).
+ *
+ * The pairs that carry text are measured by scripts/kyrn/theme/contrast.mts and held by
+ * tests/unit/kyrn/themeContrast.test.ts.
+ */
+
+/* Light */
+[data-color-scheme='mu'] {
+  /* Lavender. 1-4 are tints, 5 is a focus outline, 6 is accent text (links, checked marks), 7-10 deeper. */
+  --mu-violet-1: #f7f5ff;
+  --mu-violet-2: #efeafe;
+  --mu-violet-3: #e2d9fd;
+  --mu-violet-4: #cdbdfb;
+  --mu-violet-5: #8d74e8;
+  --mu-violet-6: #6e52da;
+  --mu-violet-7: #5a40c0;
+  --mu-violet-8: #47329c;
+  --mu-violet-9: #342574;
+  --mu-violet-10: #22184d;
+
+  /* Pink: the judge's mark and the warm end of the accent wash. */
+  --mu-pink-1: #fff5fe;
+  --mu-pink-2: #fde9fb;
+  --mu-pink-3: #fcd9f9;
+  --mu-pink-4: #f0c4fb;
+  --mu-pink-5: #e29bee;
+  --mu-pink-6: #c55fd3;
+  --mu-pink-7: #a23bb2;
+  --mu-pink-8: #7f2c8d;
+  --mu-pink-9: #5c1f67;
+  --mu-pink-10: #3a1342;
+
+  --mu-periwinkle: #948bef;
+
+  /* The accent fill: primary buttons. Light lavender with dark text, never white text. */
+  --mu-accent-fill: #d8cbfd;
+  --mu-accent-fill-hover: #cdbdfb;
+  --mu-accent-fill-active: #c1aef8;
+  --mu-accent-on: #1d1b22;
+  --mu-accent-on-disabled: #9ea3ae;
+  /* The accent wash: the send button, pink into lavender, with the same dark text. */
+  --mu-accent-from: #f8d3ef;
+  --mu-accent-via: #dccdfd;
+  --mu-accent-to: #cdc5fb;
+  --mu-accent-gradient: linear-gradient(
+    135deg,
+    var(--mu-accent-from) 0%,
+    var(--mu-accent-via) 55%,
+    var(--mu-accent-to) 100%
+  );
+  /* Small marks: the selected row's bar, a waiting dot, the border and faint tint of a chosen card. */
+  --mu-accent-bar: linear-gradient(180deg, #f0b0e2 0%, #b39cf6 100%);
+  --mu-accent-dot: #b39cf6;
+  --mu-accent-border: #c1aef8;
+  --mu-accent-tint: #fcfbff;
+
+  /* For white text on a violet fill, where a component insists on it. The buttons do not use it. */
+  --mu-primary-fill: var(--mu-violet-6);
+  --mu-primary-fill-hover: #7356de;
+  --mu-primary-fill-active: var(--mu-violet-7);
+
+  /* The judge (Jev): pink text on a tint that is nearly white, so a judgment never reads as a button. */
+  --mu-judge: var(--mu-pink-7);
+  --mu-judge-bg-flat: #fdf4fc;
+  --mu-judge-bg: var(--mu-judge-bg-flat);
+  --mu-judge-border: #f4d6f1;
+  --mu-judge-dot: #e29bee;
+  --mu-judge-dot-ring: rgba(226, 155, 238, 0.22);
+
+  /* The pastel gradient is decoration only (the loading bar); never put text on it. */
+  --mu-gradient: linear-gradient(135deg, #fcd9f9 0%, #c3a2fb 52%, #948bef 100%);
+  --mu-gradient-soft: linear-gradient(135deg, #fdf1fb 0%, #f4f1fe 100%);
+
+  /* Focus ring and selection. */
+  --mu-ring: rgba(167, 139, 245, 0.26);
+  --mu-selection: rgba(205, 189, 251, 0.5);
+
+  /* The veil under the command palette: the page's own white, so what lies under it recedes without turning grey. */
+  --mu-scrim: rgba(255, 255, 255, 0.72);
+
+  /* The message input (send box and the new-conversation card): its surface and a grey hairline. */
+  --mu-composer-bg: #ffffff;
+  --mu-input-border: #e5e6eb;
+  --mu-input-border-active: var(--mu-accent-border);
+  --mu-input-shadow-active: 0 0 0 3px rgba(201, 184, 251, 0.24), 0 6px 20px rgba(0, 0, 0, 0.05);
+
+  /* Soft, layered, neutral shadows. */
+  --mu-shadow-1: 0 1px 2px rgba(0, 0, 0, 0.05), 0 1px 1px rgba(0, 0, 0, 0.03);
+  --mu-shadow-2: 0 2px 6px rgba(0, 0, 0, 0.06), 0 8px 20px rgba(0, 0, 0, 0.05);
+  --mu-shadow-3: 0 4px 12px rgba(0, 0, 0, 0.08), 0 18px 44px rgba(0, 0, 0, 0.1);
+
+  /* Radius, one step rounder than upstream (2/4/8). */
+  --mu-radius-sm: 6px;
+  --mu-radius-md: 10px;
+  --mu-radius-lg: 14px;
+  --mu-radius-xl: 20px;
+
+  /* Motion: short and eased. prefers-reduced-motion turns it off in mu-arco.css. */
+  --mu-ease: cubic-bezier(0.22, 1, 0.36, 1);
+  --mu-duration: 160ms;
+
+  /* Code: a neutral block, five hues that stay apart (components/Markdown/muCodeTheme.ts). */
+  --mu-code-bg-flat: #f7f8fa;
+  --mu-code-text: #1d2129;
+  --mu-code-comment: #676e7b;
+  --mu-code-keyword: #6a4fd3;
+  --mu-code-string: #a23bb2;
+  --mu-code-number: #a3540a;
+  --mu-code-type: #3f4dc0;
+  --mu-code-attr: #0b767c;
+  --mu-code-meta: #4e5969;
+  --mu-code-add: #0a7a4b;
+  --mu-code-add-bg: rgba(10, 122, 75, 0.1);
+  --mu-code-del: #c4294f;
+  --mu-code-del-bg: rgba(196, 41, 79, 0.1);
+
+  /* ---- The upstream contract: upstream's neutral values, with readable secondary greys ---- */
+
+  /* AOU scale: upstream's cool greys, a shade more neutral. aou-2 is the user's message bubble. */
+  --aou-1: #f4f5f8;
+  --aou-2: #eceef3;
+  --aou-3: #dcdfe8;
+  --aou-4: #c3c8d6;
+  --aou-5: #a3aabd;
+  --aou-6: #7d859c;
+  --aou-7: #5f667b;
+  --aou-8: #444a5b;
+  --aou-9: #282c38;
+  --aou-10: #0f1118;
+
+  --bg-base: #ffffff;
+  --bg-1: #ffffff;
+  --bg-2: #f7f7f8;
+  --bg-3: #e5e6eb;
+  --bg-4: #c9cdd4;
+  --bg-5: #adb4c1;
+  /* Upstream's #86909c is 3.3:1 on white; tertiary text needs 4.5. */
+  --bg-6: #646a73;
+  --bg-8: #4e5969;
+  --bg-9: #1d2129;
+  --bg-10: #0c0e12;
+
+  --bg-hover: #f3f4f6;
+  --bg-active: #e5e6eb;
+
+  --text-primary: #000000;
+  --color-text-1: #000000;
+  --text-secondary: #454d5f;
+  --text-disabled: #c9cdd4;
+
+  --primary: var(--mu-violet-6);
+  --success: #087f58;
+  --warning: #c96a0a;
+  --danger: #d12f57;
+  --info: #4f5fd6;
+
+  --border-base: #e5e6eb;
+  --border-light: #f2f3f5;
+
+  /* Brand: a quiet lavender grey for icons and marks, not the accent. */
+  --brand: #716aa8;
+  --brand-light: #f3f2f8;
+  --brand-hover: #c9c6de;
+
+  --message-user-bg: var(--aou-2);
+  --message-tips-bg: #f5f6f8;
+  --workspace-btn-bg: #eff0f1;
+  --thought-gradient: linear-gradient(90deg, #f5f6f8 0%, #f7f7f8 100%);
+
+  --fill: #f7f8fa;
+  --inverse: #ffffff;
+
+  --dialog-fill-0: #ffffff;
+  --text-0: #000000;
+  --text-white: #ffffff;
+  --fill-0: #ffffff;
+  --fill-white-to-black: #ffffff;
+  --border-special: var(--bg-3);
+  --color-guid-agent-bar: #eff0f4;
+}
+

@@ -1,0 +1,195 @@
+/* Settings mobile top nav */
+@media (max-width: 767px) {
+  .settings-mobile-top-nav {
+    display: flex;
+    gap: 8px;
+    overflow-x: auto;
+    overflow-y: hidden;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+    padding-top: 14px;
+    padding-bottom: 10px;
+    margin-bottom: 12px;
+  }
+
+  .settings-mobile-top-nav::-webkit-scrollbar {
+    display: none;
+  }
+
+  .settings-mobile-top-nav__item {
+    flex: 0 0 auto;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    height: 36px;
+    padding: 0 12px;
+    border-radius: 999px;
+    border: 1px solid var(--border-base);
+    background: var(--bg-1);
+    color: var(--text-secondary);
+    font-size: 14px;
+    line-height: 20px;
+  }
+
+  .settings-mobile-top-nav__item--active {
+    background: var(--bg-active);
+    color: var(--text-primary);
+    border-color: var(--border-base);
+  }
+
+  .settings-mobile-top-nav__icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    line-height: 0;
+  }
+
+  .settings-mobile-top-nav__label {
+    white-space: nowrap;
+    font-weight: 500;
+  }
+}
+
+/*
+ * The native look of the settings pages, scoped to their frame so nothing else in the app changes. One rhythm of
+ * 16px between blocks; quiet lists (a hairline above the first row and between rows, no box around them, never a box
+ * inside a box); flat controls in neutral greys with small radii; the system font. Lavender stays where mu-arco.css
+ * puts it, on a primary button and a switch that is on, and nowhere else on these pages.
+ */
+.settings-page-content {
+  --settings-hairline: var(--border-base);
+  --settings-focus: var(--color-text-3);
+}
+
+/*
+ * A list of settings rows: a hairline above the first and between the rows, none under the last. Two lists one after
+ * the other then read as two sections, one line and the page's gap apart, instead of a pair of lines.
+ */
+.settings-list {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  border-top: 1px solid var(--settings-hairline, var(--border-base));
+}
+
+.settings-list > * + * {
+  border-top: 1px solid var(--settings-hairline, var(--border-base));
+}
+
+/* A group of a page: its small title, and one line on what it holds. */
+.settings-group {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+}
+
+.settings-group__title {
+  margin: 0;
+  color: var(--text-primary);
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 20px;
+}
+
+.settings-group__help {
+  margin: -6px 0 0;
+  color: var(--text-secondary);
+  font-size: 12px;
+  line-height: 18px;
+  text-wrap: balance;
+}
+
+/* ---- Arco, flattened ---- */
+
+/* Focus: a darker hairline, no glow and no accent. */
+.settings-page-wrapper .settings-page-content .arco-input-focus,
+.settings-page-wrapper .settings-page-content .arco-input-inner-wrapper-focus,
+.settings-page-wrapper .settings-page-content .arco-textarea-focus,
+.settings-page-wrapper .settings-page-content .arco-select-focused .arco-select-view,
+.settings-page-wrapper .settings-page-content .arco-input-tag-focus,
+.settings-page-wrapper .settings-page-content .arco-picker-focused {
+  border-color: var(--settings-focus);
+  box-shadow: none;
+}
+
+.settings-page-wrapper .settings-page-content .arco-btn:focus-visible,
+.settings-page-wrapper .settings-page-content button:focus-visible,
+.settings-page-wrapper .settings-page-content [role='button']:focus-visible,
+.settings-page-wrapper .settings-page-content [role='radio']:focus-visible,
+.settings-page-wrapper .settings-page-content [role='switch']:focus-visible,
+.settings-page-wrapper .settings-page-content [tabindex]:not([tabindex='-1']):focus-visible,
+.settings-page-wrapper .settings-page-content a:focus-visible {
+  outline: 2px solid var(--settings-focus);
+  outline-offset: 2px;
+  box-shadow: none;
+}
+
+/* An outline button: a hairline that darkens on hover, never the accent. */
+.settings-page-wrapper .settings-page-content .arco-btn.arco-btn-outline:not(.arco-btn-disabled):hover {
+  border-color: var(--settings-focus);
+}
+
+/* A text or outline button that cannot be pressed: the disabled grey, not Arco's pale tint of the accent. */
+.settings-page-wrapper .settings-page-content .arco-btn-text.arco-btn-disabled:not([class*='arco-btn-status']),
+.settings-page-wrapper .settings-page-content .arco-btn-outline.arco-btn-disabled:not([class*='arco-btn-status']) {
+  border-color: transparent;
+  color: var(--color-text-4);
+}
+
+.settings-page-wrapper .settings-page-content .arco-btn-outline.arco-btn-disabled:not([class*='arco-btn-status']) {
+  border-color: var(--settings-hairline);
+}
+
+/* A checked box: the body text colour, with the page's own colour for the mark. */
+.settings-page-wrapper .settings-page-content .arco-checkbox-checked:not(.arco-checkbox-disabled) .arco-checkbox-mask,
+.settings-page-wrapper
+  .settings-page-content
+  .arco-checkbox-indeterminate:not(.arco-checkbox-disabled)
+  .arco-checkbox-mask {
+  border-color: var(--text-primary);
+  background-color: var(--text-primary);
+}
+
+.settings-page-wrapper
+  .settings-page-content
+  .arco-checkbox-checked:not(.arco-checkbox-disabled)
+  .arco-checkbox-mask-icon {
+  color: var(--bg-base);
+}
+
+.settings-page-wrapper
+  .settings-page-content
+  .arco-checkbox-indeterminate:not(.arco-checkbox-disabled)
+  .arco-checkbox-mask::after {
+  background-color: var(--bg-base);
+}
+
+/* The chosen segment of a segmented control: one hairline, no shadow (mu-arco.css adds one in the light theme). */
+.settings-page-wrapper
+  .settings-page-content
+  .arco-radio-group
+  .arco-radio-button.arco-radio-checked:not(.arco-radio-disabled) {
+  box-shadow: 0 0 0 1px var(--settings-hairline);
+}
+
+/* Links read as text: the body colour, underlined. */
+.settings-page-wrapper .settings-page-content .arco-link:not(.arco-link-disabled),
+.settings-page-wrapper .settings-page-content a:not([class]) {
+  color: var(--text-primary);
+  text-decoration: underline;
+  text-decoration-color: var(--settings-hairline);
+  text-underline-offset: 2px;
+}
+
+.settings-page-wrapper .settings-page-content .arco-link:not(.arco-link-disabled):hover,
+.settings-page-wrapper .settings-page-content a:not([class]):hover {
+  background: none;
+  text-decoration-color: currentColor;
+}
+
+/* A card drawn by Arco keeps a hairline and no shadow. */
+.settings-page-wrapper .settings-page-content .arco-card {
+  border-color: var(--settings-hairline);
+  box-shadow: none;
+}

@@ -43,13 +43,3 @@ export function createSession(
     }
   );
 }
-
-export function removeWorkspace(
-  workspaceId: string,
-  dryRun = false
-): Promise<{ session_count: number }> {
-  return requestJson(
-    `/api/v1/workspaces/${encodeURIComponent(workspaceId)}?dry_run=${dryRun}`,
-    { method: "DELETE" }
-  );
-}
