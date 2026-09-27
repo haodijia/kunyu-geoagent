@@ -26,7 +26,7 @@ export const zhCN = {
     workspaceActions: "工作空间操作",
     archiveWorkspace: "归档工作空间",
     archiveWorkspaceTitle: "归档此工作空间？",
-    archiveWorkspaceDescription: (name: string, count: number) => `将“${name}”中的 ${count} 个会话移入归档，工作空间将从侧边栏隐藏。内容仍会保留，可在设置中恢复。`,
+    archiveWorkspaceDescription: (name: string, count: number) => `将“${name}”中的 ${count} 个会话移入归档。工作空间会保留，可继续新建会话；归档内容可在设置中恢复。`,
     archiveSession: "归档会话",
     archiveSuccess: "会话已归档",
     archiveFailed: "归档未完成，请重试。",
