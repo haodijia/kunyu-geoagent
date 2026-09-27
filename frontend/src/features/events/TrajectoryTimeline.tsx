@@ -1,4 +1,3 @@
-// Adapted from DeepSeek Harness (MIT); see THIRD_PARTY_NOTICES.md.
 /** Chrome-Network-style overview timeline for focusing the trajectory ledger. */
 
 import {

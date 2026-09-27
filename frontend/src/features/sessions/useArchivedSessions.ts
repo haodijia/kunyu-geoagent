@@ -1,12 +1,5 @@
-/**
- * Adapted from mu: session APIs, query cache, and local translations.
- * @license
- * Copyright 2025 AionUi (aionui.com)
- * SPDX-License-Identifier: Apache-2.0
- */
-
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Message, Modal } from "@arco-design/web-react";
+import { toast } from "sonner";
 import React from "react";
 import { workspaceQueryKeys } from "@/features/workspaces/api";
 import { zhCN } from "@/locales/zh-CN";
@@ -38,7 +31,19 @@ export type ProjectBlock = {
   cursor: string | null;
 };
 
+type DeleteRequest = {
+  title: string;
+  description: string;
+  label: string;
+  rows: ArchivedRow[];
+  workspaceIds: string[];
+  sessionIds: string[];
+};
+
 export function useArchivedSessions() {
+  const [deleteRequest, setDeleteRequest] =
+    React.useState<DeleteRequest | null>(null);
+  const [deleting, setDeleting] = React.useState(false);
   const [selectionMode, setSelectionMode] = React.useState(false);
   const [selectedKeys, setSelectedKeys] = React.useState<ReadonlySet<string>>(
     () => new Set<string>()
@@ -194,10 +199,10 @@ export function useArchivedSessions() {
         queryClient.setQueryData(sessionQueryKeys.detail(session.id), session);
         restoredRef.current = true;
         await refresh();
-        Message.success(content.restoreSuccess);
+        toast.success(content.restoreSuccess);
       } catch (error) {
         console.error("Failed to restore archived item:", error);
-        Message.error(content.restoreFailed);
+        toast.error(content.restoreFailed);
       }
     },
     [refresh, queryClient]
@@ -226,7 +231,7 @@ export function useArchivedSessions() {
       });
     } catch (error) {
       console.error("Failed to load more archived items:", error);
-      Message.error(content.loadFailed);
+      toast.error(content.loadFailed);
     } finally {
       setLoadingTokens((prev) => {
         const next = new Set(prev);
@@ -236,90 +241,80 @@ export function useArchivedSessions() {
     }
   }, []);
 
-  const handleDelete = React.useCallback(
-    (row: ArchivedRow) => {
-      Modal.confirm({
-        title: content.deleteTitle,
-        content: content.deleteDescription(row.name),
-        okText: content.delete,
-        cancelText: zhCN.workspaceSidebar.cancel,
-        okButtonProps: { status: "danger" },
-        onOk: async () => {
-          try {
-            await archivedSessionApi.deleteItem(row.item_id);
-            queryClient.removeQueries({
-              queryKey: sessionQueryKeys.detail(row.item_id)
-            });
-            await refresh();
-            Message.success(content.deleteSuccess);
-          } catch (error) {
-            console.error("Failed to delete archived item:", error);
-            Message.error(content.deleteFailed);
-          }
-        },
-        style: { borderRadius: "12px" },
-        alignCenter: true,
-        getPopupContainer: () => document.body
-      });
-    },
-    [refresh, queryClient]
-  );
+  const handleDelete = React.useCallback((row: ArchivedRow) => {
+    setDeleteRequest({
+      title: content.deleteTitle,
+      description: content.deleteDescription(row.name),
+      label: content.delete,
+      rows: [row],
+      workspaceIds: [],
+      sessionIds: [row.item_id]
+    });
+  }, []);
 
   const handleDeleteSelected = React.useCallback(() => {
     if (selectedRows.length === 0) return;
 
-    Modal.confirm({
+    const selectedProjectBlocks = archivedBlocks.filter(
+      (block) =>
+        block.projectId &&
+        block.rows.length > 0 &&
+        block.rows.every((row) => selectedKeys.has(row.key))
+    );
+    const projectSelectedKeys = new Set(
+      selectedProjectBlocks.flatMap((block) => block.rows.map((row) => row.key))
+    );
+    const selectedSingleRows = selectedRows.filter(
+      (row) => !projectSelectedKeys.has(row.key)
+    );
+
+    setDeleteRequest({
       title: content.deleteSelectedTitle,
-      content: content.deleteSelectedDescription(selectedRows.length),
-      okText: content.deleteSelected,
-      cancelText: zhCN.workspaceSidebar.cancel,
-      okButtonProps: { status: "danger" },
-      onOk: async () => {
-        try {
-          const selectedProjectBlocks = archivedBlocks.filter(
-            (block) =>
-              block.projectId &&
-              block.rows.length > 0 &&
-              block.rows.every((row) => selectedKeys.has(row.key))
-          );
-          const projectSelectedKeys = new Set(
-            selectedProjectBlocks.flatMap((block) =>
-              block.rows.map((row) => row.key)
-            )
-          );
-          const selectedSingleRows = selectedRows.filter(
-            (row) => !projectSelectedKeys.has(row.key)
-          );
-
-          await Promise.all([
-            ...selectedProjectBlocks.map((block) =>
-              archivedSessionApi.deleteWorkspace(block.projectId)
-            ),
-            ...selectedSingleRows.map((row) =>
-              archivedSessionApi.deleteItem(row.item_id)
-            )
-          ]);
-
-          for (const row of selectedRows)
-            queryClient.removeQueries({
-              queryKey: sessionQueryKeys.detail(row.item_id)
-            });
-          setSelectedKeys(new Set<string>());
-          setSelectionMode(false);
-          await refresh();
-          Message.success(content.deleteSuccess);
-        } catch (error) {
-          console.error("Failed to delete selected archived items:", error);
-          Message.error(content.deleteFailed);
-        }
-      },
-      style: { borderRadius: "12px" },
-      alignCenter: true,
-      getPopupContainer: () => document.body
+      description: content.deleteSelectedDescription(selectedRows.length),
+      label: content.deleteSelected,
+      rows: [...selectedRows],
+      workspaceIds: selectedProjectBlocks.map((block) => block.projectId),
+      sessionIds: selectedSingleRows.map((row) => row.item_id)
     });
-  }, [refresh, archivedBlocks, selectedKeys, selectedRows, queryClient]);
+  }, [archivedBlocks, selectedKeys, selectedRows]);
+
+  const confirmDelete = async () => {
+    if (deleteRequest === null || deleting) return;
+    setDeleting(true);
+    try {
+      await Promise.all([
+        ...deleteRequest.workspaceIds.map((id) =>
+          archivedSessionApi.deleteWorkspace(id)
+        ),
+        ...deleteRequest.sessionIds.map((id) =>
+          archivedSessionApi.deleteItem(id)
+        )
+      ]);
+      for (const row of deleteRequest.rows) {
+        queryClient.removeQueries({
+          queryKey: sessionQueryKeys.detail(row.item_id)
+        });
+      }
+      setSelectedKeys(new Set<string>());
+      setSelectionMode(false);
+      setDeleteRequest(null);
+      await refresh();
+      toast.success(content.deleteSuccess);
+    } catch (error) {
+      console.error("[archives] Deletion failed", error);
+      toast.error(content.deleteFailed);
+    } finally {
+      setDeleting(false);
+    }
+  };
 
   return {
+    deleteRequest,
+    deleting,
+    confirmDelete,
+    cancelDelete: () => {
+      if (!deleting) setDeleteRequest(null);
+    },
     archivedBlocks,
     total,
     isLoading,

@@ -1,9 +1,3 @@
-/**
- * @license
- * Copyright 2025 AionUi (aionui.com)
- * SPDX-License-Identifier: Apache-2.0
- */
-
 import { FolderClose, FolderOpen } from "@icon-park/react";
 import { cn as classNames } from "@/lib/utils";
 import React from "react";

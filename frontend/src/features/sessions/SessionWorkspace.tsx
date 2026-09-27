@@ -78,7 +78,7 @@ function SessionWorkspaceContent({
 
   if (sessionQuery.isPending) {
     return (
-      <div className="flex h-full items-center justify-center text-sm text-slate-500">
+      <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
         {content.loading}
       </div>
     );
@@ -89,7 +89,7 @@ function SessionWorkspaceContent({
       return <InvalidSessionRedirect />;
     }
     return (
-      <div className="flex h-full items-center justify-center px-8 text-center text-sm text-red-600" role="alert">
+      <div className="flex h-full items-center justify-center px-8 text-center text-sm text-destructive" role="alert">
         {sessionQuery.error.message}
       </div>
     );
@@ -106,7 +106,7 @@ function SessionWorkspaceContent({
         sessionId={sessionQuery.data.id}
       >
         <SessionMessagesProvider sessionId={sessionQuery.data.id}>
-        <section className="flex h-full min-h-0 flex-col bg-white">
+        <section className="flex h-full min-h-0 flex-col bg-background">
           <SessionTitlebar />
           <div className="min-h-0 flex-1 overflow-hidden">
             <Outlet />

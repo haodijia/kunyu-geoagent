@@ -39,14 +39,14 @@ export function AppTitlebar({
   toggleLabel
 }: AppTitlebarProps) {
   return (
-    <header className="relative z-50 flex h-[45px] shrink-0 items-center border-b border-slate-200 bg-white [-webkit-app-region:drag]">
+    <header className="relative z-50 flex h-[45px] shrink-0 items-center border-b border-border bg-background [-webkit-app-region:drag]">
       <div className="ml-[76px] flex items-center [-webkit-app-region:no-drag]">
         <Tooltip label={toggleLabel}>
           <Button
             type="button"
             variant="outline"
             size="icon"
-            className="size-9 border-0 bg-transparent text-slate-600 shadow-none hover:bg-slate-100 hover:text-slate-950"
+            className="size-9 border-0 bg-transparent text-secondary-foreground shadow-none hover:bg-muted hover:text-foreground"
             onClick={onToggleSidebar}
             aria-label={toggleLabel}
             aria-expanded={!sidebarCollapsed}
@@ -74,7 +74,7 @@ export function AppTitlebar({
             : "left-[calc((100%+280px)/2)] max-[820px]:left-[calc((100%+232px)/2)]"
         )}
       />
-      <div className="ml-auto mr-4 flex shrink-0 items-center gap-5 text-slate-500 [-webkit-app-region:no-drag] max-[640px]:hidden">
+      <div className="ml-auto mr-4 flex shrink-0 items-center gap-5 text-muted-foreground [-webkit-app-region:no-drag] max-[640px]:hidden">
         <span
           className="flex size-8 items-center justify-center"
           role="img"

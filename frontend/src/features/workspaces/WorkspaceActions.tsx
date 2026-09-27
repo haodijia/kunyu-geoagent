@@ -1,8 +1,10 @@
-/**
- * Adapted from mu's workspace menu. Copyright 2025 AionUi (aionui.com).
- * SPDX-License-Identifier: Apache-2.0
- */
-import { Dropdown, Menu, Message } from "@arco-design/web-react";
+import { toast } from "sonner";
+import {
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuItem
+} from "@/components/ui/dropdown-menu";
 import { DeleteOne, MoreOne } from "@icon-park/react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useLocation, useNavigate } from "react-router-dom";
@@ -36,44 +38,40 @@ export function WorkspaceActions({
         queryClient.invalidateQueries({ queryKey: workspaceQueryKeys.all }),
         queryClient.invalidateQueries({ queryKey: ["sessions"] })
       ]);
-      Message.success(content.removeSuccess);
+      toast.success(content.removeSuccess);
     },
     onError: (error) => {
       console.error("[workspaces] Removal failed", error);
-      Message.error(content.removeFailed);
+      toast.error(content.removeFailed);
     }
   });
   return (
-    <Dropdown
-      droplist={
-        <Menu onClickMenuItem={() => removal.mutate()}>
-          <Menu.Item key="remove" disabled={removal.isPending}>
-            <span className="flex items-center gap-[8px]">
-              <DeleteOne theme="outline" size="14" />
-              {content.removeWorkspace}
-            </span>
-          </Menu.Item>
-        </Menu>
-      }
-      trigger="click"
-      position="br"
-      getPopupContainer={() => document.body}
-      unmountOnExit={false}
-    >
-      <button
-        type="button"
-        aria-label={content.workspaceActions}
-        disabled={removal.isPending}
-        className="sider-action-btn hidden size-[20px] cursor-pointer items-center justify-center rounded-[4px] border-0 p-0 text-t-secondary transition-colors group-hover:flex group-focus-within:flex hover:text-t-primary"
-        onClick={(event) => event.stopPropagation()}
-      >
-        <MoreOne
-          theme="outline"
-          size="14"
-          fill="currentColor"
-          className="block leading-none"
-        />
-      </button>
-    </Dropdown>
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <button
+          type="button"
+          aria-label={content.workspaceActions}
+          disabled={removal.isPending}
+          className="sider-action-btn hidden size-[20px] cursor-pointer items-center justify-center rounded-[4px] border-0 p-0 text-t-secondary transition-colors group-hover:flex group-focus-within:flex hover:text-t-primary data-[state=open]:flex"
+          onClick={(event) => event.stopPropagation()}
+        >
+          <MoreOne
+            theme="outline"
+            size="14"
+            fill="currentColor"
+            className="block leading-none"
+          />
+        </button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end">
+        <DropdownMenuItem
+          disabled={removal.isPending}
+          onSelect={() => removal.mutate()}
+        >
+          <DeleteOne theme="outline" size="14" />
+          {content.removeWorkspace}
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
   );
 }

@@ -1,4 +1,3 @@
-// Labels from DeepSeek Harness, MIT.
 const labels = {
   'toolbar.aria': '轨迹工具栏',
   'toolbar.duration': '时长',

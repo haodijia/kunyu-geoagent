@@ -1,4 +1,3 @@
-// Adapted from DeepSeek Harness (MIT); see THIRD_PARTY_NOTICES.md.
 /** Operation-sequence and recorded-time projections for the trajectory overview. */
 
 import type { TrajectoryTurnModel } from './trajectory-model'
@@ -204,4 +203,3 @@ export function trajectoryTimelineFocusIndexes(
       .map(span => span.index),
   )
 }
-

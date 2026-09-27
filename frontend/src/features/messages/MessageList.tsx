@@ -39,11 +39,11 @@ export function MessageList({ messages }: MessageListProps) {
           key={message.id}
           className="ml-auto flex max-w-[76%] flex-col items-end"
         >
-          <div className="rounded-[18px_18px_5px_18px] bg-slate-100 px-4 py-2.5 text-sm leading-6 whitespace-pre-wrap text-slate-900 [overflow-wrap:anywhere]">
+          <div className="rounded-[18px_18px_5px_18px] bg-muted px-4 py-2.5 text-sm leading-6 whitespace-pre-wrap text-foreground [overflow-wrap:anywhere]">
             {message.content}
           </div>
           <time
-            className="mt-1.5 px-1 text-xs text-slate-400"
+            className="mt-1.5 px-1 text-xs text-muted-foreground"
             dateTime={message.created_at}
           >
             {timeFormatter.format(new Date(message.created_at))}

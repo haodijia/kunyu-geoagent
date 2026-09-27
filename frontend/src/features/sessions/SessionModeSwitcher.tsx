@@ -34,14 +34,14 @@ export function SessionModeSwitcher() {
 
   function analysisModeTextClass(mode: AnalysisMode): string {
     if (rememberedMode !== mode) {
-      return "text-slate-500 hover:text-slate-800";
+      return "text-muted-foreground hover:text-foreground";
     }
-    return activeSection === "analysis" ? "text-white" : "text-slate-950";
+    return activeSection === "analysis" ? "text-primary-foreground" : "text-foreground";
   }
 
   return (
     <nav
-      className="flex items-center gap-1 rounded-xl border border-slate-200 bg-white p-1 shadow-sm"
+      className="flex items-center gap-1 rounded-xl border border-border bg-background p-1 shadow-sm"
       aria-label={content.viewNavigation}
     >
       <button
@@ -49,8 +49,8 @@ export function SessionModeSwitcher() {
         className={cn(
           "flex size-8 items-center justify-center rounded-lg transition-colors",
           activeSection === "overview"
-            ? "bg-slate-900 text-white"
-            : "text-slate-500 hover:bg-slate-100 hover:text-slate-950"
+            ? "bg-primary text-primary-foreground"
+            : "text-muted-foreground hover:bg-muted hover:text-foreground"
         )}
         onClick={() =>
           void navigate(sessionOverviewPath(session.workspace_id, session.id))
@@ -62,19 +62,19 @@ export function SessionModeSwitcher() {
         <LayoutDashboard className="size-4" strokeWidth={1.8} />
       </button>
 
-      <span className="mx-0.5 h-5 w-px bg-slate-200" aria-hidden="true" />
+      <span className="mx-0.5 h-5 w-px bg-accent" aria-hidden="true" />
 
       <div
         className={cn(
-          "relative grid grid-cols-2 rounded-lg bg-slate-100 transition-colors",
-          activeSection === "analysis" && "bg-slate-200"
+          "relative grid grid-cols-2 rounded-lg bg-muted transition-colors",
+          activeSection === "analysis" && "bg-accent"
         )}
         aria-label={content.analysisMode}
       >
         <span
           className={cn(
             "pointer-events-none absolute top-0 left-0 size-8 rounded-lg shadow-sm transition-[color,background-color,transform] duration-200 ease-out",
-            activeSection === "analysis" ? "bg-slate-900" : "bg-white",
+            activeSection === "analysis" ? "bg-primary" : "bg-background",
             rememberedMode === "trace" && "translate-x-8"
           )}
           aria-hidden="true"
@@ -109,15 +109,15 @@ export function SessionModeSwitcher() {
         </button>
       </div>
 
-      <span className="mx-0.5 h-5 w-px bg-slate-200" aria-hidden="true" />
+      <span className="mx-0.5 h-5 w-px bg-accent" aria-hidden="true" />
 
       <button
         type="button"
         className={cn(
           "flex size-8 items-center justify-center rounded-lg transition-colors",
           activeSection === "map"
-            ? "bg-slate-900 text-white"
-            : "text-slate-500 hover:bg-slate-100 hover:text-slate-950"
+            ? "bg-primary text-primary-foreground"
+            : "text-muted-foreground hover:bg-muted hover:text-foreground"
         )}
         onClick={() =>
           void navigate(sessionMapPath(session.workspace_id, session.id))

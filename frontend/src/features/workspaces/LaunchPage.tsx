@@ -106,7 +106,7 @@ export function LaunchPage() {
 
 function LaunchStatus({ message }: { readonly message: string }) {
   return (
-    <div className="flex min-h-full items-center justify-center p-8 text-sm text-slate-500">
+    <div className="flex min-h-full items-center justify-center p-8 text-sm text-muted-foreground">
       {message}
     </div>
   );
@@ -121,7 +121,7 @@ function LaunchError({ message, onRetry }: LaunchErrorProps) {
   return (
     <div className="flex min-h-full items-center justify-center p-8">
       <div className="text-center">
-        <p className="mt-0 mb-4 text-sm text-red-600" role="alert">{message}</p>
+        <p className="mt-0 mb-4 text-sm text-destructive" role="alert">{message}</p>
         <Button type="button" variant="outline" onClick={onRetry}>{content.retry}</Button>
       </div>
     </div>
