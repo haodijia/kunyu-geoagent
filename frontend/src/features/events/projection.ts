@@ -1,4 +1,5 @@
 import type { SessionEvent } from "@/features/events/api";
+import { zhCN } from "@/locales/zh-CN";
 
 export type TrajectoryEventKind = "user" | "unsupported";
 
@@ -19,7 +20,7 @@ export function projectSessionEvent(
     case "message.user.appended": {
       const messageId = event.payload.message_id;
       if (typeof messageId !== "string") {
-        throw new Error("用户消息事件缺少消息标识。");
+        throw new Error(zhCN.trajectory.missingMessageId);
       }
       return {
         id: event.id,

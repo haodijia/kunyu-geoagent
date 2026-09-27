@@ -1,4 +1,5 @@
 import { getRuntimeConnection } from "./runtime";
+import { zhCN } from "@/locales/zh-CN";
 
 const SESSION_HEADER = "X-Kunyu-Session";
 
@@ -44,7 +45,7 @@ export async function* streamEvents(
   if (response.body === null) {
     throw new ApiError(
       response.status,
-      "事件流响应缺少正文。",
+      zhCN.api.eventStreamMissingBody,
       null
     );
   }
@@ -86,7 +87,7 @@ async function request(
   accept: string
 ): Promise<Response> {
   if (!path.startsWith("/api/")) {
-    throw new Error(`接口路径必须以 /api/ 开头：${path}`);
+    throw new Error(zhCN.api.invalidPath(path));
   }
 
   const connection = getRuntimeConnection();
@@ -113,7 +114,7 @@ async function throwApiError(response: Response): Promise<never> {
     ? ((await response.json()) as unknown)
     : await response.text();
   const message =
-    extractErrorMessage(details) ?? `请求失败（${response.status}）。`;
+    extractErrorMessage(details) ?? zhCN.api.requestFailed(response.status);
   throw new ApiError(response.status, message, details);
 }
 

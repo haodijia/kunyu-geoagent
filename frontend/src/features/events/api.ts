@@ -1,4 +1,5 @@
 import { streamEvents } from "@/api/client";
+import { zhCN } from "@/locales/zh-CN";
 
 export interface SessionEvent {
   readonly id: string;
@@ -22,13 +23,13 @@ export async function* streamSessionEvents(
   for await (const frame of streamEvents(path, signal, onOpen)) {
     const event = parseSessionEvent(frame.data);
     if (event.session_id !== sessionId) {
-      throw new Error("事件流返回了其他会话的事件。");
+      throw new Error(zhCN.trajectory.eventFromOtherSession);
     }
     if (frame.id !== String(event.sequence)) {
-      throw new Error("事件流帧 ID 与事件序号不一致。");
+      throw new Error(zhCN.trajectory.eventIdMismatch);
     }
     if (frame.event !== event.event_type) {
-      throw new Error("事件流帧类型与事件正文不一致。");
+      throw new Error(zhCN.trajectory.eventTypeMismatch);
     }
     yield event;
   }
@@ -47,7 +48,7 @@ function parseSessionEvent(data: string): SessionEvent {
     typeof value.occurred_at !== "string" ||
     !Number.isFinite(Date.parse(value.occurred_at))
   ) {
-    throw new Error("事件流返回了无效的会话事件。");
+    throw new Error(zhCN.trajectory.invalidEvent);
   }
 
   return value as unknown as SessionEvent;

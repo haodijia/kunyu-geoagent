@@ -13,6 +13,7 @@ import {
   projectSessionEvent,
   type TrajectoryEventProjection
 } from "@/features/events/projection";
+import { zhCN } from "@/locales/zh-CN";
 
 const INITIAL_RECONNECT_DELAY_MS = 500;
 const MAX_RECONNECT_DELAY_MS = 8_000;
@@ -68,7 +69,7 @@ export function SessionEventProvider({
             }
             if (event.sequence !== lastSequenceRef.current + 1) {
               throw new Error(
-                `事件序号不连续：期望 ${lastSequenceRef.current + 1}，收到 ${event.sequence}。`
+                zhCN.trajectory.sequenceGap(lastSequenceRef.current + 1, event.sequence)
               );
             }
 
@@ -82,7 +83,7 @@ export function SessionEventProvider({
           }
 
           if (!controller.signal.aborted) {
-            throw new Error("事件流意外结束。");
+            throw new Error(zhCN.trajectory.streamEnded);
           }
         } catch (streamError) {
           if (controller.signal.aborted) {
@@ -105,7 +106,7 @@ export function SessionEventProvider({
           setError(
             streamError instanceof Error
               ? streamError.message
-              : "会话事件流连接失败。"
+              : zhCN.trajectory.streamConnectionFailed
           );
           await waitForReconnect(reconnectDelay, controller.signal);
           reconnectDelay = Math.min(

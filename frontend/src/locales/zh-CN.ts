@@ -1,4 +1,10 @@
 export const zhCN = {
+  api: {
+    runtimeUnavailable: "桌面运行时连接不可用。",
+    eventStreamMissingBody: "事件流响应缺少正文。",
+    invalidPath: (path: string) => `接口路径必须以 /api/ 开头：${path}`,
+    requestFailed: (status: number) => `请求失败（${status}）。`
+  },
   shell: {
     productName: "坤舆",
     sidebarLabel: "任务侧边栏",
@@ -22,7 +28,8 @@ export const zhCN = {
     sessionTitlePlaceholder: "会话标题",
     defaultSessionTitle: "新会话",
     loadingSessions: "正在加载会话…",
-    emptySessions: "暂无会话"
+    emptySessions: "暂无会话",
+    cancel: "取消"
   },
   workspaceStart: {
     eyebrow: "继续研判",
@@ -91,6 +98,15 @@ export const zhCN = {
     loadMessagesFailed: "无法读取轨迹对应的消息内容。",
     connecting: "正在连接会话事件流…",
     reconnecting: "事件流已断开，正在恢复连接…",
-    failed: "无法连接会话事件流"
+    failed: "无法连接会话事件流",
+    missingMessageId: "用户消息事件缺少消息标识。",
+    eventFromOtherSession: "事件流返回了其他会话的事件。",
+    eventIdMismatch: "事件流帧 ID 与事件序号不一致。",
+    eventTypeMismatch: "事件流帧类型与事件正文不一致。",
+    invalidEvent: "事件流返回了无效的会话事件。",
+    sequenceGap: (expected: number, received: number) =>
+      `事件序号不连续：期望 ${expected}，收到 ${received}。`,
+    streamEnded: "事件流意外结束。",
+    streamConnectionFailed: "会话事件流连接失败。"
   },
 } as const;

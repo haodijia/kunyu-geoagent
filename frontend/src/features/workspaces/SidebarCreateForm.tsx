@@ -1,5 +1,6 @@
 import { Check, X } from "lucide-react";
 import { type FormEvent, useId, useState } from "react";
+import { zhCN } from "@/locales/zh-CN";
 
 interface SidebarCreateFormProps {
   readonly error: string | null;
@@ -55,7 +56,7 @@ export function SidebarCreateForm({
           type="button"
           className="flex size-8 items-center justify-center rounded-md text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-950 disabled:pointer-events-none disabled:opacity-40"
           onClick={onCancel}
-          aria-label="取消"
+          aria-label={zhCN.workspaceSidebar.cancel}
           disabled={pending}
         >
           <X className="size-4" aria-hidden="true" />
