@@ -1,4 +1,3 @@
-import logging
 from collections.abc import Callable
 from datetime import UTC, datetime
 from uuid import uuid4
@@ -48,14 +47,6 @@ class WorkspaceService:
             updated_at=now,
         )
         return self._repository.add(workspace)
-
-    def remove(self, workspace_id: str, dry_run: bool = False) -> int:
-        count = self._repository.remove(workspace_id, dry_run)
-        if count is None:
-            raise WorkspaceNotFoundError(workspace_id)
-        if not dry_run:
-            logging.getLogger(__name__).info("Removed workspace %s and %s sessions", workspace_id, count)
-        return count
 
     def get(self, workspace_id: str) -> Workspace:
         workspace = self._repository.get(workspace_id)

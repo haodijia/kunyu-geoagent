@@ -32,7 +32,3 @@ export function setSessionArchived(
     }
   );
 }
-
-export function listArchivedSessions(): Promise<SessionSummary[]> {
-  return requestJson("/api/v1/sessions/archived");
-}

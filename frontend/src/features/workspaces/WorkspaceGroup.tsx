@@ -1,5 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { FolderClosed, Plus } from "lucide-react";
+import { Plus } from "@icon-park/react";
+import { Tooltip } from "@arco-design/web-react";
+import WorkspaceCollapse from "./WorkspaceCollapse";
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 
@@ -29,6 +31,7 @@ export function WorkspaceGroup({
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [formOpen, setFormOpen] = useState(false);
+  const [expanded, setExpanded] = useState(true);
   const sessionsQuery = useQuery({
     queryKey: workspaceQueryKeys.sessions(workspace.id),
     queryFn: () => listSessions(workspace.id)
@@ -48,23 +51,45 @@ export function WorkspaceGroup({
   });
 
   return (
-    <section aria-label={workspace.name}>
-      <div className="group flex h-8 items-center gap-2 rounded-md px-2 text-slate-700">
-        <FolderClosed className="size-4 shrink-0" strokeWidth={1.8} />
-        <h3 className="m-0 min-w-0 flex-1 truncate text-sm font-medium">
+    <WorkspaceCollapse
+      expanded={expanded}
+      onToggle={() => setExpanded(!expanded)}
+      stickyHeader
+      stickyTop={0}
+      header={
+        <span className="min-w-0 flex-1 truncate text-[14px] font-medium text-t-primary">
           {workspace.name}
-        </h3>
-        <WorkspaceActions workspace={workspace} />
-        <button
-          type="button"
-          className="flex size-6 shrink-0 items-center justify-center rounded-md text-slate-400 opacity-0 transition-colors hover:bg-slate-100 hover:text-slate-800 focus-visible:opacity-100 group-hover:opacity-100"
-          onClick={() => setFormOpen(true)}
-          aria-label={`${content.createSessionIn}${workspace.name}`}
-        >
-          <Plus className="size-3.5" aria-hidden="true" />
-        </button>
-      </div>
-
+        </span>
+      }
+      trailing={
+        <span className="flex items-center gap-[6px]">
+          <Tooltip content={content.createSession} position="top">
+            <button
+              type="button"
+              className="sider-action-btn hidden size-[20px] cursor-pointer items-center justify-center rounded-[4px] border-0 p-0 text-t-secondary transition-colors group-hover:flex group-focus-within:flex hover:text-t-primary"
+              onClick={() => {
+                setExpanded(true);
+                setFormOpen(true);
+              }}
+              aria-label={`${content.createSessionIn}${workspace.name}`}
+            >
+              <Plus
+                theme="outline"
+                size="14"
+                fill="currentColor"
+                className="block leading-none"
+              />
+            </button>
+          </Tooltip>
+          {sessionsQuery.data && (
+            <WorkspaceActions
+              workspace={workspace}
+              sessions={sessionsQuery.data}
+            />
+          )}
+        </span>
+      }
+    >
       {formOpen ? (
         <SidebarCreateForm
           error={createMutation.error?.message ?? null}
@@ -85,7 +110,10 @@ export function WorkspaceGroup({
         </p>
       ) : null}
       {sessionsQuery.isError ? (
-        <p className="m-0 px-8 py-1 text-xs leading-4 text-red-600" role="alert">
+        <p
+          className="m-0 px-8 py-1 text-xs leading-4 text-red-600"
+          role="alert"
+        >
           {sessionsQuery.error.message}
         </p>
       ) : null}
@@ -94,11 +122,15 @@ export function WorkspaceGroup({
           {content.emptySessions}
         </p>
       ) : null}
-      <div className="grid gap-0.5">
+      <div className="mt-px grid gap-[2px]">
         {sessionsQuery.data?.map((session) => (
-          <SessionRow key={session.id} session={session} selected={session.id === activeSessionId} />
+          <SessionRow
+            key={session.id}
+            session={session}
+            selected={session.id === activeSessionId}
+          />
         ))}
       </div>
-    </section>
+    </WorkspaceCollapse>
   );
 }

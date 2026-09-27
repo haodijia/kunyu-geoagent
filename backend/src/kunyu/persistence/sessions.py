@@ -1,8 +1,14 @@
-from sqlalchemy import delete, select, text
+from sqlalchemy import and_, delete, or_, select, text
 from sqlalchemy.dialects.sqlite import insert
 
 from kunyu.domain.events import AgentEvent
-from kunyu.domain.sessions import Session
+from kunyu.domain.sessions import (
+    ArchivedSessionPage,
+    ArchivedWorkspace,
+    InvalidArchiveCursorError,
+    Session,
+    SessionNotArchivedError,
+)
 from kunyu.persistence.database import Database
 from kunyu.persistence.models import (
     AgentEventRecord,
@@ -36,14 +42,86 @@ class SQLAlchemySessionRepository:
                 )
             return True
 
-    def list_archived(self) -> list[Session]:
+    def list_archived_groups(self, limit: int) -> list[ArchivedWorkspace]:
         with self._database.sessions() as session:
-            records = session.scalars(
-                select(SessionRecord)
-                .where(SessionRecord.archive.has())
-                .order_by(SessionRecord.updated_at.desc(), SessionRecord.id.desc())
+            workspaces = session.scalars(
+                select(WorkspaceRecord)
+                .where(
+                    select(SessionRecord.id)
+                    .where(
+                        SessionRecord.workspace_id == WorkspaceRecord.id,
+                        SessionRecord.archive.has(),
+                    )
+                    .exists()
+                )
+                .order_by(WorkspaceRecord.updated_at.desc(), WorkspaceRecord.id.desc())
             ).all()
-            return [_to_domain(record) for record in records]
+            return [
+                ArchivedWorkspace(
+                    record.id, record.name, self.archived_page(record.id, None, limit)
+                )
+                for record in workspaces
+            ]
+
+    def archived_page(
+        self, workspace_id: str, cursor: str | None, limit: int
+    ) -> ArchivedSessionPage:
+        with self._database.sessions() as session:
+            statement = select(SessionRecord).where(
+                SessionRecord.workspace_id == workspace_id, SessionRecord.archive.has()
+            )
+            if cursor is not None:
+                last = session.get(SessionRecord, cursor)
+                if (
+                    last is None
+                    or last.workspace_id != workspace_id
+                    or last.archive is None
+                ):
+                    raise InvalidArchiveCursorError(
+                        "Archive cursor is no longer valid."
+                    )
+                statement = statement.where(
+                    or_(
+                        SessionRecord.updated_at < last.updated_at,
+                        and_(
+                            SessionRecord.updated_at == last.updated_at,
+                            SessionRecord.id < last.id,
+                        ),
+                    )
+                )
+            records = session.scalars(
+                statement.order_by(
+                    SessionRecord.updated_at.desc(), SessionRecord.id.desc()
+                ).limit(limit + 1)
+            ).all()
+            has_more = len(records) > limit
+            items = [_to_domain(record) for record in records[:limit]]
+            return ArchivedSessionPage(
+                items, has_more, items[-1].id if has_more else None
+            )
+
+    def delete_archived(self, session_id: str) -> bool:
+        with self._database.sessions.begin() as session:
+            session.execute(text("BEGIN IMMEDIATE"))
+            record = session.get(SessionRecord, session_id)
+            if record is None:
+                return False
+            if record.archive is None:
+                raise SessionNotArchivedError(
+                    "Only archived sessions can be permanently deleted."
+                )
+            session.delete(record)
+            return True
+
+    def delete_archived_workspace(self, workspace_id: str) -> int:
+        with self._database.sessions.begin() as session:
+            result = session.execute(
+                delete(SessionRecord).where(
+                    SessionRecord.workspace_id == workspace_id,
+                    SessionRecord.archive.has(),
+                )
+            )
+            return result.rowcount
 
     def add(self, session: Session, created_event: AgentEvent) -> Session | None:
         with self._database.sessions.begin() as database_session:

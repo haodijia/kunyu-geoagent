@@ -1,4 +1,4 @@
-from sqlalchemy import func, select, text
+from sqlalchemy import exists, or_, select
 
 from kunyu.domain.workspaces import Workspace
 from kunyu.persistence.database import Database
@@ -9,21 +9,6 @@ from kunyu.persistence.time import as_utc
 class SQLAlchemyWorkspaceRepository:
     def __init__(self, database: Database) -> None:
         self._database = database
-
-    def remove(self, workspace_id: str, dry_run: bool) -> int | None:
-        with self._database.sessions.begin() as session:
-            session.execute(text("BEGIN IMMEDIATE"))
-            workspace = session.get(WorkspaceRecord, workspace_id)
-            if workspace is None:
-                return None
-            count = session.scalar(
-                select(func.count())
-                .select_from(SessionRecord)
-                .where(SessionRecord.workspace_id == workspace_id)
-            )
-            if not dry_run:
-                session.delete(workspace)
-            return count
 
     def add(self, workspace: Workspace) -> Workspace:
         record = WorkspaceRecord(
@@ -44,6 +29,15 @@ class SQLAlchemyWorkspaceRepository:
     def list_recent(self) -> list[Workspace]:
         statement = select(WorkspaceRecord).order_by(
             WorkspaceRecord.updated_at.desc(), WorkspaceRecord.id.desc()
+        )
+        workspace_sessions = select(SessionRecord.id).where(
+            SessionRecord.workspace_id == WorkspaceRecord.id
+        )
+        statement = statement.where(
+            or_(
+                ~exists(workspace_sessions),
+                exists(workspace_sessions.where(~SessionRecord.archive.has())),
+            )
         )
         with self._database.sessions() as session:
             records = session.scalars(statement).all()
