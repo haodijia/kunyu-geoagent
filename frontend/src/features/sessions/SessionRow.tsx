@@ -89,7 +89,7 @@ export function SessionRow({
               archive.mutate();
             }}
           >
-            <Archive size={16} strokeWidth={1.5} aria-hidden="true" />
+            <Archive size={14} strokeWidth={1.5} aria-hidden="true" />
           </button>
         </Tooltip>
       </div>
