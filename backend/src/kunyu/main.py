@@ -12,6 +12,7 @@ from kunyu.api.sessions import router as sessions_router
 from kunyu.api.system import require_desktop_session
 from kunyu.api.system import router as system_router
 from kunyu.api.workspaces import router as workspaces_router
+from kunyu.application.connection_locks import ConnectionOperationLocks
 from kunyu.desktop import DesktopConfigurationError, run_desktop
 from kunyu.persistence.database import Database
 from kunyu.settings import DESKTOP_RENDERER_ORIGINS, SESSION_HEADER
@@ -20,6 +21,7 @@ from kunyu.settings import DESKTOP_RENDERER_ORIGINS, SESSION_HEADER
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     database = Database.open()
+    app.state.connection_operation_locks = ConnectionOperationLocks()
     app.state.database = database
     try:
         yield

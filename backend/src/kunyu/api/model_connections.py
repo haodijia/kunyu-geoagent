@@ -4,11 +4,21 @@ from typing import Annotated, Literal, Self
 from fastapi import APIRouter, Depends, Response, status
 from pydantic import BaseModel, ConfigDict, Field
 
-from kunyu.api.dependencies import get_database
+from kunyu.api.dependencies import (
+    get_connection_operation_locks,
+    get_database,
+)
 from kunyu.api.errors import ApiError
+from kunyu.application.connection_locks import ConnectionOperationLocks
+from kunyu.application.credentials import (
+    InvalidCredentialError,
+    ModelCredentialService,
+    UnsupportedCredentialError,
+)
 from kunyu.application.model_connections import (
     DefaultModelConnectionError,
     InvalidModelConnectionError,
+    ModelConnectionBusyError,
     ModelConnectionNotFoundError,
     ModelConnectionService,
 )
@@ -63,9 +73,15 @@ class EmptyRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
 
+class SetCredentialRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    api_key: str = Field(min_length=1, max_length=8_192)
+
+
 class CredentialResponse(BaseModel):
     status: CredentialStatus
-    configured: bool | None
+    configured: bool
     updated_at: datetime | None
 
 
@@ -183,12 +199,30 @@ class ModelConnectionResponse(BaseModel):
 
 def get_model_connection_service(
     database: Annotated[Database, Depends(get_database)],
+    locks: Annotated[ConnectionOperationLocks, Depends(get_connection_operation_locks)],
 ) -> ModelConnectionService:
-    return ModelConnectionService(SQLAlchemyModelConnectionRepository(database))
+    return ModelConnectionService(SQLAlchemyModelConnectionRepository(database), locks)
 
 
 ModelConnectionServiceDependency = Annotated[
     ModelConnectionService, Depends(get_model_connection_service)
+]
+
+
+def get_model_credential_service(
+    database: Annotated[Database, Depends(get_database)],
+    locks: Annotated[ConnectionOperationLocks, Depends(get_connection_operation_locks)],
+) -> ModelCredentialService:
+    repository = SQLAlchemyModelConnectionRepository(database)
+    return ModelCredentialService(
+        repository,
+        repository,
+        locks,
+    )
+
+
+ModelCredentialServiceDependency = Annotated[
+    ModelCredentialService, Depends(get_model_credential_service)
 ]
 
 
@@ -249,6 +283,8 @@ def update_model_connection(
         raise _not_found(error) from error
     except DefaultModelConnectionError as error:
         raise _default_connection(error) from error
+    except ModelConnectionBusyError as error:
+        raise _connection_busy(error) from error
     except InvalidModelConnectionError as error:
         raise _invalid_input(error) from error
     return ModelConnectionResponse.from_domain(connection)
@@ -265,7 +301,42 @@ def delete_model_connection(
         raise _not_found(error) from error
     except DefaultModelConnectionError as error:
         raise _default_connection(error) from error
+    except ModelConnectionBusyError as error:
+        raise _connection_busy(error) from error
     return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+@router.put("/{connection_id}/credential", response_model=ModelConnectionResponse)
+def set_model_connection_credential(
+    connection_id: str,
+    request: SetCredentialRequest,
+    service: ModelCredentialServiceDependency,
+) -> ModelConnectionResponse:
+    try:
+        connection = service.set_api_key(connection_id, request.api_key)
+    except ModelConnectionNotFoundError as error:
+        raise _not_found(error) from error
+    except InvalidCredentialError as error:
+        raise _invalid_input(error) from error
+    except UnsupportedCredentialError as error:
+        raise ApiError(422, "UNSUPPORTED_CAPABILITY", str(error)) from error
+    except ModelConnectionBusyError as error:
+        raise _connection_busy(error) from error
+    return ModelConnectionResponse.from_domain(connection)
+
+
+@router.delete("/{connection_id}/credential", response_model=ModelConnectionResponse)
+def clear_model_connection_credential(
+    connection_id: str,
+    service: ModelCredentialServiceDependency,
+) -> ModelConnectionResponse:
+    try:
+        connection = service.clear(connection_id)
+    except ModelConnectionNotFoundError as error:
+        raise _not_found(error) from error
+    except ModelConnectionBusyError as error:
+        raise _connection_busy(error) from error
+    return ModelConnectionResponse.from_domain(connection)
 
 
 @router.put("/{connection_id}/default", response_model=ModelConnectionResponse)
@@ -278,6 +349,8 @@ def set_default_model_connection(
         connection = service.set_default(connection_id)
     except ModelConnectionNotFoundError as error:
         raise _not_found(error) from error
+    except ModelConnectionBusyError as error:
+        raise _connection_busy(error) from error
     except InvalidModelConnectionError as error:
         raise _invalid_input(error) from error
     return ModelConnectionResponse.from_domain(connection)
@@ -305,3 +378,7 @@ def _not_found(error: ModelConnectionNotFoundError) -> ApiError:
 
 def _default_connection(error: Exception) -> ApiError:
     return ApiError(409, "DEFAULT_CONNECTION", str(error))
+
+
+def _connection_busy(error: Exception) -> ApiError:
+    return ApiError(409, "CONNECTION_BUSY", str(error))

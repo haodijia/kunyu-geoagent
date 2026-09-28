@@ -21,14 +21,10 @@ class MaxTokensField(StrEnum):
 class CredentialStatus(StrEnum):
     READY = "ready"
     MISSING = "missing"
-    RECOVERY_REQUIRED = "recovery_required"
 
 
 class ManagementStatus(StrEnum):
     READY = "ready"
-    CREDENTIAL_OPERATION = "credential_operation"
-    DELETING = "deleting"
-    RECOVERY_REQUIRED = "recovery_required"
 
 
 class DiscoveryStatus(StrEnum):
@@ -69,7 +65,7 @@ class CapabilitySource(StrEnum):
 @dataclass(frozen=True, slots=True)
 class CredentialState:
     status: CredentialStatus
-    configured: bool | None
+    configured: bool
     updated_at: datetime | None
 
 
@@ -148,3 +144,15 @@ class ModelConnectionRepository(Protocol):
     ) -> ModelConnection | None: ...
 
     def delete(self, connection_id: str) -> bool: ...
+
+
+class ModelCredentialRepository(Protocol):
+    def get_api_key(self, connection_id: str) -> str | None: ...
+
+    def set_api_key(
+        self, connection_id: str, api_key: str, updated_at: datetime
+    ) -> ModelConnection | None: ...
+
+    def clear_api_key(
+        self, connection_id: str, updated_at: datetime
+    ) -> ModelConnection | None: ...
