@@ -1,7 +1,7 @@
 from datetime import datetime
 from typing import Annotated, Literal, Self
 
-from fastapi import APIRouter, Depends, Response, status
+from fastapi import APIRouter, Depends, Query, Request, Response, status
 from pydantic import BaseModel, ConfigDict, Field
 
 from kunyu.api.dependencies import (
@@ -15,6 +15,15 @@ from kunyu.application.credentials import (
     ModelCredentialService,
     UnsupportedCredentialError,
 )
+from kunyu.application.model_catalog import (
+    CheckSupersededError,
+    DiscoveryResult,
+    DiscoverySupersededError,
+    ManualModelExistsError,
+    ManualModelNotFoundError,
+    ModelCatalogService,
+    ModelTestResult,
+)
 from kunyu.application.model_connections import (
     DefaultModelConnectionError,
     InvalidModelConnectionError,
@@ -22,6 +31,7 @@ from kunyu.application.model_connections import (
     ModelConnectionNotFoundError,
     ModelConnectionService,
 )
+from kunyu.application.model_discovery_tasks import ModelDiscoveryTasks
 from kunyu.domain.model_connections import (
     CapabilitySource,
     CapabilityStatus,
@@ -37,6 +47,10 @@ from kunyu.domain.model_connections import (
     ModelCheck,
     ModelConnection,
     ModelProtocol,
+)
+from kunyu.integrations.model.openai_compatible import (
+    ProviderErrorCode,
+    ProviderRequestError,
 )
 from kunyu.persistence.database import Database
 from kunyu.persistence.model_connections import SQLAlchemyModelConnectionRepository
@@ -77,6 +91,19 @@ class SetCredentialRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     api_key: str = Field(min_length=1, max_length=8_192)
+
+
+class ManualModelRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
+
+    model_id: str = Field(min_length=1, max_length=256)
+
+
+class ModelTestRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
+
+    model_id: str = Field(min_length=1, max_length=256)
+    mode: Literal["text", "tools"]
 
 
 class CredentialResponse(BaseModel):
@@ -197,6 +224,53 @@ class ModelConnectionResponse(BaseModel):
         )
 
 
+class ModelDiscoveryResponse(BaseModel):
+    revision: int
+    generation: int
+    entries: list[ModelCatalogEntryResponse]
+    discovered_at: datetime
+
+    @classmethod
+    def from_result(cls, result: DiscoveryResult) -> Self:
+        return cls(
+            revision=result.connection.revision,
+            generation=result.generation,
+            entries=[
+                ModelCatalogEntryResponse.from_domain(entry)
+                for entry in result.connection.catalog
+            ],
+            discovered_at=result.discovered_at,
+        )
+
+
+class ModelTestResponse(BaseModel):
+    model_id: str
+    revision: int
+    status: CheckStatus
+    checks: dict[Literal["text", "tools"], ModelCheckResponse]
+    latency_ms: int
+    error_code: str | None
+
+    @classmethod
+    def from_result(cls, result: ModelTestResult) -> Self:
+        entry = next(
+            item
+            for item in result.connection.catalog
+            if item.model_id == result.model_id
+        )
+        return cls(
+            model_id=result.model_id,
+            revision=result.revision,
+            status=result.status,
+            checks={
+                "text": ModelCheckResponse.from_domain(entry.text_check),
+                "tools": ModelCheckResponse.from_domain(entry.tool_check),
+            },
+            latency_ms=result.latency_ms,
+            error_code=result.error_code,
+        )
+
+
 def get_model_connection_service(
     database: Annotated[Database, Depends(get_database)],
     locks: Annotated[ConnectionOperationLocks, Depends(get_connection_operation_locks)],
@@ -226,14 +300,31 @@ ModelCredentialServiceDependency = Annotated[
 ]
 
 
+def get_model_discovery_tasks(request: Request) -> ModelDiscoveryTasks:
+    return request.app.state.model_discovery_tasks
+
+
+def get_model_catalog_service(request: Request) -> ModelCatalogService:
+    return request.app.state.model_catalog_service
+
+
+ModelDiscoveryTasksDependency = Annotated[
+    ModelDiscoveryTasks, Depends(get_model_discovery_tasks)
+]
+ModelCatalogServiceDependency = Annotated[
+    ModelCatalogService, Depends(get_model_catalog_service)
+]
+
+
 @router.post(
     "",
     response_model=ModelConnectionResponse,
     status_code=status.HTTP_201_CREATED,
 )
-def create_model_connection(
+async def create_model_connection(
     request: CreateModelConnectionRequest,
     service: ModelConnectionServiceDependency,
+    discovery_tasks: ModelDiscoveryTasksDependency,
 ) -> ModelConnectionResponse:
     try:
         connection = service.create(
@@ -246,6 +337,7 @@ def create_model_connection(
         )
     except InvalidModelConnectionError as error:
         raise _invalid_input(error) from error
+    discovery_tasks.schedule_if_pending(connection)
     return ModelConnectionResponse.from_domain(connection)
 
 
@@ -267,10 +359,11 @@ def get_model_connection(
 
 
 @router.patch("/{connection_id}", response_model=ModelConnectionResponse)
-def update_model_connection(
+async def update_model_connection(
     connection_id: str,
     request: UpdateModelConnectionRequest,
     service: ModelConnectionServiceDependency,
+    discovery_tasks: ModelDiscoveryTasksDependency,
 ) -> ModelConnectionResponse:
     changes = {
         field: value
@@ -287,6 +380,7 @@ def update_model_connection(
         raise _connection_busy(error) from error
     except InvalidModelConnectionError as error:
         raise _invalid_input(error) from error
+    discovery_tasks.schedule_if_pending(connection)
     return ModelConnectionResponse.from_domain(connection)
 
 
@@ -307,10 +401,11 @@ def delete_model_connection(
 
 
 @router.put("/{connection_id}/credential", response_model=ModelConnectionResponse)
-def set_model_connection_credential(
+async def set_model_connection_credential(
     connection_id: str,
     request: SetCredentialRequest,
     service: ModelCredentialServiceDependency,
+    discovery_tasks: ModelDiscoveryTasksDependency,
 ) -> ModelConnectionResponse:
     try:
         connection = service.set_api_key(connection_id, request.api_key)
@@ -322,6 +417,7 @@ def set_model_connection_credential(
         raise ApiError(422, "UNSUPPORTED_CAPABILITY", str(error)) from error
     except ModelConnectionBusyError as error:
         raise _connection_busy(error) from error
+    discovery_tasks.schedule_if_pending(connection)
     return ModelConnectionResponse.from_domain(connection)
 
 
@@ -356,6 +452,95 @@ def set_default_model_connection(
     return ModelConnectionResponse.from_domain(connection)
 
 
+@router.post(
+    "/{connection_id}/discover-models",
+    response_model=ModelDiscoveryResponse,
+)
+async def discover_connection_models(
+    connection_id: str,
+    _: EmptyRequest,
+    service: ModelCatalogServiceDependency,
+) -> ModelDiscoveryResponse:
+    try:
+        result = await service.discover(connection_id)
+    except ModelConnectionNotFoundError as error:
+        raise _not_found(error) from error
+    except InvalidModelConnectionError as error:
+        raise _invalid_input(error) from error
+    except DiscoverySupersededError as error:
+        raise ApiError(409, "DISCOVERY_SUPERSEDED", str(error)) from error
+    except ProviderRequestError as error:
+        raise _provider_error(error) from error
+    return ModelDiscoveryResponse.from_result(result)
+
+
+@router.post(
+    "/{connection_id}/manual-models",
+    response_model=ModelCatalogEntryResponse,
+    status_code=status.HTTP_201_CREATED,
+)
+def add_manual_model(
+    connection_id: str,
+    request: ManualModelRequest,
+    service: ModelCatalogServiceDependency,
+) -> ModelCatalogEntryResponse:
+    try:
+        entry = service.add_manual_model(connection_id, request.model_id)
+    except ModelConnectionNotFoundError as error:
+        raise _not_found(error) from error
+    except InvalidModelConnectionError as error:
+        raise _invalid_input(error) from error
+    except ManualModelExistsError as error:
+        raise ApiError(409, "MODEL_EXISTS", str(error)) from error
+    return ModelCatalogEntryResponse.from_domain(entry)
+
+
+@router.delete(
+    "/{connection_id}/manual-models",
+    status_code=status.HTTP_204_NO_CONTENT,
+)
+def delete_manual_model(
+    connection_id: str,
+    service: ModelCatalogServiceDependency,
+    model_id: Annotated[str, Query(min_length=1, max_length=256)],
+) -> Response:
+    try:
+        service.delete_manual_model(connection_id, model_id)
+    except ModelConnectionNotFoundError as error:
+        raise _not_found(error) from error
+    except InvalidModelConnectionError as error:
+        raise _invalid_input(error) from error
+    except ManualModelNotFoundError as error:
+        raise ApiError(
+            404,
+            "NOT_FOUND",
+            "The manual model was not found.",
+            {"model_id": error.model_id},
+        ) from error
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+@router.post("/{connection_id}/test", response_model=ModelTestResponse)
+async def test_model_connection(
+    connection_id: str,
+    request: ModelTestRequest,
+    service: ModelCatalogServiceDependency,
+) -> ModelTestResponse:
+    try:
+        result = await service.test_model(
+            connection_id,
+            request.model_id,
+            request.mode,
+        )
+    except ModelConnectionNotFoundError as error:
+        raise _not_found(error) from error
+    except InvalidModelConnectionError as error:
+        raise _invalid_input(error) from error
+    except CheckSupersededError as error:
+        raise ApiError(409, "CHECK_SUPERSEDED", str(error)) from error
+    return ModelTestResponse.from_result(result)
+
+
 def _get(service: ModelConnectionService, connection_id: str) -> ModelConnection:
     try:
         return service.get(connection_id)
@@ -382,3 +567,8 @@ def _default_connection(error: Exception) -> ApiError:
 
 def _connection_busy(error: Exception) -> ApiError:
     return ApiError(409, "CONNECTION_BUSY", str(error))
+
+
+def _provider_error(error: ProviderRequestError) -> ApiError:
+    status_code = 504 if error.code is ProviderErrorCode.TIMEOUT else 502
+    return ApiError(status_code, error.code.value, str(error))

@@ -180,6 +180,7 @@ def _copy_connection(
     record.discovery_generation = connection.discovery.generation
     record.discovery_last_success_at = connection.discovery.last_success_at
     record.discovery_error_code = connection.discovery.error_code
+    record.check_generation = connection.check_generation
     record.created_at = connection.created_at
     record.updated_at = connection.updated_at
 
@@ -237,24 +238,41 @@ def _apply_credential_change(
     connection.credential_configured = configured
     connection.credential_updated_at = updated_at
     connection.revision += 1
-    connection.discovery_status = DiscoveryStatus.IDLE.value
+    connection.discovery_status = (
+        DiscoveryStatus.PENDING.value if configured else DiscoveryStatus.IDLE.value
+    )
+    if configured:
+        connection.discovery_generation += 1
     connection.discovery_last_success_at = None
     connection.discovery_error_code = None
+    connection.check_generation += 1
     connection.updated_at = updated_at
-    _invalidate_catalog_records(connection.catalog_entries)
+    _invalidate_catalog_records(connection.catalog_entries, connection.revision)
 
 
 def _invalidate_catalog_records(
     entries: list[ModelCatalogEntryRecord],
+    revision: int,
 ) -> None:
     for entry in entries:
-        entry.availability = CatalogAvailability.UNAVAILABLE.value
+        is_manual = CatalogSource.MANUAL.value in entry.sources
+        if is_manual:
+            entry.sources = [CatalogSource.MANUAL.value]
+            entry.revision = revision
+        entry.availability = (
+            CatalogAvailability.AVAILABLE.value
+            if is_manual
+            else CatalogAvailability.UNAVAILABLE.value
+        )
         entry.text_check = CheckStatus.UNCHECKED.value
         entry.text_checked_at = None
         entry.text_error_code = None
         entry.tool_check = CheckStatus.UNCHECKED.value
         entry.tool_checked_at = None
         entry.tool_error_code = None
+        if entry.tool_capability_source == CapabilitySource.VALIDATION.value:
+            entry.tool_capability = CapabilityStatus.UNKNOWN.value
+            entry.tool_capability_source = CapabilitySource.UNKNOWN.value
 
 
 def _to_domain(record: ModelConnectionRecord) -> ModelConnection:
@@ -284,6 +302,7 @@ def _to_domain(record: ModelConnectionRecord) -> ModelConnection:
             last_success_at=_optional_utc(record.discovery_last_success_at),
             error_code=record.discovery_error_code,
         ),
+        check_generation=record.check_generation,
         catalog=tuple(
             _catalog_to_domain(entry, enabled_model_ids)
             for entry in sorted(record.catalog_entries, key=lambda item: item.model_id)
