@@ -13,7 +13,7 @@
 3. 后端使用 uv；不新增数据库迁移、软件版本升级或旧契约兼容分支。前后端契约变更同步落地。
 4. 不写假模型回复、假工具结果，不在失败时替换模型、协议、凭据存储或事件源。
 5. 默认不新增测试文件。执行类型检查、构建、隔离数据目录下的手工接口检查和桌面验收；用户明确要求时再编写测试。
-6. 开发前查看 mu、deepseek-harness 中相近实现。界面以现有 shadcn/ui 组件、Tailwind、统一主题和 v3 原型为准；不引入 Arco、不重建 Shell、不照搬无关业务。
+6. 开发前按第 2.1 节核对参考源码：模型连接与模型名称发现参考 maka-agent，Agent 运行架构参考 deepseek-harness，界面参考 mu、deepseek-harness 与 v3 原型。界面复用现有 shadcn/ui、Tailwind 和统一主题；不引入 Arco、不重建 Shell、不照搬无关业务。
 7. 未完成或无法验证的能力明确记录，不把通过构建等同于真实模型、凭据库或跨进程恢复验收通过。
 
 ## 2. 从阶段一接续
@@ -32,12 +32,22 @@
 
 当前 POST messages 仅接受 role=user 和 content，返回 Message（201）；没有模型选择、幂等键、Run 或 Assistant。这些均在本阶段新增，不能按“已有能力”直接依赖。
 
+### 2.1 参考源码与移植边界
+
+| 来源 | 核对位置 | 本项目借鉴方式 |
+| --- | --- | --- |
+| maka-agent | `apps/desktop/src/main/connection-model-discovery.ts`、`packages/runtime/src/model-fetcher.ts`、`packages/core/src/llm-connections.ts`、`packages/core/src/model-catalog.ts` | 借鉴“连接配置 → 校验凭据 → 请求模型列表 → 规范化模型 ID → 保存目录来源和时间 → 设置页选择”的链路。将 Electron IPC/TypeScript 实现改为 FastAPI 应用服务与 Python 适配器；首期只处理已声明的 OpenAI-compatible `/models` 接口。 |
+| deepseek-harness | `packages/core/agent-loop/src/agent.ts`、`packages/core/agent-loop/src/tool-calls.ts`、`packages/core/session/src/index.ts`、`packages/core/session/src/surface.ts`、`packages/core/tools/src/index.ts` | 借鉴运行循环、工具注册/守卫、类型化事件与从日志派生状态的职责划分。落到 `dsh` Protocol、显式 Host 装配、SQLite 同事务事件和 Run 投影；不移植 Cordis、收件箱、多 Agent、并行工具池或 JSONL 存储。 |
+| mu | 现有模型设置与选择相关组件、样式 | 只参考界面层级、间距和控件使用；业务状态、接口文案和运行架构以本项目契约为准。 |
+
+“借鉴”指采用边界和处理顺序，不复制源码、原文文案或对方 Provider 全家桶。每个后续实现 commit 的正文须列出实际对照的来源路径、采用的机制、在 Python/现有架构中的对应实现，以及明确未引入的部分；不能仅写“参考 maka-agent/DSH”。
+
 ## 3. 范围
 
 ### 3.1 本阶段交付
 
 - 最小 DSH 的 Host、Plugin、Capability、ModelAdapter、Tool、PolicyGate、EventStore、Reducer 和 Runner。
-- 多个模型连接、唯一默认连接、系统凭据库存储、连接测试与模型目录。
+- 多个模型连接、唯一默认连接、系统凭据库存储、连接测试与自动发现模型名称的目录。
 - 一个明确的 OpenAI-compatible 协议适配器，支持真实文本流和结构化 Tool Call；Provider 差异使用显式配置处理。
 - 输入框选择连接、模型和受支持的推理强度，Run 保存不可变模型与地图上下文快照。
 - 持久 Assistant 消息、运行状态、工具调用、确认、错误与中断记录。
@@ -49,7 +59,7 @@
 ### 3.2 本阶段不做
 
 - OGE 鉴权、远程计算、processId、Task 监督器、地图成果或报告 Artifact。
-- 原生 Ollama 协议适配、任意 Provider 自动识别、协议探测与自动模型切换。
+- 原生 Ollama 协议适配、任意 Provider 自动识别、协议探测与自动模型切换。自动发现只读取当前连接明确配置的模型列表接口。
 - 通用插件市场、多 Agent、任意脚本执行、向量数据库、复杂上下文压缩或 Case Memory。
 - GeoSkill 编辑发布、工作流画布、Workspace 文件系统访问或前端直接连接模型。
 - 安装包、签名、自动更新和独立服务器交付。
@@ -90,15 +100,18 @@
 
 ### 4.3 模型连接
 
-ModelConnection 保存稳定 ID、显示名、协议类型、Base URL、认证方式、启用状态、默认标记、配置修订号及模型目录。每个目录条目明确是否支持 Tool Call，以及允许的 reasoning_effort；不向不支持的模型发送推理参数。
+ModelConnection 保存稳定 ID、显示名、协议类型、Base URL、认证方式、启用状态、默认标记、配置修订号及模型目录。目录条目保存 Provider 返回的精确 model_id、可选显示名、发现来源、发现时间，以及能被可靠确认的 Tool Call 和 reasoning_effort 能力；未知能力标记为 unknown，不能推断为支持。不向不支持或能力未知的模型发送推理参数。
 
 - 本阶段协议类型仅 openai_compatible；认证方式显式为 api_key 或 none，none 只适用于用户明确配置的免密服务。
 - reasoning_effort 为 null 或该模型支持的枚举值；不得把统一的 standard/high 标签不加转换地发给所有服务。
-- 支持模型目录发现与用户显式维护目录；发现失败显示错误，不自动切换为手工目录。手工配置是独立管理操作。
+- 参考 maka-agent 的 `discoverConnectionModels → fetchProviderModels`：后端读取当前连接和凭据，向该连接 Base URL 对应的 OpenAI-compatible `GET /models` 发起受限请求，解析 `data[].id`，去空白、去重并限制 ID 长度和条目数。请求、响应格式、认证或空目录异常均返回脱敏错误；不猜测模型名。
+- 保存连接且凭据就绪后自动触发一次发现；Base URL 或凭据更新后使旧目录不再可选，并对新配置重新发现。设置页提供“刷新模型列表”；刷新失败不覆盖同一修订号下已有的有效目录，但显示失败和上次成功时间。首次发现失败时连接保持“无可选模型”，不把内置名称当作真实发现结果。
+- 用户也可在独立的“手工添加模型”操作中明确填写精确 model_id，来源标为 manual；不会因发现失败自动进入手工模式。手工条目需通过真实连接检查后才可用于 Run。自动发现的条目和手工条目分别标记来源，不伪造能力元数据。
+- 模型列表发现与连接测试分开：`GET /models` 成功只能证明目录可读；连接测试必须针对选定 model_id 发起真实受限调用，Tool Call 能力需要真实验证或可靠的 Provider 元数据，不能由名字猜测。
 - 凭据写入系统凭据库，查询仅返回 configured 和更新时间。API Key 不进入 SQLite、前端持久化、场景包或日志。
 - 系统凭据库不可用时阻止需要凭据的连接操作并报告原因，不回退到文件或环境变量存储。
 - 默认连接由事务和唯一约束保证最多一个；没有默认连接时要求用户选择，不自行选第一项。
-- RunModelSnapshot 冻结连接 ID、协议、Base URL、认证方式、模型 ID、推理参数与配置修订号，不含凭据原文。
+- RunModelSnapshot 冻结连接 ID、协议、Base URL、认证方式、模型 ID、推理参数与配置修订号，不含凭据原文。提交前校验 model_id 属于当前修订号下可用且已验证的目录；已被刷新移除的模型不能继续作为新 Run 默认值。
 - 未完成 Run 引用的连接禁止改配置、替换/删除凭据、禁用或删除；防止中断恢复时悄悄使用不同运行条件。终态 Run 保留快照，不要求原连接永远存在。
 
 ### 4.4 工具与确认
@@ -149,7 +162,8 @@ Runner 由 FastAPI lifespan 管理，不能把一次 request 的 BackgroundTasks
 | PUT/DELETE /model-connections/{id}/credential | 写入或清除凭据，绝不返回原文 |
 | PUT /model-connections/{id}/default | 原子设置默认连接 |
 | POST /model-connections/{id}/test | 真实受限请求，返回检查状态与耗时 |
-| POST /model-connections/{id}/discover-models | 显式发现并保存可用模型目录 |
+| POST /model-connections/{id}/discover-models | 用户主动刷新当前连接模型目录；连接保存/凭据就绪后由后端调用同一发现服务 |
+| POST /model-connections/{id}/manual-models | 用户显式添加模型 ID；记录 manual 来源，需连接检查通过后才可用于 Run |
 | POST /sessions/{id}/messages | Idempotency-Key；正文为 content、model_selection、map_context；返回 202 {message, run} |
 | GET /sessions/{id}/messages | 用户与 Assistant 消息，包括持久部分正文和状态 |
 | GET /sessions/{id}/runs | 当前/历史 Run 摘要 |
@@ -188,13 +202,25 @@ api/application/domain/persistence 中分别增加模型连接、Run、确认、
 
 更改已有表结构时明确使用可重建的开发数据目录；create_all 不负责修改旧列。不要用自动清库代替恢复逻辑，恢复验收必须在同一数据库上重启。
 
+### 4.8 DSH 的职责与装配顺序
+
+借鉴 deepseek-harness 的 `agent-loop`、`session`、`tools` 三个接缝，阶段二只实现单一 `GeoAgent` 的最小闭环：
+
+1. `kunyu.agent.bootstrap` 显式创建 Host，并按 EventStore → ModelAdapter → Context → ToolRegistry → PolicyGate → Runner 的依赖顺序装配；缺能力或重复提供者立即失败，关闭时逆序释放。
+2. `dsh.runner` 只消费已受理的 run_id，从不可变快照构建模型请求；一次模型响应中的 Tool Call 先组装完整，再按模型关联 ID 校验、登记、过 PolicyGate 和执行。写工具停在持久确认点，不占用模型网络流等待用户。
+3. `dsh.event_store` 只负责会话内有序追加；`dsh.reducer` 从已提交事件得到 RunState。`kunyu` 的 SQLite 适配器把事件、消息、ToolCall 与状态投影放在同一事务，模型可见的已接纳事实必须可由持久记录重建。
+4. `dsh.tools` 声明 Schema 和调用契约；`kunyu.agent.tools` 提供白名单业务实现。参数校验和 PolicyGate 位于实际执行之前，模型不能通过提示词、工具名或自报 scope 绕过权限。
+5. Runner 的取消信号终止模型流和未执行工具；已持久的部分正文保持 `interrupted`/`cancelled` 状态。重启只从日志与快照重建，恢复由用户显式触发，不重放状态不明的写入。
+
+这里的“插件化”是固定代码装配和能力注入，不做 deepseek-harness 的 Cordis 运行时、动态插件加载、通用消息 surface、并行工具调度或多 Agent。`dsh` 不依赖 FastAPI、SQLAlchemy 或坤舆业务类型；`kunyu` 实现这些 Protocol 并拥有事务、凭据与 API。
+
 ## 5. Commit 计划
 
 ### P2-01 `feat(dsh): define runtime contracts and host lifecycle`
 
 **结果**：可导入的业务无关 DSH 核心和确定性插件装配。
 
-**范围**：定义 AgentRuntime、ModelAdapter、Tool、PolicyGate、EventStore、Context/Memory Protocol；按能力拆文件；Host 检查重复提供者和缺失依赖，按顺序启动、逆序清理。同步 uv_build 的 dsh 包发现，不引入业务 ORM。
+**范围**：对照 deepseek-harness 的 `packages/core/agent-loop`、`session`、`tools`，定义 AgentRuntime、ModelAdapter、Tool、PolicyGate、EventStore、Context/Memory Protocol；按能力拆文件；Host 检查重复提供者和缺失依赖，按顺序启动、逆序清理。同步 uv_build 的 dsh 包发现，不引入业务 ORM 或 Cordis。
 
 **检查**：uv 环境能导入 dsh 和 kunyu；安装包实际包含两个包；重复能力与缺失依赖明确失败，已启动插件在后续启动失败时释放资源。
 
@@ -202,7 +228,7 @@ api/application/domain/persistence 中分别增加模型连接、Run、确认、
 
 **结果**：模型连接、目录和默认选择有正式领域与存储契约。
 
-**范围**：实现四层模型配置、唯一默认约束、协议/认证方式、模型能力和配置修订号；不保存 API Key。新增 GET/POST/PATCH/DELETE/default API 与 CORS 方法。
+**范围**：对照 maka-agent 的 `llm-connections.ts` 和 `model-catalog.ts`，实现四层模型配置、唯一默认约束、协议/认证方式、模型目录来源与发现时间、能力 unknown 状态和配置修订号；不保存 API Key。新增 GET/POST/PATCH/DELETE/default API 与 CORS 方法。Base URL 或凭据变化使旧目录失效。
 
 **检查**：重启后配置保持；多个连接只允许一个默认项；非法 URL、重复目录项或不支持的协议报错；默认连接不能被直接删除。
 
@@ -218,17 +244,17 @@ api/application/domain/persistence 中分别增加模型连接、Run、确认、
 
 **结果**：后端可进行真实连接检查、目录发现和流式调用。
 
-**范围**：唯一 OpenAI-compatible 适配器；增量文本、结构化 Tool Call、用量、超时和取消；显式 Provider 参数映射；过滤隐藏推理；补全 test/discover-models API。不启用协议探测。
+**范围**：对照 maka-agent 的 `connection-model-discovery.ts` 和 `model-fetcher.ts`，实现按当前连接自动读取 `/models`、规范化并原子保存目录、失败保留同修订号有效旧目录/报告错误、显式刷新和独立手工添加；再实现唯一 OpenAI-compatible 适配器的增量文本、结构化 Tool Call、用量、超时和取消；显式 Provider 参数映射；过滤隐藏推理；补全 test/discover-models/manual-models API。不启用协议探测或静态模型名替代发现结果。
 
-**检查**：用真实服务验证普通文本与工具调用；无效密钥、网络超时、非法工具参数可区分；无密钥时不能伪造成功；配置不支持的推理强度被拒绝。
+**检查**：用真实服务验证自动列出精确模型 ID、普通文本与工具调用；无效密钥、空列表、异常格式、网络超时、非法工具参数可区分；首次发现失败无可选模型；无密钥时不能伪造成功；配置不支持的推理强度被拒绝。
 
 ### P2-05 `feat(settings): manage model connections in existing shell`
 
 **结果**：模型设置可完成连接配置闭环。
 
-**范围**：复用 SettingsPageWrapper/Header、侧栏、表单和提示；连接列表/详情、默认设置、写入型密钥、目录发现或手工维护、连接测试。清理离开页面后的密钥草稿。
+**范围**：复用 SettingsPageWrapper/Header、侧栏、表单和提示；连接列表/详情、默认设置、写入型密钥、保存后自动发现状态、手动刷新、独立手工添加、模型来源/上次成功时间、选定模型连接测试。清理离开页面后的密钥草稿。只借鉴 maka-agent 的连接流程与 mu/deepseek-harness 的视觉组织，不复制对方设置文案。
 
-**检查**：通过 UI 创建连接并完成真实检查；重新进入只显示 configured；归档设置页与返回会话操作保持正常；宽窄桌面布局无溢出。
+**检查**：通过 UI 创建连接并自动列出服务实际返回的模型名称，主动刷新可更新目录；选定模型完成真实检查；发现失败有明确状态和手工添加入口，不自动填入猜测名称；重新进入只显示 configured；归档设置页与返回会话操作保持正常；宽窄桌面布局无溢出。
 
 ### P2-06 `feat(runs): persist runs messages and ordered events`
 
@@ -242,7 +268,7 @@ api/application/domain/persistence 中分别增加模型连接、Run、确认、
 
 **结果**：可由已提交事件确定性恢复运行状态。
 
-**范围**：Reducer、状态转移、Tool Call 配对、模型 attempt、预算累计与终态保护；持久状态表只是事务内更新的查询投影，不是第二个独立状态机。
+**范围**：对照 deepseek-harness `session` 的类型事件与派生投影，定义 Reducer、状态转移、Tool Call 配对、模型 attempt、预算累计与终态保护；持久状态表只是事务内更新的查询投影，不是第二个独立状态机。
 
 **检查**：回放同一事件序列得到相同结果；非法转移报错；中断、取消、完成不会互相覆盖；恢复后预算和工具结果不丢失。
 
@@ -266,7 +292,7 @@ api/application/domain/persistence 中分别增加模型连接、Run、确认、
 
 **结果**：Runner 完成模型—只读工具—模型的真实循环，并能等待确认。
 
-**范围**：从已提交 run_id 开始执行；组装上下文、处理流、合并 Tool Call、执行工具、应用预算、持久终态；确认时保存完整续行状态，不占用模型连接等待用户。
+**范围**：对照 deepseek-harness `agent-loop/src/agent.ts` 与 `tool-calls.ts` 的模型—工具循环和取消边界，从已提交 run_id 开始执行；组装上下文、处理流、合并 Tool Call、执行工具、应用预算、持久终态；确认时保存完整续行状态，不占用模型连接等待用户。首期工具串行执行。
 
 **检查**：真实模型可调用 workspace.get_context 后回复；提出记忆写入时暂停；无效工具、调用超限和 Provider 断流有明确失败/中断状态，不生成假成功。
 
@@ -349,7 +375,7 @@ api/application/domain/persistence 中分别增加模型连接、Run、确认、
 ### 6.2 桌面主链
 
 1. 使用独立开发数据目录启动 Electron，确认仍由桌面拉起后端。
-2. 在模型设置创建一个真实连接，写入凭据，发现或显式维护模型目录并完成连接检查。
+2. 在模型设置创建一个真实连接并写入凭据，确认自动发现服务实际返回的模型 ID、来源和时间；选定模型完成连接检查，再主动刷新一次目录。
 3. 创建工作空间与会话，在对话输入框选择连接和模型，发送普通消息。
 4. 确认用户消息与 Run 只创建一次，Assistant 实际流式输出，完成后重启仍可读取。
 5. 发起需要 workspace.get_context 的请求，核对工具读取的真实空间与后续回复。
