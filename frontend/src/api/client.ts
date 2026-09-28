@@ -122,10 +122,13 @@ function extractErrorMessage(details: unknown): string | null {
   if (
     typeof details === "object" &&
     details !== null &&
-    "detail" in details &&
-    typeof details.detail === "string"
+    "error" in details &&
+    typeof details.error === "object" &&
+    details.error !== null &&
+    "message" in details.error &&
+    typeof details.error.message === "string"
   ) {
-    return details.detail;
+    return details.error.message;
   }
   return null;
 }
