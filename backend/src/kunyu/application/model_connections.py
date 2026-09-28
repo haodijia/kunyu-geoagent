@@ -22,6 +22,7 @@ from kunyu.domain.model_connections import (
     ModelCheck,
     ModelConnection,
     ModelConnectionRepository,
+    ModelProviderType,
     ModelProtocol,
 )
 
@@ -79,6 +80,7 @@ class ModelConnectionService:
         self,
         *,
         display_name: str,
+        provider_type: ModelProviderType,
         protocol: ModelProtocol,
         base_url: str,
         auth_mode: ModelAuthMode,
@@ -87,6 +89,8 @@ class ModelConnectionService:
     ) -> ModelConnection:
         if protocol is not ModelProtocol.OPENAI_COMPATIBLE:
             raise InvalidModelConnectionError("Unsupported model protocol.")
+        if not isinstance(provider_type, ModelProviderType):
+            raise InvalidModelConnectionError("Unsupported model provider.")
         if not isinstance(auth_mode, ModelAuthMode):
             raise InvalidModelConnectionError("Unsupported authentication mode.")
         if not isinstance(max_tokens_field, MaxTokensField):
@@ -100,6 +104,7 @@ class ModelConnectionService:
         connection = ModelConnection(
             id=self._id_factory(),
             display_name=normalized_name,
+            provider_type=provider_type,
             protocol=protocol,
             base_url=normalized_url,
             auth_mode=auth_mode,

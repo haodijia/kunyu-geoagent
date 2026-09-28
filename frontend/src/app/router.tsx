@@ -5,6 +5,7 @@ import { ArchivedSessionsPage } from "@/features/sessions/ArchivedSessionsPage";
 import { ModelConnectionCreatePage } from "@/features/settings/models/ModelConnectionCreatePage";
 import { ModelConnectionDetailPage } from "@/features/settings/models/ModelConnectionDetailPage";
 import { ModelConnectionsPage } from "@/features/settings/models/ModelConnectionsPage";
+import { ModelProviderCatalogPage } from "@/features/settings/models/ModelProviderCatalogPage";
 import { SessionWorkspace } from "@/features/sessions/SessionWorkspace";
 import { ConversationView } from "@/features/sessions/views/ConversationView";
 import { OverviewView } from "@/features/sessions/views/OverviewView";
@@ -29,7 +30,8 @@ export const router = createHashRouter([
     children: [
       { path: "settings/archived", element: <ArchivedSessionsPage /> },
       { path: "settings/models", element: <ModelConnectionsPage /> },
-      { path: "settings/models/new", element: <ModelConnectionCreatePage /> },
+      { path: "settings/models/new", element: <ModelProviderCatalogPage /> },
+      { path: "settings/models/new/:providerId", element: <ModelConnectionCreatePage /> },
       {
         path: "settings/models/:connectionId",
         element: <ModelConnectionDetailPage />

@@ -129,6 +129,13 @@ class ModelConnectionRecord(Base):
             name="ck_model_connections_protocol",
         ),
         CheckConstraint(
+            "provider_type IN ('openai', 'deepseek', 'moonshot', 'zai', "
+            "'siliconflow', 'openrouter', 'groq', 'nvidia', 'together', "
+            "'deepinfra', 'fireworks', 'alibaba', 'xai', 'mistral', 'ollama', "
+            "'lm_studio', 'localai', 'custom')",
+            name="ck_model_connections_provider_type",
+        ),
+        CheckConstraint(
             "auth_mode IN ('api_key', 'none')",
             name="ck_model_connections_auth_mode",
         ),
@@ -172,6 +179,7 @@ class ModelConnectionRecord(Base):
 
     id: Mapped[str] = mapped_column(String(64), primary_key=True)
     display_name: Mapped[str] = mapped_column(String(200), nullable=False)
+    provider_type: Mapped[str] = mapped_column(String(32), nullable=False)
     protocol: Mapped[str] = mapped_column(String(32), nullable=False)
     base_url: Mapped[str] = mapped_column(String(2048), nullable=False)
     auth_mode: Mapped[str] = mapped_column(String(32), nullable=False)

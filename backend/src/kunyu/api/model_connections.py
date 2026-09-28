@@ -46,6 +46,7 @@ from kunyu.domain.model_connections import (
     ModelCatalogEntry,
     ModelCheck,
     ModelConnection,
+    ModelProviderType,
     ModelProtocol,
 )
 from kunyu.integrations.model.openai_compatible import (
@@ -62,6 +63,7 @@ class CreateModelConnectionRequest(BaseModel):
     model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
 
     display_name: str = Field(min_length=1, max_length=200)
+    provider_type: ModelProviderType
     protocol: Literal[ModelProtocol.OPENAI_COMPATIBLE]
     base_url: str = Field(min_length=1, max_length=2_048)
     auth_mode: ModelAuthMode
@@ -171,6 +173,7 @@ class ModelCatalogEntryResponse(BaseModel):
 class ModelConnectionResponse(BaseModel):
     id: str
     display_name: str
+    provider_type: ModelProviderType
     protocol: ModelProtocol
     base_url: str
     auth_mode: ModelAuthMode
@@ -193,6 +196,7 @@ class ModelConnectionResponse(BaseModel):
         return cls(
             id=connection.id,
             display_name=connection.display_name,
+            provider_type=connection.provider_type,
             protocol=connection.protocol,
             base_url=connection.base_url,
             auth_mode=connection.auth_mode,
@@ -329,6 +333,7 @@ async def create_model_connection(
     try:
         connection = service.create(
             display_name=request.display_name,
+            provider_type=request.provider_type,
             protocol=ModelProtocol(request.protocol),
             base_url=request.base_url,
             auth_mode=request.auth_mode,

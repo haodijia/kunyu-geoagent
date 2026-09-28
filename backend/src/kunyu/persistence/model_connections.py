@@ -18,6 +18,7 @@ from kunyu.domain.model_connections import (
     ModelCatalogEntry,
     ModelCheck,
     ModelConnection,
+    ModelProviderType,
     ModelProtocol,
 )
 from kunyu.persistence.database import Database
@@ -162,6 +163,7 @@ def _copy_connection(
     record: ModelConnectionRecord, connection: ModelConnection
 ) -> None:
     record.display_name = connection.display_name
+    record.provider_type = connection.provider_type.value
     record.protocol = connection.protocol.value
     record.base_url = connection.base_url
     record.auth_mode = connection.auth_mode.value
@@ -280,6 +282,7 @@ def _to_domain(record: ModelConnectionRecord) -> ModelConnection:
     return ModelConnection(
         id=record.id,
         display_name=record.display_name,
+        provider_type=ModelProviderType(record.provider_type),
         protocol=ModelProtocol(record.protocol),
         base_url=record.base_url,
         auth_mode=ModelAuthMode(record.auth_mode),
