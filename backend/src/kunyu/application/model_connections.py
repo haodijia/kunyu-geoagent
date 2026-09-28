@@ -6,7 +6,10 @@ from uuid import uuid4
 
 from kunyu.application.connection_locks import ConnectionOperationLocks
 from kunyu.domain.model_connections import (
+    CapabilitySource,
+    CapabilityStatus,
     CatalogAvailability,
+    CatalogSource,
     CheckStatus,
     CredentialState,
     CredentialStatus,
@@ -110,11 +113,16 @@ class ModelConnectionService:
             credential=credential,
             management_status=ManagementStatus.READY,
             discovery=DiscoveryState(
-                status=DiscoveryStatus.IDLE,
-                generation=0,
+                status=(
+                    DiscoveryStatus.PENDING
+                    if credential.status is CredentialStatus.READY
+                    else DiscoveryStatus.IDLE
+                ),
+                generation=1 if credential.status is CredentialStatus.READY else 0,
                 last_success_at=None,
                 error_code=None,
             ),
+            check_generation=0,
             catalog=(),
             created_at=now,
             updated_at=now,
@@ -234,16 +242,29 @@ class ModelConnectionService:
                 )
             values["revision"] = current.revision + 1
             values["catalog"] = tuple(
-                _invalidate_entry(entry) for entry in current.catalog
-            )
-            values["discovery"] = replace(
-                current.discovery,
-                status=DiscoveryStatus.IDLE,
-                last_success_at=None,
-                error_code=None,
+                _invalidate_entry(entry, current.revision + 1)
+                for entry in current.catalog
             )
             if "auth_mode" in values:
                 values["credential"] = _initial_credential(values["auth_mode"])
+            next_credential = values.get("credential", current.credential)
+            discovery_ready = (
+                isinstance(next_credential, CredentialState)
+                and next_credential.status is CredentialStatus.READY
+            )
+            values["discovery"] = DiscoveryState(
+                status=(
+                    DiscoveryStatus.PENDING if discovery_ready else DiscoveryStatus.IDLE
+                ),
+                generation=(
+                    current.discovery.generation + 1
+                    if discovery_ready
+                    else current.discovery.generation
+                ),
+                last_success_at=None,
+                error_code=None,
+            )
+            values["check_generation"] = current.check_generation + 1
 
         values["updated_at"] = self._clock()
         return self._repository.update(replace(current, **values))
@@ -334,7 +355,7 @@ def _normalize_model_ids(value: object) -> tuple[str, ...]:
     normalized: list[str] = []
     seen: set[str] = set()
     for candidate in value:
-        model_id = _normalize_model_id(candidate)
+        model_id = normalize_model_id(candidate)
         if model_id in seen:
             raise InvalidModelConnectionError(
                 f"Duplicate enabled model ID '{model_id}'."
@@ -347,10 +368,10 @@ def _normalize_model_ids(value: object) -> tuple[str, ...]:
 def _normalize_optional_model_id(value: object) -> str | None:
     if value is None:
         return None
-    return _normalize_model_id(value)
+    return normalize_model_id(value)
 
 
-def _normalize_model_id(value: object) -> str:
+def normalize_model_id(value: object) -> str:
     if not isinstance(value, str):
         raise InvalidModelConnectionError("Model ID must be a string.")
     normalized = value.strip()
@@ -382,13 +403,29 @@ def _validate_default_model(
         )
 
 
-def _invalidate_entry(entry: ModelCatalogEntry) -> ModelCatalogEntry:
+def _invalidate_entry(
+    entry: ModelCatalogEntry, next_revision: int
+) -> ModelCatalogEntry:
     unchecked = ModelCheck(CheckStatus.UNCHECKED, None, None)
+    capability = entry.tool_capability
+    capability_source = entry.tool_capability_source
+    if capability_source is CapabilitySource.VALIDATION:
+        capability = CapabilityStatus.UNKNOWN
+        capability_source = CapabilitySource.UNKNOWN
+    is_manual = CatalogSource.MANUAL in entry.sources
     return replace(
         entry,
-        availability=CatalogAvailability.UNAVAILABLE,
+        sources=(CatalogSource.MANUAL,) if is_manual else entry.sources,
+        revision=next_revision if is_manual else entry.revision,
+        availability=(
+            CatalogAvailability.AVAILABLE
+            if is_manual
+            else CatalogAvailability.UNAVAILABLE
+        ),
         text_check=unchecked,
         tool_check=unchecked,
+        tool_capability=capability,
+        tool_capability_source=capability_source,
     )
 
 

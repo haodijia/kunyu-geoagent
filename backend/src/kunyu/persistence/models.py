@@ -145,6 +145,10 @@ class ModelConnectionRecord(Base):
             name="ck_model_connections_discovery_generation_nonnegative",
         ),
         CheckConstraint(
+            "check_generation >= 0",
+            name="ck_model_connections_check_generation_nonnegative",
+        ),
+        CheckConstraint(
             "credential_status IN ('ready', 'missing')",
             name="ck_model_connections_credential_status",
         ),
@@ -190,6 +194,7 @@ class ModelConnectionRecord(Base):
         DateTime(timezone=True)
     )
     discovery_error_code: Mapped[str | None] = mapped_column(String(100))
+    check_generation: Mapped[int] = mapped_column(Integer, nullable=False)
     catalog_entries: Mapped[list["ModelCatalogEntryRecord"]] = relationship(
         cascade="all, delete-orphan",
         passive_deletes=True,
@@ -229,7 +234,7 @@ class ModelCatalogEntryRecord(Base):
             name="ck_model_catalog_tool_capability",
         ),
         CheckConstraint(
-            "tool_capability_source IN ('unknown', 'provider_metadata')",
+            "tool_capability_source IN ('unknown', 'provider_metadata', 'validation')",
             name="ck_model_catalog_tool_capability_source",
         ),
         CheckConstraint(

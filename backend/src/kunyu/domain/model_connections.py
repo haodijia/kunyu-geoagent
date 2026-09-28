@@ -60,6 +60,7 @@ class CapabilityStatus(StrEnum):
 class CapabilitySource(StrEnum):
     UNKNOWN = "unknown"
     PROVIDER_METADATA = "provider_metadata"
+    VALIDATION = "validation"
 
 
 @dataclass(frozen=True, slots=True)
@@ -125,6 +126,7 @@ class ModelConnection:
     credential: CredentialState
     management_status: ManagementStatus
     discovery: DiscoveryState
+    check_generation: int
     catalog: tuple[ModelCatalogEntry, ...]
     created_at: datetime
     updated_at: datetime
