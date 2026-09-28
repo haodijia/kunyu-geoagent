@@ -2,6 +2,8 @@
 @import "@icon-park/react/styles/index.css" layer(components);
 @import "./styles/theme.css";
 @import "./features/settings/settings.css";
+@import "./features/settings/models/models.css";
+@import "./features/settings/models/model-catalog.css";
 
 @theme inline {
   --color-t-primary: var(--foreground);
