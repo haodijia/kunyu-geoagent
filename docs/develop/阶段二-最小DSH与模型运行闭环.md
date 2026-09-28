@@ -34,13 +34,21 @@
 
 ### 2.1 参考源码与移植边界
 
-| 来源 | 核对位置 | 本项目借鉴方式 |
+| 来源 | 核对位置 | 本项目对齐方式 |
 | --- | --- | --- |
-| maka-agent | `apps/desktop/src/main/connection-model-discovery.ts`、`packages/runtime/src/model-fetcher.ts`、`packages/core/src/llm-connections.ts`、`packages/core/src/model-catalog.ts` | 借鉴“连接配置 → 校验凭据 → 请求模型列表 → 规范化模型 ID → 保存目录来源和时间 → 设置页选择”的链路。将 Electron IPC/TypeScript 实现改为 FastAPI 应用服务与 Python 适配器；首期只处理已声明的 OpenAI-compatible `/models` 接口。 |
-| deepseek-harness | `packages/core/agent-loop/src/agent.ts`、`packages/core/agent-loop/src/tool-calls.ts`、`packages/core/session/src/index.ts`、`packages/core/session/src/surface.ts`、`packages/core/tools/src/index.ts` | 借鉴运行循环、工具注册/守卫、类型化事件与从日志派生状态的职责划分。落到 `dsh` Protocol、显式 Host 装配、SQLite 同事务事件和 Run 投影；不移植 Cordis、收件箱、多 Agent、并行工具池或 JSONL 存储。 |
+| maka-agent | `apps/desktop/src/renderer/settings/provider-add-form.tsx`、`apps/desktop/src/renderer/settings/use-connection-detail.ts`、`apps/desktop/src/main/connection-model-discovery.ts`、`packages/runtime/src/model-fetcher.ts`、`packages/core/src/llm-connections.ts`、`packages/core/src/model-catalog.ts` | 对齐创建连接后自动拉取、保存密钥/端点后重新拉取、手动刷新、凭据/协议/空列表失败提示、目录来源与时间、模型可用性和选择的实际行为。将 Electron IPC/TypeScript 实现改为 FastAPI 应用服务与 Python 适配器；首期对齐已声明的 OpenAI-compatible `/models` 路径。 |
+| deepseek-harness | `packages/core/agent-loop/src/agent.ts`、`packages/core/agent-loop/src/tool-calls.ts`、`packages/core/session/src/index.ts`、`packages/core/session/src/surface.ts`、`packages/core/tools/src/index.ts` | 对齐单 Agent 的模型—工具—模型推进、可见历史重建、工具校验/守卫、事件先持久再派生状态、取消保留已交付正文和恢复边界。落到 `dsh` Protocol、显式 Host 装配、SQLite 同事务事件和 Run 投影。 |
 | mu | 现有模型设置与选择相关组件、样式 | 只参考界面层级、间距和控件使用；业务状态、接口文案和运行架构以本项目契约为准。 |
 
-“借鉴”指采用边界和处理顺序，不复制源码、原文文案或对方 Provider 全家桶。每个后续实现 commit 的正文须列出实际对照的来源路径、采用的机制、在 Python/现有架构中的对应实现，以及明确未引入的部分；不能仅写“参考 maka-agent/DSH”。
+对上述**阶段二覆盖的同类功能**，验收标准是输入、状态变化、错误反馈和最终用户效果与参考实现一致；不能只做相似的目录结构或接口名称。源码和文案可以重写，但不能省略参考实现的关键分支。开发时先把源行为列成核对项，再逐项映射到本项目 API、持久层和界面；不一致处必须记录原因并在交付前修正。参考仓库超出本阶段的 Provider 协议、Cordis、多 Agent 等能力仍按第 3 节范围处理。每个后续实现 commit 的正文须列出实际对照的来源路径、源行为、本项目实现位置和验证结果，不能仅写“参考 maka-agent/DSH”。
+
+| 对齐场景 | 必须达到的可观察结果 |
+| --- | --- |
+| 创建或更新 OpenAI-compatible 连接 | 有可用凭据时自动读取该端点的模型列表；新密钥或端点触发重新发现；用户可主动刷新。发现结果保留精确 ID、来源和时间，刷新失败不冒充成功。 |
+| 模型选择与检查 | 可用模型按真实目录展示；已移除或不可用模型有明确状态，不能悄悄换成另一个模型；测试结果明确指出实际测试的模型、成功或失败原因。 |
+| 单 Agent 普通回复 | 已受理用户输入只进入一次历史；模型流式回复、完成状态和重启后的内容一致；下一次模型请求能看到已经提交的可见历史。 |
+| Tool Call 与确认 | 完整结构化调用经过 Schema 和策略检查；工具结果进入后续模型请求；写入停在精确确认点，拒绝或重复批准不会产生副作用。 |
+| 取消与恢复 | 取消终止当前调用并保留已交付的部分正文；重启能从已提交事实恢复同一 Run 的状态，未确认写入不会被自动重放。 |
 
 ## 3. 范围
 
@@ -100,7 +108,7 @@
 
 ### 4.3 模型连接
 
-ModelConnection 保存稳定 ID、显示名、协议类型、Base URL、认证方式、启用状态、默认标记、配置修订号及模型目录。目录条目保存 Provider 返回的精确 model_id、可选显示名、发现来源、发现时间，以及能被可靠确认的 Tool Call 和 reasoning_effort 能力；未知能力标记为 unknown，不能推断为支持。不向不支持或能力未知的模型发送推理参数。
+ModelConnection 保存稳定 ID、显示名、协议类型、Base URL、认证方式、启用状态、默认标记、配置修订号、已启用模型 ID 集合及模型目录。目录条目保存 Provider 返回的精确 model_id、可选显示名、发现来源、发现时间，以及能被可靠确认的 Tool Call 和 reasoning_effort 能力；未知能力标记为 unknown，不能推断为支持。不向不支持或能力未知的模型发送推理参数。
 
 - 本阶段协议类型仅 openai_compatible；认证方式显式为 api_key 或 none，none 只适用于用户明确配置的免密服务。
 - reasoning_effort 为 null 或该模型支持的枚举值；不得把统一的 standard/high 标签不加转换地发给所有服务。
@@ -108,10 +116,11 @@ ModelConnection 保存稳定 ID、显示名、协议类型、Base URL、认证�
 - 保存连接且凭据就绪后自动触发一次发现；Base URL 或凭据更新后使旧目录不再可选，并对新配置重新发现。设置页提供“刷新模型列表”；刷新失败不覆盖同一修订号下已有的有效目录，但显示失败和上次成功时间。首次发现失败时连接保持“无可选模型”，不把内置名称当作真实发现结果。
 - 用户也可在独立的“手工添加模型”操作中明确填写精确 model_id，来源标为 manual；不会因发现失败自动进入手工模式。手工条目需通过真实连接检查后才可用于 Run。自动发现的条目和手工条目分别标记来源，不伪造能力元数据。
 - 模型列表发现与连接测试分开：`GET /models` 成功只能证明目录可读；连接测试必须针对选定 model_id 发起真实受限调用，Tool Call 能力需要真实验证或可靠的 Provider 元数据，不能由名字猜测。
+- 对齐 maka-agent 的模型启用选择：目录可以列出多个模型，用户启用的模型才进入会话选择器；默认模型若不在当前可用且已启用的集合中，设置页明确提示并要求重新选择，不把失效 ID 静默替换。目录刷新后保留仍存在的启用选择，移除的 ID 显示为不可用。
 - 凭据写入系统凭据库，查询仅返回 configured 和更新时间。API Key 不进入 SQLite、前端持久化、场景包或日志。
 - 系统凭据库不可用时阻止需要凭据的连接操作并报告原因，不回退到文件或环境变量存储。
 - 默认连接由事务和唯一约束保证最多一个；没有默认连接时要求用户选择，不自行选第一项。
-- RunModelSnapshot 冻结连接 ID、协议、Base URL、认证方式、模型 ID、推理参数与配置修订号，不含凭据原文。提交前校验 model_id 属于当前修订号下可用且已验证的目录；已被刷新移除的模型不能继续作为新 Run 默认值。
+- RunModelSnapshot 冻结连接 ID、协议、Base URL、认证方式、模型 ID、推理参数与配置修订号，不含凭据原文。提交前校验 model_id 属于当前修订号下可用、已启用且已验证的目录；已被刷新移除的模型不能继续作为新 Run 默认值。
 - 未完成 Run 引用的连接禁止改配置、替换/删除凭据、禁用或删除；防止中断恢复时悄悄使用不同运行条件。终态 Run 保留快照，不要求原连接永远存在。
 
 ### 4.4 工具与确认
@@ -228,7 +237,7 @@ api/application/domain/persistence 中分别增加模型连接、Run、确认、
 
 **结果**：模型连接、目录和默认选择有正式领域与存储契约。
 
-**范围**：对照 maka-agent 的 `llm-connections.ts` 和 `model-catalog.ts`，实现四层模型配置、唯一默认约束、协议/认证方式、模型目录来源与发现时间、能力 unknown 状态和配置修订号；不保存 API Key。新增 GET/POST/PATCH/DELETE/default API 与 CORS 方法。Base URL 或凭据变化使旧目录失效。
+**范围**：对照 maka-agent 的 `llm-connections.ts` 和 `model-catalog.ts`，实现四层模型配置、唯一默认约束、协议/认证方式、已启用模型 ID、模型目录来源与发现时间、能力 unknown 状态和配置修订号；不保存 API Key。新增 GET/POST/PATCH/DELETE/default API 与 CORS 方法。Base URL 或凭据变化使旧目录失效。
 
 **检查**：重启后配置保持；多个连接只允许一个默认项；非法 URL、重复目录项或不支持的协议报错；默认连接不能被直接删除。
 
@@ -252,7 +261,7 @@ api/application/domain/persistence 中分别增加模型连接、Run、确认、
 
 **结果**：模型设置可完成连接配置闭环。
 
-**范围**：复用 SettingsPageWrapper/Header、侧栏、表单和提示；连接列表/详情、默认设置、写入型密钥、保存后自动发现状态、手动刷新、独立手工添加、模型来源/上次成功时间、选定模型连接测试。清理离开页面后的密钥草稿。只借鉴 maka-agent 的连接流程与 mu/deepseek-harness 的视觉组织，不复制对方设置文案。
+**范围**：复用 SettingsPageWrapper/Header、侧栏、表单和提示；连接列表/详情、默认设置、写入型密钥、保存后自动发现状态、手动刷新、独立手工添加、模型启用选择、模型来源/上次成功时间、选定模型连接测试。清理离开页面后的密钥草稿。模型交互对齐 maka-agent，视觉组织参考 mu/deepseek-harness，不复制对方设置文案。
 
 **检查**：通过 UI 创建连接并自动列出服务实际返回的模型名称，主动刷新可更新目录；选定模型完成真实检查；发现失败有明确状态和手工添加入口，不自动填入猜测名称；重新进入只显示 configured；归档设置页与返回会话操作保持正常；宽窄桌面布局无溢出。
 
@@ -356,7 +365,7 @@ api/application/domain/persistence 中分别增加模型连接、Run、确认、
 
 **结果**：形成真实可复现的阶段二交付记录。
 
-**范围**：按第 6 节完成手工验收，记录平台、Provider/模型、已通过项、失败项和未覆盖项；更新架构文档与阶段状态。只记录实际执行结果。
+**范围**：按第 2.1 节行为对齐表和第 6 节完成手工验收，逐项记录参考实现的输入/结果、本项目的输入/结果、平台、Provider/模型、已通过项、差异和未覆盖项；差异未修正不得标为对齐。更新架构文档与阶段状态。只记录实际执行结果。
 
 **检查**：全部必须项完成才能标记阶段二已完成；没有凭据或真实模型验证条件时保留未完成状态，不用模拟回复替代。
 
@@ -375,7 +384,7 @@ api/application/domain/persistence 中分别增加模型连接、Run、确认、
 ### 6.2 桌面主链
 
 1. 使用独立开发数据目录启动 Electron，确认仍由桌面拉起后端。
-2. 在模型设置创建一个真实连接并写入凭据，确认自动发现服务实际返回的模型 ID、来源和时间；选定模型完成连接检查，再主动刷新一次目录。
+2. 在模型设置创建一个真实连接并写入凭据，确认自动发现服务实际返回的模型 ID、来源和时间；启用并选定模型完成连接检查，再主动刷新一次目录，核对启用选择与不可用提示。
 3. 创建工作空间与会话，在对话输入框选择连接和模型，发送普通消息。
 4. 确认用户消息与 Run 只创建一次，Assistant 实际流式输出，完成后重启仍可读取。
 5. 发起需要 workspace.get_context 的请求，核对工具读取的真实空间与后续回复。
