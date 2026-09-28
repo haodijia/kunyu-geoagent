@@ -6,6 +6,8 @@
 >
 > 目标：在现有桌面会话中接入真实模型，完成用户消息、Assistant 流式回复、本地工具、精确确认、取消与重启恢复的闭环。阶段二不执行 OGE 作业。
 
+> 模型连接设置页开发项：[P2-05 模型连接设置页](#p2-05-模型连接设置页-featsettings-manage-model-connections-in-existing-shell)。当前前端尚未实现该页面，现有设置路由只有归档页。
+
 ## 1. 开发方式
 
 1. 按本文依赖顺序逐项开发，每个 commit 只交付对应结果。
@@ -257,11 +259,13 @@ api/application/domain/persistence 中分别增加模型连接、Run、确认、
 
 **检查**：用真实服务验证自动列出精确模型 ID、普通文本与工具调用；无效密钥、空列表、异常格式、网络超时、非法工具参数可区分；首次发现失败无可选模型；无密钥时不能伪造成功；配置不支持的推理强度被拒绝。
 
-### P2-05 `feat(settings): manage model connections in existing shell`
+### P2-05 模型连接设置页 `feat(settings): manage model connections in existing shell`
 
-**结果**：模型设置可完成连接配置闭环。
+**结果**：在现有设置 Shell 中交付可使用的模型连接列表页和详情页，完成连接配置闭环。这是模型连接设置页的前端开发项；P2-02、P2-03、P2-04 分别提供配置持久化、系统凭据库和模型发现/调用接口，不能代替本项页面。
 
-**范围**：复用 SettingsPageWrapper/Header、侧栏、表单和提示；连接列表/详情、默认设置、写入型密钥、保存后自动发现状态、手动刷新、独立手工添加、模型启用选择、模型来源/上次成功时间、选定模型连接测试。清理离开页面后的密钥草稿。模型交互对齐 maka-agent，视觉组织参考 mu/deepseek-harness，不复制对方设置文案。
+**入口与文件**：在 `frontend/src/app/router.tsx` 增加 `#/settings/models` 和 `#/settings/models/:connectionId`；在 `frontend/src/features/settings/SettingsSidebar.tsx` 增加“模型”入口；页面和组件放入 `frontend/src/features/settings/models/`，复用 `frontend/src/features/settings/SettingsPage.tsx` 的 `SettingsPageWrapper`、`SettingsPageHeader` 与现有设置 Shell。以 `docs/ui-mockups/settings-model-v3.png` 为页面结构参考。
+
+**范围**：列表页展示多个连接、状态、默认连接和新增入口；详情页展示协议、Base URL、脱敏凭据状态、模型目录和错误。完成创建/编辑/删除、设置唯一默认连接、写入型密钥、保存后自动发现状态、手动刷新、独立手工添加、模型启用选择、模型来源/上次成功时间、选定模型连接测试。清理离开页面后的密钥草稿。模型交互对齐 maka-agent，视觉组织参考 mu/deepseek-harness，不复制对方设置文案。
 
 **检查**：通过 UI 创建连接并自动列出服务实际返回的模型名称，主动刷新可更新目录；选定模型完成真实检查；发现失败有明确状态和手工添加入口，不自动填入猜测名称；重新进入只显示 configured；归档设置页与返回会话操作保持正常；宽窄桌面布局无溢出。
 
