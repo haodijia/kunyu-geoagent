@@ -43,6 +43,8 @@ npm install --prefix frontend
 uv sync --project backend
 ```
 
+Electron 二进制默认从 npmmirror 下载，避免无法连接 GitHub 时安装失败；镜像地址配置在 `electron/.npmrc`。
+
 在项目根目录用一条命令启动 Vite、Electron 和由 Electron 管理的 FastAPI：
 
 ```bash

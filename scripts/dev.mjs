@@ -8,7 +8,7 @@ const VITE_READY_TIMEOUT_MS = 15_000;
 const repositoryRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const electronDirectory = path.join(repositoryRoot, "electron");
 const frontendDirectory = path.join(repositoryRoot, "frontend");
-const npmCommand = process.platform === "win32" ? "npm.cmd" : "npm";
+const electronTypeScript = path.join(electronDirectory, "node_modules/typescript/bin/tsc");
 
 const activeProcesses = new Set();
 let resolveShutdown;
@@ -30,9 +30,9 @@ async function main() {
   try {
     const build = startProcess(
       "build",
-      npmCommand,
-      ["run", "build", "--prefix", "electron"],
-      repositoryRoot
+      process.execPath,
+      [electronTypeScript, "--project", path.join(electronDirectory, "tsconfig.json")],
+      electronDirectory
     );
     const buildResult = await build.exited;
     if (stopping) {
