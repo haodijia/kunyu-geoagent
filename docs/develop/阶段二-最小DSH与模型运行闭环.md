@@ -12,7 +12,7 @@
 
 1. 按本文依赖顺序逐项开发，每个 commit 只交付对应结果。
 2. 开始新的开发项前提交已有修改；完成本项检查后自动 commit，停止并等待用户审核，不自行进入下一项。
-3. 后端使用 uv；不新增数据库迁移、软件版本升级或旧契约兼容分支。前后端契约变更同步落地。
+3. 后端使用 uv；数据库结构变更追加 Alembic revision，阶段开发完成后统一压缩为基线 SQL。前后端契约变更同步落地。
 4. 不写假模型回复、假工具结果，不在失败时替换模型、协议、凭据存储或事件源。
 5. 默认不新增测试文件。执行类型检查、构建、隔离数据目录下的手工接口检查和桌面验收；用户明确要求时再编写测试。
 6. 开发前按第 2.1 节核对参考源码：模型连接页面只参考 maka-agent；ModelAdapter 与 Agent 运行架构继续参考 deepseek-harness。界面复用现有 shadcn/ui、Tailwind 和统一主题，不引入参考项目的组件库或无关业务。
@@ -24,7 +24,7 @@
 | --- | --- |
 | Electron 启停、Ready、健康与诊断 | 复用；增加 Runner 启停和关闭前的运行状态落盘 |
 | api → application → domain、persistence | 保持分层，模型/Run/确认继续按职责放置 |
-| SQLite WAL 与六张业务表 | 扩充当前 ORM，不引入 Alembic；不在启动时清库 |
+| SQLite WAL 与六张业务表 | 扩充当前 ORM，由 Alembic 顺序迁移；不在启动时清库 |
 | User Message 与事件同事务写入 | 改为 User Message、Run、模型快照与创建事件同事务提交 |
 | 会话 sequence 与 after_sequence SSE | 沿用顺序和重连协议，所有新增事件进入同一游标序列 |
 | SessionMessagesProvider / SessionEventProvider | 扩展 Assistant、Run、Tool 和确认，不新增第二份订阅 |
@@ -223,7 +223,7 @@ api/application/domain/persistence 中分别增加模型连接、Run、确认、
 
 新增持久对象至少包括 ModelConnection/ModelCatalogEntry、Run/RunModelSnapshot、ToolCall、Confirmation、WorkspaceMemory、SessionPreference 和发送请求幂等记录。每个对象有明确唯一约束、事务归属与删除策略；Run 快照、事件和消息的归属不能跨 Session。
 
-更改已有表结构时明确使用可重建的开发数据目录；create_all 不负责修改旧列。不要用自动清库代替恢复逻辑，恢复验收必须在同一数据库上重启。
+更改已有表结构时追加连续 Alembic revision；启动时只执行已声明的迁移，不自动清库。迁移失败必须保留原错误并停止启动；恢复验收必须在同一数据库上重启。阶段开发完成后将 revision 历史压缩成一份基线 SQL。
 
 ### 4.8 DSH 的职责与装配顺序
 
