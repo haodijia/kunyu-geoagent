@@ -2,8 +2,8 @@ from datetime import datetime
 from typing import Any
 
 from sqlalchemy import (
-    Boolean,
     JSON,
+    Boolean,
     CheckConstraint,
     DateTime,
     ForeignKey,
@@ -12,8 +12,8 @@ from sqlalchemy import (
     String,
     Text,
     func,
-    text as sql_text,
 )
+from sqlalchemy import text as sql_text
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
 
@@ -145,12 +145,11 @@ class ModelConnectionRecord(Base):
             name="ck_model_connections_discovery_generation_nonnegative",
         ),
         CheckConstraint(
-            "credential_status IN ('ready', 'missing', 'recovery_required')",
+            "credential_status IN ('ready', 'missing')",
             name="ck_model_connections_credential_status",
         ),
         CheckConstraint(
-            "management_status IN "
-            "('ready', 'credential_operation', 'deleting', 'recovery_required')",
+            "management_status = 'ready'",
             name="ck_model_connections_management_status",
         ),
         CheckConstraint(
@@ -180,7 +179,7 @@ class ModelConnectionRecord(Base):
     max_tokens_field: Mapped[str] = mapped_column(String(32), nullable=False)
     include_usage: Mapped[bool] = mapped_column(Boolean, nullable=False)
     credential_status: Mapped[str] = mapped_column(String(32), nullable=False)
-    credential_configured: Mapped[bool | None] = mapped_column(Boolean)
+    credential_configured: Mapped[bool] = mapped_column(Boolean, nullable=False)
     credential_updated_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True)
     )
@@ -194,6 +193,12 @@ class ModelConnectionRecord(Base):
     catalog_entries: Mapped[list["ModelCatalogEntryRecord"]] = relationship(
         cascade="all, delete-orphan",
         passive_deletes=True,
+    )
+    credential_record: Mapped["ModelCredentialRecord | None"] = relationship(
+        cascade="all, delete-orphan",
+        lazy="joined",
+        passive_deletes=True,
+        uselist=False,
     )
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.current_timestamp(), nullable=False
@@ -253,3 +258,15 @@ class ModelCatalogEntryRecord(Base):
     reasoning_efforts: Mapped[list[str]] = mapped_column(JSON, nullable=False)
     reasoning_source: Mapped[str] = mapped_column(String(32), nullable=False)
     discovered_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+
+class ModelCredentialRecord(Base):
+    __tablename__ = "model_credentials"
+
+    connection_id: Mapped[str] = mapped_column(
+        ForeignKey("model_connections.id", ondelete="CASCADE"), primary_key=True
+    )
+    api_key: Mapped[str] = mapped_column(Text, nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False
+    )

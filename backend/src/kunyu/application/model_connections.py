@@ -4,6 +4,7 @@ from datetime import UTC, datetime
 from urllib.parse import SplitResult, urlsplit, urlunsplit
 from uuid import uuid4
 
+from kunyu.application.connection_locks import ConnectionOperationLocks
 from kunyu.domain.model_connections import (
     CatalogAvailability,
     CheckStatus,
@@ -53,15 +54,21 @@ class DefaultModelConnectionError(ValueError):
     pass
 
 
+class ModelConnectionBusyError(ValueError):
+    pass
+
+
 class ModelConnectionService:
     def __init__(
         self,
         repository: ModelConnectionRepository,
+        locks: ConnectionOperationLocks,
         *,
         id_factory: Callable[[], str] | None = None,
         clock: Callable[[], datetime] | None = None,
     ) -> None:
         self._repository = repository
+        self._locks = locks
         self._id_factory = id_factory or _new_connection_id
         self._clock = clock or _utc_now
 
@@ -126,15 +133,22 @@ class ModelConnectionService:
     def update(
         self, connection_id: str, changes: Mapping[str, object]
     ) -> ModelConnection:
+        with self._locks.hold(connection_id):
+            return self._update(connection_id, changes)
+
+    def _update(
+        self, connection_id: str, changes: Mapping[str, object]
+    ) -> ModelConnection:
         if not changes:
             raise InvalidModelConnectionError("At least one field must be provided.")
         unknown_fields = changes.keys() - PATCH_FIELDS
         if unknown_fields:
             raise InvalidModelConnectionError(
-                f"Unsupported field '{sorted(unknown_fields)[0]}'."
+                f"Unsupported field '{min(unknown_fields)}'."
             )
 
         current = self.get(connection_id)
+        _require_ready(current)
         values: dict[str, object] = dict(changes)
         for field in (
             "display_name",
@@ -154,6 +168,14 @@ class ModelConnectionService:
             values["base_url"] = _normalize_base_url(values["base_url"])
         if "auth_mode" in values and not isinstance(values["auth_mode"], ModelAuthMode):
             raise InvalidModelConnectionError("Unsupported authentication mode.")
+        if (
+            "auth_mode" in values
+            and values["auth_mode"] != current.auth_mode
+            and current.credential.configured is True
+        ):
+            raise InvalidModelConnectionError(
+                "Clear the credential before changing authentication mode."
+            )
         if "max_tokens_field" in values and not isinstance(
             values["max_tokens_field"], MaxTokensField
         ):
@@ -227,24 +249,32 @@ class ModelConnectionService:
         return self._repository.update(replace(current, **values))
 
     def set_default(self, connection_id: str) -> ModelConnection:
-        current = self.get(connection_id)
-        if not current.enabled:
-            raise InvalidModelConnectionError(
-                "A disabled connection cannot be the default."
-            )
-        connection = self._repository.set_default(connection_id, self._clock())
-        if connection is None:
-            raise ModelConnectionNotFoundError(connection_id)
-        return connection
+        with self._locks.hold_default_selection():
+            default_ids = {item.id for item in self.list() if item.is_default}
+            with self._locks.hold_many(default_ids | {connection_id}):
+                current = self.get(connection_id)
+                _require_ready(current)
+                for default_id in default_ids:
+                    _require_ready(self.get(default_id))
+                if not current.enabled:
+                    raise InvalidModelConnectionError(
+                        "A disabled connection cannot be the default."
+                    )
+                connection = self._repository.set_default(connection_id, self._clock())
+                if connection is None:
+                    raise ModelConnectionNotFoundError(connection_id)
+                return connection
 
     def delete(self, connection_id: str) -> None:
-        connection = self.get(connection_id)
-        if connection.is_default:
-            raise DefaultModelConnectionError(
-                "Clear the default connection before deleting it."
-            )
-        if not self._repository.delete(connection_id):
-            raise ModelConnectionNotFoundError(connection_id)
+        with self._locks.hold(connection_id):
+            connection = self.get(connection_id)
+            _require_ready(connection)
+            if connection.is_default:
+                raise DefaultModelConnectionError(
+                    "Clear the default connection before deleting it."
+                )
+            if not self._repository.delete(connection_id):
+                raise ModelConnectionNotFoundError(connection_id)
 
 
 def _normalize_display_name(value: object) -> str:
@@ -260,6 +290,13 @@ def _normalize_display_name(value: object) -> str:
     return normalized
 
 
+def _require_ready(connection: ModelConnection) -> None:
+    if connection.management_status is not ManagementStatus.READY:
+        raise ModelConnectionBusyError(
+            "The model connection has an unfinished management operation."
+        )
+
+
 def _normalize_base_url(value: object) -> str:
     if not isinstance(value, str):
         raise InvalidModelConnectionError("Base URL must be a string.")
@@ -271,7 +308,7 @@ def _normalize_base_url(value: object) -> str:
     try:
         parsed = urlsplit(normalized)
         _validate_parsed_url(parsed)
-        parsed.port
+        _ = parsed.port
     except ValueError as error:
         raise InvalidModelConnectionError("Base URL is invalid.") from error
     path = parsed.path.rstrip("/")

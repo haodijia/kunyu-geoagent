@@ -1,6 +1,6 @@
 # 阶段二：最小 DSH 与模型运行闭环
 
-> 状态：开发中；P2-01～P2-02 已交付，其余开发项待实现。
+> 状态：开发中；P2-01～P2-03 已交付，其余开发项待实现。
 >
 > 基线日期：2026-09-28。阶段一已完成；本文以当前源码和[开发架构设计](../开发架构设计.md)为基线。
 >
@@ -16,7 +16,7 @@
 4. 不写假模型回复、假工具结果，不在失败时替换模型、协议、凭据存储或事件源。
 5. 默认不新增测试文件。执行类型检查、构建、隔离数据目录下的手工接口检查和桌面验收；用户明确要求时再编写测试。
 6. 开发前按第 2.1 节核对参考源码：模型连接设置及其发现、选择流程参考 maka-agent；ModelAdapter 与 Agent 运行架构参考 deepseek-harness。模型连接页面的交互和视觉组织参考 maka-agent，并结合 mu、deepseek-harness 与 v3 原型适配现有设置 Shell。界面复用现有 shadcn/ui、Tailwind 和统一主题；不引入 Arco、不照搬设置文案或无关业务。
-7. 未完成或无法验证的能力明确记录，不把通过构建等同于真实模型、凭据库或跨进程恢复验收通过。
+7. 未完成或无法验证的能力明确记录，不把通过构建等同于真实模型或凭据持久化验收通过。
 
 ## 2. 从阶段一接续
 
@@ -67,7 +67,7 @@
 ### 3.1 本阶段交付
 
 - 最小 DSH 的 Host、Plugin、Capability、ModelAdapter、Tool、PolicyGate、EventStore、Reducer 和 Runner。
-- 多个模型连接、唯一默认连接、系统凭据库存储、连接测试与自动发现模型名称的目录。
+- 多个模型连接、唯一默认连接、数据库凭据配置、连接测试与自动发现模型名称的目录。
 - 一个明确的 OpenAI-compatible 协议适配器，支持真实文本流和结构化 Tool Call；Provider 差异使用显式配置处理。
 - 输入框选择连接、模型和受支持的推理强度，Run 保存不可变模型与地图上下文快照。
 - 持久 Assistant 消息、运行状态、工具调用、确认、错误与中断记录。
@@ -97,7 +97,7 @@
 1. 复核 Session 未归档、Workspace 未移除、连接无管理操作进行中，且模型、能力验证、配置修订号仍有效；凭据读取在连接锁内、事务外完成，密钥不进入事务记录。
 2. 检查 MapContext 属于当前空间、场景版本结构有效、同一 Session 无非终态 Run，以及全局受理容量。
 3. 原子写入 User Message、Run、模型/地图/场景快照、会话最近模型偏好及创建事件。
-4. 保存规范化请求正文和 message_id/run_id，提交后调度 run_id。锁在提交后释放；不在数据库事务内等待模型网络请求或系统凭据库操作。
+4. 保存规范化请求正文和 message_id/run_id，提交后调度 run_id。锁在提交后释放；不在数据库事务内等待模型网络请求。
 
 响应为 202 `{message, run}`，重试也返回 202 与原 ID、当前持久状态；模型失败不回滚用户消息。Runner 不再次追加用户消息。永久删除会话同时删除幂等记录，之后重试返回 404。
 
@@ -131,8 +131,8 @@ ModelConnection 保存稳定 ID、显示名、协议类型、Base URL、认证�
 - 用户也可在独立的“手工添加模型”操作中明确填写精确 model_id，来源标为 manual；不会因发现失败自动进入手工模式。手工条目需通过真实连接检查后才可用于 Run。自动发现的条目和手工条目分别标记来源，不伪造能力元数据。
 - 模型列表发现与连接测试分开：`GET /models` 成功只能证明目录可读；连接测试必须针对选定 model_id 发起真实受限调用，Tool Call 能力需要真实验证或可靠的 Provider 元数据，不能由名字猜测。
 - 对齐 maka-agent 的模型启用选择：目录可以列出多个模型，用户启用的模型才进入会话选择器；默认模型若不在当前可用且已启用的集合中，设置页明确提示并要求重新选择，不把失效 ID 静默替换。目录刷新后保留仍存在的启用选择，移除的 ID 显示为不可用。
-- 凭据写入系统凭据库，查询仅返回 configured、状态和更新时间；无法确认时 configured=null，详见 4.10。API Key 不进入 SQLite、前端持久化、场景包或日志。
-- 系统凭据库不可用时阻止需要凭据的连接操作并报告原因，不回退到文件或环境变量存储。
+- 凭据写入 SQLite 独立表，查询仅返回 configured、状态和更新时间，详见 4.10。API Key 不进入前端持久化、场景包、接口响应或日志。
+- 数据库文件仅允许当前用户读写；首期本地桌面威胁边界接受凭据在本机数据库中明文持久化，不使用密文与解密密钥同库存放的伪加密。
 - 默认连接由事务和唯一约束保证最多一个；没有默认连接时要求用户选择，不自行选第一项。
 - RunModelSnapshot 冻结连接 ID、协议、Base URL、认证方式、模型 ID、推理参数与配置修订号，不含凭据原文。提交前校验 model_id 属于当前修订号下可用、已启用且已验证的目录；已被刷新移除的模型不能继续作为新 Run 默认值。
 - 未完成 Run 引用的连接禁止改配置、替换/删除凭据、禁用或删除；防止中断恢复时悄悄使用不同运行条件。终态 Run 保留快照，不要求原连接永远存在。
@@ -201,7 +201,7 @@ Runner 由 FastAPI lifespan 管理，不能把一次 request 的 BackgroundTasks
 
 SSE 沿用现有路径。阶段二无需新建 /trace REST 接口，继续由统一脱敏事件投影。新增方法及 Idempotency-Key 同步加入 FastAPI CORS 白名单。
 
-发送参数错误返回 422；资源不存在返回 404；归档、忙碌、幂等正文冲突或确认状态冲突返回 409。配置、凭据库和 Provider 错误分别使用稳定错误码与脱敏摘要，前端文案放入 locales。
+发送参数错误返回 422；资源不存在返回 404；归档、忙碌、幂等正文冲突或确认状态冲突返回 409。配置、数据库和 Provider 错误分别使用稳定错误码与脱敏摘要，前端文案放入 locales。
 
 ### 4.7 目录与数据
 
@@ -266,21 +266,20 @@ GeoAgent 的新 Run 必须同时通过当前修订的文本和工具检查；tex
 
 所有连接修改、凭据操作、删除及新 Run 受理共享按 connection_id 的操作锁；新建连接先完成数据库创建。首期只运行一个后端进程，不支持多 worker。数据库事务独立校验未完成 Run，连接锁不能替代数据库约束。
 
-凭据替换/清除采用明确的可恢复操作记录，不承诺系统凭据库与 SQLite 原子提交：
+API Key 作为模型连接的本地配置写入独立 `ModelCredential` 表，凭据替换/清除与连接投影采用单个 SQLite 事务：
 
-1. 在连接锁内，事务检查无未完成 Run，写 CredentialOperation（operation_id、connection_id、kind、pending、时间），把连接标为管理中，提交。
-2. 在数据库事务外操作系统凭据库；密钥只在该调用的内存和凭据库中存在，不记录到操作日志。
-3. 成功后同锁内提交 configured/updated_at、修订号、目录与验证失效以及 operation completed。替换成功再触发发现，清除只失效。
-4. 凭据库报错或最终数据库提交失败，保留 pending/failed 的阻塞状态；接口不得报告已配置。启动发现未完成操作时连接标为 recovery_required，configured 返回 null（未知），不能用于模型检查或 Run。
-5. 用户显式重新写入或清除凭据解决 recovery_required；不自动恢复旧密钥，不回退文件或环境变量。重做完成后关闭旧操作记录。系统凭据库未恢复前保持阻塞。
+1. 在连接锁内开启写事务，检查连接存在、认证方式匹配且无未完成 Run。
+2. 写入或删除该连接唯一的凭据记录，同时更新 configured/updated_at、配置修订号，并使目录和验证结果失效。
+3. 任一步失败都回滚整个事务；接口不得报告已配置，也不创建需要跨存储补偿的中间状态。
+4. API Key 原文只允许从凭据仓储读取给模型调用方，不进入 ConnectionDTO、错误详情、事件、日志、前端持久化或导出包。
 
-连接删除先写 deleting 操作并阻止新 Run，再清理凭据，最后删除连接及目录/检查记录；失败保留 deleting，用户可重复 DELETE 完成清理。默认连接禁止删除，需先把默认切到另一个连接或 PATCH is_default=false 清除默认。set-default 原子清除其它默认；不能通过 PATCH is_default=true 绕过该服务。所有日志只含标识、操作类型、错误码与脱敏摘要。
+连接删除在同一事务内删除连接，由外键级联清理凭据、目录和检查记录。默认连接禁止删除，需先把默认切到另一个连接或 PATCH is_default=false 清除默认。set-default 原子清除其它默认；不能通过 PATCH is_default=true 绕过该服务。所有日志只含标识、操作类型、错误码与脱敏摘要。
 
 持久约束和归属如下：
 
 | 对象 | 必须约束与删除规则 |
 | --- | --- |
-| ModelConnection / ModelCatalogEntry | is_default=true 的部分唯一索引；目录唯一 `(connection_id, model_id)`，来源/可用性/检查均绑定修订。删除连接级联目录与凭据操作元数据，不级联历史 Run。 |
+| ModelConnection / ModelCredential / ModelCatalogEntry | is_default=true 的部分唯一索引；每个连接至多一条凭据；目录唯一 `(connection_id, model_id)`，来源/可用性/检查均绑定修订。删除连接级联凭据和目录，不级联历史 Run。 |
 | Run / RunModelSnapshot | Session 下非终态部分唯一索引；快照与 Run 一对一，所有权不能跨 Session；历史 connection_id 是来源标识，不使用会阻止删除连接的外键。 |
 | Message / ToolCall | Message 保持会话 sequence 唯一；Assistant 唯一 `(run_id, step, attempt)`。ToolCall 内部 id 全局唯一，Provider call_id 仅在 `(run_id, step, attempt)` 内唯一，另存 batch_index。 |
 | Confirmation / WorkspaceMemory | 每个 ToolCall 至多一个确认；Memory.source_tool_call_id 唯一。确认绑定原始工具参数和 workspace/session，不接受客户端改 scope。 |
@@ -349,7 +348,7 @@ API JSON 使用 snake_case；已有 MapContext 在 API 边界显式映射，前�
 | 确认 / 取消 / 恢复 | approve/reject/resume/cancel 请求体 `{}`；确认返回 `{confirmation,tool_call,run}`，运行操作返回 RunDTO。cancel 对任意终态返回 200 原状态；resume 对终态/运行态返回 409。 |
 | 会话场景 | PUT `{scene_id,version}` 或 `{scene_id:null,version:null}` 清除；200 SessionPreference。结构无效版本不能绑定，依赖缺失可作讨论上下文。 |
 
-ConnectionDTO 包含配置字段、revision、credential `{status:ready|missing|recovery_required,configured:boolean|null,updated_at}`、management_status、discovery `{status:idle|pending|succeeded|failed|interrupted,generation,last_success_at,error_code}` 与目录 entries。CatalogEntry 包含 model_id、sources、revision、availability、enabled、checks、tool capability、reasoning 枚举/来源。RunDTO 包含 id/session_id/user_message_id、state、model/map/scene snapshots、step/attempt、resume_phase/next_tool_index、requires_resume、预算、暂停原因、pending_confirmation_id、created_at/updated_at/updated_sequence；不得含密钥或原始模型请求。
+ConnectionDTO 包含配置字段、revision、credential `{status:ready|missing,configured:boolean,updated_at}`、management_status、discovery `{status:idle|pending|succeeded|failed|interrupted,generation,last_success_at,error_code}` 与目录 entries。CatalogEntry 包含 model_id、sources、revision、availability、enabled、checks、tool capability、reasoning 枚举/来源。RunDTO 包含 id/session_id/user_message_id、state、model/map/scene snapshots、step/attempt、resume_phase/next_tool_index、requires_resume、预算、暂停原因、pending_confirmation_id、created_at/updated_at/updated_sequence；不得含密钥或原始模型请求。
 
 GET messages 保持数组；GET runs、confirmations、model-connections、scenes 首期也返回数组。列表只暴露摘要，工具结果通过 RunDTO 的 tool_calls 脱敏明细读取；确认列表足以还原精确卡片，不依赖曾收到的 SSE。
 
@@ -397,13 +396,13 @@ P2-02～11 不启用正式消息 Run 入口：旧消息功能持续可用，新�
 
 **检查**：重启后配置保持；多个连接只允许一个默认项；非法 URL、重复目录项或不支持的协议报错；默认连接不能被直接删除。
 
-### P2-03 `feat(secrets): store model credentials in system keyring`
+### P2-03 `feat(secrets): store model credentials in database`（已交付）
 
-**结果**：连接凭据只写系统凭据库。
+**结果**：连接凭据作为本地配置写入项目数据库的独立表。
 
-**范围**：凭据存取适配、写入/清除接口、脱敏状态；严格实现 4.10 的持久操作记录、连接锁、失败阻塞及用户显式修复；同步 configured=null 的未知状态。删除连接时清理关联凭据。此项先提供受理共用锁，P2-11/12 接入 Run 检查。
+**范围**：实现凭据仓储、写入/清除接口与脱敏状态；严格实现 4.10 的连接锁和单事务更新，凭据与连接修订、目录失效同步提交。删除连接时级联清理关联凭据。数据库文件限制为当前用户读写；此项先提供受理共用锁，P2-11/12 接入 Run 检查。
 
-**检查**：真实系统凭据库写入、替换、清除；读取 API、数据库和日志均无原文；凭据库不可用时明确失败。记录实际验证的操作系统；进程中断后的 recovery_required 修复也必须检查。
+**检查**：重启后凭据仍可供仓储读取；写入、替换、清除与连接删除均保持事务一致；读取 API 和日志无原文，数据库文件权限为 0600。数据库提交失败时不产生部分更新。
 
 ### P2-04A `feat(models): discover and verify explicit model selections`
 
@@ -423,7 +422,7 @@ P2-02～11 不启用正式消息 Run 入口：旧消息功能持续可用，新�
 
 ### P2-05 模型连接设置页 `feat(settings): manage model connections in existing shell`
 
-**结果**：在现有设置 Shell 中交付可使用的模型连接列表页和详情页，完成连接配置闭环。这是模型连接设置页的前端开发项；P2-02、P2-03、P2-04A/B 分别提供配置持久化、系统凭据库和模型发现/调用接口，不能代替本项页面。
+**结果**：在现有设置 Shell 中交付可使用的模型连接列表页和详情页，完成连接配置闭环。这是模型连接设置页的前端开发项；P2-02、P2-03、P2-04A/B 分别提供连接配置、数据库凭据和模型发现/调用接口，不能代替本项页面。
 
 **入口与文件**：在 `frontend/src/app/router.tsx` 增加 `#/settings/models` 和 `#/settings/models/:connectionId`；在 `frontend/src/features/settings/SettingsSidebar.tsx` 增加“模型”入口；页面和组件放入 `frontend/src/features/settings/models/`，复用 `frontend/src/features/settings/SettingsPage.tsx` 的 `SettingsPageWrapper`、`SettingsPageHeader` 与现有设置 Shell。以 `docs/ui-mockups/settings-model-v3.png` 为页面结构参考。
 
@@ -573,11 +572,11 @@ P2-02～11 不启用正式消息 Run 入口：旧消息功能持续可用，新�
 - 模型运行期间强制终止后端，重启能区分 interrupted 与 completed，显式恢复不会盲目重放写工具。
 - 批准与取消竞态、重复批准、写入提交后进程退出均不会重复 WorkspaceMemory。
 - 在同一数据库正常关闭重启，确认配置、完成消息、工具结果和待确认快照仍然存在。
-- 检查数据库、API 响应、SSE 与日志中没有模型密钥、桌面 token 或隐藏推理。
+- 除 `ModelCredential` 表外，检查数据库其它表、API 响应、SSE 与日志中没有模型密钥、桌面 token 或隐藏推理。
 
 - 幂等响应丢失后，待 Run 完成再归档或删除原连接，同 key/正文仍返回原记录；改变正文仍为 409。
 - 目录发现/模型检查期间修改配置，以及同修订并发刷新：旧结果不覆盖新结果；保存成功、发现失败在 UI 中分别呈现。
-- 凭据库写入前后、数据库最终提交前后退出进程，重启显示 recovery_required，重新写入/清除后才可使用；删除中断可重复完成。
+- 凭据写入、替换、清除和连接删除在事务提交前退出不产生部分更新；提交后重启结果完整一致；数据库不可写时明确失败。
 - 一个模型 step 含“只读—确认写入—只读”三项：第二项等待时重启，批准只推进一次；批准事务提交后入队前退出也不重做写入。拒绝/取消后新 Run 的历史不含未配对工具批次。
 - 文本检查成功但工具检查未通过的模型不能创建 GeoAgent Run；能力 unknown 不发送 reasoning_effort；免密服务无需伪造 key。
 - emoji/组合字符正文、重叠增量、缺口、旧 REST 快照晚返回、新 attempt 均不重复、不回退；流缺 finish_reason、length 和空正常输出不能显示完成。

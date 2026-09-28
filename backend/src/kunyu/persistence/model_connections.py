@@ -21,7 +21,11 @@ from kunyu.domain.model_connections import (
     ModelProtocol,
 )
 from kunyu.persistence.database import Database
-from kunyu.persistence.models import ModelCatalogEntryRecord, ModelConnectionRecord
+from kunyu.persistence.models import (
+    ModelCatalogEntryRecord,
+    ModelConnectionRecord,
+    ModelCredentialRecord,
+)
 from kunyu.persistence.time import as_utc
 
 
@@ -83,6 +87,56 @@ class SQLAlchemyModelConnectionRepository:
             record.updated_at = updated_at
             session.flush()
             result = _to_domain(record)
+        return result
+
+    def get_api_key(self, connection_id: str) -> str | None:
+        with self._database.sessions() as session:
+            credential = session.get(ModelCredentialRecord, connection_id)
+            return credential.api_key if credential is not None else None
+
+    def set_api_key(
+        self, connection_id: str, api_key: str, updated_at: datetime
+    ) -> ModelConnection | None:
+        with self._database.sessions.begin() as session:
+            session.execute(text("BEGIN IMMEDIATE"))
+            connection = session.get(ModelConnectionRecord, connection_id)
+            if connection is None:
+                return None
+            if connection.auth_mode != ModelAuthMode.API_KEY.value:
+                raise RuntimeError(
+                    "Cannot store an API key for a connection without API key auth."
+                )
+            credential = connection.credential_record
+            if credential is None:
+                connection.credential_record = ModelCredentialRecord(
+                    connection_id=connection_id,
+                    api_key=api_key,
+                    updated_at=updated_at,
+                )
+            else:
+                credential.api_key = api_key
+                credential.updated_at = updated_at
+            _apply_credential_change(connection, configured=True, updated_at=updated_at)
+            session.flush()
+            result = _to_domain(connection)
+        return result
+
+    def clear_api_key(
+        self, connection_id: str, updated_at: datetime
+    ) -> ModelConnection | None:
+        with self._database.sessions.begin() as session:
+            session.execute(text("BEGIN IMMEDIATE"))
+            connection = session.get(ModelConnectionRecord, connection_id)
+            if connection is None:
+                return None
+            connection.credential_record = None
+            _apply_credential_change(
+                connection,
+                configured=False,
+                updated_at=updated_at,
+            )
+            session.flush()
+            result = _to_domain(connection)
         return result
 
     def delete(self, connection_id: str) -> bool:
@@ -167,6 +221,40 @@ def _copy_catalog_entry(
     record.reasoning_efforts = list(entry.reasoning_efforts)
     record.reasoning_source = entry.reasoning_source.value
     record.discovered_at = entry.discovered_at
+
+
+def _apply_credential_change(
+    connection: ModelConnectionRecord,
+    *,
+    configured: bool,
+    updated_at: datetime,
+) -> None:
+    connection.credential_status = (
+        CredentialStatus.READY.value
+        if configured or connection.auth_mode == ModelAuthMode.NONE.value
+        else CredentialStatus.MISSING.value
+    )
+    connection.credential_configured = configured
+    connection.credential_updated_at = updated_at
+    connection.revision += 1
+    connection.discovery_status = DiscoveryStatus.IDLE.value
+    connection.discovery_last_success_at = None
+    connection.discovery_error_code = None
+    connection.updated_at = updated_at
+    _invalidate_catalog_records(connection.catalog_entries)
+
+
+def _invalidate_catalog_records(
+    entries: list[ModelCatalogEntryRecord],
+) -> None:
+    for entry in entries:
+        entry.availability = CatalogAvailability.UNAVAILABLE.value
+        entry.text_check = CheckStatus.UNCHECKED.value
+        entry.text_checked_at = None
+        entry.text_error_code = None
+        entry.tool_check = CheckStatus.UNCHECKED.value
+        entry.tool_checked_at = None
+        entry.tool_error_code = None
 
 
 def _to_domain(record: ModelConnectionRecord) -> ModelConnection:

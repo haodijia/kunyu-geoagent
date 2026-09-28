@@ -27,6 +27,9 @@ class Database:
             (data_directory / directory_name).mkdir(exist_ok=True)
 
         database_path = data_directory / DATABASE_FILE_NAME
+        if not database_path.exists():
+            database_path.touch(mode=0o600)
+        database_path.chmod(0o600)
         engine = create_engine(database_url(database_path))
         configure_sqlite(engine)
         try:
@@ -50,9 +53,7 @@ def database_url(database_path: Path) -> URL:
 
 def configure_sqlite(engine: Engine) -> None:
     @event.listens_for(engine, "connect")
-    def set_sqlite_pragmas(
-        dbapi_connection: SQLiteConnection, _: object
-    ) -> None:
+    def set_sqlite_pragmas(dbapi_connection: SQLiteConnection, _: object) -> None:
         cursor = dbapi_connection.cursor()
         try:
             cursor.execute("PRAGMA foreign_keys=ON")
