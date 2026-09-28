@@ -157,6 +157,7 @@ class SQLAlchemySessionRepository:
                 event_type=created_event.event_type,
                 payload=created_event.payload,
                 occurred_at=created_event.occurred_at,
+                run_id=created_event.run_id,
             )
             workspace_record.updated_at = session.updated_at
             database_session.add(session_record)

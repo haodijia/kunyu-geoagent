@@ -2,7 +2,7 @@ import { createContext, useContext, useEffect, type ReactNode } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useAppUiStore } from "@/app/store";
 import { useSessionEvents } from "@/features/events/SessionEventContext";
-import { appendUserMessage, listMessages, messageQueryKeys, type UserMessage } from "./api";
+import { appendUserMessage, listMessages, messageQueryKeys, type SessionMessage } from "./api";
 
 function useMessages(sessionId: string) {
   const queryClient = useQueryClient();
@@ -24,7 +24,7 @@ function useMessages(sessionId: string) {
   const mutation = useMutation({
     mutationFn: (text: string) => appendUserMessage(sessionId, text),
     onSuccess: message => {
-      queryClient.setQueryData<UserMessage[]>(queryKey, current => {
+      queryClient.setQueryData<SessionMessage[]>(queryKey, current => {
         if (current === undefined) return [message];
         if (current.some(item => item.id === message.id)) return current;
         return [...current, message].sort((left, right) => left.sequence - right.sequence);

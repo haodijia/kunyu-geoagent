@@ -1,6 +1,6 @@
 # 阶段二：最小 DSH 与模型运行闭环
 
-> 状态：开发中；P2-01～P2-05 已交付，其余开发项待实现。
+> 状态：开发中；P2-01～P2-06 已交付，其余开发项待实现。
 >
 > 基线日期：2026-09-28。阶段一已完成；本文以当前源码和[开发架构设计](../开发架构设计.md)为基线。
 >
@@ -431,7 +431,7 @@ P2-02～11 不启用正式消息 Run 入口：旧消息功能持续可用，新�
 
 **检查**：前端 `npm run build` 通过；后端 `uv run python -m compileall src` 通过；使用 uv 临时数据目录完成 provider_type 的 SQLite 创建、读取和列表往返。正式 UI 仍需用真实 Provider 验收：从供应商目录创建连接、自动发现并主动刷新、启用模型、设置默认模型、完成工具检查、重新进入确认密钥不回显、删除连接，以及窄窗口无溢出。本次未使用内置浏览器，未把构建结果声明为桌面视觉验收。
 
-### P2-06 `feat(runs): persist runs messages and ordered events`
+### P2-06 `feat(runs): persist runs messages and ordered events`（已交付）
 
 **结果**：Run、模型快照、Assistant 和 ToolCall 拥有原子存储能力。
 
