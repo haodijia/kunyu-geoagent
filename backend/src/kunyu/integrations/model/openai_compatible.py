@@ -217,10 +217,9 @@ class OpenAICompatibleClient:
                         },
                     }
                 ],
-                "tool_choice": {
-                    "type": "function",
-                    "function": {"name": PROBE_TOOL_NAME},
-                },
+                # Match the Agent adapter and deepseek-harness: thinking models
+                # can reject a forced named choice even when Tool Call works.
+                "tool_choice": "auto",
                 config.max_tokens_field.value: CHECK_MAX_TOKENS,
             },
         )
