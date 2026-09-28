@@ -2,6 +2,9 @@ import { Navigate, createHashRouter, useParams } from "react-router-dom";
 
 import { useAppUiStore } from "@/app/store";
 import { ArchivedSessionsPage } from "@/features/sessions/ArchivedSessionsPage";
+import { ModelConnectionCreatePage } from "@/features/settings/models/ModelConnectionCreatePage";
+import { ModelConnectionDetailPage } from "@/features/settings/models/ModelConnectionDetailPage";
+import { ModelConnectionsPage } from "@/features/settings/models/ModelConnectionsPage";
 import { SessionWorkspace } from "@/features/sessions/SessionWorkspace";
 import { ConversationView } from "@/features/sessions/views/ConversationView";
 import { OverviewView } from "@/features/sessions/views/OverviewView";
@@ -25,6 +28,12 @@ export const router = createHashRouter([
     element: <AppShell />,
     children: [
       { path: "settings/archived", element: <ArchivedSessionsPage /> },
+      { path: "settings/models", element: <ModelConnectionsPage /> },
+      { path: "settings/models/new", element: <ModelConnectionCreatePage /> },
+      {
+        path: "settings/models/:connectionId",
+        element: <ModelConnectionDetailPage />
+      },
       {
         index: true,
         element: <LaunchPage />

@@ -48,6 +48,189 @@ export const zhCN = {
     system: "系统",
     back: "返回会话"
   },
+  modelConnections: {
+    title: "模型",
+    description: "管理模型连接、访问凭据与可用于 GeoAgent 的模型。",
+    add: "添加连接",
+    addFirst: "添加第一个连接",
+    retry: "重试",
+    loading: "正在读取模型连接…",
+    emptyTitle: "还没有模型连接",
+    emptyDescription: "添加一个明确的 OpenAI Compatible 端点，发现并验证它提供的模型。",
+    connectionList: "模型连接",
+    connectionCount: (count: number) => `模型连接 · ${count}`,
+    availableModelCount: (count: number) => `${count} 个已发现模型`,
+    defaultBadge: "默认",
+    securityNote: "访问密钥只保存在本机数据库中，不会出现在接口响应、对话或运行日志里。",
+    backToList: "返回模型列表",
+    cancel: "取消",
+    saveConnection: "保存连接",
+    saveRequest: "保存请求配置",
+    saved: "连接设置已保存",
+    never: "尚无",
+    dateTime: (date: Date) =>
+      new Intl.DateTimeFormat("zh-CN", {
+        year: "numeric",
+        month: "2-digit",
+        day: "2-digit",
+        hour: "2-digit",
+        minute: "2-digit"
+      }).format(date),
+    status: {
+      managing: "管理中",
+      disabled: "已停用",
+      credentialRequired: "待写入密钥",
+      discoveryFailed: "发现失败",
+      needsSetup: "待验证",
+      ready: "可用"
+    },
+    auth: {
+      apiKey: "Bearer API Key",
+      none: "无需认证"
+    },
+    source: {
+      fetched: "服务发现",
+      manual: "手工添加"
+    },
+    checkStatus: {
+      unchecked: "未检查",
+      passed: "通过",
+      failed: "失败"
+    },
+    sections: {
+      connection: "连接配置",
+      credential: "访问凭据",
+      request: "请求参数",
+      models: "模型目录与检查",
+      defaults: "默认选择",
+      danger: "删除连接"
+    },
+    fields: {
+      displayName: "显示名称",
+      displayNamePlaceholder: "例如：团队模型服务",
+      protocol: "协议",
+      protocolHelp: "当前阶段只支持明确配置的 OpenAI Compatible Chat Completions 协议。",
+      baseUrl: "Base URL",
+      baseUrlHelp: "必须包含服务所需的路径前缀；系统不会自动补充 /v1。",
+      authMode: "认证方式",
+      apiKey: "API Key",
+      apiKeyPlaceholder: "输入后写入，不会再次回显",
+      credentialHelp: "留在本页期间只保存在输入框中；写入或离开页面后会清空。",
+      enabled: "启用此连接",
+      enabledHelp: "停用后不会进入后续会话的模型选择。",
+      maxTokensField: "输出上限字段",
+      includeUsage: "请求流式用量",
+      includeUsageHelp: "发送 stream_options.include_usage=true；不支持时不会自动改参重试。",
+      requestHelp: "这些参数会进入连接修订和后续运行快照。"
+    },
+    create: {
+      title: "添加模型连接",
+      description: "配置端点与凭据；保存后由后端自动发现该端点实际提供的模型。",
+      connectionHelp: "名称用于界面识别，协议、地址和认证方式决定实际网络请求。",
+      submit: "保存并发现模型",
+      retryCredential: "重试写入密钥",
+      savedCredentialFailed: "连接已经保存，但密钥写入未完成。请修正密钥后重试，避免重复创建连接。"
+    },
+    detail: {
+      loadingTitle: "模型连接",
+      loadingDescription: "正在读取连接配置与模型目录。",
+      loading: "正在加载模型连接…",
+      description: "编辑连接、管理写入型凭据，并验证精确的模型 ID。",
+      connectionHelp: "修改端点、认证或请求参数会生成新修订，使旧目录与检查结果失效。",
+      configRevision: (revision: number) => `配置修订 ${revision}`,
+      retryHint: "当前操作未完成；修正配置后可直接重试。"
+    },
+    credential: {
+      description: "接口只返回是否已配置；保存的密钥原文不会回显到页面。",
+      state: "凭据状态",
+      updatedAt: "最近更新",
+      status: {
+        ready: "已就绪",
+        missing: "未配置"
+      },
+      replace: "重新写入 API Key",
+      save: "写入密钥",
+      saved: "密钥已写入，模型发现已安排",
+      clear: "清除密钥",
+      cleared: "密钥已清除",
+      saveAuthFirst: "认证方式已经修改。请先保存连接配置，再写入或清除凭据。",
+      noneRequired: "此连接由你明确配置为免密服务，不会发送 Authorization 头。",
+      clearTitle: "清除已保存的密钥？",
+      clearDescription: "连接会保留，但当前目录与模型检查将失效，需要重新写入密钥后再次发现和验证。",
+      confirmClear: "清除密钥"
+    },
+    catalog: {
+      description: "目录只展示真实发现或明确手工添加的精确 ID；GeoAgent 仅使用已启用且两项检查均通过的模型。",
+      refresh: "刷新目录",
+      refreshStarted: "模型目录已刷新",
+      lastSuccess: (value: string) => `上次成功：${value}`,
+      revision: (revision: number) => `修订：${revision}`,
+      discoveryFailed: "模型发现失败",
+      failureKeepsCatalog: "同一修订下之前成功的目录仍会保留；系统不会填入猜测模型。",
+      testModel: "待检查模型",
+      noModels: "暂无模型",
+      testText: "检查文本",
+      testTools: "完整检查",
+      testSucceeded: (modelId: string, latency: number) => `${modelId} 检查完成（${latency} 毫秒）`,
+      testFailed: "模型检查未通过，请查看当前连接、凭据和模型能力。",
+      emptyTitle: "尚无模型目录",
+      emptyDescription: "刷新端点目录，或在下方手工添加服务支持的精确模型 ID。",
+      manualTitle: "手工添加模型",
+      manualHelp: "只记录你明确输入的 ID；添加后仍需执行真实的文本与工具检查。",
+      manualPlaceholder: "精确 model_id",
+      manualAdd: "添加",
+      manualAdded: "模型已添加到目录",
+      manualRemoved: "手工模型来源已移除",
+      unavailable: "不可用",
+      sources: (sources: string) => `来源：${sources}`,
+      discoveredAt: (value: string) => `记录时间：${value}`,
+      textCheck: "文本",
+      toolCheck: "工具",
+      enableNamed: (modelId: string) => `启用模型 ${modelId}`,
+      removeManual: "移除手工来源",
+      removeManualNamed: (modelId: string) => `移除 ${modelId} 的手工来源`
+    },
+    defaults: {
+      description: "默认模型必须已启用、当前可用，并同时通过文本和工具检查；不会自动替换失效选择。",
+      model: "默认模型",
+      noModel: "不设置默认模型",
+      unavailableModel: (modelId: string) => `${modelId}（当前不可用）`,
+      modelHelp: "不满足 Agent 检查的模型不会出现在可选列表中。",
+      connection: "默认连接",
+      connectionHelp: "新会话没有明确选择时使用此连接；全局最多一个。",
+      setConnection: "设为默认连接",
+      clearConnection: "清除默认连接",
+      set: "默认连接已设置",
+      cleared: "默认连接已清除"
+    },
+    danger: {
+      description: "删除会同时移除本机保存的凭据与模型目录。默认连接或被未完成运行引用时不能删除。",
+      delete: "删除连接",
+      deleteTitle: "删除模型连接？",
+      deleteDescription: (name: string) => `将永久删除“${name}”及其本机凭据和模型目录。此操作无法撤销。`,
+      confirmDelete: "删除连接",
+      deleted: "模型连接已删除"
+    },
+    errors: {
+      unknown: "模型连接操作失败，请重试。",
+      requestFailed: (status: number) => `模型连接操作失败（${status}）。`,
+      byCode: {
+        INVALID_INPUT: "提交的连接配置无效，请检查地址、模型 ID 与当前选择。",
+        NOT_FOUND: "模型连接或手工模型已不存在，请返回列表刷新。",
+        DEFAULT_CONNECTION: "请先清除默认连接，再执行此操作。",
+        CONNECTION_BUSY: "连接正在执行其他管理操作，请稍后重试。",
+        MODEL_EXISTS: "该模型 ID 已有手工来源，无需重复添加。",
+        DISCOVERY_SUPERSEDED: "此次发现结果已被更新的连接配置取代，请重新刷新。",
+        CHECK_SUPERSEDED: "此次检查结果已被更新的连接配置取代，请重新检查。",
+        PROVIDER_AUTH: "服务拒绝了当前凭据，请重新写入有效密钥。",
+        PROVIDER_TIMEOUT: "连接服务超时，请检查端点后重试。",
+        PROVIDER_NETWORK: "无法连接模型服务，请检查地址与网络。",
+        PROVIDER_PROTOCOL: "模型服务返回了不符合协议的响应，或没有可用模型。",
+        REQUEST_FAILED: "模型连接操作失败，请重试。",
+        UNSUPPORTED_CAPABILITY: "当前认证或模型能力不支持此操作。"
+      }
+    }
+  },
   archivedSessions: {
     title: "已归档会话",
     description: "管理已归档的会话，恢复后可继续处理原来的任务。",
