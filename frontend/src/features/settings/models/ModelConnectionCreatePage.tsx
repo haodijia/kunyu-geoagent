@@ -1,45 +1,40 @@
-import { useRef, useState, type FormEvent } from "react";
-import { ArrowLeft, LoaderCircle } from "lucide-react";
+import { useRef, useState, type FormEvent, type ReactNode } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { useNavigate } from "react-router-dom";
+import { LoaderCircle } from "lucide-react";
+import { useNavigate, useParams } from "react-router-dom";
 
 import { Button } from "@/components/ui/button";
-import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
-import {
-  SettingsPageHeader,
-  SettingsPageWrapper
-} from "@/features/settings/SettingsPage";
+import { SettingsPageHeader, SettingsPageWrapper } from "@/features/settings/SettingsPage";
 import { zhCN } from "@/locales/zh-CN";
-import {
-  modelConnectionsApi,
-  type MaxTokensField,
-  type ModelAuthMode
-} from "./api";
+import { modelConnectionsApi, type ModelProviderType } from "./api";
 import { connectionErrorMessage } from "./model";
+import { displayForProvider } from "./provider-copy";
+import { ProviderLogo } from "./ProviderLogo";
+import { providerById } from "./providers";
 
 const content = zhCN.modelConnections;
 
 export function ModelConnectionCreatePage() {
+  const { providerId } = useParams();
+  const provider = providerById(providerId ?? "");
+  if (provider === undefined) {
+    throw new Error(`Unknown model provider '${providerId ?? ""}'.`);
+  }
+  const selectedProvider = provider;
+  const display = displayForProvider(selectedProvider);
   const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const [displayName, setDisplayName] = useState("");
-  const [baseUrl, setBaseUrl] = useState("");
-  const [authMode, setAuthMode] = useState<ModelAuthMode>("api_key");
+  const [name, setName] = useState(display.name);
+  const [baseUrl, setBaseUrl] = useState(selectedProvider.baseUrl);
   const [apiKey, setApiKey] = useState("");
-  const [maxTokensField, setMaxTokensField] =
-    useState<MaxTokensField>("max_tokens");
-  const [includeUsage, setIncludeUsage] = useState(false);
   const [createdConnectionId, setCreatedConnectionId] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const submitting = useRef(false);
-
-  const keyRequired = authMode === "api_key";
-  const invalid =
-    displayName.trim() === "" ||
-    baseUrl.trim() === "" ||
-    (keyRequired && apiKey.trim() === "");
+  const customSetup = selectedProvider.providerType === "custom" || selectedProvider.category === "local";
+  const requiresApiKey = selectedProvider.authMode === "api_key";
+  const invalid = name.trim() === "" || baseUrl.trim() === "" || (requiresApiKey && apiKey.trim() === "");
 
   async function submit(event: FormEvent) {
     event.preventDefault();
@@ -51,20 +46,20 @@ export function ModelConnectionCreatePage() {
       let connectionId = createdConnectionId;
       if (connectionId === null) {
         const connection = await modelConnectionsApi.create({
-          display_name: displayName,
+          display_name: name,
+          provider_type: selectedProvider.providerType,
           protocol: "openai_compatible",
           base_url: baseUrl,
-          auth_mode: authMode,
-          max_tokens_field: maxTokensField,
-          include_usage: includeUsage
+          auth_mode: selectedProvider.authMode,
+          max_tokens_field: selectedProvider.maxTokensField,
+          include_usage: selectedProvider.includeUsage
         });
         connectionId = connection.id;
         setCreatedConnectionId(connection.id);
       }
-      if (keyRequired) {
+      if (requiresApiKey) {
         await modelConnectionsApi.setCredential(connectionId, apiKey.trim());
       }
-      setApiKey("");
       await queryClient.invalidateQueries({ queryKey: ["model-connections"] });
       void navigate(`/settings/models/${connectionId}`, { replace: true });
     } catch (requestError) {
@@ -77,135 +72,123 @@ export function ModelConnectionCreatePage() {
 
   return (
     <SettingsPageWrapper>
-      <SettingsPageHeader
-        title={content.create.title}
-        description={content.create.description}
-        actions={
-          <Button variant="ghost" size="sm" onClick={() => void navigate("/settings/models")}>
-            <ArrowLeft className="size-3.5" />
-            {content.backToList}
-          </Button>
-        }
-      />
+      <SettingsPageHeader title={content.title} description={content.description} actions={null} />
+      <div className="model-route-page">
+        <RouteHeader
+          onBack={() => void navigate("/settings/models/new")}
+          backLabel={content.catalog.back}
+          providerType={selectedProvider.providerType}
+          title={content.create.connect(display.name)}
+          subtitle={content.create.subtitle}
+          badge={display.badge}
+        />
 
-      <form className="model-settings-form" onSubmit={(event) => void submit(event)}>
-        {createdConnectionId !== null && error !== null ? (
-          <div className="model-settings-notice model-settings-notice--warning" role="status">
-            {content.create.savedCredentialFailed}
-          </div>
-        ) : null}
-        {error !== null ? (
-          <div className="model-settings-notice model-settings-notice--error" role="alert">
-            {error}
-          </div>
-        ) : null}
-
-        <section className="model-settings-card">
-          <div className="model-settings-card__heading">
-            <h2>{content.sections.connection}</h2>
-            <p>{content.create.connectionHelp}</p>
-          </div>
-          <div className="model-settings-fields">
-            <label className="model-settings-field">
-              <span>{content.fields.displayName}</span>
+        <form className="provider-setup-form" onSubmit={(event) => void submit(event)}>
+          {customSetup ? (
+            <>
+              {requiresApiKey ? (
+                <FormField label={content.create.apiKey}>
+                  <Input
+                    autoFocus
+                    type="password"
+                    autoComplete="new-password"
+                    value={apiKey}
+                    placeholder={content.create.apiKeyPlaceholder}
+                    disabled={busy}
+                    onChange={(event) => setApiKey(event.target.value)}
+                  />
+                </FormField>
+              ) : null}
+              <FormField label={content.create.name}>
+                <Input
+                  autoFocus={!requiresApiKey}
+                  value={name}
+                  maxLength={200}
+                  disabled={busy || createdConnectionId !== null}
+                  onChange={(event) => setName(event.target.value)}
+                />
+              </FormField>
+              <FormField label={content.create.endpoint}>
+                <Input
+                  type="url"
+                  value={baseUrl}
+                  maxLength={2048}
+                  placeholder="https://api.example.com/v1"
+                  disabled={busy || createdConnectionId !== null}
+                  onChange={(event) => setBaseUrl(event.target.value)}
+                />
+              </FormField>
+            </>
+          ) : (
+            <FormField label={content.create.apiKey}>
               <Input
                 autoFocus
-                maxLength={200}
-                value={displayName}
-                disabled={createdConnectionId !== null}
-                placeholder={content.fields.displayNamePlaceholder}
-                onChange={(event) => setDisplayName(event.target.value)}
+                type="password"
+                autoComplete="new-password"
+                value={apiKey}
+                placeholder={content.create.apiKeyPlaceholder}
+                disabled={busy}
+                onChange={(event) => setApiKey(event.target.value)}
               />
-            </label>
-            <label className="model-settings-field">
-              <span>{content.fields.protocol}</span>
-              <select value="openai_compatible" disabled>
-                <option value="openai_compatible">OpenAI Compatible</option>
-              </select>
-              <small>{content.fields.protocolHelp}</small>
-            </label>
-            <label className="model-settings-field model-settings-field--wide">
-              <span>{content.fields.baseUrl}</span>
-              <Input
-                type="url"
-                maxLength={2048}
-                value={baseUrl}
-                disabled={createdConnectionId !== null}
-                placeholder="https://api.example.com/v1"
-                onChange={(event) => setBaseUrl(event.target.value)}
-              />
-              <small>{content.fields.baseUrlHelp}</small>
-            </label>
-            <label className="model-settings-field">
-              <span>{content.fields.authMode}</span>
-              <select
-                value={authMode}
-                disabled={createdConnectionId !== null}
-                onChange={(event) => setAuthMode(event.target.value as ModelAuthMode)}
-              >
-                <option value="api_key">{content.auth.apiKey}</option>
-                <option value="none">{content.auth.none}</option>
-              </select>
-            </label>
-            {keyRequired ? (
-              <label className="model-settings-field">
-                <span>{content.fields.apiKey}</span>
-                <Input
-                  type="password"
-                  autoComplete="new-password"
-                  value={apiKey}
-                  placeholder={content.fields.apiKeyPlaceholder}
-                  onChange={(event) => setApiKey(event.target.value)}
-                />
-                <small>{content.fields.credentialHelp}</small>
-              </label>
-            ) : null}
-          </div>
-        </section>
+            </FormField>
+          )}
 
-        <section className="model-settings-card">
-          <div className="model-settings-card__heading">
-            <h2>{content.sections.request}</h2>
-            <p>{content.fields.requestHelp}</p>
-          </div>
-          <div className="model-settings-fields">
-            <label className="model-settings-field">
-              <span>{content.fields.maxTokensField}</span>
-              <select
-                value={maxTokensField}
-                disabled={createdConnectionId !== null}
-                onChange={(event) =>
-                  setMaxTokensField(event.target.value as MaxTokensField)
-                }
-              >
-                <option value="max_tokens">max_tokens</option>
-                <option value="max_completion_tokens">max_completion_tokens</option>
-              </select>
-            </label>
-            <label className="model-settings-check-field">
-              <Checkbox
-                checked={includeUsage}
-                disabled={createdConnectionId !== null}
-                onCheckedChange={(checked) => setIncludeUsage(checked === true)}
-              />
-              <span>
-                <strong>{content.fields.includeUsage}</strong>
-                <small>{content.fields.includeUsageHelp}</small>
-              </span>
-            </label>
-          </div>
-        </section>
+          {error !== null ? (
+            <div className="model-notice model-notice--error" role="alert">{error}</div>
+          ) : null}
 
-        <div className="model-settings-form__footer">
-          <Button type="button" variant="ghost" onClick={() => void navigate("/settings/models")}>
-            {content.cancel}
-          </Button>
-          <Button type="submit" disabled={busy || invalid}>
-            {busy ? <LoaderCircle className="size-4 animate-spin" /> : null}
-            {createdConnectionId === null ? content.create.submit : content.create.retryCredential}
-          </Button>
-        </div>
-      </form>
+          <div className="provider-setup-form__actions">
+            <Button type="button" variant="ghost" disabled={busy} onClick={() => void navigate("/settings/models/new")}>
+              {content.cancel}
+            </Button>
+            <Button type="submit" disabled={busy || invalid}>
+              {busy ? <LoaderCircle className="size-4 animate-spin" /> : null}
+              {busy ? content.create.saving : content.create.save}
+            </Button>
+          </div>
+        </form>
+      </div>
     </SettingsPageWrapper>
+  );
+}
+
+function FormField({ label, children }: { readonly label: string; readonly children: ReactNode }) {
+  return (
+    <label className="provider-form-field">
+      <span>{label}</span>
+      {children}
+    </label>
+  );
+}
+
+function RouteHeader({
+  onBack,
+  backLabel,
+  providerType,
+  title,
+  subtitle,
+  badge
+}: {
+  readonly onBack: () => void;
+  readonly backLabel: string;
+  readonly providerType: ModelProviderType;
+  readonly title: string;
+  readonly subtitle: string;
+  readonly badge: string;
+}) {
+  return (
+    <div className="model-route-header">
+      <button type="button" className="model-route-header__back" onClick={onBack}>{backLabel}</button>
+      <div className="model-route-header__identity">
+        <ProviderLogo type={providerType} compact />
+        <div>
+          <div className="model-route-header__title-line">
+            <h2>{title}</h2>
+            <span className="model-badge">{badge}</span>
+          </div>
+          <p>{subtitle}</p>
+        </div>
+      </div>
+    </div>
   );
 }

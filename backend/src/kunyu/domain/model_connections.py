@@ -8,6 +8,27 @@ class ModelProtocol(StrEnum):
     OPENAI_COMPATIBLE = "openai_compatible"
 
 
+class ModelProviderType(StrEnum):
+    OPENAI = "openai"
+    DEEPSEEK = "deepseek"
+    MOONSHOT = "moonshot"
+    ZAI = "zai"
+    SILICONFLOW = "siliconflow"
+    OPENROUTER = "openrouter"
+    GROQ = "groq"
+    NVIDIA = "nvidia"
+    TOGETHER = "together"
+    DEEPINFRA = "deepinfra"
+    FIREWORKS = "fireworks"
+    ALIBABA = "alibaba"
+    XAI = "xai"
+    MISTRAL = "mistral"
+    OLLAMA = "ollama"
+    LM_STUDIO = "lm_studio"
+    LOCALAI = "localai"
+    CUSTOM = "custom"
+
+
 class ModelAuthMode(StrEnum):
     API_KEY = "api_key"
     NONE = "none"
@@ -113,6 +134,7 @@ class ModelCatalogEntry:
 class ModelConnection:
     id: str
     display_name: str
+    provider_type: ModelProviderType
     protocol: ModelProtocol
     base_url: str
     auth_mode: ModelAuthMode

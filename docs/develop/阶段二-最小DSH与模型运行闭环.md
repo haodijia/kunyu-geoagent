@@ -1,12 +1,12 @@
 # 阶段二：最小 DSH 与模型运行闭环
 
-> 状态：开发中；P2-01～P2-04B 已交付，其余开发项待实现。
+> 状态：开发中；P2-01～P2-05 已交付，其余开发项待实现。
 >
 > 基线日期：2026-09-28。阶段一已完成；本文以当前源码和[开发架构设计](../开发架构设计.md)为基线。
 >
 > 目标：在现有桌面会话中接入真实模型，完成用户消息、Assistant 流式回复、本地工具、精确确认、取消与重启恢复的闭环。阶段二不执行 OGE 作业。
 
-> 模型连接设置页开发项：[P2-05 模型连接设置页](#p2-05-模型连接设置页-featsettings-manage-model-connections-in-existing-shell)。当前前端尚未实现该页面，现有设置路由只有归档页。
+> 模型连接设置页已按 [P2-05 模型连接设置页](#p2-05-模型连接设置页-featsettings-manage-model-connections-in-existing-shell) 交付：连接列表、供应商目录、连接表单与详情管理均已接入现有设置 Shell。
 
 ## 1. 开发方式
 
@@ -15,7 +15,7 @@
 3. 后端使用 uv；不新增数据库迁移、软件版本升级或旧契约兼容分支。前后端契约变更同步落地。
 4. 不写假模型回复、假工具结果，不在失败时替换模型、协议、凭据存储或事件源。
 5. 默认不新增测试文件。执行类型检查、构建、隔离数据目录下的手工接口检查和桌面验收；用户明确要求时再编写测试。
-6. 开发前按第 2.1 节核对参考源码：模型连接设置及其发现、选择流程参考 maka-agent；ModelAdapter 与 Agent 运行架构参考 deepseek-harness。模型连接页面的交互和视觉组织参考 maka-agent，并结合 mu、deepseek-harness 与 v3 原型适配现有设置 Shell。界面复用现有 shadcn/ui、Tailwind 和统一主题；不引入 Arco、不照搬设置文案或无关业务。
+6. 开发前按第 2.1 节核对参考源码：模型连接页面只参考 maka-agent；ModelAdapter 与 Agent 运行架构继续参考 deepseek-harness。界面复用现有 shadcn/ui、Tailwind 和统一主题，不引入参考项目的组件库或无关业务。
 7. 未完成或无法验证的能力明确记录，不把通过构建等同于真实模型或凭据持久化验收通过。
 
 ## 2. 从阶段一接续
@@ -38,9 +38,8 @@
 
 | 来源 | 核对位置 | 本项目对齐方式 |
 | --- | --- | --- |
-| maka-agent | `apps/desktop/src/renderer/settings/provider-add-form.tsx`、`apps/desktop/src/renderer/settings/use-connection-detail.ts`、`apps/desktop/src/main/connection-model-discovery.ts`、`packages/runtime/src/model-fetcher.ts`、`packages/core/src/llm-connections.ts`、`packages/core/src/model-catalog.ts` | 只对齐模型连接设置及其支撑流程：创建连接后自动拉取、保存密钥/端点后重新拉取、手动刷新、凭据/协议/空列表失败提示、目录来源与时间、模型可用性和选择，以及连接页面的交互和视觉组织。将 Electron IPC/TypeScript 的连接管理与 `/models` 发现流程改为 FastAPI 应用服务；不以 maka-agent 的模型调用实现作为 ModelAdapter 参考。 |
+| maka-agent | `apps/desktop/src/renderer/settings/ProvidersPanel.tsx`、`provider-catalog-page.tsx`、`provider-add-form.tsx`、`provider-display.tsx`、`provider-brand-marks.tsx`、`provider-connection-detail.tsx`、`provider-enabled-model-manager.tsx`，以及主进程的 `connection-model-discovery.ts` | 模型设置对齐其四层页面流转：连接列表 → 供应商目录 → 连接表单 → 连接详情；复用紧凑供应商行、品牌图标、搜索/分类、凭据可展开行、模型多选和三段式详情结构。将 Electron IPC 连接管理与 `/models` 发现改为 FastAPI 应用服务；不移植账号 OAuth、非 OpenAI-compatible 协议或其组件库。 |
 | deepseek-harness | `packages/llm/llm-pi-ai/src/adapter.ts`、`packages/llm/llm-pi-ai/src/stream.ts`、`packages/llm/llm-pi-ai/src/catalog.ts`、`packages/core/agent-loop/src/agent.ts`、`packages/core/agent-loop/src/tool-calls.ts`、`packages/core/session/src/index.ts`、`packages/core/session/src/surface.ts`、`packages/core/tools/src/index.ts` | ModelAdapter 以其调用快照、流事件转换、结构化 Tool Call、用量、超时/取消和显式 Provider 能力/参数配置为主要参考；产品消息过滤隐藏推理。Agent 运行对齐模型—工具—模型推进、可见历史重建、工具守卫、持久事件与恢复边界。落到本项目的 `dsh` Protocol、显式 Host 装配与 SQLite 事务，不照搬 pi-ai 或 Cordis。 |
-| mu | `desktop/packages/desktop/src/renderer/pages/settings/KyrnSettings/providers/ProviderManager.tsx`、`ProviderEditor.tsx`、`ModelRows.tsx`、`providers.module.css` | 只参考界面层级、间距和控件使用；业务状态、接口文案和运行架构以本项目契约为准。 |
 
 只对齐下表明确列出的阶段二行为，不要求整个参考产品等价。开发时按“来源路径/符号 → 源行为 → 本项目契约 → 实现位置 → 验证结果”记录；不得把有意舍弃的行为重新引入。未列出的差异先按本文冻结契约处理并记录理由。每个实现 commit 正文均包含该映射及实际检查结果，不能仅写“参考 maka-agent/DSH”。
 
@@ -50,7 +49,7 @@
 | maka-agent 的某些自定义中继创建失败提示及前端触发发现 | 发现错误必须可见；自动发现由后端拥有，页面卸载不取消已保存连接的发现。 |
 | DSH 的通用 surface、并行工具、Provider 重试与推理 replay 数据 | 只保留串行工具、显式轮次与可重建历史；不自动重试模型，不保存隐藏推理。需要隐藏推理回传的协议模式本阶段明确不支持。 |
 | DSH 的持久层和 approval 服务 | 补充参考 `packages/session/session-persistence/src/{index,handle,storage-contract}.ts`、`packages/interaction/user-approval/src/{index,types}.ts`；借鉴日志连续性、确认范围与取消边界。本项目的 SQLite 原子写入、拒绝结束 Run、确认跨重启与显式恢复是本地契约，不宣称直接等价。 |
-| mu 与 DSH 设置布局 | mu 使用上述桌面路径；DSH 表单参考 `packages/client/ui-primitives/src/settings-form/{SettingsForm,fields}.tsx`。只取布局和交互组织，不引入 Arco、Cordis 或其业务文案。 |
+| maka-agent 的非 OpenAI-compatible 供应商和账号登录 | 当前后端只有 OpenAI-compatible Chat Completions；供应商目录只提供能落到该协议的官方、聚合、本地和自定义入口。目录预设不改变运行协议，账号 OAuth 留到后续阶段。 |
 
 以上路径按本地参考源码核对；不在文档或文件名添加源码 hash。P2-18 按“保留行为通过/有意差异符合本文/未完成”分别记录，不以修正有意差异为验收条件。
 
@@ -122,7 +121,7 @@
 
 ### 4.3 模型连接
 
-ModelConnection 保存稳定 ID、显示名、协议类型、Base URL、认证方式、启用状态、默认标记、配置修订号、default_model_id（可空）、已启用模型 ID 集合及模型目录。目录条目保存 Provider 返回的精确 model_id、可选显示名、发现来源、发现时间，以及能被可靠确认的 Tool Call 和 reasoning_effort 能力；未知能力标记为 unknown，不能推断为支持。不向不支持或能力未知的模型发送推理参数。
+ModelConnection 保存稳定 ID、显示名、`provider_type`、协议类型、Base URL、认证方式、启用状态、默认标记、配置修订号、default_model_id（可空）、已启用模型 ID 集合及模型目录。`provider_type` 是供应商展示和图标的持久标识，不从显示名或 URL 推断；运行协议仍由独立 protocol 字段决定。目录条目保存 Provider 返回的精确 model_id、可选显示名、发现来源、发现时间，以及能被可靠确认的 Tool Call 和 reasoning_effort 能力；未知能力标记为 unknown，不能推断为支持。不向不支持或能力未知的模型发送推理参数。
 
 - 本阶段协议类型仅 openai_compatible；认证方式显式为 api_key 或 none，none 只适用于用户明确配置的免密服务。
 - reasoning_effort 为 null 或该模型支持的枚举值；不得把统一的 standard/high 标签不加转换地发给所有服务。
@@ -339,7 +338,7 @@ API JSON 使用 snake_case；已有 MapContext 在 API 边界显式映射，前�
 
 | 操作 | 请求与响应补充 |
 | --- | --- |
-| 创建连接 | `{display_name, protocol:"openai_compatible", base_url, auth_mode, max_tokens_field, include_usage}`；不在该接口接收密钥。201 ConnectionDTO，初始 default_model_id=null、enabled=true、is_default=false。 |
+| 创建连接 | `{display_name, provider_type, protocol:"openai_compatible", base_url, auth_mode, max_tokens_field, include_usage}`；provider_type 使用后端闭合枚举，只负责供应商身份和图标；不在该接口接收密钥。201 ConnectionDTO，初始 default_model_id=null、enabled=true、is_default=false。 |
 | PATCH 连接 | 只允许 display_name/base_url/auth_mode/enabled/enabled_model_ids/default_model_id/max_tokens_field/include_usage 及 is_default=false；显式字段白名单、整项校验后原子保存。 |
 | 凭据 | PUT `{api_key}`，非空且最长 8,192 字符；DELETE 无正文。200 ConnectionDTO；密钥不回显。 |
 | 发现 / 手工添加 | POST discover-models `{}`，200 `{revision,generation,entries,discovered_at}`；失败为稳定错误。manual-models `{model_id}` 返回 201 CatalogEntry；已有 fetched 条目则为其增加 manual 来源，不复制记录；已有 manual 来源返回 409。手工条目删除使用 `DELETE /model-connections/{id}/manual-models?model_id=...`，查询参数 model_id 必须 URL 编码以支持含 `/` 的模型名；有 fetched 来源时只移除 manual 来源。 |
@@ -348,7 +347,7 @@ API JSON 使用 snake_case；已有 MapContext 在 API 边界显式映射，前�
 | 确认 / 取消 / 恢复 | approve/reject/resume/cancel 请求体 `{}`；确认返回 `{confirmation,tool_call,run}`，运行操作返回 RunDTO。cancel 对任意终态返回 200 原状态；resume 对终态/运行态返回 409。 |
 | 会话场景 | PUT `{scene_id,version}` 或 `{scene_id:null,version:null}` 清除；200 SessionPreference。结构无效版本不能绑定，依赖缺失可作讨论上下文。 |
 
-ConnectionDTO 包含配置字段、revision、credential `{status:ready|missing,configured:boolean,updated_at}`、management_status、discovery `{status:idle|pending|succeeded|failed|interrupted,generation,last_success_at,error_code}` 与目录 entries。CatalogEntry 包含 model_id、sources、revision、availability、enabled、checks、tool capability、reasoning 枚举/来源。RunDTO 包含 id/session_id/user_message_id、state、model/map/scene snapshots、step/attempt、resume_phase/next_tool_index、requires_resume、预算、暂停原因、pending_confirmation_id、created_at/updated_at/updated_sequence；不得含密钥或原始模型请求。
+ConnectionDTO 包含 provider_type、配置字段、revision、credential `{status:ready|missing,configured:boolean,updated_at}`、management_status、discovery `{status:idle|pending|succeeded|failed|interrupted,generation,last_success_at,error_code}` 与目录 entries。CatalogEntry 包含 model_id、sources、revision、availability、enabled、checks、tool capability、reasoning 枚举/来源。RunDTO 包含 id/session_id/user_message_id、state、model/map/scene snapshots、step/attempt、resume_phase/next_tool_index、requires_resume、预算、暂停原因、pending_confirmation_id、created_at/updated_at/updated_sequence；不得含密钥或原始模型请求。
 
 GET messages 保持数组；GET runs、confirmations、model-connections、scenes 首期也返回数组。列表只暴露摘要，工具结果通过 RunDTO 的 tool_calls 脱敏明细读取；确认列表足以还原精确卡片，不依赖曾收到的 SSE。
 
@@ -420,15 +419,17 @@ P2-02～11 不启用正式消息 Run 入口：旧消息功能持续可用，新�
 
 **检查**：用 uv 临时脚本消费真实文本和工具流；检查终止结果、取消后连接释放、低输出上限触发 length、用量缺失保留 null；记录未能在真实服务触发的错误分支，不宣称已验收。P2-10 再验证 Runner 如何消费这些结果。
 
-### P2-05 模型连接设置页 `feat(settings): manage model connections in existing shell`
+### P2-05 模型连接设置页 `feat(settings): manage model connections in existing shell`（已交付）
 
 **结果**：在现有设置 Shell 中交付可使用的模型连接列表页和详情页，完成连接配置闭环。这是模型连接设置页的前端开发项；P2-02、P2-03、P2-04A/B 分别提供连接配置、数据库凭据和模型发现/调用接口，不能代替本项页面。
 
 **入口与文件**：在 `frontend/src/app/router.tsx` 增加 `#/settings/models` 和 `#/settings/models/:connectionId`；在 `frontend/src/features/settings/SettingsSidebar.tsx` 增加“模型”入口；页面和组件放入 `frontend/src/features/settings/models/`，复用 `frontend/src/features/settings/SettingsPage.tsx` 的 `SettingsPageWrapper`、`SettingsPageHeader` 与现有设置 Shell。以 `docs/ui-mockups/settings-model-v3.png` 为页面结构参考。
 
-**范围**：列表页展示多个连接、状态、默认连接和新增入口；详情页展示协议、Base URL、脱敏凭据状态、模型目录和错误。完成创建/编辑/删除、设置/清除唯一默认连接和默认模型、写入型密钥、保存后自动发现状态、手动刷新、独立手工添加、模型启用选择、模型来源/上次成功时间、选定模型连接测试。显示文本/工具分项检查、管理中/待修复状态，区分保存成功和发现失败；提供重新写入/清除凭据及重试删除操作。清理离开页面后的密钥草稿。模型连接页面的交互与视觉组织参考 maka-agent，结合 v3 原型及 mu/deepseek-harness 的设置布局适配现有 Shell，不复制对方设置文案。
+**范围**：页面只参考 maka-agent 的模型设置，交付“连接列表 → 供应商目录 → 连接表单 → 连接详情”的四层流转。列表展示供应商图标、连接名称、默认模型、默认标记和状态；添加入口提供搜索、推荐/API/聚合/本地分类，以及官方、聚合、本地和自定义 OpenAI-compatible 预设。创建时固定供应商只填写密钥，本地和自定义连接显示必要的名称与端点字段；保存连接和密钥后由后端自动发现模型。
 
-**检查**：通过 UI 创建连接并自动列出服务实际返回的模型名称，主动刷新可更新目录；选定模型完成真实检查；发现失败有明确状态和手工添加入口，不自动填入猜测名称；重新进入只显示脱敏状态；归档设置页与返回会话操作保持正常；宽窄桌面布局无溢出。
+详情页删除旧的多卡片表单、请求参数面板、逐模型检查墙和手工模型入口，只保留凭据、模型、删除三段：密钥与仅允许自定义的端点采用可展开行；模型使用可搜索多选器，保留默认模型、连接测试、主动更新模型列表和设置默认连接；删除时同步处理默认标记。新增闭合 `provider_type`，贯穿 domain/API/SQLite/前端类型，用于稳定展示供应商品牌图标，禁止根据名称或 URL 猜测。旧 `ModelConnectionForm`、`ModelCatalog` 及其独立样式已移除，不保留兼容页面。
+
+**检查**：前端 `npm run build` 通过；后端 `uv run python -m compileall src` 通过；使用 uv 临时数据目录完成 provider_type 的 SQLite 创建、读取和列表往返。正式 UI 仍需用真实 Provider 验收：从供应商目录创建连接、自动发现并主动刷新、启用模型、设置默认模型、完成工具检查、重新进入确认密钥不回显、删除连接，以及窄窗口无溢出。本次未使用内置浏览器，未把构建结果声明为桌面视觉验收。
 
 ### P2-06 `feat(runs): persist runs messages and ordered events`
 
@@ -551,7 +552,7 @@ P2-02～11 不启用正式消息 Run 入口：旧消息功能持续可用，新�
 ### 6.2 桌面主链
 
 1. 使用独立开发数据目录启动 Electron，确认仍由桌面拉起后端。
-2. 在模型设置创建一个真实连接并写入凭据，确认自动发现服务实际返回的模型 ID、来源和时间；启用并选定模型完成连接检查，再主动刷新一次目录，核对启用选择与不可用提示。
+2. 在模型设置从供应商目录搜索并选择一个真实 Provider，确认品牌图标、预设端点和精简连接表单正确；保存凭据后自动发现真实模型 ID，在详情页启用模型、设置默认模型并完成工具检查，再主动更新一次目录，核对启用选择与失败状态。
 3. 创建工作空间与会话，在对话输入框选择连接和模型，发送普通消息。
 4. 确认用户消息与 Run 只创建一次，Assistant 实际流式输出，完成后重启仍可读取。
 5. 发起需要 workspace.get_context 的请求，核对工具读取的真实空间与后续回复。

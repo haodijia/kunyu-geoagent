@@ -1,6 +1,25 @@
 import { requestJson } from "@/api/client";
 
 export type ModelProtocol = "openai_compatible";
+export type ModelProviderType =
+  | "openai"
+  | "deepseek"
+  | "moonshot"
+  | "zai"
+  | "siliconflow"
+  | "openrouter"
+  | "groq"
+  | "nvidia"
+  | "together"
+  | "deepinfra"
+  | "fireworks"
+  | "alibaba"
+  | "xai"
+  | "mistral"
+  | "ollama"
+  | "lm_studio"
+  | "localai"
+  | "custom";
 export type ModelAuthMode = "api_key" | "none";
 export type MaxTokensField = "max_tokens" | "max_completion_tokens";
 export type ModelCheckStatus = "unchecked" | "passed" | "failed";
@@ -38,6 +57,7 @@ export interface ModelCatalogEntry {
 export interface ModelConnection {
   readonly id: string;
   readonly display_name: string;
+  readonly provider_type: ModelProviderType;
   readonly protocol: ModelProtocol;
   readonly base_url: string;
   readonly auth_mode: ModelAuthMode;
@@ -67,6 +87,7 @@ export interface ModelConnection {
 
 export interface CreateModelConnectionInput {
   readonly display_name: string;
+  readonly provider_type: ModelProviderType;
   readonly protocol: ModelProtocol;
   readonly base_url: string;
   readonly auth_mode: ModelAuthMode;
