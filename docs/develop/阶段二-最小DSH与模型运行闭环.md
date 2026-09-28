@@ -343,7 +343,7 @@ API JSON 使用 snake_case；已有 MapContext 在 API 边界显式映射，前�
 | PATCH 连接 | 只允许 display_name/base_url/auth_mode/enabled/enabled_model_ids/default_model_id/max_tokens_field/include_usage 及 is_default=false；显式字段白名单、整项校验后原子保存。 |
 | 凭据 | PUT `{api_key}`，非空且最长 8,192 字符；DELETE 无正文。200 ConnectionDTO；密钥不回显。 |
 | 发现 / 手工添加 | POST discover-models `{}`，200 `{revision,generation,entries,discovered_at}`；失败为稳定错误。manual-models `{model_id}` 返回 201 CatalogEntry；已有 fetched 条目则为其增加 manual 来源，不复制记录；已有 manual 来源返回 409。手工条目删除使用 `DELETE /model-connections/{id}/manual-models?model_id=...`，查询参数 model_id 必须 URL 编码以支持含 `/` 的模型名；有 fetched 来源时只移除 manual 来源。 |
-| 模型测试 | `{model_id,mode:"text"|"tools"}`；200 `{model_id,revision,status,checks,latency_ms,error_code}`。Provider 检查失败为 status=failed；工具探测指定 tool_choice 为唯一探测函数，并验证函数名和参数 Schema，不能仅凭模型返回任何工具就判成功；前置条件不满足或结果过期按错误状态返回。 |
+| 模型测试 | `{model_id,mode:"text"|"tools"}`；200 `{model_id,revision,status,checks,latency_ms,error_code}`。Provider 检查失败为 status=failed；工具探测与 Agent 调用一致使用 `tool_choice=auto` 并只提供唯一探测函数，返回仍须严格验证函数名和参数 Schema，不能仅凭模型返回任意工具或普通文本就判成功；前置条件不满足或结果过期按错误状态返回。 |
 | 发送消息 | `{content,model_selection:{connection_id,model_id,reasoning_effort},map_context}`；content 1～32,768 码点且不全空白。场景从当前会话事务读取，不接受请求覆盖 scene。202 `{message,run}`。 |
 | 确认 / 取消 / 恢复 | approve/reject/resume/cancel 请求体 `{}`；确认返回 `{confirmation,tool_call,run}`，运行操作返回 RunDTO。cancel 对任意终态返回 200 原状态；resume 对终态/运行态返回 409。 |
 | 会话场景 | PUT `{scene_id,version}` 或 `{scene_id:null,version:null}` 清除；200 SessionPreference。结构无效版本不能绑定，依赖缺失可作讨论上下文。 |
