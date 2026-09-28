@@ -1,8 +1,8 @@
 # 阶段二：最小 DSH 与模型运行闭环
 
-> 状态：待开发
+> 状态：开发中；P2-01 已交付，其余开发项待实现。
 >
-> 基线日期：2026-09-27。阶段一已完成；本文以当前源码和[开发架构设计](../开发架构设计.md)为基线。
+> 基线日期：2026-09-28。阶段一已完成；本文以当前源码和[开发架构设计](../开发架构设计.md)为基线。
 >
 > 目标：在现有桌面会话中接入真实模型，完成用户消息、Assistant 流式回复、本地工具、精确确认、取消与重启恢复的闭环。阶段二不执行 OGE 作业。
 
@@ -40,9 +40,19 @@
 | --- | --- | --- |
 | maka-agent | `apps/desktop/src/renderer/settings/provider-add-form.tsx`、`apps/desktop/src/renderer/settings/use-connection-detail.ts`、`apps/desktop/src/main/connection-model-discovery.ts`、`packages/runtime/src/model-fetcher.ts`、`packages/core/src/llm-connections.ts`、`packages/core/src/model-catalog.ts` | 只对齐模型连接设置及其支撑流程：创建连接后自动拉取、保存密钥/端点后重新拉取、手动刷新、凭据/协议/空列表失败提示、目录来源与时间、模型可用性和选择，以及连接页面的交互和视觉组织。将 Electron IPC/TypeScript 的连接管理与 `/models` 发现流程改为 FastAPI 应用服务；不以 maka-agent 的模型调用实现作为 ModelAdapter 参考。 |
 | deepseek-harness | `packages/llm/llm-pi-ai/src/adapter.ts`、`packages/llm/llm-pi-ai/src/stream.ts`、`packages/llm/llm-pi-ai/src/catalog.ts`、`packages/core/agent-loop/src/agent.ts`、`packages/core/agent-loop/src/tool-calls.ts`、`packages/core/session/src/index.ts`、`packages/core/session/src/surface.ts`、`packages/core/tools/src/index.ts` | ModelAdapter 以其调用快照、流事件转换、结构化 Tool Call、用量、超时/取消和显式 Provider 能力/参数配置为主要参考；产品消息过滤隐藏推理。Agent 运行对齐模型—工具—模型推进、可见历史重建、工具守卫、持久事件与恢复边界。落到本项目的 `dsh` Protocol、显式 Host 装配与 SQLite 事务，不照搬 pi-ai 或 Cordis。 |
-| mu | 现有模型设置与选择相关组件、样式 | 只参考界面层级、间距和控件使用；业务状态、接口文案和运行架构以本项目契约为准。 |
+| mu | `desktop/packages/desktop/src/renderer/pages/settings/KyrnSettings/providers/ProviderManager.tsx`、`ProviderEditor.tsx`、`ModelRows.tsx`、`providers.module.css` | 只参考界面层级、间距和控件使用；业务状态、接口文案和运行架构以本项目契约为准。 |
 
-对上述**阶段二覆盖的同类功能**，验收标准是输入、状态变化、错误反馈和最终用户效果与参考实现一致；不能只做相似的目录结构或接口名称。源码和文案可以重写，但不能省略参考实现的关键分支。开发时先把源行为列成核对项，再逐项映射到本项目 API、持久层和界面；不一致处必须记录原因并在交付前修正。参考仓库超出本阶段的 Provider 协议、Cordis、多 Agent 等能力仍按第 3 节范围处理。每个后续实现 commit 的正文须列出实际对照的来源路径、源行为、本项目实现位置和验证结果，不能仅写“参考 maka-agent/DSH”。
+只对齐下表明确列出的阶段二行为，不要求整个参考产品等价。开发时按“来源路径/符号 → 源行为 → 本项目契约 → 实现位置 → 验证结果”记录；不得把有意舍弃的行为重新引入。未列出的差异先按本文冻结契约处理并记录理由。每个实现 commit 正文均包含该映射及实际检查结果，不能仅写“参考 maka-agent/DSH”。
+
+| 参考差异 | 本项目决定 |
+| --- | --- |
+| maka-agent 的静态 fallback 目录、默认模型补选、测试时自动选模型 | 不移植；无真实目录或显式手工条目则无可选模型，测试必须提交精确 model_id。 |
+| maka-agent 的某些自定义中继创建失败提示及前端触发发现 | 发现错误必须可见；自动发现由后端拥有，页面卸载不取消已保存连接的发现。 |
+| DSH 的通用 surface、并行工具、Provider 重试与推理 replay 数据 | 只保留串行工具、显式轮次与可重建历史；不自动重试模型，不保存隐藏推理。需要隐藏推理回传的协议模式本阶段明确不支持。 |
+| DSH 的持久层和 approval 服务 | 补充参考 `packages/session/session-persistence/src/{index,handle,storage-contract}.ts`、`packages/interaction/user-approval/src/{index,types}.ts`；借鉴日志连续性、确认范围与取消边界。本项目的 SQLite 原子写入、拒绝结束 Run、确认跨重启与显式恢复是本地契约，不宣称直接等价。 |
+| mu 与 DSH 设置布局 | mu 使用上述桌面路径；DSH 表单参考 `packages/client/ui-primitives/src/settings-form/{SettingsForm,fields}.tsx`。只取布局和交互组织，不引入 Arco、Cordis 或其业务文案。 |
+
+以上路径按本地参考源码核对；不在文档或文件名添加源码 hash。P2-18 按“保留行为通过/有意差异符合本文/未完成”分别记录，不以修正有意差异为验收条件。
 
 | 对齐场景 | 必须达到的可观察结果 |
 | --- | --- |
@@ -80,18 +90,20 @@
 
 ### 4.1 Run 创建和并发
 
-发送请求先校验会话未归档、空间未移除、模型选择有效、凭据状态可用、MapContext 属于当前空间，然后在一个 SQLite 事务中：
+请求首先通过桌面身份、请求结构和会话访问校验。随后查找 `(session_id, idempotency_key)`：已受理且规范化正文相同，直接返回原 message/run；不同返回 409。此路径不重新检查当前连接、凭据、归档状态或当前场景，不再次调度。
 
-1. 检查本次 Idempotency-Key 与请求正文是否已经受理。
-2. 检查同一 Session 没有非终态 Run。
-3. 写入 User Message、Run、RunModelSnapshot、MapContext 快照与创建事件。
-4. 写入幂等记录，提交后把 run_id 交给进程内调度器。
+新请求依次取得调度锁、当前连接的进程内操作锁（单后端进程），在数据库事务外读取凭据状态，再在 `BEGIN IMMEDIATE` 事务中再次查询幂等记录，然后：
 
-响应为 202 和 {message, run}；模型失败在 Run 中体现，不回滚已经受理的用户请求。Runner 不能再次追加同一条用户消息。
+1. 复核 Session 未归档、Workspace 未移除、连接无管理操作进行中，且模型、能力验证、配置修订号仍有效；凭据读取在连接锁内、事务外完成，密钥不进入事务记录。
+2. 检查 MapContext 属于当前空间、场景版本结构有效、同一 Session 无非终态 Run，以及全局受理容量。
+3. 原子写入 User Message、Run、模型/地图/场景快照、会话最近模型偏好及创建事件。
+4. 保存规范化请求正文和 message_id/run_id，提交后调度 run_id。锁在提交后释放；不在数据库事务内等待模型网络请求或系统凭据库操作。
 
-幂等范围为会话内一次发送：同一 key、相同请求返回同一个 message_id/run_id；同一 key、不同请求返回 409。重复请求先命中幂等记录，再判断并发冲突。客户端必须保留未确认请求的 key 和正文以重试，不能因为超时生成新的 key。
+响应为 202 `{message, run}`，重试也返回 202 与原 ID、当前持久状态；模型失败不回滚用户消息。Runner 不再次追加用户消息。永久删除会话同时删除幂等记录，之后重试返回 404。
 
-每个 Session 最多一个非终态 Run，通过数据库唯一约束与事务检查保证，不只依赖前端 disabled。不同会话可独立运行，但全局并发数有明确上限。waiting_confirmation 和 interrupted 仍占用运行槽。
+规范化仅采用 DTO 明确的空值规则及 JSON 键排序，不裁剪正文或重排数组；保存正文用于相等比较，不添加 hash。Idempotency-Key 是客户端生成的 UUID。前端在进程内按会话保留未决请求的 key 和完整正文；超时、断网、5xx 后重试必须原样发送。确定的 4xx 允许修改并生成新 key；未决请求不得复用旧 key 发送修改后的正文。重启后从服务端历史恢复已受理结果，不承诺恢复未发送草稿或自动重发。
+
+每个 Session 最多一个非终态 Run，通过部分唯一索引和事务检查保证。waiting_confirmation、interrupted、待调度 ready 占用的是**会话名额**；等待确认和中断不占全局执行并发。全局执行数、受理容量及恢复规则见第 4.12 节。
 
 ### 4.2 消息、事件与流
 
@@ -103,14 +115,14 @@
 - SSE 帧 id 为 sequence 字符串；重连使用 after_sequence。JSON id 是事件主键，不作为订阅游标。
 - Assistant 增量按有界批次持久化后再发布，payload 携带 message_id、attempt、offset、text；不要每个字符写一次 SQLite。
 - GET messages 返回已持久化正文及状态。首次加载或重连按 message_id/offset 合并增量，已经包含在快照中的文本不重复追加。
-- 完成消息与 message.assistant.completed / run.completed 原子落盘；Reducer、Run 状态表和消息记录不能各自提交相互矛盾的终态。
+- 每个模型 step 的 Assistant 完成与 message.assistant.completed 原子落盘；仅最终无 Tool Call 的正常回复同时提交 run.completed。有 Tool Call 时提交完整批次并进入工具/确认阶段，不结束 Run。Reducer、Run 状态表和消息记录必须共用事务。
 - 流中不保存隐藏推理、API Key、Authorization 头或完整模型原始请求。Provider 的额外推理字段不进入产品消息与审计事件。
 
 事件至少包括 run.created、run.model_selected、run.started、message.assistant.delta、message.assistant.completed、tool.requested、tool.started、tool.completed、tool.failed、confirmation.requested、confirmation.resolved、run.completed、run.failed、run.cancelled、run.interrupted、run.resumed。既有 session.created 和 message.user.appended 保持原语义。
 
 ### 4.3 模型连接
 
-ModelConnection 保存稳定 ID、显示名、协议类型、Base URL、认证方式、启用状态、默认标记、配置修订号、已启用模型 ID 集合及模型目录。目录条目保存 Provider 返回的精确 model_id、可选显示名、发现来源、发现时间，以及能被可靠确认的 Tool Call 和 reasoning_effort 能力；未知能力标记为 unknown，不能推断为支持。不向不支持或能力未知的模型发送推理参数。
+ModelConnection 保存稳定 ID、显示名、协议类型、Base URL、认证方式、启用状态、默认标记、配置修订号、default_model_id（可空）、已启用模型 ID 集合及模型目录。目录条目保存 Provider 返回的精确 model_id、可选显示名、发现来源、发现时间，以及能被可靠确认的 Tool Call 和 reasoning_effort 能力；未知能力标记为 unknown，不能推断为支持。不向不支持或能力未知的模型发送推理参数。
 
 - 本阶段协议类型仅 openai_compatible；认证方式显式为 api_key 或 none，none 只适用于用户明确配置的免密服务。
 - reasoning_effort 为 null 或该模型支持的枚举值；不得把统一的 standard/high 标签不加转换地发给所有服务。
@@ -119,7 +131,7 @@ ModelConnection 保存稳定 ID、显示名、协议类型、Base URL、认证�
 - 用户也可在独立的“手工添加模型”操作中明确填写精确 model_id，来源标为 manual；不会因发现失败自动进入手工模式。手工条目需通过真实连接检查后才可用于 Run。自动发现的条目和手工条目分别标记来源，不伪造能力元数据。
 - 模型列表发现与连接测试分开：`GET /models` 成功只能证明目录可读；连接测试必须针对选定 model_id 发起真实受限调用，Tool Call 能力需要真实验证或可靠的 Provider 元数据，不能由名字猜测。
 - 对齐 maka-agent 的模型启用选择：目录可以列出多个模型，用户启用的模型才进入会话选择器；默认模型若不在当前可用且已启用的集合中，设置页明确提示并要求重新选择，不把失效 ID 静默替换。目录刷新后保留仍存在的启用选择，移除的 ID 显示为不可用。
-- 凭据写入系统凭据库，查询仅返回 configured 和更新时间。API Key 不进入 SQLite、前端持久化、场景包或日志。
+- 凭据写入系统凭据库，查询仅返回 configured、状态和更新时间；无法确认时 configured=null，详见 4.10。API Key 不进入 SQLite、前端持久化、场景包或日志。
 - 系统凭据库不可用时阻止需要凭据的连接操作并报告原因，不回退到文件或环境变量存储。
 - 默认连接由事务和唯一约束保证最多一个；没有默认连接时要求用户选择，不自行选第一项。
 - RunModelSnapshot 冻结连接 ID、协议、Base URL、认证方式、模型 ID、推理参数与配置修订号，不含凭据原文。提交前校验 model_id 属于当前修订号下可用、已启用且已验证的目录；已被刷新移除的模型不能继续作为新 Run 默认值。
@@ -136,9 +148,9 @@ ModelConnection 保存稳定 ID、显示名、协议类型、Base URL、认证�
 
 本阶段不注册删除数据、修改模型配置、读系统文件、执行 Shell、提交 OGE 等 Tool。模型提供的 scope 标识必须由服务端约束，不能只依赖提示词。
 
-确认对象保存 confirmation_id、run_id、tool_call_id、工具名、校验后的参数、可读摘要、状态与决定时间。批准/拒绝只提交确认标识和决定，不接收替换参数。修改提议必须生成新快照，使旧确认失效。
+确认对象保存 confirmation_id、run_id、tool_call_id、工具名、校验后的参数、可读摘要、状态与决定时间。批准/拒绝通过路径提交确认标识和决定，请求体为空对象，不接收替换参数。本阶段不提供修改待确认参数接口；用户取消原 Run 后，以新消息生成新的提议和确认。
 
-workspace.memory.save 的写入、ToolCall 完成、确认决定及事件在同一个本地数据库事务内提交；tool_call_id 唯一约束防止重复执行。批准、拒绝、取消竞态使用条件更新，只允许一个结果成功，不能“先执行再保存确认”。
+workspace.memory.save 的写入、ToolCall 完成、确认决定及事件在同一个本地数据库事务内提交；tool_call_id 唯一约束防止重复执行。批准、拒绝、取消争夺待确认状态时使用条件更新，只有一个决定获得写入资格，不能“先执行再保存确认”；批准已提交后再取消只停止后续工作，不撤销写入。
 
 拒绝结束该次 Run 为 cancelled，不自动重新提议相同写入。记忆候选在用户批准前不能被 memory.search 作为事实返回。
 
@@ -156,7 +168,7 @@ workspace.memory.save 的写入、ToolCall 完成、确认决定及事件在同�
 
 Runner 由 FastAPI lifespan 管理，不能把一次 request 的 BackgroundTasks 当作可靠任务系统。入队前已提交的 ready Run 必须能在故障后查到；重连 SSE 不启动执行。
 
-关闭时拒绝新 Run，停止模型网络流，等待正在提交的短数据库事务，并把未结束执行标为 interrupted。取消操作落盘后不能再提交晚到的 delta 或工具写入；取消与工具提交采用同一状态检查/事务顺序。
+关闭时拒绝新 Run 和新的执行调度，停止模型网络流，等待正在提交的短数据库事务，仅将 model_running/tool_running 转为 interrupted；ready 与 waiting_confirmation 保持原状态。取消操作落盘后不能再提交晚到的 delta 或工具写入；取消与工具提交采用同一状态检查/事务顺序。
 
 每个 Run 限制模型轮次、工具次数、活动执行时间、输出长度与可获得的用量数据。恢复不重置累计预算；未知 Token 用量保留 null，不编造数字。
 
@@ -175,6 +187,7 @@ Runner 由 FastAPI lifespan 管理，不能把一次 request 的 BackgroundTasks
 | POST /model-connections/{id}/test | 真实受限请求，返回检查状态与耗时 |
 | POST /model-connections/{id}/discover-models | 用户主动刷新当前连接模型目录；连接保存/凭据就绪后由后端调用同一发现服务 |
 | POST /model-connections/{id}/manual-models | 用户显式添加模型 ID；记录 manual 来源，需连接检查通过后才可用于 Run |
+| DELETE /model-connections/{id}/manual-models?model_id=... | 删除 manual 来源；fetched 来源存在时保留目录条目 |
 | POST /sessions/{id}/messages | Idempotency-Key；正文为 content、model_selection、map_context；返回 202 {message, run} |
 | GET /sessions/{id}/messages | 用户与 Assistant 消息，包括持久部分正文和状态 |
 | GET /sessions/{id}/runs | 当前/历史 Run 摘要 |
@@ -225,9 +238,150 @@ api/application/domain/persistence 中分别增加模型连接、Run、确认、
 
 这里的“插件化”是固定代码装配和能力注入，不做 deepseek-harness 的 Cordis 运行时、动态插件加载、通用消息 surface、并行工具调度或多 Agent。`dsh` 不依赖 FastAPI、SQLAlchemy 或坤舆业务类型；`kunyu` 实现这些 Protocol 并拥有事务、凭据与 API。
 
+### 4.9 模型适配、验证与目录并发
+
+首期固定 Chat Completions wire protocol：Base URL 为包含可选路径前缀的绝对 http/https 地址，去掉尾部 `/` 后追加 `/models` 或 `/chat/completions`；不猜测或补 `/v1`。禁止 userinfo、query、fragment；不跟随重定向发送凭据。认证为 Bearer API Key 或显式 none。不支持 Responses 协议、任意额外请求参数及需要隐藏推理回传的模式；不支持时明确报错。
+
+P2-04B 必须扩展已交付的 `dsh.models`：
+
+- ModelRequest 绑定唯一 RunModelSnapshot 对应的适配器配置，包含输出 Token 上限；取消由 Runner 取消调用任务并关闭 HTTP 流，不以停止读取界面作为取消。
+- 输出除 TextDelta、完整 ModelToolCall、可空 TokenUsage 外，必须有一次终止结果：`stop / tool_calls / length / content_filter`。网络、认证、无终止事件、非法 JSON 等通过稳定异常契约报告，不能把迭代结束直接视为成功。
+- `stop` 且有正文、无工具才可完成 Run；`tool_calls` 必须有非空且完整合法的批次；`length` 和 `content_filter` 保留已提交正文并失败。空正常回复、重复 call_id、结束原因与内容矛盾均为协议错误。`[DONE]` 不能代替 finish_reason；获得完整终止记录之前不执行工具。
+- 标准请求仅发送 model/messages/stream/tools/tool_choice/max_tokens/max_completion_tokens/stream_options/reasoning_effort 中本次适用的字段；输出上限字段由显式 `max_tokens_field=max_tokens|max_completion_tokens` 配置。用量开关 `include_usage` 显式配置，true 时发送 stream_options.include_usage=true，默认 false，不因请求失败自动改参。上述配置进入连接修订及 Run 快照。
+- reasoning_effort 首期只支持标准同名 wire 字段。可靠元数据映射由后端显式 Provider 配置提供，声明精确模型、枚举和来源；无元数据时保持 unknown、UI 只提供 null，不靠模型名称推断，也不开放任意 JSON 参数编辑。
+
+每个 `(connection_id, config_revision, model_id)` 保存 `text_check`、`tool_check`（unchecked/passed/failed）、各自 checked_at、脱敏 error_code，以及 reasoning 能力及来源。`POST test` 必填 model_id 与 `mode=text|tools`：text 执行一次有界真实文本调用；tools 先完成文本检查，再用一个无副作用的探测函数验证结构化调用，探测不注册业务 Tool、不写 WorkspaceMemory，未收到预期调用就判定工具验证失败。真实验证产生的费用/用量按可得数据展示。
+
+GeoAgent 的新 Run 必须同时通过当前修订的文本和工具检查；text-only 成功只证明连接可调用，不代表可启动 Agent。设置页分开展示两个状态，默认操作是 tools 完整检查。未通过验证的模型仍可在设置页选中进行检查，但不进入会话可发送集合。推理强度仍以可靠枚举为准；测试成功不推断其它能力。
+
+连接执行配置（URL、认证、凭据、输出字段、用量参数）变化递增修订号并使验证和旧目录失效；名称、默认选择与启用集合变更不递增执行修订，但仍受未完成 Run 管理保护。配置修订的锁定、验证记录读取与新 Run 受理使用同一连接操作锁。默认模型必须属于当前可用、已启用且通过 Agent 验证的集合；初次创建可为 null，不隐式补选。
+
+目录发现按连接锁分配递增 discovery_generation，并捕获配置修订与凭据，在锁外执行网络请求；落盘时重新取得锁，只接受修订号及 generation 均匹配的结果。旧结果返回 `DISCOVERY_SUPERSEDED`，不得覆盖新目录或错误状态。test 使用同样的修订检查及独立检查 generation，过期结果不得写入验证状态。网络期间不持有 SQLite 写事务。
+
+发现成功只替换 fetched 条目，保留仍存在 ID 的启用和验证记录；消失的 fetched ID 保留 unavailable 标记并清除验证，重新出现后需要重测。manual 条目不因远端列表缺失而删除；相同 ID 不创建两条记录，以来源集合记录 manual/fetched，两种来源均不等于能力证明。目录失败保留同修订成功结果；首次失败无 fetched 可选项。
+
+保存连接/凭据与发现是两个结果：保存成功即返回 201/200 的脱敏 ConnectionDTO，discovery 状态为 pending；后端托管发现，详情页仅在 pending 时轮询 GET。发现失败保留保存结果并显示 failed/error_code，不返回“保存失败”。重启时未完成发现标为 interrupted，用户手动刷新；不会冒充成功或静默换目录。
+
+### 4.10 凭据操作与持久事务
+
+所有连接修改、凭据操作、删除及新 Run 受理共享按 connection_id 的操作锁；新建连接先完成数据库创建。首期只运行一个后端进程，不支持多 worker。数据库事务独立校验未完成 Run，连接锁不能替代数据库约束。
+
+凭据替换/清除采用明确的可恢复操作记录，不承诺系统凭据库与 SQLite 原子提交：
+
+1. 在连接锁内，事务检查无未完成 Run，写 CredentialOperation（operation_id、connection_id、kind、pending、时间），把连接标为管理中，提交。
+2. 在数据库事务外操作系统凭据库；密钥只在该调用的内存和凭据库中存在，不记录到操作日志。
+3. 成功后同锁内提交 configured/updated_at、修订号、目录与验证失效以及 operation completed。替换成功再触发发现，清除只失效。
+4. 凭据库报错或最终数据库提交失败，保留 pending/failed 的阻塞状态；接口不得报告已配置。启动发现未完成操作时连接标为 recovery_required，configured 返回 null（未知），不能用于模型检查或 Run。
+5. 用户显式重新写入或清除凭据解决 recovery_required；不自动恢复旧密钥，不回退文件或环境变量。重做完成后关闭旧操作记录。系统凭据库未恢复前保持阻塞。
+
+连接删除先写 deleting 操作并阻止新 Run，再清理凭据，最后删除连接及目录/检查记录；失败保留 deleting，用户可重复 DELETE 完成清理。默认连接禁止删除，需先把默认切到另一个连接或 PATCH is_default=false 清除默认。set-default 原子清除其它默认；不能通过 PATCH is_default=true 绕过该服务。所有日志只含标识、操作类型、错误码与脱敏摘要。
+
+持久约束和归属如下：
+
+| 对象 | 必须约束与删除规则 |
+| --- | --- |
+| ModelConnection / ModelCatalogEntry | is_default=true 的部分唯一索引；目录唯一 `(connection_id, model_id)`，来源/可用性/检查均绑定修订。删除连接级联目录与凭据操作元数据，不级联历史 Run。 |
+| Run / RunModelSnapshot | Session 下非终态部分唯一索引；快照与 Run 一对一，所有权不能跨 Session；历史 connection_id 是来源标识，不使用会阻止删除连接的外键。 |
+| Message / ToolCall | Message 保持会话 sequence 唯一；Assistant 唯一 `(run_id, step, attempt)`。ToolCall 内部 id 全局唯一，Provider call_id 仅在 `(run_id, step, attempt)` 内唯一，另存 batch_index。 |
+| Confirmation / WorkspaceMemory | 每个 ToolCall 至多一个确认；Memory.source_tool_call_id 唯一。确认绑定原始工具参数和 workspace/session，不接受客户端改 scope。 |
+| AgentEvent / 幂等记录 | 事件唯一 `(session_id, sequence)`；幂等唯一 `(session_id, key)`。所有 run/message/tool 关联须验证同属当前 Session。 |
+| SessionPreference / 删除 | 偏好每会话一条，引用失效只提示重新选择；永久删除会话级联 Run、消息、事件、确认、工具和幂等记录。已确认 WorkspaceMemory 属于空间，保留原调用 ID 为来源值，不随会话删除；移除 Workspace 仅软移除。 |
+
+EventStore 的单事件 append 不得自行形成与业务写入分离的提交。P2-06 提供业务无关的批次提交/工作单元接缝，SQLite 实现拥有一次事务：读持久状态 → Reducer 验证事件 → 更新消息/工具/确认/状态投影 → 分配事件序号 → commit。模型与凭据 I/O 不进入该事务。取消和批准走同一提交入口及条件更新。
+
+### 4.11 模型轮次、历史与流式一致性
+
+step 从 1 开始，每次正常模型—工具推进递增；attempt 从 1 开始，同一步中断恢复时递增。每个 attempt 新建 Assistant message_id；旧部分正文保留原状态，不覆盖、不与新正文拼接。User Message 只对应一次 Run 受理。
+
+模型历史由已提交的完整 step 按顺序构建：assistant 正文及该批完整 tool_calls → 按 batch_index 排列的全部 tool 结果。普通完成回复进入后续历史；失败或中断 attempt 的部分正文仅用于展示，不作为完整模型输入。当前 Run 的用户消息恰好一次。某工具批次没有完整结果时，整个 assistant/tool 批次不进入后续新 Run 的模型历史；已确认记忆仍可作为业务事实读取，不伪造未执行工具结果。
+
+一轮包含多个工具时先完整登记全部调用，再串行推进。每次完成结果与 `next_tool_index` 同事务落盘；读工具完成后才看下一项。遇写工具只生成当前项确认并暂停，后续项保持 pending；批准后本地写入、结果、确认、游标以及下一持久续行状态在同一事务提交，然后调度剩余项。提交后调度前退出时从持久游标恢复，绝不重做已完成工具。所有工具完成后才调用下一模型 step。
+
+拒绝或取消把 pending confirmation 变为 rejected/cancelled，未执行工具变为 cancelled，并提交 Run.cancelled；已完成写入保留事实、不回滚。重复相同批准/拒绝返回同一结果 200，不再次执行或调度；相反决定或已被取消返回 409。已批准后再取消可停止后续工作，但不能声称撤销已提交记忆；竞态以事务先后决定副作用是否发生。
+
+事件 payload 在 P2-06 前冻结，至少包含以下事实；event_type 与 payload 使用可校验的闭合联合类型：
+
+| 事件组 | payload 必要信息 |
+| --- | --- |
+| run.created / model_selected | user_message_id、运行快照/版本、预算上限；重建不得查询后来变化的连接配置。 |
+| run.started / resumed / interrupted / recovery_required | step、attempt、resume_phase、next_tool_index、requires_resume、queue_sequence、暂停原因、累计预算；恢复时不得重置累计值。 |
+| run.budget_reserved / settled | operation_id、模型/工具类型、次数、预留额度、结算实际耗时或崩溃扣减，足以重放累计预算。 |
+| message.assistant.started / delta / completed | started 含 message_id/step/attempt；delta 含 offset/text；completed 含持久正文长度和结束原因。 |
+| model.attempt.finished | step/attempt、结束结果/错误码、可空用量及累计活动耗时。 |
+| tool.requested / started / completed / failed / cancelled | 内部 tool_call_id、Provider call_id、message_id、batch_index；requested 含已验证参数，完成含真实结果，失败含脱敏错误，推进包含 next_tool_index。 |
+| confirmation.requested / resolved | confirmation_id、tool_call_id、精确参数快照/摘要、决定及时间。 |
+| run.completed / failed / cancelled | 最终状态、原因、预算累计；同事务结算仍 streaming 的消息及 pending 工具/确认。 |
+
+启动或关闭将运行态变更时同样追加事件，不能只改状态表。Reducer 转移允许：ready→model_running/tool_running；model_running→tool_running/waiting_confirmation/completed/failed/interrupted/cancelled；tool_running→model_running/waiting_confirmation/failed/interrupted/cancelled；waiting_confirmation→ready/cancelled；interrupted→ready/cancelled；ready→cancelled/failed；旧 ready 的 recovery_required 与用户 resumed 可在 ready 内更新调度标记，不创建新 Run。ready 的 resume_phase 明确下一步是模型还是未完工具；resume 本身只入队，不直接假定恢复模型。waiting_confirmation 只能决定或取消，不可调用 resume；终态不可复活。
+
+正文 offset/length 统一为 Unicode 码点数量；后端使用码点计数，前端使用 `Array.from(text)`，不能使用 JS 字符串 length 代替。delta 为追加前 offset；批次阈值为 50 ms 或 1,024 码点，先到者触发持久化，结束时提交余量。
+
+GET messages 保持列表响应，每条新增 run_id、step、attempt、status、content_length、updated_sequence。用户消息 status=completed，step/attempt=null；阶段一已有消息 run_id=null。Assistant started 必须先于其 delta 发布。前端按 message_id 和 updated_sequence 合并：旧 REST 快照不得覆盖新增量；完整重叠增量忽略，部分重叠只追加尾部，缺口则暂停该消息合并并重新读取快照。SSE 游标只在事件已应用或入有界待合并缓冲后推进；缓冲最多 256 条，超限重新取快照并从此前安全游标重连。不重置会话 sequence，不混合不同 attempt。
+
+P2-12 起 SessionEventProvider 向消息缓存分发原始类型事件，同时供轨迹投影使用；不能先丢弃 delta 再试图从轨迹记录重建。移除当前“每个事件使完整消息列表失效”的做法，常规 delta 更新缓存，重连/缺口再查快照。P2-15 只完善轨迹呈现，不拥有消息事件接收能力。
+
+### 4.12 调度、预算与生命周期常量
+
+首期固定值集中定义在后端运行配置，不开放设置 UI：全局同时执行 4 个 Run；ready 且 requires_resume=false 的排队最多 32 个（不含正在执行/确认等待/中断/待用户恢复），容量满时新发送或 resume/approve 返回 429 `RUN_QUEUE_FULL` 且不产生本次副作用。批准入队容量预留、确认写入与 ready 转移共享调度锁和数据库事务；容量已满时保持原确认。锁顺序固定为调度锁 → 连接锁（如需）→ SQLite 事务，禁止逆序等待。ready 按受理/恢复入队顺序 FIFO，以持久 queue_sequence 排序。
+
+等待确认、中断释放执行名额；用户恢复先原子置 ready 并获得队列位置，同一 Run 重复调度由状态条件更新拒绝。启动扫描不自动执行旧 ready，标记 requires_resume=true；用户 resume 才解除。正常受理/批准产生的 ready 允许调度。重启后 model_running/tool_running 标 interrupted，等待确认保持；读工具可重做，已完成工具直接跳过，写入只能从已提交事务事实判断。
+
+每 Run 最多 8 次模型调用（包括恢复的新 attempt）、16 次工具调用、300 秒活动时间、32,768 个输出码点；每次模型 max tokens 为 4,096。HTTP 连接超时 10 秒、流空闲超时 30 秒；目录与验证调用总超时 30 秒、响应体上限 2 MiB，目录最多 2,000 项、ID 最长 256 码点；检查调用输出上限 128 tokens；超出目录数/ID/体积上限整次发现失败，不截断后冒充完整目录。工具参数与结果各最多 16 KiB JSON，单次本地只读工具最多 5 秒。
+
+恢复重做的工具也消耗调用次数，已提交写入的跳过不计一次新执行。Token 用量只记录 Provider 确实报告的值；缺失时累计对应维度为 null，并保留已知小计，不能以零替代。Token 不作为未知用量下的唯一硬预算。
+
+活动时间包括模型/工具执行，不含排队和用户等待。每次模型调用预留 min(60 秒, 剩余活动预算)、工具执行预留 min(5 秒, 剩余活动预算)，并以该时间片为硬超时，执行前持久扣留、正常结束返还未用额度；崩溃留下未结算时间片时按预留上限计入活动预算，避免反复重启获得无限额度，并在 DTO 标明该段是预算扣减而非实际测量耗时。UI 的实际耗时缺失保持 null。
+
+系统 shutdown 请求处理先设置 closing 信号，使所有 SSE 主动结束，然后请求 Uvicorn 退出；不能等 lifespan finally 才关 SSE，避免其阻塞请求排空。信号退出走相同关闭入口。关闭按顺序停止受理/批准/恢复 → 取消模型流及未开始工具 → 等待短事务 → 持久中断 → 释放 Host/数据库。后端关闭预算 3 秒，配合 Electron 当前 5 秒退出等待；不修改 waiting_confirmation。超过期限仍由 Electron 强制结束，启动扫描依据持久事实恢复。P2-11 手工验证活跃 SSE、确认等待、模型流和写事务四种关闭场景，不能只验证无任务退出。
+
+### 4.13 API DTO、错误与工具参数
+
+API JSON 使用 snake_case；已有 MapContext 在 API 边界显式映射，前端 store 保留现有 camelCase，不同时接受两套命名。未知请求字段返回 422。
+
+| 操作 | 请求与响应补充 |
+| --- | --- |
+| 创建连接 | `{display_name, protocol:"openai_compatible", base_url, auth_mode, max_tokens_field, include_usage}`；不在该接口接收密钥。201 ConnectionDTO，初始 default_model_id=null、enabled=true、is_default=false。 |
+| PATCH 连接 | 只允许 display_name/base_url/auth_mode/enabled/enabled_model_ids/default_model_id/max_tokens_field/include_usage 及 is_default=false；显式字段白名单、整项校验后原子保存。 |
+| 凭据 | PUT `{api_key}`，非空且最长 8,192 字符；DELETE 无正文。200 ConnectionDTO；密钥不回显。 |
+| 发现 / 手工添加 | POST discover-models `{}`，200 `{revision,generation,entries,discovered_at}`；失败为稳定错误。manual-models `{model_id}` 返回 201 CatalogEntry；已有 fetched 条目则为其增加 manual 来源，不复制记录；已有 manual 来源返回 409。手工条目删除使用 `DELETE /model-connections/{id}/manual-models?model_id=...`，查询参数 model_id 必须 URL 编码以支持含 `/` 的模型名；有 fetched 来源时只移除 manual 来源。 |
+| 模型测试 | `{model_id,mode:"text"|"tools"}`；200 `{model_id,revision,status,checks,latency_ms,error_code}`。Provider 检查失败为 status=failed；工具探测指定 tool_choice 为唯一探测函数，并验证函数名和参数 Schema，不能仅凭模型返回任何工具就判成功；前置条件不满足或结果过期按错误状态返回。 |
+| 发送消息 | `{content,model_selection:{connection_id,model_id,reasoning_effort},map_context}`；content 1～32,768 码点且不全空白。场景从当前会话事务读取，不接受请求覆盖 scene。202 `{message,run}`。 |
+| 确认 / 取消 / 恢复 | approve/reject/resume/cancel 请求体 `{}`；确认返回 `{confirmation,tool_call,run}`，运行操作返回 RunDTO。cancel 对任意终态返回 200 原状态；resume 对终态/运行态返回 409。 |
+| 会话场景 | PUT `{scene_id,version}` 或 `{scene_id:null,version:null}` 清除；200 SessionPreference。结构无效版本不能绑定，依赖缺失可作讨论上下文。 |
+
+ConnectionDTO 包含配置字段、revision、credential `{status:ready|missing|recovery_required,configured:boolean|null,updated_at}`、management_status、discovery `{status:idle|pending|succeeded|failed|interrupted,generation,last_success_at,error_code}` 与目录 entries。CatalogEntry 包含 model_id、sources、revision、availability、enabled、checks、tool capability、reasoning 枚举/来源。RunDTO 包含 id/session_id/user_message_id、state、model/map/scene snapshots、step/attempt、resume_phase/next_tool_index、requires_resume、预算、暂停原因、pending_confirmation_id、created_at/updated_at/updated_sequence；不得含密钥或原始模型请求。
+
+GET messages 保持数组；GET runs、confirmations、model-connections、scenes 首期也返回数组。列表只暴露摘要，工具结果通过 RunDTO 的 tool_calls 脱敏明细读取；确认列表足以还原精确卡片，不依赖曾收到的 SSE。
+
+MapContext DTO 使用现有字段对应的 snake_case：workspace_id、viewport（latitude/longitude/zoom）、event_id、selected_aoi_id、selected_feature、visible_layer_ids、active_result_layer_id、active_observation_id、comparison_observation_ids。阶段二无真实图层/观测，所有引用只能 null 或空数组；非空返回 422，不能接受尚不存在的资源。经纬度分别限制 [-90,90]/[-180,180]，zoom [0,24]，所有数值必须有限。
+
+统一错误体为 `{error:{code,message,details}}`，message 为脱敏摘要，details 仅白名单字段；前端按 code 映射 locales。固定基础错误码：422 `INVALID_INPUT/MODEL_UNVERIFIED/UNSUPPORTED_CAPABILITY/SCENE_INVALID`；404 `NOT_FOUND`；409 `SESSION_ARCHIVED/WORKSPACE_REMOVED/RUN_CONFLICT/IDEMPOTENCY_CONFLICT/CONFIRMATION_CONFLICT/CONNECTION_IN_USE/DEFAULT_CONNECTION/CONNECTION_BUSY/DISCOVERY_SUPERSEDED/CHECK_SUPERSEDED/MODEL_EXISTS`；429 `RUN_QUEUE_FULL`；503 `CREDENTIAL_STORE_UNAVAILABLE/CREDENTIAL_RECOVERY_REQUIRED/SHUTTING_DOWN`。发现网络/认证/格式失败使用 502 `PROVIDER_AUTH/PROVIDER_PROTOCOL/PROVIDER_NETWORK` 或 504 `PROVIDER_TIMEOUT`。运行中的同类错误写入 Run，不改变已受理 POST 的结果。
+
+工具 Schema 在 P2-08 落地：workspace.get_context 为 `{}`；memory.search 为 `{query:string,limit:integer}`，query 1～200 码点、limit 1～20（必填）；workspace.memory.save 为 `{content:string}`，content 1～2,000 码点；scene.get 为 `{}`，读取该 Run 冻结版本，无场景返回明确 null。均禁止额外字段，workspace/session 只能来自后端绑定。memory.search 使用有界字面关键词包含查询、按 created_at DESC/id DESC 排序，不执行模型提供的 SQL；结果明确截断与总条数，不能伪造遗漏内容。
+
+### 4.14 GeoSkill 最小包契约
+
+P2-16 使用 Pydantic 校验以下 YAML DTO，禁止任意 Python/YAML 对象构造、未知字段与包外路径；SKILL.md 只读取 UTF-8 文本，不执行其中指令。五个文件必须存在，总大小不超过 1 MiB，scene_id/version 在内置目录唯一。结构错误显示诊断，不加载为可选上下文；外部依赖缺失不等于结构错误。
+
+| 文件 | 首期必需字段与规则 |
+| --- | --- |
+| manifest.yaml | scene_id/version/title/summary；inputs/outputs 各为 `{id,type,required,description}` 数组，type 限 string/number/boolean/geometry/raster/vector；dependencies 为 `{kind:tool|oge,id,service_id:string|null}` 数组。OGE 未绑定必须明确 null，不能造 ID。 |
+| SKILL.md | 非空方法说明文本；作为低信任领域参考注入，不能新增 Tool 或改变确认策略。 |
+| workflow.yaml | steps 数组，项为 `{id,description,depends_on,capability_id,input_refs,output_ids}`；验证 ID 唯一、引用存在、无环。首期只描述有序步骤，不实现可执行条件表达式或脚本。 |
+| validation.yaml | rules 数组，项为 `{id,description,target,kind:required|coverage|completeness}`；target 必须引用声明的输入/输出，规则仅作说明与后续校验契约，不宣称已执行 OGE 质量检查。 |
+| presentation.yaml | `{plan_fields,layer_styles,statistic_fields,report_sections}`；引用 manifest 输出，layer_styles 项为 `{output_id,color,opacity}`，颜色为 #RRGGBB、opacity [0,1]；无结果时允许显式空数组。 |
+
+Scene DTO 分开返回 structure_status=valid|invalid、dependency_status=ready|blocked、executable、diagnostics，以及版本内容摘要。阶段二 executable 恒为 false，理由为 OGE 执行未接入；有效版本可绑定讨论。Run 快照保存 scene_id/version 和注入的精简约束正文，scene.get 读取该快照；不能仅凭版本号重新读取可能变化的本地文件。包内容变更必须新版本，旧 Run 不受安装目录变化影响。
+
 ## 5. Commit 计划
 
-### P2-01 `feat(dsh): define runtime contracts and host lifecycle`
+P2-01 已有 `feat(dsh): define runtime contracts and host lifecycle` 提交，实际文件为 `dsh/{host,runtime,models,tools,context,events}.py`；安装包已配置同时包含 dsh/kunyu。既有提交正文记录了导入、构建及 Host 手工检查，本次文档修订未重新运行这些检查。后续直接扩展这些模块，不另建功能重复的 agent.py/event_store.py。尚缺的模型终止契约归 P2-04B，批次工作单元归 P2-06。
+
+依赖顺序：P2-01 → P2-02 → P2-03 → P2-04A → P2-04B → P2-05 → P2-06 → P2-07 → P2-08 → P2-09 → P2-10 → P2-11 → P2-12 → P2-13 → P2-14 → P2-15 → P2-16 → P2-17 → P2-18。P2-04 拆成 A/B，保留其它编号与现有页面链接。每项注明前置、对外变化和人工验证方法；内部能力尚未接入 API 时使用 uv 临时脚本调用真实仓储/服务检查，不新增测试文件、假服务或临时公开调试路由。
+
+P2-02～11 不启用正式消息 Run 入口：旧消息功能持续可用，新增内部能力不自动启动执行。P2-12 一次性切换消息受理、最小 Assistant 展示、幂等请求和活动 Run 操作，不保留两套发送协议；P2-13～15 完善体验。内部已变更的 GET DTO 也必须同步前端类型和最低限度展示，不能等后续页面项才修正。
+
+### P2-01 `feat(dsh): define runtime contracts and host lifecycle`（已交付）
 
 **结果**：可导入的业务无关 DSH 核心和确定性插件装配。
 
@@ -239,7 +393,7 @@ api/application/domain/persistence 中分别增加模型连接、Run、确认、
 
 **结果**：模型连接、目录和默认选择有正式领域与存储契约。
 
-**范围**：对照 maka-agent 的 `llm-connections.ts` 和 `model-catalog.ts`，实现四层模型配置、唯一默认约束、协议/认证方式、已启用模型 ID、模型目录来源与发现时间、能力 unknown 状态和配置修订号；不保存 API Key。新增 GET/POST/PATCH/DELETE/default API 与 CORS 方法。Base URL 或凭据变化使旧目录失效。
+**范围**：对照 maka-agent 的 `llm-connections.ts` 和 `model-catalog.ts`，实现四层模型配置、唯一默认约束、协议/认证方式、已启用模型 ID、模型目录来源与发现时间、能力 unknown 状态和配置修订号；不保存 API Key。新增 GET/POST/PATCH/DELETE/default API 与 CORS 方法。Base URL 变化使旧目录失效；凭据变更的调用方在 P2-03 接入。按 4.9/4.10/4.13 定义 default_model_id、验证状态、管理状态与 DTO，P2-02 不实施模型网络调用。
 
 **检查**：重启后配置保持；多个连接只允许一个默认项；非法 URL、重复目录项或不支持的协议报错；默认连接不能被直接删除。
 
@@ -247,33 +401,41 @@ api/application/domain/persistence 中分别增加模型连接、Run、确认、
 
 **结果**：连接凭据只写系统凭据库。
 
-**范围**：凭据存取适配、写入/清除接口、脱敏状态；数据库与凭据库跨存储操作定义成功顺序和失败补偿，失败不能报告“已配置”。删除连接时清理关联凭据。
+**范围**：凭据存取适配、写入/清除接口、脱敏状态；严格实现 4.10 的持久操作记录、连接锁、失败阻塞及用户显式修复；同步 configured=null 的未知状态。删除连接时清理关联凭据。此项先提供受理共用锁，P2-11/12 接入 Run 检查。
 
-**检查**：真实系统凭据库写入、替换、清除；读取 API、数据库和日志均无原文；凭据库不可用时明确失败。记录实际验证的操作系统。
+**检查**：真实系统凭据库写入、替换、清除；读取 API、数据库和日志均无原文；凭据库不可用时明确失败。记录实际验证的操作系统；进程中断后的 recovery_required 修复也必须检查。
 
-### P2-04 `feat(models): add explicit streaming provider adapter`
+### P2-04A `feat(models): discover and verify explicit model selections`
 
-**结果**：后端可进行真实连接检查、目录发现和流式调用。
+**前置**：P2-02/03。**结果**：真实目录发现、手工模型与按精确 model_id 的能力检查可用。
 
-**范围**：模型连接发现对照 maka-agent 的 `connection-model-discovery.ts` 和 `model-fetcher.ts`，实现按当前连接自动读取 `/models`、规范化并原子保存目录、失败保留同修订号有效旧目录/报告错误、显式刷新和独立手工添加。唯一 OpenAI-compatible ModelAdapter 对照 deepseek-harness 的 `llm-pi-ai/src/adapter.ts`、`stream.ts` 和 `catalog.ts`，实现增量文本、结构化 Tool Call、用量、超时、取消与显式 Provider 参数映射；产品消息过滤隐藏推理。补全 test/discover-models/manual-models API。不启用协议探测或静态模型名替代发现结果。
+**范围**：对照 maka-agent 的 connection-model-discovery.ts/model-fetcher.ts，实现 4.9 的 URL 规则、自动发现托管任务、修订/generation 条件落盘、失败保留、manual 来源合并及显式刷新。提供 test/discover-models/manual-models API；检查使用独立有界的非流式 Chat Completions 请求，验证后写 text/tool 状态，不执行 Agent。后续流式适配器复用 HTTP 配置与错误分类，不复用测试提示词。
 
-**检查**：用真实服务验证自动列出精确模型 ID、普通文本与工具调用；无效密钥、空列表、异常格式、网络超时、非法工具参数可区分；首次发现失败无可选模型；无密钥时不能伪造成功；配置不支持的推理强度被拒绝。
+**检查**：真实端点的精确 ID、空目录、401、响应格式、免密连接、手工模型与 tools 探测；在真实服务请求期间更改端点或并行刷新，旧结果不得覆盖；设置保存成功但发现失败仍返回已保存状态；无测试条件如实标记未完成。
+
+### P2-04B `feat(models): stream explicit provider completion outcomes`
+
+**前置**：P2-04A 与 P2-01。**结果**：可区分正常完成、工具批次、截断、取消和异常的 ModelAdapter。
+
+**范围**：对照 DSH llm-pi-ai 的 adapter.ts/stream.ts/catalog.ts，按 4.9 扩展现有 dsh.models，落实快照绑定、完整结构化调用、终止结果、显式输出字段/用量参数、可靠推理枚举、超时与取消。不引入 pi-ai，不重试或切协议，不保存隐藏推理。
+
+**检查**：用 uv 临时脚本消费真实文本和工具流；检查终止结果、取消后连接释放、低输出上限触发 length、用量缺失保留 null；记录未能在真实服务触发的错误分支，不宣称已验收。P2-10 再验证 Runner 如何消费这些结果。
 
 ### P2-05 模型连接设置页 `feat(settings): manage model connections in existing shell`
 
-**结果**：在现有设置 Shell 中交付可使用的模型连接列表页和详情页，完成连接配置闭环。这是模型连接设置页的前端开发项；P2-02、P2-03、P2-04 分别提供配置持久化、系统凭据库和模型发现/调用接口，不能代替本项页面。
+**结果**：在现有设置 Shell 中交付可使用的模型连接列表页和详情页，完成连接配置闭环。这是模型连接设置页的前端开发项；P2-02、P2-03、P2-04A/B 分别提供配置持久化、系统凭据库和模型发现/调用接口，不能代替本项页面。
 
 **入口与文件**：在 `frontend/src/app/router.tsx` 增加 `#/settings/models` 和 `#/settings/models/:connectionId`；在 `frontend/src/features/settings/SettingsSidebar.tsx` 增加“模型”入口；页面和组件放入 `frontend/src/features/settings/models/`，复用 `frontend/src/features/settings/SettingsPage.tsx` 的 `SettingsPageWrapper`、`SettingsPageHeader` 与现有设置 Shell。以 `docs/ui-mockups/settings-model-v3.png` 为页面结构参考。
 
-**范围**：列表页展示多个连接、状态、默认连接和新增入口；详情页展示协议、Base URL、脱敏凭据状态、模型目录和错误。完成创建/编辑/删除、设置唯一默认连接、写入型密钥、保存后自动发现状态、手动刷新、独立手工添加、模型启用选择、模型来源/上次成功时间、选定模型连接测试。清理离开页面后的密钥草稿。模型连接页面的交互与视觉组织参考 maka-agent，结合 v3 原型及 mu/deepseek-harness 的设置布局适配现有 Shell，不复制对方设置文案。
+**范围**：列表页展示多个连接、状态、默认连接和新增入口；详情页展示协议、Base URL、脱敏凭据状态、模型目录和错误。完成创建/编辑/删除、设置/清除唯一默认连接和默认模型、写入型密钥、保存后自动发现状态、手动刷新、独立手工添加、模型启用选择、模型来源/上次成功时间、选定模型连接测试。显示文本/工具分项检查、管理中/待修复状态，区分保存成功和发现失败；提供重新写入/清除凭据及重试删除操作。清理离开页面后的密钥草稿。模型连接页面的交互与视觉组织参考 maka-agent，结合 v3 原型及 mu/deepseek-harness 的设置布局适配现有 Shell，不复制对方设置文案。
 
-**检查**：通过 UI 创建连接并自动列出服务实际返回的模型名称，主动刷新可更新目录；选定模型完成真实检查；发现失败有明确状态和手工添加入口，不自动填入猜测名称；重新进入只显示 configured；归档设置页与返回会话操作保持正常；宽窄桌面布局无溢出。
+**检查**：通过 UI 创建连接并自动列出服务实际返回的模型名称，主动刷新可更新目录；选定模型完成真实检查；发现失败有明确状态和手工添加入口，不自动填入猜测名称；重新进入只显示脱敏状态；归档设置页与返回会话操作保持正常；宽窄桌面布局无溢出。
 
 ### P2-06 `feat(runs): persist runs messages and ordered events`
 
 **结果**：Run、模型快照、Assistant 和 ToolCall 拥有原子存储能力。
 
-**范围**：扩展 Message、AgentEvent 和新增 Run/ToolCall 表；事务内分配会话 sequence；实现事件存储适配器、批量 delta 与正文进度；跨对象状态更新共用事务。
+**范围**：先按 4.10/4.11 冻结类型事件和状态转移，扩展 Message、AgentEvent 与 Run/ToolCall/快照表；实现批次工作单元、事件存储适配器、批量 delta 与正文进度、码点 offset。此项只交付仓储能力，不在 API 启动 Run。同步 GET messages 的前端类型与角色/状态最低展示；Reducer 执行入口由 P2-07 接入，不在仓储内另造状态机。P2-06 的提交入口只供仓储手工检查，P2-07 接入 Reducer 后才能用于运行。
 
 **检查**：从新开发库检查约束与顺序；不同 Run 不重置事件序号；提交失败时消息与事件均不残留半条记录；GET messages 能区分部分和完整正文。
 
@@ -281,7 +443,7 @@ api/application/domain/persistence 中分别增加模型连接、Run、确认、
 
 **结果**：可由已提交事件确定性恢复运行状态。
 
-**范围**：对照 deepseek-harness `session` 的类型事件与派生投影，定义 Reducer、状态转移、Tool Call 配对、模型 attempt、预算累计与终态保护；持久状态表只是事务内更新的查询投影，不是第二个独立状态机。
+**范围**：对照 deepseek-harness `session` 的类型事件与派生投影，实现已冻结事件的 Reducer、状态转移、Tool Call 配对、step/attempt、预算预留/结算与终态保护；持久状态表只是事务内更新的查询投影，不是第二个独立状态机。
 
 **检查**：回放同一事件序列得到相同结果；非法转移报错；中断、取消、完成不会互相覆盖；恢复后预算和工具结果不丢失。
 
@@ -289,7 +451,7 @@ api/application/domain/persistence 中分别增加模型连接、Run、确认、
 
 **结果**：GeoAgent 能读取当前工作空间并提出本地记忆写入。
 
-**范围**：Context 注入当前会话、已完成消息、地图快照和确认记忆；白名单工具、参数 Schema、作用域校验与有界结果；WorkspaceMemory 表与 tool_call_id 唯一约束。写工具此时仅登记，不绕过下一项确认门禁。
+**范围**：按 4.11 的完整 step 规则构建模型历史，Context 注入当前会话、地图快照和确认记忆；按 4.13 实现白名单工具、参数 Schema、作用域校验与有界结果；WorkspaceMemory 表与 tool_call_id 唯一约束。写工具此时仅登记，不绕过下一项确认门禁。
 
 **检查**：只读工具返回真实业务数据；跨空间 ID 被拒绝；模型不能指定文件路径、SQL 或 URL 执行；未批准记忆不出现在查询结果中。
 
@@ -297,15 +459,15 @@ api/application/domain/persistence 中分别增加模型连接、Run、确认、
 
 **结果**：本地写入必须通过可恢复的精确确认。
 
-**范围**：PolicyGate 的 L0/L2 决定；持久 Confirmation；查询、批准、拒绝接口；批准后本地写入和执行结果同事务落盘；重复与竞态决定处理。
+**范围**：PolicyGate 的 L0/L2 决定；持久 Confirmation；查询、批准、拒绝接口；批准后本地写入和执行结果同事务落盘；重复与竞态决定处理，批准事务保存 next_tool_index/ready/resume_phase；先交付续行服务契约，P2-11 绑定调度器，P2-12 开放正式流程。
 
-**检查**：重复批准只写一次；篡改请求参数被拒绝；拒绝无副作用；批准和取消并发时只有一个有效结果；重启仍能读到原确认。
+**检查**：重复批准只写一次；篡改请求参数被拒绝；拒绝无副作用；批准和取消竞态不重复写入，取消先提交则无写入，批准先提交则取消只能停止续行；重启仍能读到原确认。
 
 ### P2-10 `feat(dsh): execute bounded model tool loops`
 
 **结果**：Runner 完成模型—只读工具—模型的真实循环，并能等待确认。
 
-**范围**：对照 deepseek-harness `agent-loop/src/agent.ts` 与 `tool-calls.ts` 的模型—工具循环和取消边界，从已提交 run_id 开始执行；组装上下文、处理流、合并 Tool Call、执行工具、应用预算、持久终态；确认时保存完整续行状态，不占用模型连接等待用户。首期工具串行执行。
+**范围**：对照 deepseek-harness `agent-loop/src/agent.ts` 与 `tool-calls.ts` 的模型—工具循环和取消边界，从已提交 run_id 开始执行；组装上下文、处理流、合并 Tool Call、执行工具、应用预算、持久终态；确认时保存完整续行状态，不占用模型连接等待用户。首期工具串行执行，严格使用 4.11 的批次游标和模型历史，正文完成与 Run 完成分开。
 
 **检查**：真实模型可调用 workspace.get_context 后回复；提出记忆写入时暂停；无效工具、调用超限和 Provider 断流有明确失败/中断状态，不生成假成功。
 
@@ -313,7 +475,7 @@ api/application/domain/persistence 中分别增加模型连接、Run、确认、
 
 **结果**：运行生命周期独立于 HTTP 请求和页面生命周期。
 
-**范围**：FastAPI lifespan 装配 Host 和进程内调度；会话单 Run、全局并发上限；启动扫描、显式 resume/cancel；关闭中断落盘；修改/删除未完成 Run 引用的连接时返回冲突。
+**范围**：按 4.12 在 FastAPI lifespan 装配 Host 和进程内调度；会话名额、全局并发/排队、容量预留、锁顺序；启动扫描、显式 resume/cancel、批准后入队；3 秒关闭中断落盘与 Electron 5 秒期限配合；修改/删除未完成 Run 引用的连接时返回冲突。
 
 **检查**：刷新或切换页面不重启 Runner；关闭重启后能辨别完成、确认等待和中断；取消阻止晚到增量；恢复不重复本地写入、不重置预算。
 
@@ -321,15 +483,15 @@ api/application/domain/persistence 中分别增加模型连接、Run、确认、
 
 **结果**：正式消息接口触发 DSH，并提供运行查询与管理保护。
 
-**范围**：替换消息 POST 契约为第 4 节定义；持久幂等记录、原子受理与提交后调度；Run/确认查询；会话模型偏好；归档、移除、永久删除的事务级运行冲突检查。同步更新前端 API 类型、共享输入框的基本模型选择、SessionMessagesProvider 的请求/响应处理和 CORS 请求头，不能提交后端新契约却留下调用旧契约的界面。
+**范围**：替换消息 POST 契约为第 4 节定义；持久幂等记录、原子受理与提交后调度；Run/确认查询；会话模型偏好；归档、移除、永久删除的事务级运行冲突检查。同步更新前端 API 类型、共享输入框的基本模型选择、SessionMessagesProvider 的请求/响应处理和 CORS 请求头；同项交付未决请求 key/正文冻结、原始 SSE 分发、最小 Assistant 持久正文/角色/终态展示、发送禁用与基本停止/恢复/确认按钮（确认前必须展示完整参数、范围及副作用）。delta 缓存合并正确性按 4.11 在本项交付，P2-13 完善流式展示体验，精确确认卡片样式由 P2-14 完善；不能出现已受理但没有可操作运行状态的页面。
 
-**检查**：同 key 重试返回同一 Run；不同正文冲突；模型/上下文校验失败不追加用户消息；进程在提交后入队前退出不会丢失已受理 Run；已有归档和恢复语义不变。
+**检查**：用户/Assistant 正确区分，精确确认和取消可从最小界面完成，原始事件与消息缓存同步；同 key 重试返回同一 Run；不同正文冲突；模型/上下文校验失败不追加用户消息；进程在提交后入队前退出不会丢失已受理 Run；已有归档和恢复语义不变。
 
 ### P2-13 `feat(conversation): select models and render assistant streams`
 
 **结果**：从共享输入框发起真实运行并展示持久回复。
 
-**范围**：完善上一项基本接线的连接/模型/推理强度选择与错误反馈；运行快照与地图上下文展示；请求 key 和失败草稿保持；Assistant 角色、部分状态、发送禁用与停止入口；重连时按 offset 合并快照和增量。
+**范围**：完善上一项基本接线的连接/模型/推理强度选择与错误反馈；运行快照与地图上下文展示；完善已有未决请求/草稿的交互；完善 Assistant 部分状态与运行入口；按 4.11 用码点 offset、updated_sequence 合并快照和增量，覆盖 emoji、旧快照晚返回和新 attempt。
 
 **检查**：无可用连接时显示明确配置入口；消息提交失败保留草稿和重试 key；对话、轨迹、地图切换不丢模型选择；重启恢复持久正文且不重复字句。
 
@@ -337,7 +499,7 @@ api/application/domain/persistence 中分别增加模型连接、Run、确认、
 
 **结果**：用户可以批准精确操作、拒绝、取消或恢复运行。
 
-**范围**：对话内确认卡片、执行范围/参数/副作用、提交中状态；Run 查询与 SSE 共用缓存；中断说明、恢复和取消按钮；归档/移除冲突提示。沿用 shadcn/ui，不新增全局阻塞弹窗流程。
+**范围**：完善 P2-12 的基本运行操作为对话内确认卡片、执行范围/参数/副作用、提交中状态；Run 查询与 SSE 共用缓存；中断说明、恢复和取消按钮；归档/移除冲突提示。沿用 shadcn/ui，不新增全局阻塞弹窗流程。
 
 **检查**：重复点击不重复写入；重启后的确认可继续处理；切换页面不丢待确认状态；终态 Run 没有可误触的恢复按钮。
 
@@ -345,7 +507,7 @@ api/application/domain/persistence 中分别增加模型连接、Run、确认、
 
 **结果**：现有轨迹能解释真实运行过程。
 
-**范围**：扩展现有 projection、model、ledger、inspector 与 timeline 输入；正确关联用户、Assistant、工具和确认；对话仅显示关键活动；真实开始/结束时间驱动耗时。保留现有时间线组件，不为本阶段做大规模拆分。
+**范围**：消费 P2-12 已分发的原始事件，扩展现有 projection、model、ledger、inspector 与 timeline 输入；正确关联用户、Assistant、工具和确认；对话仅显示关键活动；真实开始/结束时间驱动耗时。保留现有时间线组件，不为本阶段做大规模拆分。
 
 **检查**：工具参数和结果脱敏；时间线、记录表、详情指向同一对象；缺失用量/耗时为空；SSE 重连不重复记录；未知事件明确显示不支持。
 
@@ -353,7 +515,7 @@ api/application/domain/persistence 中分别增加模型连接、Run、确认、
 
 **结果**：内置场景是可校验的版本契约。
 
-**范围**：按架构文档加载 manifest、SKILL、workflow、validation、presentation；分开报告结构有效性与外部依赖可用性；Scene DTO、列表和详情 API。洪涝场景只记录真实可确认的输入输出与规则，未完成的 OGE 服务绑定明确缺失。
+**范围**：按 4.14 的最小 Schema 加载 manifest、SKILL、workflow、validation、presentation；分开报告结构有效性与外部依赖可用性；Scene DTO、列表和详情 API。洪涝场景只记录真实可确认的输入输出与规则，未完成的 OGE 服务绑定明确缺失。
 
 **检查**：缺字段和无效包有明确错误；缺少 OGE 不标记为可执行，不填假 service_id；有效包仍能只读查看；场景文本不能改变 Tool 白名单和权限。
 
@@ -361,7 +523,7 @@ api/application/domain/persistence 中分别增加模型连接、Run、确认、
 
 **结果**：用户可查看场景并为会话指定版本上下文。
 
-**范围**：GeoSkill 只读目录与详情；会话 scene_id/version；scene.get 与 Context 精简场景约束；Run 冻结所选版本。依赖缺失时仅允许查看/作为讨论上下文，正式“开始分析”不可用。
+**范围**：GeoSkill 只读目录与详情；会话 scene_id/version；scene.get 与 Context 精简场景约束；在受理事务和 Run DTO 中同步加入 scene_id/version/精简约束快照；scene.get 只读快照，不按可变安装目录重建。依赖缺失时仅允许查看/作为讨论上下文，正式“开始分析”不可用。
 
 **检查**：既有 Run 不随会话更换场景而变化；未完成 Run 期间不能换版本；界面不会把普通会话创建说成正式 OGE Task；Agent 不能发布或修改场景。
 
@@ -369,9 +531,11 @@ api/application/domain/persistence 中分别增加模型连接、Run、确认、
 
 **结果**：形成真实可复现的阶段二交付记录。
 
-**范围**：按第 2.1 节行为对齐表和第 6 节完成手工验收，逐项记录参考实现的输入/结果、本项目的输入/结果、平台、Provider/模型、已通过项、差异和未覆盖项；差异未修正不得标为对齐。更新架构文档与阶段状态。只记录实际执行结果。
+**范围**：按第 2.1 节行为对齐表、有意差异表和第 6 节完成手工验收，逐项记录参考实现的输入/结果、本项目的输入/结果、平台、Provider/模型、已通过项、差异和未覆盖项；非预期差异未修正不得标为对齐；有意差异按本文验收。更新架构文档与阶段状态。只记录实际执行结果。
 
 **检查**：全部必须项完成才能标记阶段二已完成；没有凭据或真实模型验证条件时保留未完成状态，不用模拟回复替代。
+
+每个 commit 正文使用以下四项：`Reference`（实际路径与源行为）、`Change`（本项目落点与有意差异）、`Validation`（执行命令/手工输入和观察结果）、`Remaining`（本项未验证内容和明确归属的后续编号）。不得将计划中的检查写成通过；没有待办时 Remaining 写 none。
 
 ## 6. 阶段验收
 
@@ -410,6 +574,16 @@ api/application/domain/persistence 中分别增加模型连接、Run、确认、
 - 批准与取消竞态、重复批准、写入提交后进程退出均不会重复 WorkspaceMemory。
 - 在同一数据库正常关闭重启，确认配置、完成消息、工具结果和待确认快照仍然存在。
 - 检查数据库、API 响应、SSE 与日志中没有模型密钥、桌面 token 或隐藏推理。
+
+- 幂等响应丢失后，待 Run 完成再归档或删除原连接，同 key/正文仍返回原记录；改变正文仍为 409。
+- 目录发现/模型检查期间修改配置，以及同修订并发刷新：旧结果不覆盖新结果；保存成功、发现失败在 UI 中分别呈现。
+- 凭据库写入前后、数据库最终提交前后退出进程，重启显示 recovery_required，重新写入/清除后才可使用；删除中断可重复完成。
+- 一个模型 step 含“只读—确认写入—只读”三项：第二项等待时重启，批准只推进一次；批准事务提交后入队前退出也不重做写入。拒绝/取消后新 Run 的历史不含未配对工具批次。
+- 文本检查成功但工具检查未通过的模型不能创建 GeoAgent Run；能力 unknown 不发送 reasoning_effort；免密服务无需伪造 key。
+- emoji/组合字符正文、重叠增量、缺口、旧 REST 快照晚返回、新 attempt 均不重复、不回退；流缺 finish_reason、length 和空正常输出不能显示完成。
+- 全局 4 个执行与 32 个排队额度用临时降低配置值进行手工验证并恢复默认；等待确认释放执行名额，容量满时批准不写记忆；累计预算跨恢复不重置。
+- 正常关闭时待确认保留原状态；活跃 SSE 不使 Runner 清理被无限推迟；超过关闭期限后启动扫描仍能识别未完成 Run。
+- 场景包缺文件、重复版本、依赖环、未知输出引用分别报错；依赖缺失仍可讨论，既有 Run 读取冻结文本。
 
 以上均为开发完成后应执行的验收，不是本计划已经通过的结果；本阶段默认不新增自动化测试文件。
 
