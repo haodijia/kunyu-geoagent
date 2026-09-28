@@ -15,7 +15,7 @@
 3. 后端使用 uv；不新增数据库迁移、软件版本升级或旧契约兼容分支。前后端契约变更同步落地。
 4. 不写假模型回复、假工具结果，不在失败时替换模型、协议、凭据存储或事件源。
 5. 默认不新增测试文件。执行类型检查、构建、隔离数据目录下的手工接口检查和桌面验收；用户明确要求时再编写测试。
-6. 开发前按第 2.1 节核对参考源码：模型连接与模型名称发现参考 maka-agent，Agent 运行架构参考 deepseek-harness，界面参考 mu、deepseek-harness 与 v3 原型。界面复用现有 shadcn/ui、Tailwind 和统一主题；不引入 Arco、不重建 Shell、不照搬无关业务。
+6. 开发前按第 2.1 节核对参考源码：模型连接设置及其发现、选择流程参考 maka-agent；ModelAdapter 与 Agent 运行架构参考 deepseek-harness。模型连接页面的交互和视觉组织参考 maka-agent，并结合 mu、deepseek-harness 与 v3 原型适配现有设置 Shell。界面复用现有 shadcn/ui、Tailwind 和统一主题；不引入 Arco、不照搬设置文案或无关业务。
 7. 未完成或无法验证的能力明确记录，不把通过构建等同于真实模型、凭据库或跨进程恢复验收通过。
 
 ## 2. 从阶段一接续
@@ -38,8 +38,8 @@
 
 | 来源 | 核对位置 | 本项目对齐方式 |
 | --- | --- | --- |
-| maka-agent | `apps/desktop/src/renderer/settings/provider-add-form.tsx`、`apps/desktop/src/renderer/settings/use-connection-detail.ts`、`apps/desktop/src/main/connection-model-discovery.ts`、`packages/runtime/src/model-fetcher.ts`、`packages/core/src/llm-connections.ts`、`packages/core/src/model-catalog.ts` | 对齐创建连接后自动拉取、保存密钥/端点后重新拉取、手动刷新、凭据/协议/空列表失败提示、目录来源与时间、模型可用性和选择的实际行为。将 Electron IPC/TypeScript 实现改为 FastAPI 应用服务与 Python 适配器；首期对齐已声明的 OpenAI-compatible `/models` 路径。 |
-| deepseek-harness | `packages/core/agent-loop/src/agent.ts`、`packages/core/agent-loop/src/tool-calls.ts`、`packages/core/session/src/index.ts`、`packages/core/session/src/surface.ts`、`packages/core/tools/src/index.ts` | 对齐单 Agent 的模型—工具—模型推进、可见历史重建、工具校验/守卫、事件先持久再派生状态、取消保留已交付正文和恢复边界。落到 `dsh` Protocol、显式 Host 装配、SQLite 同事务事件和 Run 投影。 |
+| maka-agent | `apps/desktop/src/renderer/settings/provider-add-form.tsx`、`apps/desktop/src/renderer/settings/use-connection-detail.ts`、`apps/desktop/src/main/connection-model-discovery.ts`、`packages/runtime/src/model-fetcher.ts`、`packages/core/src/llm-connections.ts`、`packages/core/src/model-catalog.ts` | 只对齐模型连接设置及其支撑流程：创建连接后自动拉取、保存密钥/端点后重新拉取、手动刷新、凭据/协议/空列表失败提示、目录来源与时间、模型可用性和选择，以及连接页面的交互和视觉组织。将 Electron IPC/TypeScript 的连接管理与 `/models` 发现流程改为 FastAPI 应用服务；不以 maka-agent 的模型调用实现作为 ModelAdapter 参考。 |
+| deepseek-harness | `packages/llm/llm-pi-ai/src/adapter.ts`、`packages/llm/llm-pi-ai/src/stream.ts`、`packages/llm/llm-pi-ai/src/catalog.ts`、`packages/core/agent-loop/src/agent.ts`、`packages/core/agent-loop/src/tool-calls.ts`、`packages/core/session/src/index.ts`、`packages/core/session/src/surface.ts`、`packages/core/tools/src/index.ts` | ModelAdapter 以其调用快照、流事件转换、结构化 Tool Call、用量、超时/取消和显式 Provider 能力/参数配置为主要参考；产品消息过滤隐藏推理。Agent 运行对齐模型—工具—模型推进、可见历史重建、工具守卫、持久事件与恢复边界。落到本项目的 `dsh` Protocol、显式 Host 装配与 SQLite 事务，不照搬 pi-ai 或 Cordis。 |
 | mu | 现有模型设置与选择相关组件、样式 | 只参考界面层级、间距和控件使用；业务状态、接口文案和运行架构以本项目契约为准。 |
 
 对上述**阶段二覆盖的同类功能**，验收标准是输入、状态变化、错误反馈和最终用户效果与参考实现一致；不能只做相似的目录结构或接口名称。源码和文案可以重写，但不能省略参考实现的关键分支。开发时先把源行为列成核对项，再逐项映射到本项目 API、持久层和界面；不一致处必须记录原因并在交付前修正。参考仓库超出本阶段的 Provider 协议、Cordis、多 Agent 等能力仍按第 3 节范围处理。每个后续实现 commit 的正文须列出实际对照的来源路径、源行为、本项目实现位置和验证结果，不能仅写“参考 maka-agent/DSH”。
@@ -255,7 +255,7 @@ api/application/domain/persistence 中分别增加模型连接、Run、确认、
 
 **结果**：后端可进行真实连接检查、目录发现和流式调用。
 
-**范围**：对照 maka-agent 的 `connection-model-discovery.ts` 和 `model-fetcher.ts`，实现按当前连接自动读取 `/models`、规范化并原子保存目录、失败保留同修订号有效旧目录/报告错误、显式刷新和独立手工添加；再实现唯一 OpenAI-compatible 适配器的增量文本、结构化 Tool Call、用量、超时和取消；显式 Provider 参数映射；过滤隐藏推理；补全 test/discover-models/manual-models API。不启用协议探测或静态模型名替代发现结果。
+**范围**：模型连接发现对照 maka-agent 的 `connection-model-discovery.ts` 和 `model-fetcher.ts`，实现按当前连接自动读取 `/models`、规范化并原子保存目录、失败保留同修订号有效旧目录/报告错误、显式刷新和独立手工添加。唯一 OpenAI-compatible ModelAdapter 对照 deepseek-harness 的 `llm-pi-ai/src/adapter.ts`、`stream.ts` 和 `catalog.ts`，实现增量文本、结构化 Tool Call、用量、超时、取消与显式 Provider 参数映射；产品消息过滤隐藏推理。补全 test/discover-models/manual-models API。不启用协议探测或静态模型名替代发现结果。
 
 **检查**：用真实服务验证自动列出精确模型 ID、普通文本与工具调用；无效密钥、空列表、异常格式、网络超时、非法工具参数可区分；首次发现失败无可选模型；无密钥时不能伪造成功；配置不支持的推理强度被拒绝。
 
@@ -265,7 +265,7 @@ api/application/domain/persistence 中分别增加模型连接、Run、确认、
 
 **入口与文件**：在 `frontend/src/app/router.tsx` 增加 `#/settings/models` 和 `#/settings/models/:connectionId`；在 `frontend/src/features/settings/SettingsSidebar.tsx` 增加“模型”入口；页面和组件放入 `frontend/src/features/settings/models/`，复用 `frontend/src/features/settings/SettingsPage.tsx` 的 `SettingsPageWrapper`、`SettingsPageHeader` 与现有设置 Shell。以 `docs/ui-mockups/settings-model-v3.png` 为页面结构参考。
 
-**范围**：列表页展示多个连接、状态、默认连接和新增入口；详情页展示协议、Base URL、脱敏凭据状态、模型目录和错误。完成创建/编辑/删除、设置唯一默认连接、写入型密钥、保存后自动发现状态、手动刷新、独立手工添加、模型启用选择、模型来源/上次成功时间、选定模型连接测试。清理离开页面后的密钥草稿。模型交互对齐 maka-agent，视觉组织参考 mu/deepseek-harness，不复制对方设置文案。
+**范围**：列表页展示多个连接、状态、默认连接和新增入口；详情页展示协议、Base URL、脱敏凭据状态、模型目录和错误。完成创建/编辑/删除、设置唯一默认连接、写入型密钥、保存后自动发现状态、手动刷新、独立手工添加、模型启用选择、模型来源/上次成功时间、选定模型连接测试。清理离开页面后的密钥草稿。模型连接页面的交互与视觉组织参考 maka-agent，结合 v3 原型及 mu/deepseek-harness 的设置布局适配现有 Shell，不复制对方设置文案。
 
 **检查**：通过 UI 创建连接并自动列出服务实际返回的模型名称，主动刷新可更新目录；选定模型完成真实检查；发现失败有明确状态和手工添加入口，不自动填入猜测名称；重新进入只显示 configured；归档设置页与返回会话操作保持正常；宽窄桌面布局无溢出。
 
