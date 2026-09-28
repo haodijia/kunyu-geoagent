@@ -56,7 +56,14 @@ class SQLAlchemyMessageRepository:
                 sequence=message_sequence,
                 role=role,
                 content=content,
+                run_id=None,
+                step=None,
+                attempt=None,
+                status="completed",
+                content_length=len(content),
+                updated_sequence=event_sequence,
                 created_at=occurred_at,
+                updated_at=occurred_at,
             )
             event_record = AgentEventRecord(
                 id=event_id,
@@ -124,7 +131,14 @@ def _message_to_domain(record: MessageRecord) -> Message:
         sequence=record.sequence,
         role=record.role,
         content=record.content,
+        run_id=record.run_id,
+        step=record.step,
+        attempt=record.attempt,
+        status=record.status,
+        content_length=record.content_length,
+        updated_sequence=record.updated_sequence,
         created_at=as_utc(record.created_at),
+        updated_at=as_utc(record.updated_at),
     )
 
 
@@ -136,4 +150,5 @@ def _event_to_domain(record: AgentEventRecord) -> AgentEvent:
         event_type=record.event_type,
         payload=record.payload,
         occurred_at=as_utc(record.occurred_at),
+        run_id=record.run_id,
     )

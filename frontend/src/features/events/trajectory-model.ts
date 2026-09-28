@@ -1,4 +1,4 @@
-import type { UserMessage } from "@/features/messages/api";
+import type { SessionMessage } from "@/features/messages/api";
 import type { TrajectoryEventProjection } from "./projection";
 import type { TrajectoryTranslate } from "./trajectory-locales";
 
@@ -35,7 +35,7 @@ export interface TrajectoryRecord {
 
 export function buildTrajectoryRecords(
   events: readonly TrajectoryEventProjection[],
-  messages: readonly UserMessage[]
+  messages: readonly SessionMessage[]
 ): TrajectoryRecord[] {
   const byId = new Map(messages.map(message => [message.id, message]));
   return events.flatMap((event): TrajectoryRecord[] => {
@@ -44,7 +44,7 @@ export function buildTrajectoryRecords(
     }
     const message = event.messageId === null ? undefined : byId.get(event.messageId);
     // An event may arrive before the message query completes. Only render joined data.
-    if (message === undefined) return [];
+    if (message === undefined || message.role !== "user") return [];
     return [{ id: event.id, index: event.sequence, turn: message.sequence, kind: event.kind, text: message.content, occurredAt: event.occurredAt, source: { role: message.role } }];
   });
 }

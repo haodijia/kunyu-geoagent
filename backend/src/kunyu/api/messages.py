@@ -33,9 +33,18 @@ class MessageResponse(BaseModel):
     id: str
     session_id: str
     sequence: int
-    role: Literal["user"]
+    role: Literal["user", "assistant"]
     content: str
+    run_id: str | None
+    step: int | None
+    attempt: int | None
+    status: Literal[
+        "streaming", "completed", "interrupted", "failed", "cancelled"
+    ]
+    content_length: int
+    updated_sequence: int
     created_at: datetime
+    updated_at: datetime
 
     @classmethod
     def from_domain(cls, message: Message) -> "MessageResponse":
@@ -45,7 +54,14 @@ class MessageResponse(BaseModel):
             sequence=message.sequence,
             role=message.role,
             content=message.content,
+            run_id=message.run_id,
+            step=message.step,
+            attempt=message.attempt,
+            status=message.status,
+            content_length=message.content_length,
+            updated_sequence=message.updated_sequence,
             created_at=message.created_at,
+            updated_at=message.updated_at,
         )
 
 
@@ -56,6 +72,7 @@ class EventResponse(BaseModel):
     event_type: str
     payload: dict[str, Any]
     occurred_at: datetime
+    run_id: str | None
 
     @classmethod
     def from_domain(cls, event: AgentEvent) -> "EventResponse":
@@ -66,6 +83,7 @@ class EventResponse(BaseModel):
             event_type=event.event_type,
             payload=event.payload,
             occurred_at=event.occurred_at,
+            run_id=event.run_id,
         )
 
 

@@ -7,6 +7,7 @@ from sqlalchemy import (
     CheckConstraint,
     DateTime,
     ForeignKey,
+    ForeignKeyConstraint,
     Index,
     Integer,
     String,
@@ -77,11 +78,47 @@ class MessageRecord(Base):
     __tablename__ = "messages"
     __table_args__ = (
         CheckConstraint("sequence > 0", name="ck_messages_sequence_positive"),
+        CheckConstraint(
+            "role IN ('user', 'assistant')", name="ck_messages_role"
+        ),
+        CheckConstraint(
+            "status IN ('streaming', 'completed', 'interrupted', 'failed', "
+            "'cancelled')",
+            name="ck_messages_status",
+        ),
+        CheckConstraint(
+            "content_length >= 0", name="ck_messages_content_length_nonnegative"
+        ),
+        CheckConstraint(
+            "updated_sequence > 0", name="ck_messages_updated_sequence_positive"
+        ),
+        CheckConstraint(
+            "(role = 'user' AND step IS NULL AND attempt IS NULL AND "
+            "status = 'completed') OR "
+            "(role = 'assistant' AND run_id IS NOT NULL AND step > 0 AND attempt > 0)",
+            name="ck_messages_role_shape",
+        ),
+        ForeignKeyConstraint(
+            ["run_id", "session_id"],
+            ["runs.id", "runs.session_id"],
+            ondelete="CASCADE",
+            deferrable=True,
+            initially="DEFERRED",
+        ),
+        Index("uq_messages_id_session", "id", "session_id", unique=True),
         Index(
             "ix_messages_session_sequence",
             "session_id",
             "sequence",
             unique=True,
+        ),
+        Index(
+            "uq_messages_assistant_attempt",
+            "run_id",
+            "step",
+            "attempt",
+            unique=True,
+            sqlite_where=sql_text("role = 'assistant'"),
         ),
     )
 
@@ -92,15 +129,153 @@ class MessageRecord(Base):
     sequence: Mapped[int] = mapped_column(Integer, nullable=False)
     role: Mapped[str] = mapped_column(String(32), nullable=False)
     content: Mapped[str] = mapped_column(Text, nullable=False)
+    run_id: Mapped[str | None] = mapped_column(String(64))
+    step: Mapped[int | None] = mapped_column(Integer)
+    attempt: Mapped[int | None] = mapped_column(Integer)
+    status: Mapped[str] = mapped_column(String(32), nullable=False)
+    content_length: Mapped[int] = mapped_column(Integer, nullable=False)
+    updated_sequence: Mapped[int] = mapped_column(Integer, nullable=False)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.current_timestamp(), nullable=False
     )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.current_timestamp(), nullable=False
+    )
+
+
+class RunRecord(Base):
+    __tablename__ = "runs"
+    __table_args__ = (
+        CheckConstraint(
+            "state IN ('ready', 'model_running', 'tool_running', "
+            "'waiting_confirmation', 'interrupted', 'completed', 'failed', "
+            "'cancelled')",
+            name="ck_runs_state",
+        ),
+        CheckConstraint("step >= 0", name="ck_runs_step_nonnegative"),
+        CheckConstraint("attempt >= 0", name="ck_runs_attempt_nonnegative"),
+        CheckConstraint(
+            "resume_phase IN ('model', 'tool')", name="ck_runs_resume_phase"
+        ),
+        CheckConstraint(
+            "next_tool_index >= 0", name="ck_runs_next_tool_index_nonnegative"
+        ),
+        CheckConstraint(
+            "queue_sequence IS NULL OR queue_sequence > 0",
+            name="ck_runs_queue_sequence_positive",
+        ),
+        CheckConstraint(
+            "updated_sequence > 0", name="ck_runs_updated_sequence_positive"
+        ),
+        CheckConstraint(
+            "max_model_calls > 0 AND model_calls >= 0 AND "
+            "max_tool_calls > 0 AND tool_calls >= 0 AND "
+            "max_active_milliseconds > 0 AND active_milliseconds >= 0 AND "
+            "max_output_codepoints > 0 AND output_codepoints >= 0",
+            name="ck_runs_budget_nonnegative",
+        ),
+        ForeignKeyConstraint(
+            ["user_message_id", "session_id"],
+            ["messages.id", "messages.session_id"],
+            ondelete="CASCADE",
+            deferrable=True,
+            initially="DEFERRED",
+        ),
+        Index("uq_runs_id_session", "id", "session_id", unique=True),
+        Index(
+            "uq_runs_session_active",
+            "session_id",
+            unique=True,
+            sqlite_where=sql_text(
+                "state IN ('ready', 'model_running', 'tool_running', "
+                "'waiting_confirmation', 'interrupted')"
+            ),
+        ),
+        Index("ix_runs_session_created", "session_id", "created_at"),
+    )
+
+    id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    session_id: Mapped[str] = mapped_column(
+        ForeignKey("sessions.id", ondelete="CASCADE"), nullable=False
+    )
+    user_message_id: Mapped[str] = mapped_column(String(64), nullable=False)
+    state: Mapped[str] = mapped_column(String(32), nullable=False)
+    step: Mapped[int] = mapped_column(Integer, nullable=False)
+    attempt: Mapped[int] = mapped_column(Integer, nullable=False)
+    resume_phase: Mapped[str] = mapped_column(String(16), nullable=False)
+    next_tool_index: Mapped[int] = mapped_column(Integer, nullable=False)
+    requires_resume: Mapped[bool] = mapped_column(Boolean, nullable=False)
+    queue_sequence: Mapped[int | None] = mapped_column(Integer)
+    pending_confirmation_id: Mapped[str | None] = mapped_column(String(64))
+    pause_reason: Mapped[str | None] = mapped_column(String(200))
+    max_model_calls: Mapped[int] = mapped_column(Integer, nullable=False)
+    model_calls: Mapped[int] = mapped_column(Integer, nullable=False)
+    max_tool_calls: Mapped[int] = mapped_column(Integer, nullable=False)
+    tool_calls: Mapped[int] = mapped_column(Integer, nullable=False)
+    max_active_milliseconds: Mapped[int] = mapped_column(Integer, nullable=False)
+    active_milliseconds: Mapped[int] = mapped_column(Integer, nullable=False)
+    max_output_codepoints: Mapped[int] = mapped_column(Integer, nullable=False)
+    output_codepoints: Mapped[int] = mapped_column(Integer, nullable=False)
+    input_tokens: Mapped[int | None] = mapped_column(Integer)
+    output_tokens: Mapped[int | None] = mapped_column(Integer)
+    total_tokens: Mapped[int | None] = mapped_column(Integer)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    updated_sequence: Mapped[int] = mapped_column(Integer, nullable=False)
+
+
+class RunModelSnapshotRecord(Base):
+    __tablename__ = "run_model_snapshots"
+    __table_args__ = (
+        CheckConstraint(
+            "protocol = 'openai_compatible'", name="ck_run_snapshots_protocol"
+        ),
+        CheckConstraint(
+            "auth_mode IN ('api_key', 'none')", name="ck_run_snapshots_auth_mode"
+        ),
+        CheckConstraint(
+            "max_tokens_field IN ('max_tokens', 'max_completion_tokens')",
+            name="ck_run_snapshots_max_tokens_field",
+        ),
+        CheckConstraint(
+            "connection_revision > 0", name="ck_run_snapshots_revision_positive"
+        ),
+        CheckConstraint(
+            "max_output_tokens > 0", name="ck_run_snapshots_output_tokens_positive"
+        ),
+        ForeignKeyConstraint(
+            ["run_id", "session_id"],
+            ["runs.id", "runs.session_id"],
+            ondelete="CASCADE",
+        ),
+    )
+
+    run_id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    session_id: Mapped[str] = mapped_column(String(64), nullable=False)
+    connection_id: Mapped[str] = mapped_column(String(64), nullable=False)
+    provider_type: Mapped[str] = mapped_column(String(32), nullable=False)
+    protocol: Mapped[str] = mapped_column(String(32), nullable=False)
+    base_url: Mapped[str] = mapped_column(String(2048), nullable=False)
+    auth_mode: Mapped[str] = mapped_column(String(32), nullable=False)
+    model_id: Mapped[str] = mapped_column(String(256), nullable=False)
+    reasoning_effort: Mapped[str | None] = mapped_column(String(64))
+    connection_revision: Mapped[int] = mapped_column(Integer, nullable=False)
+    max_tokens_field: Mapped[str] = mapped_column(String(32), nullable=False)
+    include_usage: Mapped[bool] = mapped_column(Boolean, nullable=False)
+    max_output_tokens: Mapped[int] = mapped_column(Integer, nullable=False)
+    map_context: Mapped[dict[str, Any]] = mapped_column(JSON, nullable=False)
+    scene: Mapped[dict[str, Any] | None] = mapped_column(JSON)
 
 
 class AgentEventRecord(Base):
     __tablename__ = "agent_events"
     __table_args__ = (
         CheckConstraint("sequence > 0", name="ck_agent_events_sequence_positive"),
+        ForeignKeyConstraint(
+            ["run_id", "session_id"],
+            ["runs.id", "runs.session_id"],
+            ondelete="CASCADE",
+        ),
         Index(
             "ix_agent_events_session_sequence",
             "session_id",
@@ -116,9 +291,72 @@ class AgentEventRecord(Base):
     sequence: Mapped[int] = mapped_column(Integer, nullable=False)
     event_type: Mapped[str] = mapped_column(String(100), nullable=False)
     payload: Mapped[dict[str, Any]] = mapped_column(JSON, nullable=False)
+    run_id: Mapped[str | None] = mapped_column(String(64))
     occurred_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.current_timestamp(), nullable=False
     )
+
+
+class ToolCallRecord(Base):
+    __tablename__ = "tool_calls"
+    __table_args__ = (
+        CheckConstraint("step > 0", name="ck_tool_calls_step_positive"),
+        CheckConstraint("attempt > 0", name="ck_tool_calls_attempt_positive"),
+        CheckConstraint(
+            "batch_index >= 0", name="ck_tool_calls_batch_index_nonnegative"
+        ),
+        CheckConstraint(
+            "status IN ('pending', 'running', 'completed', 'failed', 'cancelled')",
+            name="ck_tool_calls_status",
+        ),
+        CheckConstraint(
+            "updated_sequence > 0", name="ck_tool_calls_updated_sequence_positive"
+        ),
+        ForeignKeyConstraint(
+            ["run_id", "session_id"],
+            ["runs.id", "runs.session_id"],
+            ondelete="CASCADE",
+        ),
+        ForeignKeyConstraint(
+            ["message_id", "session_id"],
+            ["messages.id", "messages.session_id"],
+            ondelete="CASCADE",
+        ),
+        Index(
+            "uq_tool_calls_provider_attempt",
+            "run_id",
+            "step",
+            "attempt",
+            "provider_call_id",
+            unique=True,
+        ),
+        Index(
+            "uq_tool_calls_batch_index",
+            "run_id",
+            "step",
+            "attempt",
+            "batch_index",
+            unique=True,
+        ),
+    )
+
+    id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    session_id: Mapped[str] = mapped_column(String(64), nullable=False)
+    run_id: Mapped[str] = mapped_column(String(64), nullable=False)
+    message_id: Mapped[str] = mapped_column(String(64), nullable=False)
+    step: Mapped[int] = mapped_column(Integer, nullable=False)
+    attempt: Mapped[int] = mapped_column(Integer, nullable=False)
+    provider_call_id: Mapped[str] = mapped_column(String(256), nullable=False)
+    batch_index: Mapped[int] = mapped_column(Integer, nullable=False)
+    name: Mapped[str] = mapped_column(String(200), nullable=False)
+    arguments: Mapped[dict[str, Any]] = mapped_column(JSON, nullable=False)
+    status: Mapped[str] = mapped_column(String(32), nullable=False)
+    result: Mapped[Any | None] = mapped_column(JSON)
+    error_code: Mapped[str | None] = mapped_column(String(100))
+    error_summary: Mapped[str | None] = mapped_column(String(500))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    updated_sequence: Mapped[int] = mapped_column(Integer, nullable=False)
 
 
 class ModelConnectionRecord(Base):

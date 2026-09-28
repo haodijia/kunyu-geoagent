@@ -8,6 +8,7 @@ export interface SessionEvent {
   readonly event_type: string;
   readonly payload: Readonly<Record<string, unknown>>;
   readonly occurred_at: string;
+  readonly run_id: string | null;
 }
 
 export async function* streamSessionEvents(
@@ -46,7 +47,8 @@ function parseSessionEvent(data: string): SessionEvent {
     typeof value.event_type !== "string" ||
     !isRecord(value.payload) ||
     typeof value.occurred_at !== "string" ||
-    !Number.isFinite(Date.parse(value.occurred_at))
+    !Number.isFinite(Date.parse(value.occurred_at)) ||
+    !(value.run_id === null || typeof value.run_id === "string")
   ) {
     throw new Error(zhCN.trajectory.invalidEvent);
   }

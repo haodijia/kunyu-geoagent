@@ -1,7 +1,7 @@
 import { MessageCircle } from "lucide-react";
 import { useEffect, useRef } from "react";
 
-import type { UserMessage } from "@/features/messages/api";
+import type { MessageStatus, SessionMessage } from "@/features/messages/api";
 import { SessionEmptyState } from "@/features/sessions/SessionEmptyState";
 import { zhCN } from "@/locales/zh-CN";
 
@@ -12,8 +12,15 @@ const timeFormatter = new Intl.DateTimeFormat("zh-CN", {
 });
 
 interface MessageListProps {
-  readonly messages: readonly UserMessage[];
+  readonly messages: readonly SessionMessage[];
 }
+
+const statusLabels: Record<Exclude<MessageStatus, "completed">, string> = {
+  streaming: content.status.streaming,
+  interrupted: content.status.interrupted,
+  failed: content.status.failed,
+  cancelled: content.status.cancelled
+};
 
 export function MessageList({ messages }: MessageListProps) {
   const endRef = useRef<HTMLDivElement>(null);
@@ -37,11 +44,26 @@ export function MessageList({ messages }: MessageListProps) {
       {messages.map((message) => (
         <article
           key={message.id}
-          className="ml-auto flex max-w-[76%] flex-col items-end"
+          className={
+            message.role === "user"
+              ? "ml-auto flex max-w-[76%] flex-col items-end"
+              : "mr-auto flex max-w-[76%] flex-col items-start"
+          }
         >
-          <div className="rounded-[18px_18px_5px_18px] bg-muted px-4 py-2.5 text-sm leading-6 whitespace-pre-wrap text-foreground [overflow-wrap:anywhere]">
+          <div
+            className={
+              message.role === "user"
+                ? "rounded-[18px_18px_5px_18px] bg-muted px-4 py-2.5 text-sm leading-6 whitespace-pre-wrap text-foreground [overflow-wrap:anywhere]"
+                : "rounded-[18px_18px_18px_5px] border border-border bg-background px-4 py-2.5 text-sm leading-6 whitespace-pre-wrap text-foreground [overflow-wrap:anywhere]"
+            }
+          >
             {message.content}
           </div>
+          {message.status !== "completed" ? (
+            <span className="mt-1.5 px-1 text-xs text-muted-foreground">
+              {statusLabels[message.status]}
+            </span>
+          ) : null}
           <time
             className="mt-1.5 px-1 text-xs text-muted-foreground"
             dateTime={message.created_at}

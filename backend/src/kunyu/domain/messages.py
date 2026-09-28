@@ -4,7 +4,14 @@ from typing import Literal, Protocol
 
 from kunyu.domain.events import AgentEvent
 
-MessageRole = Literal["user"]
+MessageRole = Literal["user", "assistant"]
+MessageStatus = Literal[
+    "streaming",
+    "completed",
+    "interrupted",
+    "failed",
+    "cancelled",
+]
 
 
 @dataclass(frozen=True, slots=True)
@@ -14,7 +21,14 @@ class Message:
     sequence: int
     role: MessageRole
     content: str
+    run_id: str | None
+    step: int | None
+    attempt: int | None
+    status: MessageStatus
+    content_length: int
+    updated_sequence: int
     created_at: datetime
+    updated_at: datetime
 
 
 class MessageRepository(Protocol):

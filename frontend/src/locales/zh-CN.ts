@@ -212,7 +212,13 @@ export const zhCN = {
     composerHint: "Enter 发送，Shift + Enter 换行",
     send: "发送消息",
     sending: "正在发送",
-    sendFailed: "发送失败，请确认本地服务正在运行后重试。"
+    sendFailed: "发送失败，请确认本地服务正在运行后重试。",
+    status: {
+      streaming: "正在生成",
+      interrupted: "已中断",
+      failed: "生成失败",
+      cancelled: "已取消"
+    }
   },
   trajectory: {
     ledgerLabel: "轨迹记录",
