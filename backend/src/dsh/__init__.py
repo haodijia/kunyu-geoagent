@@ -41,7 +41,20 @@ from dsh.session_state import (
     ReducedUserMessage,
     SessionReductionError,
 )
-from dsh.tools import PolicyDecision, PolicyGate, Tool, ToolCall, ToolResult, ToolSpec
+from dsh.tools import (
+    PolicyDecision,
+    PolicyGate,
+    Tool,
+    ToolCall,
+    ToolConfirmationRequiredError,
+    ToolExecutionError,
+    ToolNotFoundError,
+    ToolRegistry,
+    ToolRegistryError,
+    ToolResult,
+    ToolSpec,
+    ToolValidationError,
+)
 
 __all__ = [
     "ALLOWED_RUN_TRANSITIONS",
@@ -84,8 +97,14 @@ __all__ = [
     "TokenUsage",
     "Tool",
     "ToolCall",
+    "ToolConfirmationRequiredError",
+    "ToolExecutionError",
+    "ToolNotFoundError",
+    "ToolRegistry",
+    "ToolRegistryError",
     "ToolResult",
     "ToolSpec",
+    "ToolValidationError",
     "reduce_run",
     "reduce_session",
 ]

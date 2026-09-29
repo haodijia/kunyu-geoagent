@@ -26,6 +26,28 @@ class ToolResult:
     content: str
 
 
+class ToolRegistryError(RuntimeError):
+    """A fixed tool registry is invalid or cannot resolve a requested tool."""
+
+
+class ToolNotFoundError(ToolRegistryError):
+    def __init__(self, name: str) -> None:
+        self.name = name
+        super().__init__(f"Tool '{name}' is not registered.")
+
+
+class ToolValidationError(ValueError):
+    """Model-supplied tool arguments do not match the declared schema."""
+
+
+class ToolExecutionError(RuntimeError):
+    """A registered tool could not produce a valid result."""
+
+
+class ToolConfirmationRequiredError(ToolExecutionError):
+    """A write tool reached execution without an approved confirmation."""
+
+
 class PolicyDecision(Enum):
     ALLOW = "allow"
     CONFIRM = "confirm"
@@ -43,3 +65,31 @@ class Tool(Protocol):
     def validate(self, arguments: object) -> Mapping[str, object]: ...
 
     async def execute(self, call: ToolCall) -> ToolResult: ...
+
+
+class ToolRegistry:
+    """Immutable-by-convention exact-name registry for one run's bound tools."""
+
+    def __init__(self, tools: tuple[Tool, ...]) -> None:
+        registered: dict[str, Tool] = {}
+        for tool in tools:
+            name = tool.spec.name
+            if not name:
+                raise ToolRegistryError("Tool names must not be empty.")
+            if name in registered:
+                raise ToolRegistryError(f"Tool '{name}' is registered more than once.")
+            registered[name] = tool
+        self._tools = registered
+
+    @property
+    def specs(self) -> tuple[ToolSpec, ...]:
+        return tuple(tool.spec for tool in self._tools.values())
+
+    def get(self, name: str) -> Tool | None:
+        return self._tools.get(name)
+
+    def require(self, name: str) -> Tool:
+        tool = self.get(name)
+        if tool is None:
+            raise ToolNotFoundError(name)
+        return tool
