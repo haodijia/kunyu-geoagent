@@ -284,19 +284,6 @@
   padding: 14px;
 }
 
-.payload {
-  box-sizing: border-box;
-  min-height: 100%;
-  margin: 0;
-  padding: 14px;
-  overflow-wrap: anywhere;
-  color: var(--dsw-alias-label-primary);
-  background: var(--dsw-alias-markdown-code-block);
-  font: 12px/19px var(--ds-font-family-code);
-  tab-size: 2;
-  white-space: pre-wrap;
-}
-
 .sourceBlocks {
   box-sizing: border-box;
   min-height: 100%;
@@ -305,11 +292,6 @@
 
 .sourceBlock + .sourceBlock {
   margin-top: 14px;
-}
-
-.sourceBlockLabel {
-  color: var(--dsw-alias-label-tertiary);
-  font: 11px/16px var(--ds-font-family-code);
 }
 
 .sourceBlockContent {

@@ -372,6 +372,33 @@
   background: var(--dsw-alias-state-business-tertiary);
 }
 
+.assistant {
+  color: var(--dsw-alias-brand-primary-new-colorprimary-new-color);
+  background: color-mix(
+    in srgb,
+    var(--dsw-alias-brand-primary-new-colorprimary-new-color) 12%,
+    var(--dsw-alias-bg-layer-1)
+  );
+}
+
+.tool {
+  color: var(--dsw-alias-state-warn-label);
+  background: color-mix(
+    in srgb,
+    var(--dsw-alias-state-warn-label) 12%,
+    var(--dsw-alias-bg-layer-1)
+  );
+}
+
+.confirmation {
+  color: var(--dsw-alias-state-success-primary);
+  background: color-mix(
+    in srgb,
+    var(--dsw-alias-state-success-primary) 12%,
+    var(--dsw-alias-bg-layer-1)
+  );
+}
+
 .systemNeutral {
   color: var(--dsw-alias-label-secondary);
   background: var(--dsw-alias-bg-module-platform);

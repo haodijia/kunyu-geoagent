@@ -1,14 +1,22 @@
-import type { SessionMessage } from "@/features/messages/api";
-import type { TrajectoryEventProjection } from "./projection";
+import type { TrajectoryEventKind } from "./projection";
 import type { TrajectoryTranslate } from "./trajectory-locales";
 
-export type TrajectoryCellKind = "system" | "user" | "context" | "compacted" | "message" | "tool" | "subtool";
+export type TrajectoryCellKind =
+  | "system"
+  | "user"
+  | "context"
+  | "compacted"
+  | "message"
+  | "tool"
+  | "subtool";
+
 export interface AssistantMetricDetail {
-  stepStartTime?: number;
-  firstTokenTime?: number;
-  completedTime?: number;
-  timingRecorded?: boolean;
+  stepStartTime: number | null;
+  firstTokenTime: number | null;
+  completedTime: number | null;
+  timingRecorded: boolean;
 }
+
 export interface TrajectoryCellProps {
   index: number;
   kind: TrajectoryCellKind;
@@ -19,49 +27,79 @@ export interface TrajectoryCellProps {
   requestOnly?: boolean;
   assistantMetrics?: AssistantMetricDetail;
 }
+
 export interface TrajectoryTurnModel {
   turn: number | null;
   groups: { cells: TrajectoryCellProps[] }[];
 }
-export interface TrajectoryRecord {
-  id: string;
-  index: number;
-  turn: number | null;
-  kind: "user" | "unsupported";
-  text: string;
-  occurredAt: string;
-  source: { role: "user" } | null;
+
+export interface TrajectoryUsage {
+  readonly inputTokens: number | null;
+  readonly outputTokens: number | null;
+  readonly totalTokens: number | null;
 }
 
-export function buildTrajectoryRecords(
-  events: readonly TrajectoryEventProjection[],
-  messages: readonly SessionMessage[]
-): TrajectoryRecord[] {
-  const byId = new Map(messages.map(message => [message.id, message]));
-  return events.flatMap((event): TrajectoryRecord[] => {
-    if (event.kind === "unsupported") {
-      return [{ id: event.id, index: event.sequence, turn: null, kind: event.kind, text: "", occurredAt: event.occurredAt, source: null }];
-    }
-    const message = event.messageId === null ? undefined : byId.get(event.messageId);
-    // An event may arrive before the message query completes. Only render joined data.
-    if (message === undefined || message.role !== "user") return [];
-    return [{ id: event.id, index: event.sequence, turn: message.sequence, kind: event.kind, text: message.content, occurredAt: event.occurredAt, source: { role: message.role } }];
-  });
+export interface TrajectoryRecord {
+  readonly id: string;
+  readonly index: number;
+  readonly lastIndex: number;
+  readonly turn: number | null;
+  readonly kind: TrajectoryEventKind;
+  readonly text: string;
+  readonly searchText: string;
+  readonly occurredAt: string;
+  readonly completedAt: string | null;
+  readonly durationMillis: number | null;
+  readonly status: string;
+  readonly isError: boolean;
+  readonly source: Readonly<Record<string, unknown>>;
+  readonly input: unknown | null;
+  readonly output: unknown | null;
+  readonly raw: Readonly<Record<string, unknown>>;
+  readonly usage: TrajectoryUsage | null;
+  readonly assistantMetrics?: AssistantMetricDetail;
 }
 
 export function trajectoryTurns(records: readonly TrajectoryRecord[]): TrajectoryTurnModel[] {
-  return records.map(record => ({
-    turn: record.turn,
-    groups: [{ cells: [{
+  const grouped = new Map<number | null, TrajectoryCellProps[]>();
+  for (const record of records) {
+    const cells = grouped.get(record.turn) ?? [];
+    cells.push({
       index: record.index,
-      kind: record.kind === "user" ? "user" : "system",
+      kind: cellKind(record.kind),
       text: record.text,
-      startedAt: Date.parse(record.occurredAt),
-      timeSeconds: record.kind === "user" ? 0 : null
-    }] }]
+      startedAt: timestamp(record.occurredAt),
+      timeSeconds: record.durationMillis === null ? null : record.durationMillis / 1_000,
+      isError: record.isError,
+      ...(record.assistantMetrics === undefined ? {} : { assistantMetrics: record.assistantMetrics })
+    });
+    grouped.set(record.turn, cells);
+  }
+  return [...grouped.entries()].map(([recordTurn, cells]) => ({
+    turn: recordTurn,
+    groups: [{ cells }]
   }));
 }
 
-export function formatDurationMillis(milliseconds: number, t: TrajectoryTranslate): string {
+export function formatDurationMillis(
+  milliseconds: number | null,
+  t: TrajectoryTranslate
+): string {
+  if (milliseconds === null || !Number.isFinite(milliseconds)) return "—";
   return t("unit.milliseconds", { value: Math.round(milliseconds).toLocaleString("zh-CN") });
+}
+
+function cellKind(kind: TrajectoryEventKind): TrajectoryCellKind {
+  switch (kind) {
+    case "user": return "user";
+    case "assistant": return "message";
+    case "tool": return "tool";
+    case "confirmation": return "tool";
+    case "unsupported": return "system";
+  }
+}
+
+function timestamp(value: string): number | null {
+  const parsed = Date.parse(value);
+  return Number.isFinite(parsed) ? parsed : null;
 }
