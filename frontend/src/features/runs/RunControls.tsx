@@ -54,7 +54,12 @@ export function RunControls() {
     }
   });
 
-  if (run === undefined) return null;
+  if (
+    run === undefined ||
+    (confirmation === undefined &&
+      run.state !== "interrupted" &&
+      !(run.state === "ready" && run.requires_resume))
+  ) return null;
 
   return (
     <aside className="mx-auto mb-2 w-[calc(100%-3rem)] max-w-[880px] rounded-xl border border-border bg-muted/40 px-4 py-3 text-sm">
@@ -82,17 +87,12 @@ export function RunControls() {
       ) : (
         <div className="flex items-center justify-between gap-4">
           <p className="min-w-0 text-muted-foreground">
-            {run.state === "interrupted"
-              ? run.pause_reason ?? zhCN.conversation.interruptedRun
-              : zhCN.conversation.activeRun}
+            {run.pause_reason ?? zhCN.conversation.interruptedRun}
           </p>
           <div className="flex shrink-0 gap-2">
-            {run.state === "interrupted" ||
-            (run.state === "ready" && run.requires_resume) ? (
-              <Button size="sm" variant="outline" disabled={mutation.isPending} onClick={() => mutation.mutate("resume")}>
-                {zhCN.conversation.resume}
-              </Button>
-            ) : null}
+            <Button size="sm" variant="outline" disabled={mutation.isPending} onClick={() => mutation.mutate("resume")}>
+              {zhCN.conversation.resume}
+            </Button>
             <Button size="sm" variant="outline" disabled={mutation.isPending} onClick={() => mutation.mutate("cancel")}>
               {zhCN.conversation.stop}
             </Button>

@@ -1,5 +1,8 @@
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useMemo } from "react";
 
+import { messageQueryKeys } from "@/features/messages/api";
+import { cancelRun, runQueryKeys } from "@/features/runs/api";
 import { useSessionWorkspace } from "@/features/sessions/SessionWorkspaceContext";
 import { zhCN } from "@/locales/zh-CN";
 import {
@@ -13,6 +16,7 @@ interface SessionComposerProps {
 }
 
 export function SessionComposer({ compact = false }: SessionComposerProps) {
+  const queryClient = useQueryClient();
   const {
     draft,
     mapContext,
@@ -34,6 +38,24 @@ export function SessionComposer({ compact = false }: SessionComposerProps) {
   const activeRun = runsQuery.data?.find((run) =>
     !["completed", "failed", "cancelled"].includes(run.state)
   );
+  const stopMutation = useMutation({
+    mutationFn: () => {
+      if (activeRun === undefined) throw new Error("An active run is required.");
+      return cancelRun(activeRun.id);
+    },
+    onSuccess: async () => {
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: runQueryKeys.session(session.id) }),
+        queryClient.invalidateQueries({ queryKey: messageQueryKeys.session(session.id) })
+      ]);
+    },
+    onError: (error) => {
+      console.error("[runs] Failed to stop run from composer.", {
+        runId: activeRun?.id,
+        error
+      });
+    }
+  });
   const modelGroups = useMemo<ComposerModelGroup[]>(() => {
     const groups = new Map<string, ComposerModelGroup>();
     for (const { connection, entry } of usableModels) {
@@ -79,9 +101,9 @@ export function SessionComposer({ compact = false }: SessionComposerProps) {
           ? zhCN.conversation.selectModelRequired
           : reasoningSelectionInvalid
             ? zhCN.conversation.reasoningSelectionInvalid
-          : activeRun !== undefined
-            ? zhCN.conversation.runInProgress
-            : null
+            : stopMutation.isError
+              ? zhCN.conversation.runActionFailed
+              : null
   );
   const { latitude, longitude, zoom } = mapContext.viewport;
 
@@ -97,6 +119,12 @@ export function SessionComposer({ compact = false }: SessionComposerProps) {
       onDraftChange={changeDraft}
       onSubmit={sendMessage}
       pending={mutation.isPending}
+      running={
+        activeRun !== undefined &&
+        activeRun.state !== "interrupted" &&
+        !(activeRun.state === "ready" && activeRun.requires_resume)
+      }
+      stopPending={stopMutation.isPending}
       draftFrozen={requestFrozen}
       error={error}
       modelGroups={modelGroups}
@@ -124,6 +152,7 @@ export function SessionComposer({ compact = false }: SessionComposerProps) {
       }
       onModelChange={changeModel}
       onReasoningEffortChange={changeReasoningEffort}
+      onStop={() => stopMutation.mutate()}
     />
   );
 }

@@ -221,8 +221,6 @@ export const zhCN = {
     reasoningSelectionInvalid: "上次使用的推理强度已不可用，请重新选择。",
     mapViewport: (longitude: string, latitude: string, zoom: string) =>
       `当前地图 ${longitude}, ${latitude} · z${zoom}`,
-    runInProgress: "当前会话已有未完成运行，请先处理该运行。",
-    activeRun: "Agent 正在处理本次请求。",
     interruptedRun: "运行已中断，可以恢复或停止。",
     confirmationScope: "作用范围",
     confirmationEffect: "副作用",
@@ -236,7 +234,29 @@ export const zhCN = {
     retrySend: "使用原请求标识重试发送",
     sendFailed: "发送失败，请确认本地服务正在运行后重试。",
     attempt: (attempt: number) => `第 ${attempt} 次尝试`,
-    toolRoundCompleted: "本轮工具请求已记录",
+    tools: {
+      title: "工具调用",
+      input: "输入",
+      output: "输出",
+      error: "错误",
+      groupCompleted: (count: number) => `已完成 ${count} 次工具调用`,
+      groupRunning: (count: number, name: string) =>
+        `正在执行 ${count} 次工具调用 · ${name}`,
+      groupFailed: (count: number, failed: number) =>
+        `${count} 次工具调用，${failed} 次失败`,
+      names: {
+        workspace_get_context: "读取工作区上下文",
+        memory_search: "搜索工作区记忆",
+        workspace_memory_save: "保存工作区记忆"
+      },
+      status: {
+        pending: "等待执行",
+        running: "正在执行",
+        completed: "执行完成",
+        failed: "执行失败",
+        cancelled: "已取消"
+      }
+    },
     errors: {
       network: "无法连接本地服务，草稿已保留。",
       retryFrozen: "发送结果尚未确认，草稿和本次模型选择已冻结；请重试原请求。",

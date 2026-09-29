@@ -3,7 +3,8 @@ import {
   LoaderCircle,
   MapPinned,
   RotateCw,
-  Settings2
+  Settings2,
+  Square
 } from "lucide-react";
 import {
   useEffect,
@@ -39,6 +40,8 @@ interface ConversationComposerProps {
   readonly modelDisabled: boolean;
   readonly modelGroups: readonly ComposerModelGroup[];
   readonly pending: boolean;
+  readonly running: boolean;
+  readonly stopPending: boolean;
   readonly reasoningOptions: readonly string[];
   readonly selectedModel: string;
   readonly selectedReasoningEffort: string;
@@ -48,6 +51,7 @@ interface ConversationComposerProps {
   readonly onModelChange: (value: string) => void;
   readonly onReasoningEffortChange: (value: string) => void;
   readonly onSubmit: () => void;
+  readonly onStop: () => void;
 }
 
 export function ConversationComposer({
@@ -59,6 +63,8 @@ export function ConversationComposer({
   modelDisabled,
   modelGroups,
   pending,
+  running,
+  stopPending,
   reasoningOptions,
   selectedModel,
   selectedReasoningEffort,
@@ -67,7 +73,8 @@ export function ConversationComposer({
   onDraftChange,
   onModelChange,
   onReasoningEffortChange,
-  onSubmit
+  onSubmit,
+  onStop
 }: ConversationComposerProps) {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const canSend = draft.trim().length > 0 && !pending && !sendDisabled;
@@ -165,20 +172,25 @@ export function ConversationComposer({
               </select>
             ) : null}
             <Button
-              type="submit"
+              type={running ? "button" : "submit"}
               size="icon"
               className="ml-1 size-8 rounded-full shadow-none"
-              disabled={!canSend}
+              disabled={running ? stopPending : !canSend}
+              onClick={running ? onStop : undefined}
               aria-label={
-                pending
+                running
+                  ? content.stop
+                  : pending
                   ? content.sending
                   : draftFrozen
                     ? content.retrySend
                     : content.send
               }
             >
-              {pending ? (
+              {stopPending || pending ? (
                 <LoaderCircle className="size-3.5 animate-spin" strokeWidth={2.1} />
+              ) : running ? (
+                <Square className="size-3" fill="currentColor" strokeWidth={2.1} />
               ) : draftFrozen ? (
                 <RotateCw className="size-3.5" strokeWidth={2.1} />
               ) : (
