@@ -1,22 +1,42 @@
 import asyncio
+import json
 from collections.abc import AsyncIterator
 from datetime import datetime
 from typing import Annotated, Any, Literal
+from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
-from pydantic import BaseModel, Field
+from fastapi import APIRouter, Depends, Header, HTTPException, Query, Request, status
+from pydantic import BaseModel, ConfigDict, Field, JsonValue
 from starlette.responses import StreamingResponse
 
+from kunyu.agent.scheduler import (
+    RunQueueFullError,
+    RunScheduler,
+    RunSchedulerClosingError,
+)
 from kunyu.api.dependencies import get_database
+from kunyu.api.errors import ApiError
+from kunyu.api.run_models import RunResponse
 from kunyu.application.messages import (
-    EmptyMessageError,
     InvalidEventSequenceError,
     MessageService,
 )
 from kunyu.application.sessions import SessionNotFoundError
 from kunyu.domain.events import AgentEvent
 from kunyu.domain.messages import Message
-from kunyu.domain.sessions import SessionArchivedError
+from kunyu.domain.run_acceptance import (
+    CredentialUnavailableError,
+    IdempotencyConflictError,
+    InvalidMapContextError,
+    ModelSelection,
+    ModelUnverifiedError,
+    RunAcceptanceConflictError,
+    RunAcceptanceNotFoundError,
+    RunAcceptanceRequest,
+    SessionArchivedAcceptanceError,
+    UnsupportedModelCapabilityError,
+    WorkspaceRemovedAcceptanceError,
+)
 from kunyu.persistence.database import Database
 from kunyu.persistence.messages import SQLAlchemyMessageRepository
 
@@ -25,8 +45,48 @@ EVENT_POLL_INTERVAL_SECONDS = 0.25
 
 
 class AppendMessageRequest(BaseModel):
-    role: Literal["user"]
-    content: str = Field(min_length=1)
+    model_config = ConfigDict(extra="forbid")
+
+    content: str = Field(min_length=1, max_length=32_768)
+    model_selection: "ModelSelectionRequest"
+    map_context: "MapContextRequest"
+
+
+class ModelSelectionRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    connection_id: str = Field(min_length=1, max_length=64)
+    model_id: str = Field(min_length=1, max_length=256)
+    reasoning_effort: str | None = Field(default=None, min_length=1, max_length=64)
+
+
+class MapViewportRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    latitude: float = Field(ge=-90, le=90, allow_inf_nan=False)
+    longitude: float = Field(ge=-180, le=180, allow_inf_nan=False)
+    zoom: float = Field(ge=0, le=24, allow_inf_nan=False)
+
+
+class MapContextRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    workspace_id: str = Field(min_length=1, max_length=64)
+    viewport: MapViewportRequest
+    event_id: None = None
+    selected_aoi_id: None = None
+    selected_feature: None = None
+    visible_layer_ids: list[JsonValue] = Field(default_factory=list, max_length=0)
+    active_result_layer_id: None = None
+    active_observation_id: None = None
+    comparison_observation_ids: list[JsonValue] = Field(
+        default_factory=list, max_length=0
+    )
+
+
+class AcceptedMessageResponse(BaseModel):
+    message: "MessageResponse"
+    run: RunResponse
 
 
 class MessageResponse(BaseModel):
@@ -94,31 +154,75 @@ def get_message_service(
 MessageServiceDependency = Annotated[MessageService, Depends(get_message_service)]
 
 
+def get_run_scheduler(request: Request) -> RunScheduler:
+    return request.app.state.run_scheduler
+
+
+RunSchedulerDependency = Annotated[RunScheduler, Depends(get_run_scheduler)]
+
+
 @router.post(
     "/messages",
-    response_model=MessageResponse,
-    status_code=status.HTTP_201_CREATED,
+    response_model=AcceptedMessageResponse,
+    status_code=status.HTTP_202_ACCEPTED,
 )
-def append_message(
+async def append_message(
     session_id: str,
-    request: AppendMessageRequest,
-    service: MessageServiceDependency,
-) -> MessageResponse:
+    body: AppendMessageRequest,
+    scheduler: RunSchedulerDependency,
+    idempotency_key: Annotated[UUID, Header(alias="Idempotency-Key")],
+) -> AcceptedMessageResponse:
+    if not body.content.strip():
+        raise ApiError(422, "INVALID_INPUT", "Message content must not be blank.")
+    normalized_body = json.dumps(
+        body.model_dump(mode="json"),
+        ensure_ascii=False,
+        separators=(",", ":"),
+        sort_keys=True,
+    )
+    request = RunAcceptanceRequest(
+        session_id=session_id,
+        idempotency_key=str(idempotency_key),
+        normalized_body=normalized_body,
+        content=body.content,
+        model_selection=ModelSelection(
+            connection_id=body.model_selection.connection_id,
+            model_id=body.model_selection.model_id,
+            reasoning_effort=body.model_selection.reasoning_effort,
+        ),
+        map_context=body.map_context.model_dump(mode="json"),
+    )
     try:
-        message = service.append_user_message(session_id, request.role, request.content)
-    except SessionArchivedError as error:
-        raise HTTPException(status_code=409, detail=str(error)) from error
-    except EmptyMessageError as error:
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
-            detail=str(error),
-        ) from error
-    except SessionNotFoundError as error:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=str(error),
-        ) from error
-    return MessageResponse.from_domain(message)
+        result = await scheduler.accept(request)
+    except RunAcceptanceNotFoundError as error:
+        raise ApiError(404, "NOT_FOUND", str(error)) from error
+    except IdempotencyConflictError as error:
+        raise ApiError(409, "IDEMPOTENCY_CONFLICT", str(error)) from error
+    except SessionArchivedAcceptanceError as error:
+        raise ApiError(409, "SESSION_ARCHIVED", str(error)) from error
+    except WorkspaceRemovedAcceptanceError as error:
+        raise ApiError(409, "WORKSPACE_REMOVED", str(error)) from error
+    except RunAcceptanceConflictError as error:
+        raise ApiError(409, "RUN_CONFLICT", str(error)) from error
+    except (InvalidMapContextError, ModelUnverifiedError) as error:
+        code = (
+            "MODEL_UNVERIFIED"
+            if isinstance(error, ModelUnverifiedError)
+            else "INVALID_INPUT"
+        )
+        raise ApiError(422, code, str(error)) from error
+    except UnsupportedModelCapabilityError as error:
+        raise ApiError(422, "UNSUPPORTED_CAPABILITY", str(error)) from error
+    except CredentialUnavailableError as error:
+        raise ApiError(503, "CREDENTIAL_STORE_UNAVAILABLE", str(error)) from error
+    except RunQueueFullError as error:
+        raise ApiError(429, "RUN_QUEUE_FULL", str(error)) from error
+    except RunSchedulerClosingError as error:
+        raise ApiError(503, "SHUTTING_DOWN", str(error)) from error
+    return AcceptedMessageResponse(
+        message=MessageResponse.from_domain(result.message),
+        run=RunResponse.from_details(result.run),
+    )
 
 
 @router.get("/messages", response_model=list[MessageResponse])

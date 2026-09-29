@@ -5,9 +5,9 @@ from dataclasses import dataclass
 from uuid import uuid4
 
 import httpx
+
 from dsh.host import Capability, Host
 from dsh.runner import Runner
-
 from kunyu.agent.runner import (
     KunyuConfirmationRequester,
     KunyuRunExecutionProvider,
@@ -16,7 +16,9 @@ from kunyu.agent.runner import (
 from kunyu.agent.scheduler import RunScheduler
 from kunyu.application.agent_context import ScopedAgentContextProvider
 from kunyu.application.confirmations import ConfirmationService
+from kunyu.application.connection_locks import ConnectionOperationLocks
 from kunyu.application.local_tools import LocalToolPolicyGate, LocalToolRegistryFactory
+from kunyu.application.run_acceptance import RunAcceptanceService
 from kunyu.application.run_lifecycle import RunLifecycleService
 from kunyu.integrations.model.openai_compatible_adapter import (
     OpenAICompatibleModelAdapter,
@@ -24,6 +26,7 @@ from kunyu.integrations.model.openai_compatible_adapter import (
 from kunyu.persistence.agent_context import SQLAlchemyRunContextRepository
 from kunyu.persistence.database import Database
 from kunyu.persistence.model_connections import SQLAlchemyModelConnectionRepository
+from kunyu.persistence.run_acceptance import SQLAlchemyRunAcceptanceRepository
 from kunyu.persistence.run_lifecycle import SQLAlchemyRunLifecycleRepository
 from kunyu.persistence.runs import SQLAlchemyEventStore
 from kunyu.persistence.workspace_memory import SQLAlchemyWorkspaceMemoryRepository
@@ -75,6 +78,7 @@ class AgentRuntimeBundle:
 def create_agent_runtime(
     database: Database,
     http_client: httpx.AsyncClient,
+    locks: ConnectionOperationLocks,
 ) -> AgentRuntimeBundle:
     events = SQLAlchemyEventStore(database)
     connections = SQLAlchemyModelConnectionRepository(database)
@@ -88,6 +92,11 @@ def create_agent_runtime(
     tool_registries = LocalToolRegistryFactory(contexts, memories)
     policy = LocalToolPolicyGate()
     confirmations = ConfirmationService(database, tool_registries, policy)
+    acceptance = RunAcceptanceService(
+        SQLAlchemyRunAcceptanceRepository(database),
+        connections,
+        locks,
+    )
     runner = Runner(
         KunyuRunExecutionProvider(events),
         events,
@@ -107,6 +116,7 @@ def create_agent_runtime(
         lifecycle,
         lifecycle_repository,
         confirmations,
+        acceptance,
     )
 
     host = Host()

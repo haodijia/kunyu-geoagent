@@ -9,6 +9,7 @@ import {
 
 import { ApiError } from "@/api/client";
 import { streamSessionEvents } from "@/features/events/api";
+import type { SessionEvent } from "@/features/events/api";
 import {
   projectSessionEvent,
   type TrajectoryEventProjection
@@ -25,6 +26,7 @@ export type EventStreamStatus =
   | "failed";
 
 interface SessionEventState {
+  readonly events: readonly SessionEvent[];
   readonly records: readonly TrajectoryEventProjection[];
   readonly error: string | null;
   readonly status: EventStreamStatus;
@@ -42,6 +44,7 @@ export function SessionEventProvider({
   sessionId
 }: SessionEventProviderProps) {
   const [records, setRecords] = useState<TrajectoryEventProjection[]>([]);
+  const [events, setEvents] = useState<SessionEvent[]>([]);
   const [status, setStatus] = useState<EventStreamStatus>("connecting");
   const [error, setError] = useState<string | null>(null);
   const lastSequenceRef = useRef(0);
@@ -75,6 +78,7 @@ export function SessionEventProvider({
 
             const projection = projectSessionEvent(event);
             lastSequenceRef.current = event.sequence;
+            setEvents((current) => [...current, event].slice(-256));
             if (projection !== null) {
               setRecords((current) => [...current, projection]);
             }
@@ -122,7 +126,7 @@ export function SessionEventProvider({
   }, [sessionId]);
 
   return (
-    <SessionEventContext value={{ records, error, status }}>
+    <SessionEventContext value={{ events, records, error, status }}>
       {children}
     </SessionEventContext>
   );

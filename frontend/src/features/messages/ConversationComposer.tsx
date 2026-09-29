@@ -18,8 +18,14 @@ interface ConversationComposerProps {
   readonly compact?: boolean;
   readonly draft: string;
   readonly error: string | null;
+  readonly draftFrozen: boolean;
+  readonly modelDisabled: boolean;
+  readonly modelOptions: readonly { readonly label: string; readonly value: string }[];
   readonly pending: boolean;
+  readonly selectedModel: string;
+  readonly sendDisabled: boolean;
   readonly onDraftChange: (draft: string) => void;
+  readonly onModelChange: (value: string) => void;
   readonly onSubmit: () => void;
 }
 
@@ -27,12 +33,18 @@ export function ConversationComposer({
   compact = false,
   draft,
   error,
+  draftFrozen,
+  modelDisabled,
+  modelOptions,
   pending,
+  selectedModel,
+  sendDisabled,
   onDraftChange,
+  onModelChange,
   onSubmit
 }: ConversationComposerProps) {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
-  const canSend = draft.trim().length > 0 && !pending;
+  const canSend = draft.trim().length > 0 && !pending && !sendDisabled;
 
   useEffect(() => {
     const textarea = textareaRef.current;
@@ -84,14 +96,28 @@ export function ConversationComposer({
           className={`block w-full resize-none overflow-y-auto rounded-none border-0 bg-transparent px-1 py-1 text-sm leading-6 text-foreground shadow-none outline-none placeholder:text-muted-foreground focus-visible:ring-0 disabled:cursor-wait ${compact ? "min-h-9" : "min-h-12"}`}
           value={draft}
           placeholder={content.composerPlaceholder}
-          disabled={pending}
+          disabled={pending || draftFrozen}
           rows={1}
           onChange={handleChange}
           onKeyDown={handleKeyDown}
           aria-label={content.composerLabel}
         />
         <div className={`${compact ? "mt-1" : "mt-2"} flex min-h-8 items-end justify-between gap-4`}>
-          <div className="min-w-0 text-xs leading-5">
+          <div className="flex min-w-0 items-center gap-3 text-xs leading-5">
+            <select
+              className="max-w-48 rounded-md border border-border bg-background px-2 py-1 text-xs text-foreground outline-none focus:ring-2 focus:ring-ring/50 disabled:opacity-50"
+              value={selectedModel}
+              disabled={modelDisabled}
+              aria-label={content.modelSelectorLabel}
+              onChange={(event) => onModelChange(event.target.value)}
+            >
+              <option value="">{content.selectModel}</option>
+              {modelOptions.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
             {error === null ? (
               <span className="text-muted-foreground">{content.composerHint}</span>
             ) : (

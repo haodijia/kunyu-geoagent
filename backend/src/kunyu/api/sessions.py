@@ -5,6 +5,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
 from pydantic import BaseModel, ConfigDict, Field
 
 from kunyu.api.dependencies import get_database
+from kunyu.api.errors import ApiError
 from kunyu.api.workspaces import WorkspaceServiceDependency
 from kunyu.application.sessions import (
     InvalidSessionTitleError,
@@ -12,6 +13,7 @@ from kunyu.application.sessions import (
     SessionService,
 )
 from kunyu.application.workspaces import WorkspaceNotFoundError
+from kunyu.domain.runs import UnfinishedRunConflictError
 from kunyu.domain.sessions import (
     ArchivedSessionPage,
     InvalidArchiveCursorError,
@@ -167,6 +169,8 @@ def delete_archived_session(
         raise HTTPException(status_code=404, detail=str(error)) from error
     except SessionNotArchivedError as error:
         raise HTTPException(status_code=409, detail=str(error)) from error
+    except UnfinishedRunConflictError as error:
+        raise ApiError(409, "RUN_CONFLICT", str(error)) from error
     return Response(status_code=204)
 
 
@@ -181,6 +185,8 @@ def delete_archived_workspace(
         return {"session_count": service.delete_archived_workspace(workspace_id)}
     except WorkspaceNotFoundError as error:
         raise HTTPException(status_code=404, detail=str(error)) from error
+    except UnfinishedRunConflictError as error:
+        raise ApiError(409, "RUN_CONFLICT", str(error)) from error
 
 
 class ArchiveSessionRequest(BaseModel):
@@ -197,6 +203,8 @@ def archive_session(
         )
     except SessionNotFoundError as error:
         raise HTTPException(status_code=404, detail=str(error)) from error
+    except UnfinishedRunConflictError as error:
+        raise ApiError(409, "RUN_CONFLICT", str(error)) from error
 
 
 @router.get("/sessions/{session_id}", response_model=SessionSummaryResponse)

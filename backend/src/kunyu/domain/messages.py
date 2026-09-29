@@ -32,19 +32,8 @@ class Message:
 
 
 class MessageRepository(Protocol):
-    def append(
-        self,
-        message_id: str,
-        session_id: str,
-        role: Literal["user"],
-        content: str,
-        occurred_at: datetime,
-    ) -> tuple[Message, AgentEvent] | None: ...
-
     def list_for_session(self, session_id: str) -> list[Message] | None: ...
 
     def latest_event_sequence(self, session_id: str) -> int | None: ...
 
-    def list_events_after(
-        self, session_id: str, sequence: int
-    ) -> list[AgentEvent]: ...
+    def list_events_after(self, session_id: str, sequence: int) -> list[AgentEvent]: ...

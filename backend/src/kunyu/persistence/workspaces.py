@@ -1,9 +1,11 @@
 from sqlalchemy import select, text
 from sqlalchemy.dialects.sqlite import insert
 
+from kunyu.domain.runs import NONTERMINAL_RUN_STATE_VALUES, UnfinishedRunConflictError
 from kunyu.domain.workspaces import Workspace
 from kunyu.persistence.database import Database
 from kunyu.persistence.models import (
+    RunRecord,
     SessionArchiveRecord,
     SessionRecord,
     WorkspaceRecord,
@@ -21,6 +23,19 @@ class SQLAlchemyWorkspaceRepository:
             session.execute(text("BEGIN IMMEDIATE"))
             if session.get(WorkspaceRecord, workspace_id) is None:
                 return False
+            unfinished = session.scalar(
+                select(RunRecord.id)
+                .join(SessionRecord, SessionRecord.id == RunRecord.session_id)
+                .where(
+                    SessionRecord.workspace_id == workspace_id,
+                    RunRecord.state.in_(NONTERMINAL_RUN_STATE_VALUES),
+                )
+                .limit(1)
+            )
+            if unfinished is not None:
+                raise UnfinishedRunConflictError(
+                    "Cancel unfinished runs before removing this workspace."
+                )
             session.execute(
                 insert(SessionArchiveRecord)
                 .from_select(

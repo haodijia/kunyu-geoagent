@@ -5,11 +5,13 @@ from fastapi import APIRouter, Depends, HTTPException, Response, status
 from pydantic import BaseModel, ConfigDict, Field
 
 from kunyu.api.dependencies import get_database
+from kunyu.api.errors import ApiError
 from kunyu.application.workspaces import (
     InvalidWorkspaceNameError,
     WorkspaceNotFoundError,
     WorkspaceService,
 )
+from kunyu.domain.runs import UnfinishedRunConflictError
 from kunyu.domain.workspaces import Workspace
 from kunyu.persistence.database import Database
 from kunyu.persistence.workspaces import SQLAlchemyWorkspaceRepository
@@ -95,4 +97,6 @@ def remove_workspace(
         service.remove(workspace_id)
     except WorkspaceNotFoundError as error:
         raise HTTPException(status_code=404, detail=str(error)) from error
+    except UnfinishedRunConflictError as error:
+        raise ApiError(409, "RUN_CONFLICT", str(error)) from error
     return Response(status_code=204)

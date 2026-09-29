@@ -3,6 +3,7 @@ import { useSessionEvents } from "@/features/events/SessionEventContext";
 import { MessageList } from "@/features/messages/MessageList";
 import { SessionComposer } from "@/features/messages/SessionComposer";
 import { useSessionMessages } from "@/features/messages/SessionMessagesContext";
+import { RunControls } from "@/features/runs/RunControls";
 import { zhCN } from "@/locales/zh-CN";
 
 export function ConversationView() {
@@ -21,6 +22,7 @@ export function ConversationView() {
         </div>}
         {messagesQuery.data !== undefined && <MessageList messages={messagesQuery.data} />}
       </div>
+      <RunControls />
       <SessionComposer />
     </div>
   );

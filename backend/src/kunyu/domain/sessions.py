@@ -15,10 +15,6 @@ class Session:
     archived: bool = False
 
 
-class SessionArchivedError(ValueError):
-    pass
-
-
 class InvalidArchiveCursorError(ValueError):
     pass
 

@@ -1,0 +1,380 @@
+from datetime import datetime
+from typing import cast
+
+from sqlalchemy import select, text
+
+from dsh.events import (
+    BudgetLimitsPayload,
+    BudgetUsagePayload,
+    EventBatch,
+    ModelSnapshotPayload,
+    RunCreatedEvent,
+    RunCreatedPayload,
+    RunModelSelectedEvent,
+    RunModelSelectedPayload,
+    RunProgressEvent,
+    RunProgressPayload,
+    UserMessageAppendedEvent,
+    UserMessageAppendedPayload,
+)
+from kunyu.domain.messages import Message, MessageRole, MessageStatus
+from kunyu.domain.model_connections import ModelAuthMode
+from kunyu.domain.run_acceptance import (
+    CredentialUnavailableError,
+    IdempotencyConflictError,
+    InvalidMapContextError,
+    ModelUnverifiedError,
+    RunAcceptanceConflictError,
+    RunAcceptanceNotFoundError,
+    RunAcceptanceRequest,
+    RunAcceptanceResult,
+    SessionArchivedAcceptanceError,
+    UnsupportedModelCapabilityError,
+    WorkspaceRemovedAcceptanceError,
+)
+from kunyu.domain.runs import NONTERMINAL_RUN_STATE_VALUES, RunDetails
+from kunyu.persistence import run_records
+from kunyu.persistence.agent_projections import SQLAlchemyAgentProjectionService
+from kunyu.persistence.database import Database
+from kunyu.persistence.models import (
+    MessageIdempotencyRecord,
+    MessageRecord,
+    ModelCatalogEntryRecord,
+    ModelConnectionRecord,
+    RunModelSnapshotRecord,
+    RunRecord,
+    SessionArchiveRecord,
+    SessionPreferenceRecord,
+    SessionRecord,
+    ToolCallRecord,
+    WorkspaceRecord,
+    WorkspaceRemovalRecord,
+)
+from kunyu.persistence.time import as_utc
+
+MAX_MODEL_CALLS = 8
+MAX_TOOL_CALLS = 16
+MAX_ACTIVE_MILLISECONDS = 300_000
+MAX_OUTPUT_CODEPOINTS = 32_768
+MAX_MODEL_OUTPUT_TOKENS = 4_096
+
+
+class SQLAlchemyRunAcceptanceRepository:
+    def __init__(self, database: Database) -> None:
+        self._database = database
+        self._projections = SQLAlchemyAgentProjectionService(database)
+
+    def find_idempotent(
+        self,
+        session_id: str,
+        idempotency_key: str,
+        normalized_body: str,
+    ) -> RunAcceptanceResult | None:
+        with self._database.sessions() as database_session:
+            if database_session.get(SessionRecord, session_id) is None:
+                raise RunAcceptanceNotFoundError(
+                    f"Session '{session_id}' was not found."
+                )
+            record = database_session.scalar(
+                select(MessageIdempotencyRecord).where(
+                    MessageIdempotencyRecord.session_id == session_id,
+                    MessageIdempotencyRecord.idempotency_key == idempotency_key,
+                )
+            )
+            if record is None:
+                return None
+            if record.normalized_body != normalized_body:
+                raise IdempotencyConflictError(
+                    "The idempotency key was already used with a different request."
+                )
+            message_id = record.message_id
+            run_id = record.run_id
+        return self._load_result(message_id, run_id)
+
+    def accept(
+        self,
+        request: RunAcceptanceRequest,
+        *,
+        queue_sequence: int,
+        credential_available: bool,
+        message_id: str,
+        run_id: str,
+        occurred_at: datetime,
+    ) -> RunAcceptanceResult:
+        with self._database.sessions() as database_session:
+            database_session.execute(text("BEGIN IMMEDIATE"))
+            existing = database_session.scalar(
+                select(MessageIdempotencyRecord).where(
+                    MessageIdempotencyRecord.session_id == request.session_id,
+                    MessageIdempotencyRecord.idempotency_key == request.idempotency_key,
+                )
+            )
+            if existing is not None:
+                if existing.normalized_body != request.normalized_body:
+                    raise IdempotencyConflictError(
+                        "The idempotency key was already used with a different request."
+                    )
+                database_session.rollback()
+                return self._load_result(existing.message_id, existing.run_id)
+
+            session_record = database_session.get(SessionRecord, request.session_id)
+            if session_record is None:
+                raise RunAcceptanceNotFoundError(
+                    f"Session '{request.session_id}' was not found."
+                )
+            if (
+                database_session.get(
+                    WorkspaceRemovalRecord, session_record.workspace_id
+                )
+                is not None
+            ):
+                raise WorkspaceRemovedAcceptanceError(
+                    "Removed workspaces cannot start a run."
+                )
+            if (
+                database_session.get(SessionArchiveRecord, request.session_id)
+                is not None
+            ):
+                raise SessionArchivedAcceptanceError(
+                    "Archived sessions cannot start a run."
+                )
+            if request.map_context["workspace_id"] != session_record.workspace_id:
+                raise InvalidMapContextError(
+                    "The map context does not belong to the current workspace."
+                )
+            active_run = database_session.scalar(
+                select(RunRecord.id).where(
+                    RunRecord.session_id == request.session_id,
+                    RunRecord.state.in_(NONTERMINAL_RUN_STATE_VALUES),
+                )
+            )
+            if active_run is not None:
+                raise RunAcceptanceConflictError(
+                    "The session already has an unfinished run."
+                )
+
+            selection = request.model_selection
+            connection = database_session.get(
+                ModelConnectionRecord, selection.connection_id
+            )
+            if connection is None:
+                raise RunAcceptanceNotFoundError(
+                    f"Model connection '{selection.connection_id}' was not found."
+                )
+            entry = database_session.get(
+                ModelCatalogEntryRecord,
+                (selection.connection_id, selection.model_id),
+            )
+            self._validate_model(
+                connection,
+                entry,
+                selection.reasoning_effort,
+                credential_available,
+            )
+
+            model_snapshot = ModelSnapshotPayload(
+                connection_id=connection.id,
+                provider_type=connection.provider_type,
+                protocol=connection.protocol,
+                base_url=connection.base_url,
+                auth_mode=connection.auth_mode,
+                model_id=selection.model_id,
+                reasoning_effort=selection.reasoning_effort,
+                connection_revision=connection.revision,
+                max_tokens_field=connection.max_tokens_field,
+                include_usage=connection.include_usage,
+                max_output_tokens=MAX_MODEL_OUTPUT_TOKENS,
+            )
+            budget_limits = BudgetLimitsPayload(
+                model_calls=MAX_MODEL_CALLS,
+                tool_calls=MAX_TOOL_CALLS,
+                active_milliseconds=MAX_ACTIVE_MILLISECONDS,
+                output_codepoints=MAX_OUTPUT_CODEPOINTS,
+            )
+            events = (
+                UserMessageAppendedEvent(
+                    session_id=request.session_id,
+                    run_id=run_id,
+                    event_type="message.user.appended",
+                    payload=UserMessageAppendedPayload(
+                        message_id=message_id,
+                        role="user",
+                        content=request.content,
+                        run_id=run_id,
+                    ),
+                    occurred_at=occurred_at,
+                ),
+                RunCreatedEvent(
+                    session_id=request.session_id,
+                    run_id=run_id,
+                    event_type="run.created",
+                    payload=RunCreatedPayload(
+                        user_message_id=message_id,
+                        model_snapshot=model_snapshot,
+                        map_snapshot=request.map_context,
+                        scene_snapshot=None,
+                        budget_limits=budget_limits,
+                    ),
+                    occurred_at=occurred_at,
+                ),
+                RunModelSelectedEvent(
+                    session_id=request.session_id,
+                    run_id=run_id,
+                    event_type="run.model_selected",
+                    payload=RunModelSelectedPayload(
+                        user_message_id=message_id,
+                        model_snapshot=model_snapshot,
+                        budget_limits=budget_limits,
+                    ),
+                    occurred_at=occurred_at,
+                ),
+                RunProgressEvent(
+                    session_id=request.session_id,
+                    run_id=run_id,
+                    event_type="run.queued",
+                    payload=RunProgressPayload(
+                        step=0,
+                        attempt=0,
+                        resume_phase="model",
+                        next_tool_index=0,
+                        requires_resume=False,
+                        queue_sequence=queue_sequence,
+                        reason=None,
+                        budget=BudgetUsagePayload(
+                            model_calls=0,
+                            tool_calls=0,
+                            active_milliseconds=0,
+                            output_codepoints=0,
+                        ),
+                    ),
+                    occurred_at=occurred_at,
+                ),
+            )
+            self._projections.commit_in_transaction(
+                database_session,
+                EventBatch(
+                    session_id=request.session_id,
+                    run_id=run_id,
+                    events=events,
+                ),
+            )
+            database_session.add(
+                MessageIdempotencyRecord(
+                    session_id=request.session_id,
+                    idempotency_key=request.idempotency_key,
+                    normalized_body=request.normalized_body,
+                    message_id=message_id,
+                    run_id=run_id,
+                    created_at=occurred_at,
+                )
+            )
+            preference = database_session.get(
+                SessionPreferenceRecord, request.session_id
+            )
+            if preference is None:
+                preference = SessionPreferenceRecord(session_id=request.session_id)
+                database_session.add(preference)
+            preference.connection_id = selection.connection_id
+            preference.model_id = selection.model_id
+            preference.reasoning_effort = selection.reasoning_effort
+            preference.updated_at = occurred_at
+            session_record.updated_at = occurred_at
+            workspace_record = database_session.get(
+                WorkspaceRecord, session_record.workspace_id
+            )
+            if workspace_record is None:
+                raise RuntimeError(
+                    f"Session '{request.session_id}' references a missing workspace."
+                )
+            workspace_record.updated_at = occurred_at
+            database_session.commit()
+
+        return self._load_result(message_id, run_id)
+
+    @staticmethod
+    def _validate_model(
+        connection: ModelConnectionRecord,
+        entry: ModelCatalogEntryRecord | None,
+        reasoning_effort: str | None,
+        credential_available: bool,
+    ) -> None:
+        if not connection.enabled or connection.management_status != "ready":
+            raise ModelUnverifiedError("The selected model connection is unavailable.")
+        if (
+            connection.auth_mode == ModelAuthMode.API_KEY.value
+            and not credential_available
+        ):
+            raise CredentialUnavailableError(
+                "The selected model credential is not configured."
+            )
+        if connection.credential_status != "ready":
+            raise CredentialUnavailableError(
+                "The selected model credential is not ready."
+            )
+        if (
+            entry is None
+            or entry.revision != connection.revision
+            or entry.availability != "available"
+            or entry.model_id not in connection.enabled_model_ids
+            or entry.text_check != "passed"
+            or entry.tool_check != "passed"
+        ):
+            raise ModelUnverifiedError(
+                "The selected model is not enabled and verified for agent runs."
+            )
+        if (
+            reasoning_effort is not None
+            and reasoning_effort not in entry.reasoning_efforts
+        ):
+            raise UnsupportedModelCapabilityError(
+                "The selected reasoning effort is not supported by this model."
+            )
+
+    def _load_result(self, message_id: str, run_id: str) -> RunAcceptanceResult:
+        with self._database.sessions() as database_session:
+            message_record = database_session.get(MessageRecord, message_id)
+            run_record = database_session.get(RunRecord, run_id)
+            snapshot_record = database_session.get(RunModelSnapshotRecord, run_id)
+            if message_record is None or run_record is None or snapshot_record is None:
+                raise RuntimeError("Accepted message projections are incomplete.")
+            message = _message_to_domain(message_record)
+            run = run_records.run_to_domain(run_record)
+            snapshot = run_records.snapshot_to_domain(snapshot_record)
+            tool_records = database_session.scalars(
+                select(ToolCallRecord)
+                .where(ToolCallRecord.run_id == run_id)
+                .order_by(
+                    ToolCallRecord.step,
+                    ToolCallRecord.attempt,
+                    ToolCallRecord.batch_index,
+                )
+            ).all()
+            tool_calls = tuple(
+                run_records.tool_call_to_domain(record) for record in tool_records
+            )
+        return RunAcceptanceResult(
+            message=message,
+            run=RunDetails(
+                run=run,
+                model_snapshot=snapshot,
+                tool_calls=tool_calls,
+            ),
+        )
+
+
+def _message_to_domain(record: MessageRecord) -> Message:
+    return Message(
+        id=record.id,
+        session_id=record.session_id,
+        sequence=record.sequence,
+        role=cast(MessageRole, record.role),
+        content=record.content,
+        run_id=record.run_id,
+        step=record.step,
+        attempt=record.attempt,
+        status=cast(MessageStatus, record.status),
+        content_length=record.content_length,
+        updated_sequence=record.updated_sequence,
+        created_at=as_utc(record.created_at),
+        updated_at=as_utc(record.updated_at),
+    )
