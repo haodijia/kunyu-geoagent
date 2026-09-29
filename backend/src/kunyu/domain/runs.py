@@ -1,11 +1,11 @@
 from dataclasses import dataclass
 from datetime import datetime
 from enum import StrEnum
-from typing import Literal, TypeAlias
+from typing import Literal
 
+from dsh.events import TERMINAL_RUN_STATES, ResumePhase, RunState
 from pydantic import JsonValue
 
-from dsh.events import ResumePhase, RunState, TERMINAL_RUN_STATES
 from kunyu.domain.messages import Message
 from kunyu.domain.model_connections import (
     MaxTokensField,
@@ -100,88 +100,13 @@ class ToolCall:
 
 @dataclass(frozen=True, slots=True)
 class CreateRunProjection:
-    run: Run
     snapshot: RunModelSnapshot
     user_message: Message
-    user_event_index: int
-    run_event_index: int
-
-
-@dataclass(frozen=True, slots=True)
-class AddAssistantProjection:
-    message: Message
-    event_index: int
-
-
-@dataclass(frozen=True, slots=True)
-class AppendAssistantDeltaProjection:
-    message_id: str
-    step: int
-    attempt: int
-    offset: int
-    text: str
-    occurred_at: datetime
-    event_index: int
-
-
-@dataclass(frozen=True, slots=True)
-class CompleteAssistantProjection:
-    message_id: str
-    step: int
-    attempt: int
-    content_length: int
-    status: Literal["completed"]
-    occurred_at: datetime
-    event_index: int
-
-
-@dataclass(frozen=True, slots=True)
-class SettleAssistantProjection:
-    message_id: str
-    content_length: int
-    status: Literal["interrupted", "failed", "cancelled"]
-    occurred_at: datetime
-    event_index: int
-
-
-@dataclass(frozen=True, slots=True)
-class AddToolCallsProjection:
-    calls: tuple[ToolCall, ...]
-    first_event_index: int
-
-
-@dataclass(frozen=True, slots=True)
-class UpdateToolCallProjection:
-    tool_call_id: str
-    status: ToolCallStatus
-    result: JsonValue | None
-    error_code: str | None
-    error_summary: str | None
-    occurred_at: datetime
-    event_index: int
-
-
-@dataclass(frozen=True, slots=True)
-class UpdateRunProjection:
-    run: Run
-    event_index: int
-
-
-RunProjectionMutation: TypeAlias = (
-    CreateRunProjection
-    | AddAssistantProjection
-    | AppendAssistantDeltaProjection
-    | CompleteAssistantProjection
-    | SettleAssistantProjection
-    | AddToolCallsProjection
-    | UpdateToolCallProjection
-    | UpdateRunProjection
-)
 
 
 @dataclass(frozen=True, slots=True)
 class RunProjectionBatch:
-    mutations: tuple[RunProjectionMutation, ...]
+    creation: CreateRunProjection | None = None
 
 
 class ProjectionConflictError(RuntimeError):
