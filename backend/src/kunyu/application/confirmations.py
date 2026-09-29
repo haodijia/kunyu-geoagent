@@ -356,7 +356,7 @@ class ConfirmationService:
             raise ConfirmationConflictError(
                 "The confirmed arguments no longer match the tool call."
             )
-        if tool.name != "workspace.memory.save":
+        if tool.name != "workspace_memory_save":
             raise ConfirmationPolicyError(
                 "The approved write tool has no local transaction handler."
             )

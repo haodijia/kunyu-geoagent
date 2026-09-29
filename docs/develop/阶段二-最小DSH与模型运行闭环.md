@@ -70,7 +70,7 @@
 - 一个明确的 OpenAI-compatible 协议适配器，支持真实文本流和结构化 Tool Call；Provider 差异使用显式配置处理。
 - 输入框选择连接、模型和受支持的推理强度，Run 保存不可变模型与地图上下文快照。
 - 持久 Assistant 消息、运行状态、工具调用、确认、错误与中断记录。
-- 本地只读 workspace.get_context、memory.search，以及必须人工确认的 workspace.memory.save。
+- 本地只读 workspace_get_context、memory_search，以及必须人工确认的 workspace_memory_save。
 - 取消、等待确认、重启重建、显式恢复、请求幂等与会话内单 Run 约束。
 - 真实事件驱动的对话活动与轨迹，复用现有时间线和详情面板。
 - GeoSkill 内置包校验、只读目录、版本详情及会话场景选择；依赖 OGE 的正式执行保持阻塞。
@@ -140,18 +140,18 @@ ModelConnection 保存稳定 ID、显示名、`provider_type`、协议类型、B
 
 | 工具 | 作用 | 级别 | 执行规则 |
 | --- | --- | --- | --- |
-| workspace.get_context | 当前工作空间、会话、地图引用与可用能力摘要 | L0 | 后端绑定当前 workspace/session，自动执行 |
-| memory.search | 读取当前空间已确认的记忆 | L0 | 按关键词与固定条数检索，不跨空间 |
-| workspace.memory.save | 保存用户确认的空间偏好或关注事项 | L2 | 每次生成精确确认，批准后落盘 |
+| workspace_get_context | 当前工作空间、会话、地图引用与可用能力摘要 | L0 | 后端绑定当前 workspace/session，自动执行 |
+| memory_search | 读取当前空间已确认的记忆 | L0 | 按关键词与固定条数检索，不跨空间 |
+| workspace_memory_save | 保存用户确认的空间偏好或关注事项 | L2 | 每次生成精确确认，批准后落盘 |
 | scene.get | 读取内置场景版本的约束和依赖状态 | L0 | 在 GeoSkill 交付项接入后注册 |
 
 本阶段不注册删除数据、修改模型配置、读系统文件、执行 Shell、提交 OGE 等 Tool。模型提供的 scope 标识必须由服务端约束，不能只依赖提示词。
 
 确认对象保存 confirmation_id、run_id、tool_call_id、工具名、校验后的参数、可读摘要、状态与决定时间。批准/拒绝通过路径提交确认标识和决定，请求体为空对象，不接收替换参数。本阶段不提供修改待确认参数接口；用户取消原 Run 后，以新消息生成新的提议和确认。
 
-workspace.memory.save 的写入、ToolCall 完成、确认决定及事件在同一个本地数据库事务内提交；tool_call_id 唯一约束防止重复执行。批准、拒绝、取消争夺待确认状态时使用条件更新，只有一个决定获得写入资格，不能“先执行再保存确认”；批准已提交后再取消只停止后续工作，不撤销写入。
+workspace_memory_save 的写入、ToolCall 完成、确认决定及事件在同一个本地数据库事务内提交；tool_call_id 唯一约束防止重复执行。批准、拒绝、取消争夺待确认状态时使用条件更新，只有一个决定获得写入资格，不能“先执行再保存确认”；批准已提交后再取消只停止后续工作，不撤销写入。
 
-拒绝结束该次 Run 为 cancelled，不自动重新提议相同写入。记忆候选在用户批准前不能被 memory.search 作为事实返回。
+拒绝结束该次 Run 为 cancelled，不自动重新提议相同写入。记忆候选在用户批准前不能被 memory_search 作为事实返回。
 
 ### 4.5 中断、恢复与生命周期
 
@@ -358,7 +358,7 @@ MapContext DTO 使用现有字段对应的 snake_case：workspace_id、viewport�
 
 统一错误体为 `{error:{code,message,details}}`，message 为脱敏摘要，details 仅白名单字段；前端按 code 映射 locales。固定基础错误码：422 `INVALID_INPUT/MODEL_UNVERIFIED/UNSUPPORTED_CAPABILITY/SCENE_INVALID`；404 `NOT_FOUND`；409 `SESSION_ARCHIVED/WORKSPACE_REMOVED/RUN_CONFLICT/IDEMPOTENCY_CONFLICT/CONFIRMATION_CONFLICT/CONNECTION_IN_USE/DEFAULT_CONNECTION/CONNECTION_BUSY/DISCOVERY_SUPERSEDED/CHECK_SUPERSEDED/MODEL_EXISTS`；429 `RUN_QUEUE_FULL`；503 `CREDENTIAL_STORE_UNAVAILABLE/CREDENTIAL_RECOVERY_REQUIRED/SHUTTING_DOWN`。发现网络/认证/格式失败使用 502 `PROVIDER_AUTH/PROVIDER_PROTOCOL/PROVIDER_NETWORK` 或 504 `PROVIDER_TIMEOUT`。运行中的同类错误写入 Run，不改变已受理 POST 的结果。
 
-工具 Schema 在 P2-08 落地：workspace.get_context 为 `{}`；memory.search 为 `{query:string,limit:integer}`，query 1～200 码点、limit 1～20（必填）；workspace.memory.save 为 `{content:string}`，content 1～2,000 码点；scene.get 为 `{}`，读取该 Run 冻结版本，无场景返回明确 null。均禁止额外字段，workspace/session 只能来自后端绑定。memory.search 使用有界字面关键词包含查询、按 created_at DESC/id DESC 排序，不执行模型提供的 SQL；结果明确截断与总条数，不能伪造遗漏内容。
+工具 Schema 在 P2-08 落地：workspace_get_context 为 `{}`；memory_search 为 `{query:string,limit:integer}`，query 1～200 码点、limit 1～20（必填）；workspace_memory_save 为 `{content:string}`，content 1～2,000 码点；scene.get 为 `{}`，读取该 Run 冻结版本，无场景返回明确 null。均禁止额外字段，workspace/session 只能来自后端绑定。memory_search 使用有界字面关键词包含查询、按 created_at DESC/id DESC 排序，不执行模型提供的 SQL；结果明确截断与总条数，不能伪造遗漏内容。
 
 ### 4.14 GeoSkill 最小包契约
 
@@ -480,7 +480,7 @@ P2-02～11 不启用正式消息 Run 入口：旧消息功能持续可用，新�
 
 **范围**：对照 deepseek-harness `agent-loop/src/agent.ts` 与 `tool-calls.ts` 的模型—工具循环和取消边界，从已提交 run_id 开始执行；组装上下文、处理流、合并 Tool Call、执行工具、应用预算、持久终态；确认时保存完整续行状态，不占用模型连接等待用户。首期工具串行执行，严格使用 4.11 的批次游标和模型历史，正文完成与 Run 完成分开。
 
-**检查**：真实模型可调用 workspace.get_context 后回复；提出记忆写入时暂停；无效工具、调用超限和 Provider 断流有明确失败/中断状态，不生成假成功。
+**检查**：真实模型可调用 workspace_get_context 后回复；提出记忆写入时暂停；无效工具、调用超限和 Provider 断流有明确失败/中断状态，不生成假成功。
 
 ### P2-11 `feat(runs): coordinate scheduling cancellation and recovery`
 
@@ -566,7 +566,7 @@ P2-02～11 不启用正式消息 Run 入口：旧消息功能持续可用，新�
 2. 在模型设置从供应商目录搜索并选择一个真实 Provider，确认品牌图标、预设端点和精简连接表单正确；保存凭据后自动发现真实模型 ID，在详情页启用模型、设置默认模型并完成工具检查，再主动更新一次目录，核对启用选择与失败状态。
 3. 创建工作空间与会话，在对话输入框选择连接和模型，发送普通消息。
 4. 确认用户消息与 Run 只创建一次，Assistant 实际流式输出，完成后重启仍可读取。
-5. 发起需要 workspace.get_context 的请求，核对工具读取的真实空间与后续回复。
+5. 发起需要 workspace_get_context 的请求，核对工具读取的真实空间与后续回复。
 6. 请求保存一项工作空间偏好：未确认前查不到记忆；批准后只写一条；新 Run 能读取该记忆。
 7. 再次提出写入并拒绝，确认无写入；同时检查对话活动和轨迹状态。
 8. 在 waiting_confirmation 状态退出重启，确认还原同一快照，可批准或拒绝。
