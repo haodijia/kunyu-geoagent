@@ -12,6 +12,7 @@ from sqlalchemy import (
     Integer,
     String,
     Text,
+    UniqueConstraint,
     func,
 )
 from sqlalchemy import text as sql_text
@@ -41,6 +42,36 @@ class WorkspaceRemovalRecord(Base):
 
     workspace_id: Mapped[str] = mapped_column(
         ForeignKey("workspaces.id", ondelete="CASCADE"), primary_key=True
+    )
+
+
+class WorkspaceMemoryRecord(Base):
+    __tablename__ = "workspace_memories"
+    __table_args__ = (
+        CheckConstraint(
+            "length(content) BETWEEN 1 AND 2000",
+            name="ck_workspace_memories_content_length",
+        ),
+        Index(
+            "ix_workspace_memories_workspace_created",
+            "workspace_id",
+            "created_at",
+            "id",
+        ),
+        UniqueConstraint(
+            "source_tool_call_id",
+            name="uq_workspace_memories_source_tool_call_id",
+        ),
+    )
+
+    id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    workspace_id: Mapped[str] = mapped_column(
+        ForeignKey("workspaces.id"), nullable=False
+    )
+    content: Mapped[str] = mapped_column(Text, nullable=False)
+    source_tool_call_id: Mapped[str] = mapped_column(String(64), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False
     )
 
 
