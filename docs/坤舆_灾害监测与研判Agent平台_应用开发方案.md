@@ -518,14 +518,14 @@ Tool 提供操作入口，Skill 组织这些操作，Memory 提供当前任务�
 
 | 工具组 | 计划定义的工具 | 主要输入 | 主要输出 |
 | --- | --- | --- | --- |
-| 工作空间与空间范围 | `workspace.get_context`、`region.resolve` | 工作空间、行政代码或绘制区域 | 研究区、关注对象和当前设置 |
+| 工作空间与空间范围 | `workspace_get_context`、`region.resolve` | 工作空间、行政代码或绘制区域 | 研究区、关注对象和当前设置 |
 | 数据发现 | `data.search`、`data.describe` | 区域、时间、产品及质量条件 | 候选资产、覆盖、波段和采集信息 |
 | 方法发现 | `skill.search`、`skill.load` | 业务目标或 Skill 编号与版本 | 场景摘要、输入定义、方法和资源引用 |
 | 算法目录 | `algorithm.search`、`algorithm.describe` | 逻辑能力、输入类型或服务编号 | 参数定义、结果类型和可用状态 |
 | 任务规划与运行 | `workflow.plan`、`workflow.submit`、`task.get_status` | 场景版本、资产引用、参数和步骤 | 计划、任务编号及节点状态 |
 | 成果读取 | `result.list`、`result.describe`、`result.query` | 任务、成果、区域或图斑编号 | 成果元数据、局部统计和质量摘要 |
 | 核查与报告 | `review.create`、`report.generate` | 图斑、复核意见或成果版本 | 核查记录、报告编号与下载地址 |
-| 记忆使用 | `memory.search`、`memory.propose` | 工作空间范围、检索条件或候选经验 | 相关条目或待复核记忆记录 |
+| 记忆使用 | `memory_search`、`memory.propose` | 工作空间范围、检索条件或候选经验 | 相关条目或待复核记忆记录 |
 
 表中名称为本系统的工具接口设计。每个工具登记名称、说明、版本、输入与输出 JSON Schema、权限范围、读写类型、同步或异步方式、超时时间及处理函数。只读查询经参数校验后执行；创建正式任务、修改核查记录、发布 Skill 和将经验写入长期记忆属于有副作用操作，必须通过 `PolicyGate` 并获得用户确认或预先配置的业务授权。任务提交返回业务 `taskId` 和执行状态，OGE `processId` 由任务服务保存，业务请求编号用于幂等受理。
 

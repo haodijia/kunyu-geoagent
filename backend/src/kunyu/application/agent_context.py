@@ -182,15 +182,15 @@ def _system_context(source: RunContextSource) -> str:
             "truncated": len(memories.items) < memories.total_count,
         },
         "available_tools": [
-            "workspace.get_context",
-            "memory.search",
-            "workspace.memory.save",
+            "workspace_get_context",
+            "memory_search",
+            "workspace_memory_save",
         ],
     }
     return (
         "Use the server-bound workspace and session scope below. "
         "Do not invent or replace scope identifiers. "
-        "workspace.memory.save always requires user confirmation.\n"
+        "workspace_memory_save always requires user confirmation.\n"
         + _json_text(payload)
     )
 

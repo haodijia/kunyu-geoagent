@@ -106,16 +106,16 @@ export function ConversationComposer({
   return (
     <div className={compact ? "shrink-0 px-4 pb-4" : "shrink-0 px-6 pt-3 pb-6"}>
       <form
-        className={`mx-auto border border-border bg-background px-4 shadow-md focus-within:border-input focus-within:ring-2 focus-within:ring-ring/50 ${
+        className={`mx-auto border border-[var(--mu-input-border)] bg-[var(--mu-composer-bg)] shadow-sm transition-[border-color,box-shadow] duration-200 focus-within:border-[var(--mu-input-border-active)] focus-within:shadow-[var(--mu-input-shadow-active)] ${
           compact
-            ? "max-w-[720px] rounded-xl pt-2 pb-2"
-            : "max-w-[880px] rounded-2xl pt-3 pb-3"
+            ? "max-w-[720px] rounded-2xl p-3"
+            : "max-w-[880px] rounded-[20px] p-4"
         }`}
         onSubmit={handleSubmit}
       >
         <Textarea
           ref={textareaRef}
-          className={`block w-full resize-none overflow-y-auto rounded-none border-0 bg-transparent px-1 py-1 text-sm leading-6 text-foreground shadow-none outline-none placeholder:text-muted-foreground focus-visible:ring-0 disabled:cursor-wait ${compact ? "min-h-9" : "min-h-12"}`}
+          className={`block w-full resize-none overflow-y-auto rounded-none border-0 bg-transparent px-0 py-0 text-sm leading-5 text-foreground shadow-none outline-none placeholder:text-muted-foreground focus-visible:border-transparent focus-visible:ring-0 disabled:cursor-wait ${compact ? "min-h-5" : "min-h-10"}`}
           value={draft}
           placeholder={content.composerPlaceholder}
           disabled={pending || draftFrozen}
@@ -124,14 +124,14 @@ export function ConversationComposer({
           onKeyDown={handleKeyDown}
           aria-label={content.composerLabel}
         />
-        <div className={`${compact ? "mt-1" : "mt-2"} flex min-h-8 flex-wrap items-end justify-between gap-x-4 gap-y-2`}>
+        <div className={`${compact ? "mt-2" : "mt-3"} flex min-h-8 flex-wrap items-center justify-between gap-x-4 gap-y-2`}>
           <span className="inline-flex min-w-0 items-center gap-1.5 text-xs text-muted-foreground">
             <MapPinned className="size-3.5 shrink-0" aria-hidden="true" />
             <span className="truncate">{contextLabel}</span>
           </span>
-          <div className="flex min-w-0 flex-wrap items-center justify-end gap-2">
+          <div className="flex min-w-0 flex-wrap items-center justify-end gap-1">
             <select
-              className="max-w-56 rounded-md border-0 bg-transparent px-2 py-1 text-xs text-foreground outline-none hover:bg-muted focus:ring-2 focus:ring-ring/50 disabled:opacity-50"
+              className="h-8 max-w-56 rounded-lg border-0 bg-transparent px-2 text-xs text-foreground outline-none hover:bg-muted focus:ring-2 focus:ring-ring/50 disabled:opacity-50"
               value={selectedModel}
               disabled={modelDisabled}
               aria-label={content.modelSelectorLabel}
@@ -150,7 +150,7 @@ export function ConversationComposer({
             </select>
             {reasoningOptions.length > 0 || selectedReasoningEffort !== "" ? (
               <select
-                className="max-w-44 rounded-md border-0 bg-transparent px-2 py-1 text-xs text-foreground outline-none hover:bg-muted focus:ring-2 focus:ring-ring/50 disabled:opacity-50"
+                className="h-8 max-w-44 rounded-lg border-0 bg-transparent px-2 text-xs text-foreground outline-none hover:bg-muted focus:ring-2 focus:ring-ring/50 disabled:opacity-50"
                 value={selectedReasoningEffort}
                 disabled={modelDisabled}
                 aria-label={content.reasoningSelectorLabel}
@@ -167,7 +167,7 @@ export function ConversationComposer({
             <Button
               type="submit"
               size="icon"
-              className="size-8 rounded-full shadow-none"
+              className="ml-1 size-8 rounded-full shadow-none"
               disabled={!canSend}
               aria-label={
                 pending
@@ -187,22 +187,24 @@ export function ConversationComposer({
             </Button>
           </div>
         </div>
-        <div className="mt-1.5 flex min-h-5 items-center justify-between gap-3 px-1 text-xs leading-5">
-          <span
-            className={error === null ? "text-muted-foreground" : "text-destructive"}
-            role={error === null ? undefined : "alert"}
-          >
-            {error ?? content.composerHint}
-          </span>
-          {showModelSettings ? (
-            <Button asChild type="button" size="sm" variant="ghost" className="h-7 px-2">
-              <Link to="/settings/models">
-                <Settings2 className="size-3.5" />
-                {content.configureModels}
-              </Link>
-            </Button>
-          ) : null}
-        </div>
+        {error !== null || showModelSettings ? (
+          <div className="mt-2 flex items-center justify-between gap-3 border-t border-border/60 pt-2 text-xs leading-5">
+            <span
+              className="text-destructive"
+              role={error === null ? undefined : "alert"}
+            >
+              {error}
+            </span>
+            {showModelSettings ? (
+              <Button asChild type="button" size="sm" variant="ghost" className="h-7 px-2">
+                <Link to="/settings/models">
+                  <Settings2 className="size-3.5" />
+                  {content.configureModels}
+                </Link>
+              </Button>
+            ) : null}
+          </div>
+        ) : null}
       </form>
     </div>
   );

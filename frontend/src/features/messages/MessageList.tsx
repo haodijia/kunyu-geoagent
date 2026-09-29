@@ -1,11 +1,9 @@
 import { Bot, LoaderCircle, MessageCircle } from "lucide-react";
-import { useEffect, useMemo, useRef, type ReactNode } from "react";
+import { useEffect, useRef, type ReactNode } from "react";
 import Markdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 
 import type { MessageStatus, SessionMessage } from "@/features/messages/api";
-import { RunSnapshotSummary } from "@/features/runs/RunSnapshotSummary";
-import type { RunSnapshot } from "@/features/runs/api";
 import { SessionEmptyState } from "@/features/sessions/SessionEmptyState";
 import { zhCN } from "@/locales/zh-CN";
 
@@ -17,7 +15,6 @@ const timeFormatter = new Intl.DateTimeFormat("zh-CN", {
 
 interface MessageListProps {
   readonly messages: readonly SessionMessage[];
-  readonly runs: readonly RunSnapshot[];
 }
 
 const statusLabels: Record<Exclude<MessageStatus, "completed">, string> = {
@@ -27,13 +24,9 @@ const statusLabels: Record<Exclude<MessageStatus, "completed">, string> = {
   cancelled: content.status.cancelled
 };
 
-export function MessageList({ messages, runs }: MessageListProps) {
+export function MessageList({ messages }: MessageListProps) {
   const endRef = useRef<HTMLDivElement>(null);
   const followStreamRef = useRef(true);
-  const runsByUserMessage = useMemo(
-    () => new Map(runs.map((run) => [run.user_message_id, run])),
-    [runs]
-  );
 
   useEffect(() => {
     const scroller = endRef.current?.closest<HTMLElement>("[data-message-scroll]");
@@ -65,44 +58,40 @@ export function MessageList({ messages, runs }: MessageListProps) {
 
   return (
     <div className="mx-auto flex w-full max-w-[920px] flex-col gap-7 px-6 py-10">
-      {messages.map((message) => {
-        const run = runsByUserMessage.get(message.id);
-        return (
-          <article
-            key={message.id}
-            className={
-              message.role === "user"
-                ? "ml-auto flex max-w-[82%] flex-col items-end"
-                : "mr-auto flex max-w-[82%] flex-col items-start"
-            }
-          >
-            {message.role === "user" ? (
-              <div className="rounded-[18px_18px_5px_18px] bg-muted px-4 py-2.5 text-sm leading-6 whitespace-pre-wrap text-foreground [overflow-wrap:anywhere]">
-                {message.content}
-              </div>
-            ) : (
-              <AssistantContent message={message} />
-            )}
-            {run === undefined ? null : <RunSnapshotSummary run={run} />}
-            <div className="mt-1.5 flex items-center gap-2 px-1 text-xs text-muted-foreground">
-              {message.status !== "completed" ? (
-                <span className="inline-flex items-center gap-1" role="status">
-                  {message.status === "streaming" ? (
-                    <LoaderCircle className="size-3 animate-spin" aria-hidden="true" />
-                  ) : null}
-                  {statusLabels[message.status]}
-                  {message.attempt !== null && message.attempt > 1
-                    ? ` · ${content.attempt(message.attempt)}`
-                    : null}
-                </span>
-              ) : null}
-              <time dateTime={message.created_at}>
-                {timeFormatter.format(new Date(message.created_at))}
-              </time>
+      {messages.map((message) => (
+        <article
+          key={message.id}
+          className={
+            message.role === "user"
+              ? "ml-auto flex max-w-[82%] flex-col items-end"
+              : "mr-auto flex max-w-[82%] flex-col items-start"
+          }
+        >
+          {message.role === "user" ? (
+            <div className="rounded-[18px_18px_5px_18px] bg-muted px-4 py-2.5 text-sm leading-6 whitespace-pre-wrap text-foreground [overflow-wrap:anywhere]">
+              {message.content}
             </div>
-          </article>
-        );
-      })}
+          ) : (
+            <AssistantContent message={message} />
+          )}
+          <div className="mt-1.5 flex items-center gap-2 px-1 text-xs text-muted-foreground">
+            {message.status !== "completed" && message.status !== "failed" ? (
+              <span className="inline-flex items-center gap-1" role="status">
+                {message.status === "streaming" ? (
+                  <LoaderCircle className="size-3 animate-spin" aria-hidden="true" />
+                ) : null}
+                {statusLabels[message.status]}
+                {message.attempt !== null && message.attempt > 1
+                  ? ` · ${content.attempt(message.attempt)}`
+                  : null}
+              </span>
+            ) : null}
+            <time dateTime={message.created_at}>
+              {timeFormatter.format(new Date(message.created_at))}
+            </time>
+          </div>
+        </article>
+      ))}
       <div ref={endRef} />
     </div>
   );

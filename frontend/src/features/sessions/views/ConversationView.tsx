@@ -8,7 +8,7 @@ import { zhCN } from "@/locales/zh-CN";
 
 export function ConversationView() {
   const eventStream = useSessionEvents();
-  const { messagesQuery, runsQuery } = useSessionMessages();
+  const { messagesQuery } = useSessionMessages();
   return (
     <div className="flex h-full min-h-0 flex-col bg-background">
       <div className="min-h-0 flex-1 overflow-y-auto" data-message-scroll>
@@ -21,10 +21,7 @@ export function ConversationView() {
           <EventStreamNotice error={eventStream.error} status={eventStream.status} />
         </div>}
         {messagesQuery.data !== undefined && (
-          <MessageList
-            messages={messagesQuery.data}
-            runs={runsQuery.data ?? []}
-          />
+          <MessageList messages={messagesQuery.data} />
         )}
       </div>
       <RunControls />

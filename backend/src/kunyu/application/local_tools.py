@@ -57,7 +57,7 @@ class WorkspaceGetContextTool:
         self._run_id = run_id
         self._contexts = contexts
         self._spec = ToolSpec(
-            name="workspace.get_context",
+            name="workspace_get_context",
             description=(
                 "Read the server-bound workspace, session, frozen map context, "
                 "and available local capabilities for this run."
@@ -108,7 +108,7 @@ class MemorySearchTool:
         self._contexts = contexts
         self._memories = memories
         self._spec = ToolSpec(
-            name="memory.search",
+            name="memory_search",
             description=(
                 "Search confirmed memories in the current server-bound workspace "
                 "using a literal substring."
@@ -142,7 +142,7 @@ class WorkspaceMemorySaveTool:
         self._run_id = run_id
         self._contexts = contexts
         self._spec = ToolSpec(
-            name="workspace.memory.save",
+            name="workspace_memory_save",
             description=(
                 "Propose a workspace preference or concern for exact user "
                 "confirmation before it is saved."
@@ -162,15 +162,15 @@ class WorkspaceMemorySaveTool:
         self.validate(call.arguments)
         _load_source(self._contexts, self._run_id)
         raise ToolConfirmationRequiredError(
-            "workspace.memory.save requires an approved durable confirmation."
+            "workspace_memory_save requires an approved durable confirmation."
         )
 
 
 class LocalToolPolicyGate:
     def risk_level(self, call: ToolCall) -> ToolRiskLevel:
-        if call.name in {"workspace.get_context", "memory.search"}:
+        if call.name in {"workspace_get_context", "memory_search"}:
             return ToolRiskLevel.L0
-        if call.name == "workspace.memory.save":
+        if call.name == "workspace_memory_save":
             return ToolRiskLevel.L2
         raise ToolExecutionError(f"Tool '{call.name}' is not authorized.")
 

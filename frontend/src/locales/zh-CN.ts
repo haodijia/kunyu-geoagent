@@ -209,7 +209,6 @@ export const zhCN = {
     emptyDescription: "描述你想完成的空间任务，消息将保存在当前会话中。",
     composerLabel: "消息输入框",
     composerPlaceholder: "描述你想完成的空间任务…",
-    composerHint: "Enter 发送，Shift + Enter 换行",
     modelSelectorLabel: "本次运行模型",
     reasoningSelectorLabel: "本次运行推理强度",
     selectModel: "选择模型",
@@ -220,7 +219,6 @@ export const zhCN = {
     reasoningNotSpecified: "不指定推理强度",
     reasoningValue: (value: string) => `推理 ${value}`,
     reasoningSelectionInvalid: "上次使用的推理强度已不可用，请重新选择。",
-    connectionRevision: (revision: number) => `配置 #${revision}`,
     mapViewport: (longitude: string, latitude: string, zoom: string) =>
       `当前地图 ${longitude}, ${latitude} · z${zoom}`,
     runInProgress: "当前会话已有未完成运行，请先处理该运行。",
