@@ -1,20 +1,40 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 
-import { Button } from "@/components/ui/button";
+import { ApiError } from "@/api/client";
+import {
+  ConfirmationCard,
+  ConfirmationUnavailable
+} from "@/features/confirmations/ConfirmationCard";
 import {
   approveConfirmation,
   confirmationQueryKeys,
-  rejectConfirmation
+  mergeConfirmationSnapshots,
+  rejectConfirmation,
+  type Confirmation,
+  type ConfirmationDecision
 } from "@/features/confirmations/api";
 import { messageQueryKeys } from "@/features/messages/api";
 import { useSessionMessages } from "@/features/messages/SessionMessagesContext";
-import { cancelRun, resumeRun, runQueryKeys } from "@/features/runs/api";
+import { InterruptedRunCard } from "@/features/runs/InterruptedRunCard";
+import {
+  cancelRun,
+  mergeRunSnapshots,
+  resumeRun,
+  runQueryKeys,
+  type RunSnapshot
+} from "@/features/runs/api";
 import { useSessionWorkspace } from "@/features/sessions/SessionWorkspaceContext";
+import { cn } from "@/lib/utils";
 import { zhCN } from "@/locales/zh-CN";
 
 type RunAction = "approve" | "reject" | "cancel" | "resume";
 
-export function RunControls() {
+interface RunActionResult {
+  readonly run: RunSnapshot;
+  readonly confirmation?: Confirmation;
+}
+
+export function RunControls({ embedded = false }: { readonly embedded?: boolean }) {
   const session = useSessionWorkspace();
   const queryClient = useQueryClient();
   const { runsQuery, confirmationsQuery } = useSessionMessages();
@@ -24,86 +44,114 @@ export function RunControls() {
   const confirmation = run?.pending_confirmation_id === null || run === undefined
     ? undefined
     : confirmationsQuery.data?.find(
-        (item) => item.id === run.pending_confirmation_id
+        (item) => item.id === run.pending_confirmation_id && item.status === "pending"
       );
   const mutation = useMutation({
-    mutationFn: async (action: RunAction) => {
+    mutationFn: async (action: RunAction): Promise<RunActionResult> => {
       if (run === undefined) throw new Error("An active run is required.");
-      if (action === "cancel") return cancelRun(run.id);
-      if (action === "resume") return resumeRun(run.id);
+      if (action === "cancel") return { run: await cancelRun(run.id) };
+      if (action === "resume") return { run: await resumeRun(run.id) };
       if (confirmation === undefined) {
         throw new Error("A pending confirmation is required.");
       }
-      return action === "approve"
-        ? approveConfirmation(confirmation.id)
-        : rejectConfirmation(confirmation.id);
+      const decision: ConfirmationDecision = action === "approve"
+        ? await approveConfirmation(confirmation.id)
+        : await rejectConfirmation(confirmation.id);
+      return { run: decision.run, confirmation: decision.confirmation };
     },
-    onSuccess: async () => {
-      await Promise.all([
-        queryClient.invalidateQueries({ queryKey: runQueryKeys.session(session.id) }),
-        queryClient.invalidateQueries({
-          queryKey: confirmationQueryKeys.session(session.id)
-        }),
-        queryClient.invalidateQueries({
-          queryKey: messageQueryKeys.session(session.id)
-        })
-      ]);
+    onSuccess: ({ run: updatedRun, confirmation: updatedConfirmation }) => {
+      queryClient.setQueryData<RunSnapshot[]>(
+        runQueryKeys.session(session.id),
+        (current) => mergeRunSnapshots(current, [updatedRun])
+      );
+      if (updatedConfirmation !== undefined) {
+        queryClient.setQueryData<Confirmation[]>(
+          confirmationQueryKeys.session(session.id),
+          (current) => mergeConfirmationSnapshots(current, [updatedConfirmation])
+        );
+      }
+      void refreshAgentState();
     },
     onError: (error) => {
       console.error("[runs] Run action failed.", { runId: run?.id, error });
+      void refreshAgentState();
     }
   });
 
+  function refreshAgentState() {
+    return Promise.all([
+      queryClient.invalidateQueries({ queryKey: runQueryKeys.session(session.id) }),
+      queryClient.invalidateQueries({ queryKey: confirmationQueryKeys.session(session.id) }),
+      queryClient.invalidateQueries({ queryKey: messageQueryKeys.session(session.id) })
+    ]);
+  }
+
+  if (run === undefined) return null;
+
+  const className = cn(
+    "rounded-xl border border-border bg-background text-sm shadow-sm",
+    embedded ? "mt-3 w-full" : "mx-auto mb-2 w-[calc(100%-3rem)] max-w-[880px]"
+  );
+  const error = mutation.isError ? runActionError(mutation.error) : null;
+
+  if (run.state === "waiting_confirmation") {
+    if (confirmation === undefined) {
+      return (
+        <ConfirmationUnavailable
+          className={className}
+          loading={confirmationsQuery.isPending || confirmationsQuery.isFetching}
+          pending={mutation.isPending}
+          error={error}
+          onCancel={() => mutation.mutate("cancel")}
+          onRetry={() => void confirmationsQuery.refetch()}
+        />
+      );
+    }
+    return (
+      <ConfirmationCard
+        className={className}
+        confirmation={confirmation}
+        pendingAction={mutation.isPending && isConfirmationAction(mutation.variables)
+          ? mutation.variables
+          : undefined}
+        onApprove={() => mutation.mutate("approve")}
+        onReject={() => mutation.mutate("reject")}
+        error={error}
+      />
+    );
+  }
+
   if (
-    run === undefined ||
-    (confirmation === undefined &&
-      run.state !== "interrupted" &&
-      !(run.state === "ready" && run.requires_resume))
-  ) return null;
+    run.state !== "interrupted" &&
+    !(run.state === "ready" && run.requires_resume)
+  ) {
+    return null;
+  }
 
   return (
-    <aside className="mx-auto mb-2 w-[calc(100%-3rem)] max-w-[880px] rounded-xl border border-border bg-muted/40 px-4 py-3 text-sm">
-      {confirmation !== undefined ? (
-        <div className="space-y-2">
-          <p className="font-medium text-foreground">{confirmation.summary}</p>
-          <p className="text-xs text-muted-foreground">
-            {zhCN.conversation.confirmationScope}: {confirmation.workspace_id}
-          </p>
-          <pre className="max-h-36 overflow-auto rounded-md bg-background p-3 text-xs whitespace-pre-wrap text-foreground">
-            {JSON.stringify(confirmation.arguments, null, 2)}
-          </pre>
-          <p className="text-xs text-muted-foreground">
-            {zhCN.conversation.confirmationEffect}: {confirmation.side_effect}
-          </p>
-          <div className="flex justify-end gap-2">
-            <Button size="sm" variant="outline" disabled={mutation.isPending} onClick={() => mutation.mutate("reject")}>
-              {zhCN.conversation.reject}
-            </Button>
-            <Button size="sm" disabled={mutation.isPending} onClick={() => mutation.mutate("approve")}>
-              {zhCN.conversation.approve}
-            </Button>
-          </div>
-        </div>
-      ) : (
-        <div className="flex items-center justify-between gap-4">
-          <p className="min-w-0 text-muted-foreground">
-            {run.pause_reason ?? zhCN.conversation.interruptedRun}
-          </p>
-          <div className="flex shrink-0 gap-2">
-            <Button size="sm" variant="outline" disabled={mutation.isPending} onClick={() => mutation.mutate("resume")}>
-              {zhCN.conversation.resume}
-            </Button>
-            <Button size="sm" variant="outline" disabled={mutation.isPending} onClick={() => mutation.mutate("cancel")}>
-              {zhCN.conversation.stop}
-            </Button>
-          </div>
-        </div>
-      )}
-      {mutation.isError ? (
-        <p className="mt-2 text-xs text-destructive" role="alert">
-          {zhCN.conversation.runActionFailed}
-        </p>
-      ) : null}
-    </aside>
+    <InterruptedRunCard
+      className={className}
+      run={run}
+      pendingAction={mutation.isPending && isInterruptionAction(mutation.variables)
+        ? mutation.variables
+        : undefined}
+      onResume={() => mutation.mutate("resume")}
+      onCancel={() => mutation.mutate("cancel")}
+      error={error}
+    />
   );
+}
+
+function isConfirmationAction(action: RunAction | undefined): action is "approve" | "reject" {
+  return action === "approve" || action === "reject";
+}
+
+function isInterruptionAction(action: RunAction | undefined): action is "cancel" | "resume" {
+  return action === "cancel" || action === "resume";
+}
+
+function runActionError(error: unknown): string {
+  const content = zhCN.conversation.runActionErrors;
+  if (!(error instanceof ApiError) || error.code === null) return content.unknown;
+  return content.byCode[error.code as keyof typeof content.byCode] ?? content.unknown;
 }

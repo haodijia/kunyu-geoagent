@@ -35,6 +35,26 @@ export function listConfirmations(sessionId: string): Promise<Confirmation[]> {
   );
 }
 
+export function mergeConfirmationSnapshots(
+  current: readonly Confirmation[] | undefined,
+  incoming: readonly Confirmation[]
+): Confirmation[] {
+  if (current === undefined) return [...incoming];
+  const merged = new Map(current.map((confirmation) => [confirmation.id, confirmation]));
+  for (const confirmation of incoming) {
+    const existing = merged.get(confirmation.id);
+    if (
+      existing === undefined ||
+      confirmation.updated_sequence >= existing.updated_sequence
+    ) {
+      merged.set(confirmation.id, confirmation);
+    }
+  }
+  return [...merged.values()].sort((left, right) =>
+    left.created_at.localeCompare(right.created_at)
+  );
+}
+
 function decide(
   confirmationId: string,
   decision: "approve" | "reject"

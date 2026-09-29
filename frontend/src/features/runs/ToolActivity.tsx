@@ -147,7 +147,7 @@ function ToolStatusIcon({ status }: { readonly status: ToolCall["status"] }) {
   return <Circle className="size-3.5 shrink-0 text-muted-foreground" aria-label={content.status.cancelled} />;
 }
 
-function toolLabel(name: string): string {
+export function toolLabel(name: string): string {
   return content.names[name as keyof typeof content.names] ?? name;
 }
 

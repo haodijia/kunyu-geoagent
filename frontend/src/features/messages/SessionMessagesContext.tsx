@@ -13,7 +13,9 @@ import { ApiError } from "@/api/client";
 import { useAppUiStore } from "@/app/store";
 import {
   confirmationQueryKeys,
-  listConfirmations
+  listConfirmations,
+  mergeConfirmationSnapshots,
+  type Confirmation
 } from "@/features/confirmations/api";
 import type { SessionEvent } from "@/features/events/api";
 import { useSessionEvents } from "@/features/events/SessionEventContext";
@@ -111,9 +113,17 @@ function useMessages(sessionId: string, workspaceId: string) {
       );
     }
   });
-  const confirmationsQuery = useQuery({
+  const confirmationsQuery = useQuery<Confirmation[]>({
     queryKey: confirmationQueryKeys.session(sessionId),
-    queryFn: () => listConfirmations(sessionId)
+    queryFn: async () => {
+      const incoming = await listConfirmations(sessionId);
+      return mergeConfirmationSnapshots(
+        queryClient.getQueryData<Confirmation[]>(
+          confirmationQueryKeys.session(sessionId)
+        ),
+        incoming
+      );
+    }
   });
 
   const usableModels = useMemo(

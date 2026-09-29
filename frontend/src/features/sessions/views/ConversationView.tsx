@@ -21,10 +21,13 @@ export function ConversationView() {
           <EventStreamNotice error={eventStream.error} status={eventStream.status} />
         </div>}
         {messagesQuery.data !== undefined && (
-          <MessageList messages={messagesQuery.data} runs={runsQuery.data ?? []} />
+          <MessageList
+            footer={<RunControls embedded />}
+            messages={messagesQuery.data}
+            runs={runsQuery.data ?? []}
+          />
         )}
       </div>
-      <RunControls />
       <SessionComposer />
     </div>
   );
