@@ -14,11 +14,13 @@ P2_05_REVISION = "0001"
 P2_06_REVISION = "0002"
 P2_07A_REVISION = "0003"
 P2_08_REVISION = "0004"
+P2_09_REVISION = "0005"
 LEGACY_REVISIONS = (
     P2_05_REVISION,
     P2_06_REVISION,
     P2_07A_REVISION,
     P2_08_REVISION,
+    P2_09_REVISION,
 )
 
 
@@ -90,7 +92,7 @@ def _schema_signature(
                     str(column["type"]),
                     column["nullable"],
                     column["default"],
-                    column["primary_key"],
+                    column.get("primary_key", False),
                 )
                 for column in inspector.get_columns(table)
             ),
@@ -101,7 +103,7 @@ def _schema_signature(
                         tuple(foreign_key["constrained_columns"]),
                         foreign_key["referred_table"],
                         tuple(foreign_key["referred_columns"]),
-                        tuple(sorted(foreign_key["options"].items())),
+                        tuple(sorted(foreign_key.get("options", {}).items())),
                     )
                     for foreign_key in inspector.get_foreign_keys(table)
                 )
@@ -112,7 +114,7 @@ def _schema_signature(
                         index["name"],
                         index["unique"],
                         tuple(index["column_names"]),
-                        str(index["dialect_options"].get("sqlite_where", "")),
+                        str(index.get("dialect_options", {}).get("sqlite_where", "")),
                     )
                     for index in inspector.get_indexes(table)
                 )

@@ -2,6 +2,8 @@ import json
 from collections.abc import Mapping
 from typing import Annotated
 
+from pydantic import BaseModel, ConfigDict, Field, StringConstraints, ValidationError
+
 from dsh.tools import (
     PolicyDecision,
     ToolCall,
@@ -9,11 +11,10 @@ from dsh.tools import (
     ToolExecutionError,
     ToolRegistry,
     ToolResult,
+    ToolRiskLevel,
     ToolSpec,
     ToolValidationError,
 )
-from pydantic import BaseModel, ConfigDict, Field, StringConstraints, ValidationError
-
 from kunyu.application.agent_context import (
     CONTEXT_MEMORY_LIMIT,
     RunContextIntegrityError,
@@ -166,12 +167,23 @@ class WorkspaceMemorySaveTool:
 
 
 class LocalToolPolicyGate:
-    def decide(self, call: ToolCall) -> PolicyDecision:
+    def risk_level(self, call: ToolCall) -> ToolRiskLevel:
         if call.name in {"workspace.get_context", "memory.search"}:
-            return PolicyDecision.ALLOW
+            return ToolRiskLevel.L0
         if call.name == "workspace.memory.save":
+            return ToolRiskLevel.L2
+        raise ToolExecutionError(f"Tool '{call.name}' is not authorized.")
+
+    def decide(self, call: ToolCall) -> PolicyDecision:
+        try:
+            risk_level = self.risk_level(call)
+        except ToolExecutionError:
+            return PolicyDecision.DENY
+        if risk_level is ToolRiskLevel.L0:
+            return PolicyDecision.ALLOW
+        if risk_level is ToolRiskLevel.L2:
             return PolicyDecision.CONFIRM
-        return PolicyDecision.DENY
+        raise AssertionError("Unhandled tool risk level.")
 
 
 class LocalToolRegistryFactory:

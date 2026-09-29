@@ -13,6 +13,7 @@ type AssistantStatus = Literal[
     "streaming", "completed", "interrupted", "failed", "cancelled"
 ]
 type ToolStatus = Literal["pending", "running", "completed", "failed", "cancelled"]
+type ConfirmationStatus = Literal["pending", "approved", "rejected", "cancelled"]
 
 
 class RunReductionError(ValueError):
@@ -69,6 +70,23 @@ class ReducedToolCall:
 
 
 @dataclass(frozen=True, slots=True)
+class ReducedConfirmation:
+    confirmation_id: str
+    tool_call_id: str
+    workspace_id: str
+    name: str
+    arguments: Mapping[str, JsonValue]
+    summary: str
+    side_effect: str
+    status: ConfirmationStatus
+    decided_at: datetime | None
+    created_at: datetime
+    updated_at: datetime
+    created_sequence: int
+    updated_sequence: int
+
+
+@dataclass(frozen=True, slots=True)
 class ReducedRun:
     run_id: str
     session_id: str
@@ -88,6 +106,7 @@ class ReducedRun:
     budget: ReducedBudget
     assistants: tuple[ReducedAssistant, ...]
     tool_calls: tuple[ReducedToolCall, ...]
+    confirmations: tuple[ReducedConfirmation, ...]
     created_at: datetime
     updated_at: datetime
     created_sequence: int
@@ -145,6 +164,23 @@ class _ToolCall:
 
 
 @dataclass(slots=True)
+class _Confirmation:
+    confirmation_id: str
+    tool_call_id: str
+    workspace_id: str
+    name: str
+    arguments: Mapping[str, JsonValue]
+    summary: str
+    side_effect: str
+    created_at: datetime
+    created_sequence: int
+    status: ConfirmationStatus = "pending"
+    decided_at: datetime | None = None
+    updated_at: datetime | None = None
+    updated_sequence: int = 0
+
+
+@dataclass(slots=True)
 class _Reservation:
     operation_type: Literal["model", "tool"]
     operation_count: int
@@ -178,5 +214,6 @@ class _State:
     selected: bool = False
     assistants: dict[str, _Assistant] = field(default_factory=dict)
     tools: dict[str, _ToolCall] = field(default_factory=dict)
+    confirmations: dict[str, _Confirmation] = field(default_factory=dict)
     operation_ids: set[str] = field(default_factory=set)
     reservations: dict[str, _Reservation] = field(default_factory=dict)

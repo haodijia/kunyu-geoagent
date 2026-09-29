@@ -6,9 +6,15 @@ from sqlalchemy import delete, select, text
 from sqlalchemy.orm import Session
 
 from dsh.events import AgentEvent, EventBatch, validate_event_draft
-from dsh.run_state import ReducedAssistant, ReducedRun, ReducedToolCall
+from dsh.run_state import (
+    ReducedAssistant,
+    ReducedConfirmation,
+    ReducedRun,
+    ReducedToolCall,
+)
 from dsh.session_reducer import reduce_session
 from dsh.session_state import ReducedSession, ReducedUserMessage
+from kunyu.domain.confirmations import Confirmation, ConfirmationStatus
 from kunyu.domain.model_connections import (
     MaxTokensField,
     ModelAuthMode,
@@ -25,9 +31,11 @@ from kunyu.domain.runs import (
     ToolCallStatus,
 )
 from kunyu.persistence import run_records
+from kunyu.persistence.confirmations import confirmation_record
 from kunyu.persistence.database import Database
 from kunyu.persistence.models import (
     AgentEventRecord,
+    ConfirmationRecord,
     MessageRecord,
     RunModelSnapshotRecord,
     RunRecord,
@@ -85,9 +93,7 @@ class SQLAlchemyAgentProjectionService:
         with self._database.sessions() as database_session:
             database_session.execute(text("BEGIN IMMEDIATE"))
             if database_session.get(SessionRecord, session_id) is None:
-                raise ProjectionNotFoundError(
-                    f"Session '{session_id}' was not found."
-                )
+                raise ProjectionNotFoundError(f"Session '{session_id}' was not found.")
             reduced = self._reduce_persisted_session(database_session, session_id)
             self._replace_session_projections(database_session, reduced)
             database_session.commit()
@@ -123,6 +129,11 @@ class SQLAlchemyAgentProjectionService:
     ) -> None:
         session_id = reduced.session_id
         database_session.execute(
+            delete(ConfirmationRecord).where(
+                ConfirmationRecord.session_id == session_id
+            )
+        )
+        database_session.execute(
             delete(ToolCallRecord).where(ToolCallRecord.session_id == session_id)
         )
         database_session.execute(
@@ -144,11 +155,16 @@ class SQLAlchemyAgentProjectionService:
 
         snapshots = tuple(_snapshot_record(run) for run in reduced.runs)
         tools = tuple(
-            _tool_record(run, tool)
-            for run in reduced.runs
-            for tool in run.tool_calls
+            _tool_record(run, tool) for run in reduced.runs for tool in run.tool_calls
         )
         database_session.add_all((*snapshots, *tools))
+        database_session.flush()
+        confirmations = tuple(
+            _confirmation_record(run, confirmation)
+            for run in reduced.runs
+            for confirmation in run.confirmations
+        )
+        database_session.add_all(confirmations)
         database_session.flush()
 
 
@@ -271,9 +287,7 @@ def _snapshot_record(reduced: ReducedRun) -> RunModelSnapshotRecord:
         max_output_tokens=model.max_output_tokens,
         map_context=dict(reduced.map_snapshot),
         scene=(
-            dict(reduced.scene_snapshot)
-            if reduced.scene_snapshot is not None
-            else None
+            dict(reduced.scene_snapshot) if reduced.scene_snapshot is not None else None
         ),
     )
     return run_records.snapshot_record(snapshot)
@@ -300,3 +314,26 @@ def _tool_record(reduced: ReducedRun, tool: ReducedToolCall) -> ToolCallRecord:
         updated_sequence=tool.updated_sequence,
     )
     return run_records.tool_call_record(call, tool.updated_sequence)
+
+
+def _confirmation_record(
+    reduced: ReducedRun, confirmation: ReducedConfirmation
+) -> ConfirmationRecord:
+    return confirmation_record(
+        Confirmation(
+            id=confirmation.confirmation_id,
+            session_id=reduced.session_id,
+            run_id=reduced.run_id,
+            tool_call_id=confirmation.tool_call_id,
+            workspace_id=confirmation.workspace_id,
+            name=confirmation.name,
+            arguments=dict(confirmation.arguments),
+            summary=confirmation.summary,
+            side_effect=confirmation.side_effect,
+            status=ConfirmationStatus(confirmation.status),
+            decided_at=confirmation.decided_at,
+            created_at=confirmation.created_at,
+            updated_at=confirmation.updated_at,
+            updated_sequence=confirmation.updated_sequence,
+        )
+    )

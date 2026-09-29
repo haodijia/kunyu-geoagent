@@ -35,11 +35,13 @@ from dsh.run_state import (
     AssistantStatus,
     ReducedAssistant,
     ReducedBudget,
+    ReducedConfirmation,
     ReducedRun,
     ReducedToolCall,
     RunReductionError,
     _Assistant,
     _Budget,
+    _Confirmation,
     _Reservation,
     _State,
     _ToolCall,
@@ -119,11 +121,19 @@ def reduce_run(events: Iterable[AgentEvent]) -> ReducedRun:
         raise RunReductionError("Run replay is missing its user message event.")
     if not state.selected:
         raise RunReductionError("Run replay is missing run.model_selected.")
-    if (
-        state.state is RunState.WAITING_CONFIRMATION
-        and state.pending_confirmation_id is None
-    ):
-        raise RunReductionError("A waiting run must retain its pending confirmation.")
+    if state.state is RunState.WAITING_CONFIRMATION:
+        pending_confirmation_id = state.pending_confirmation_id
+        if pending_confirmation_id is None:
+            raise RunReductionError(
+                "A waiting run must retain its pending confirmation."
+            )
+        confirmation = state.confirmations.get(pending_confirmation_id)
+        if confirmation is None:
+            raise RunReductionError("A waiting run references an unknown confirmation.")
+        if confirmation.status != "pending":
+            raise RunReductionError(
+                "A resolved confirmation must commit its tool result or terminal run."
+            )
     return _freeze(state)
 
 
@@ -167,9 +177,9 @@ def _apply(state: _State, event: EventDraft, sequence: int) -> None:
     elif isinstance(event, ToolFailedEvent):
         _fail_tool(state, event, sequence)
     elif isinstance(event, ConfirmationRequestedEvent):
-        _request_confirmation(state, event)
+        _request_confirmation(state, event, sequence)
     elif isinstance(event, ConfirmationResolvedEvent):
-        _resolve_confirmation(state, event)
+        _resolve_confirmation(state, event, sequence)
     elif isinstance(event, RunTerminalEvent):
         _finish_run(state, event, sequence)
     else:
@@ -297,14 +307,21 @@ def _reserve_budget(state: _State, event: BudgetReservedEvent) -> None:
         raise RunReductionError("Budget operation identifiers must be unique.")
     if state.reservations:
         raise RunReductionError("Only one model or tool operation can be active.")
-    expected_state = (
-        RunState.MODEL_RUNNING
+    allowed_states = (
+        {RunState.MODEL_RUNNING}
         if payload.operation_type == "model"
-        else RunState.TOOL_RUNNING
+        else {RunState.TOOL_RUNNING, RunState.WAITING_CONFIRMATION}
     )
-    if state.state is not expected_state:
+    if state.state not in allowed_states:
         raise RunReductionError(
             "Budget reservation does not match the active run phase."
+        )
+    if (
+        state.state is RunState.WAITING_CONFIRMATION
+        and _approved_pending_confirmation(state) is None
+    ):
+        raise RunReductionError(
+            "A waiting run can only reserve its approved write tool."
         )
     calls = (
         state.budget.model_calls
@@ -531,7 +548,15 @@ def _progress_tool(state: _State, event: ToolProgressEvent, sequence: int) -> No
     tool = _tool(state, event.payload.tool_call_id)
     _require_tool_payload(tool, event.payload)
     if event.event_type == "tool.started":
-        if state.state is not RunState.TOOL_RUNNING or tool.status != "pending":
+        approved = _approved_pending_confirmation(state)
+        if (
+            state.state not in {RunState.TOOL_RUNNING, RunState.WAITING_CONFIRMATION}
+            or tool.status != "pending"
+            or (
+                state.state is RunState.WAITING_CONFIRMATION
+                and (approved is None or approved.tool_call_id != tool.tool_call_id)
+            )
+        ):
             raise RunReductionError("Only the current pending tool can start.")
         _require_reservation(state, "tool")
         if (
@@ -564,6 +589,23 @@ def _complete_tool(state: _State, event: ToolCompletedEvent, sequence: int) -> N
     tool.result = event.payload.result
     tool.updated_at = event.occurred_at
     tool.updated_sequence = sequence
+    if state.state is RunState.WAITING_CONFIRMATION:
+        approved = _approved_pending_confirmation(state)
+        if approved is None or approved.tool_call_id != tool.tool_call_id:
+            raise RunReductionError(
+                "A waiting write tool requires its exact approved confirmation."
+            )
+        state.pending_confirmation_id = None
+        state.pending_confirmation_tool_id = None
+        state.pause_reason = None
+        state.resume_phase = (
+            ResumePhase.TOOL
+            if state.next_tool_index < len(_attempt_tools(state))
+            else ResumePhase.MODEL
+        )
+        state.requires_resume = False
+        state.queue_sequence = None
+        _transition(state, RunState.READY)
 
 
 def _fail_tool(state: _State, event: ToolFailedEvent, sequence: int) -> None:
@@ -578,7 +620,10 @@ def _fail_tool(state: _State, event: ToolFailedEvent, sequence: int) -> None:
 
 
 def _finish_tool_cursor(state: _State, tool: _ToolCall, next_tool_index: int) -> None:
-    if state.state is not RunState.TOOL_RUNNING or tool.status != "running":
+    if (
+        state.state not in {RunState.TOOL_RUNNING, RunState.WAITING_CONFIRMATION}
+        or tool.status != "running"
+    ):
         raise RunReductionError("Only a running tool can produce a result.")
     if (
         tool.batch_index != state.next_tool_index
@@ -600,11 +645,14 @@ def _require_reservation(
         raise RunReductionError("Budget reservation does not match the execution type.")
 
 
-def _request_confirmation(state: _State, event: ConfirmationRequestedEvent) -> None:
+def _request_confirmation(
+    state: _State, event: ConfirmationRequestedEvent, sequence: int
+) -> None:
     payload = event.payload
     if (
         state.state is not RunState.TOOL_RUNNING
         or state.pending_confirmation_id is not None
+        or state.reservations
     ):
         raise RunReductionError(
             "Confirmation requires an active tool and no pending decision."
@@ -615,10 +663,29 @@ def _request_confirmation(state: _State, event: ConfirmationRequestedEvent) -> N
         or tool.batch_index != state.next_tool_index
         or tool.name != payload.name
         or tool.arguments != payload.arguments
+        or state.map_snapshot.get("workspace_id") != payload.workspace_id
     ):
         raise RunReductionError(
             "Confirmation snapshot differs from the pending tool call."
         )
+    if payload.confirmation_id in state.confirmations or any(
+        item.tool_call_id == payload.tool_call_id
+        for item in state.confirmations.values()
+    ):
+        raise RunReductionError("A tool call can only own one confirmation.")
+    state.confirmations[payload.confirmation_id] = _Confirmation(
+        confirmation_id=payload.confirmation_id,
+        tool_call_id=payload.tool_call_id,
+        workspace_id=payload.workspace_id,
+        name=payload.name,
+        arguments=payload.arguments,
+        summary=payload.summary,
+        side_effect=payload.side_effect,
+        created_at=event.occurred_at,
+        created_sequence=sequence,
+        updated_at=event.occurred_at,
+        updated_sequence=sequence,
+    )
     _transition(state, RunState.WAITING_CONFIRMATION)
     state.pending_confirmation_id = payload.confirmation_id
     state.pending_confirmation_tool_id = payload.tool_call_id
@@ -626,7 +693,9 @@ def _request_confirmation(state: _State, event: ConfirmationRequestedEvent) -> N
     state.queue_sequence = None
 
 
-def _resolve_confirmation(state: _State, event: ConfirmationResolvedEvent) -> None:
+def _resolve_confirmation(
+    state: _State, event: ConfirmationResolvedEvent, sequence: int
+) -> None:
     payload = event.payload
     if (
         state.state is not RunState.WAITING_CONFIRMATION
@@ -636,15 +705,14 @@ def _resolve_confirmation(state: _State, event: ConfirmationResolvedEvent) -> No
         raise RunReductionError(
             "Confirmation resolution does not match the pending snapshot."
         )
-    state.pending_confirmation_id = None
-    state.pending_confirmation_tool_id = None
-    state.pause_reason = None
-    if payload.decision == "approved":
-        _transition(state, RunState.READY)
-        state.resume_phase = ResumePhase.TOOL
-        state.requires_resume = False
-    else:
-        state.requires_resume = False
+    confirmation = state.confirmations.get(payload.confirmation_id)
+    if confirmation is None or confirmation.status != "pending":
+        raise RunReductionError("Confirmation can only be resolved once.")
+    confirmation.status = payload.decision
+    confirmation.decided_at = payload.decided_at
+    confirmation.updated_at = event.occurred_at
+    confirmation.updated_sequence = sequence
+    state.requires_resume = False
 
 
 def _finish_run(state: _State, event: RunTerminalEvent, sequence: int) -> None:
@@ -749,6 +817,15 @@ def _attempt_tools(state: _State) -> list[_ToolCall]:
         ),
         key=lambda item: item.batch_index,
     )
+
+
+def _approved_pending_confirmation(state: _State) -> _Confirmation | None:
+    if state.pending_confirmation_id is None:
+        return None
+    confirmation = state.confirmations.get(state.pending_confirmation_id)
+    if confirmation is None or confirmation.status != "approved":
+        return None
+    return confirmation
 
 
 def _require_complete_tool_batch(state: _State) -> None:
@@ -882,6 +959,27 @@ def _freeze(state: _State) -> ReducedRun:
             )
             for item in sorted(
                 state.tools.values(), key=lambda value: value.created_sequence
+            )
+        ),
+        confirmations=tuple(
+            ReducedConfirmation(
+                confirmation_id=item.confirmation_id,
+                tool_call_id=item.tool_call_id,
+                workspace_id=item.workspace_id,
+                name=item.name,
+                arguments=item.arguments,
+                summary=item.summary,
+                side_effect=item.side_effect,
+                status=item.status,
+                decided_at=item.decided_at,
+                created_at=item.created_at,
+                updated_at=item.updated_at or item.created_at,
+                created_sequence=item.created_sequence,
+                updated_sequence=item.updated_sequence,
+            )
+            for item in sorted(
+                state.confirmations.values(),
+                key=lambda value: value.created_sequence,
             )
         ),
         created_at=state.created_at,
