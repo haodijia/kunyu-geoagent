@@ -16,7 +16,7 @@ from dsh.events import (
     ToolProgressPayload,
 )
 from dsh.runner_types import budget_usage, current_tool_batch
-
+from kunyu.application.sessions import SessionNotFoundError
 from kunyu.domain.runs import RunDetails
 from kunyu.persistence.run_lifecycle import SQLAlchemyRunLifecycleRepository
 from kunyu.persistence.runs import SQLAlchemyEventStore
@@ -56,6 +56,12 @@ class RunLifecycleService:
         details = self._repository.get_details(run_id)
         if details is None:
             raise RunLifecycleNotFoundError(run_id)
+        return details
+
+    def list_for_session(self, session_id: str) -> tuple[RunDetails, ...]:
+        details = self._repository.list_details_for_session(session_id)
+        if details is None:
+            raise SessionNotFoundError(session_id)
         return details
 
     async def recover_startup(self) -> None:

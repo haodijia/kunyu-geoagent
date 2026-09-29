@@ -53,11 +53,16 @@ function SessionWorkspaceContent({
 }: SessionWorkspaceContentProps) {
   const location = useLocation();
   const setAnalysisMode = useAppUiStore((state) => state.setAnalysisMode);
+  const initializeMapContext = useAppUiStore((state) => state.initializeMapContext);
   const sessionQuery = useQuery({
     queryKey: sessionQueryKeys.detail(sessionId),
     queryFn: () => getSession(sessionId)
   });
   const analysisMode = routeAnalysisMode(location.pathname);
+
+  useEffect(() => {
+    initializeMapContext(sessionId, workspaceId);
+  }, [initializeMapContext, sessionId, workspaceId]);
 
   useEffect(() => {
     if (analysisMode !== null) {
@@ -105,7 +110,10 @@ function SessionWorkspaceContent({
         key={sessionQuery.data.id}
         sessionId={sessionQuery.data.id}
       >
-        <SessionMessagesProvider sessionId={sessionQuery.data.id}>
+        <SessionMessagesProvider
+          sessionId={sessionQuery.data.id}
+          workspaceId={sessionQuery.data.workspace_id}
+        >
         <section className="flex h-full min-h-0 flex-col bg-background">
           <SessionTitlebar />
           <div className="min-h-0 flex-1 overflow-hidden">

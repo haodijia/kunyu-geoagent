@@ -3,9 +3,9 @@ from datetime import datetime
 from enum import StrEnum
 from typing import Literal
 
-from dsh.events import TERMINAL_RUN_STATES, ResumePhase, RunState
 from pydantic import JsonValue
 
+from dsh.events import TERMINAL_RUN_STATES, ResumePhase, RunState
 from kunyu.domain.model_connections import (
     MaxTokensField,
     ModelAuthMode,
@@ -109,6 +109,10 @@ class ProjectionConflictError(RuntimeError):
 
 
 class ProjectionNotFoundError(LookupError):
+    pass
+
+
+class UnfinishedRunConflictError(RuntimeError):
     pass
 
 

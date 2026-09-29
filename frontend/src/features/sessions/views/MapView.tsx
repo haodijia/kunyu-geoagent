@@ -8,6 +8,7 @@ import "ol/ol.css";
 
 import { useAppUiStore } from "@/app/store";
 import { SessionComposer } from "@/features/messages/SessionComposer";
+import { RunControls } from "@/features/runs/RunControls";
 import { useSessionWorkspace } from "@/features/sessions/SessionWorkspaceContext";
 import { createMapContext } from "@/features/sessions/map-context";
 import { zhCN } from "@/locales/zh-CN";
@@ -96,7 +97,8 @@ export function MapView() {
           </p>
         </div>
       </div>
-      <div className="pointer-events-none absolute right-0 bottom-0 left-0 z-10 [&>div]:pointer-events-auto">
+      <div className="pointer-events-none absolute right-0 bottom-0 left-0 z-10 [&>*]:pointer-events-auto">
+        <RunControls />
         <SessionComposer compact />
       </div>
     </div>

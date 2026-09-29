@@ -2,6 +2,7 @@ from sqlalchemy import and_, delete, or_, select, text
 from sqlalchemy.dialects.sqlite import insert
 
 from kunyu.domain.events import AgentEvent
+from kunyu.domain.runs import NONTERMINAL_RUN_STATE_VALUES, UnfinishedRunConflictError
 from kunyu.domain.sessions import (
     ArchivedSessionPage,
     ArchivedWorkspace,
@@ -12,6 +13,7 @@ from kunyu.domain.sessions import (
 from kunyu.persistence.database import Database
 from kunyu.persistence.models import (
     AgentEventRecord,
+    RunRecord,
     SessionArchiveRecord,
     SessionRecord,
     WorkspaceRecord,
@@ -31,6 +33,7 @@ class SQLAlchemySessionRepository:
             if record is None:
                 return False
             if archived:
+                _require_no_unfinished_run(session, session_id=session_id)
                 session.execute(
                     insert(SessionArchiveRecord)
                     .values(session_id=session_id)
@@ -117,11 +120,14 @@ class SQLAlchemySessionRepository:
                 raise SessionNotArchivedError(
                     "Only archived sessions can be permanently deleted."
                 )
+            _require_no_unfinished_run(session, session_id=session_id)
             session.delete(record)
             return True
 
     def delete_archived_workspace(self, workspace_id: str) -> int:
         with self._database.sessions.begin() as session:
+            session.execute(text("BEGIN IMMEDIATE"))
+            _require_no_unfinished_run(session, workspace_id=workspace_id)
             result = session.execute(
                 delete(SessionRecord).where(
                     SessionRecord.workspace_id == workspace_id,
@@ -187,6 +193,34 @@ class SQLAlchemySessionRepository:
                 return None
             records = database_session.scalars(statement).all()
             return [_to_domain(record) for record in records]
+
+
+def _require_no_unfinished_run(
+    session,
+    *,
+    session_id: str | None = None,
+    workspace_id: str | None = None,
+) -> None:
+    statement = select(RunRecord.id).where(
+        RunRecord.state.in_(NONTERMINAL_RUN_STATE_VALUES)
+    )
+    if session_id is not None:
+        statement = statement.where(RunRecord.session_id == session_id)
+    elif workspace_id is not None:
+        statement = (
+            statement.join(SessionRecord, SessionRecord.id == RunRecord.session_id)
+            .join(
+                SessionArchiveRecord,
+                SessionArchiveRecord.session_id == RunRecord.session_id,
+            )
+            .where(SessionRecord.workspace_id == workspace_id)
+        )
+    else:
+        raise ValueError("A session or workspace scope is required.")
+    if session.scalar(statement.limit(1)) is not None:
+        raise UnfinishedRunConflictError(
+            "Cancel the unfinished run before changing this session."
+        )
 
 
 def _to_domain(record: SessionRecord) -> Session:

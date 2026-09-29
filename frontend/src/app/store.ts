@@ -12,10 +12,17 @@ import {
 
 export type AnalysisMode = "conversation" | "trace";
 
+export interface SessionModelSelection {
+  readonly connectionId: string;
+  readonly modelId: string;
+  readonly reasoningEffort: string | null;
+}
+
 interface AppUiState {
   readonly analysisModeBySession: Readonly<Record<string, AnalysisMode>>;
   readonly composerDraftBySession: Readonly<Record<string, string>>;
   readonly mapContextBySession: Readonly<Record<string, MapContext>>;
+  readonly modelSelectionBySession: Readonly<Record<string, SessionModelSelection>>;
   readonly sidebarCollapsed: boolean;
   readonly clearComposerDraft: (sessionId: string) => void;
   readonly initializeMapContext: (sessionId: string, workspaceId: string) => void;
@@ -26,6 +33,10 @@ interface AppUiState {
     workspaceId: string,
     viewport: MapViewport
   ) => void;
+  readonly setModelSelection: (
+    sessionId: string,
+    selection: SessionModelSelection
+  ) => void;
   readonly toggleSidebar: () => void;
 }
 
@@ -33,6 +44,7 @@ export const useAppUiStore = create<AppUiState>((set) => ({
   analysisModeBySession: {},
   composerDraftBySession: {},
   mapContextBySession: {},
+  modelSelectionBySession: {},
   sidebarCollapsed: readSidebarCollapsed(),
   clearComposerDraft: (sessionId) =>
     set((state) => ({
@@ -80,6 +92,13 @@ export const useAppUiStore = create<AppUiState>((set) => ({
         }
       };
     }),
+  setModelSelection: (sessionId, selection) =>
+    set((state) => ({
+      modelSelectionBySession: {
+        ...state.modelSelectionBySession,
+        [sessionId]: selection
+      }
+    })),
   toggleSidebar: () =>
     set((state) => {
       const sidebarCollapsed = !state.sidebarCollapsed;

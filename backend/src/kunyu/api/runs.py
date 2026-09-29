@@ -8,15 +8,19 @@ from kunyu.agent.scheduler import (
     RunScheduler,
     RunSchedulerClosingError,
 )
+from kunyu.api.dependencies import get_run_lifecycle_service
 from kunyu.api.errors import ApiError
 from kunyu.api.run_models import RunResponse
 from kunyu.application.run_lifecycle import (
     RunLifecycleConflictError,
     RunLifecycleNotFoundError,
+    RunLifecycleService,
 )
+from kunyu.application.sessions import SessionNotFoundError
 from kunyu.domain.confirmations import ConfirmationConflictError
 
 router = APIRouter(prefix="/api/v1/runs", tags=["runs"])
+session_runs_router = APIRouter(prefix="/api/v1/sessions", tags=["runs"])
 
 
 class EmptyRequest(BaseModel):
@@ -28,6 +32,34 @@ def get_run_scheduler(request: Request) -> RunScheduler:
 
 
 RunSchedulerDependency = Annotated[RunScheduler, Depends(get_run_scheduler)]
+RunLifecycleDependency = Annotated[
+    RunLifecycleService, Depends(get_run_lifecycle_service)
+]
+
+
+@router.get("/{run_id}", response_model=RunResponse)
+def get_run(
+    run_id: str,
+    lifecycle: RunLifecycleDependency,
+) -> RunResponse:
+    try:
+        return RunResponse.from_details(lifecycle.get_details(run_id))
+    except RunLifecycleNotFoundError as error:
+        raise ApiError(404, "NOT_FOUND", str(error)) from error
+
+
+@session_runs_router.get("/{session_id}/runs", response_model=list[RunResponse])
+def list_runs(
+    session_id: str,
+    lifecycle: RunLifecycleDependency,
+) -> list[RunResponse]:
+    try:
+        return [
+            RunResponse.from_details(item)
+            for item in lifecycle.list_for_session(session_id)
+        ]
+    except SessionNotFoundError as error:
+        raise ApiError(404, "NOT_FOUND", str(error)) from error
 
 
 @router.post("/{run_id}/resume", response_model=RunResponse)

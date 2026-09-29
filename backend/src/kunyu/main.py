@@ -12,6 +12,7 @@ from kunyu.api.errors import install_error_handlers
 from kunyu.api.messages import router as messages_router
 from kunyu.api.model_connections import router as model_connections_router
 from kunyu.api.runs import router as runs_router
+from kunyu.api.runs import session_runs_router
 from kunyu.api.sessions import router as sessions_router
 from kunyu.api.system import require_desktop_session
 from kunyu.api.system import router as system_router
@@ -35,7 +36,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         timeout=httpx.Timeout(30, connect=10),
     )
     repository = SQLAlchemyModelConnectionRepository(database)
-    agent_runtime = create_agent_runtime(database, http_client)
+    agent_runtime = create_agent_runtime(database, http_client, locks)
     catalog_service = ModelCatalogService(
         repository,
         repository,
@@ -76,7 +77,12 @@ def create_app(session_token: str | None = None) -> FastAPI:
         CORSMiddleware,
         allow_origins=list(DESKTOP_RENDERER_ORIGINS),
         allow_methods=["GET", "POST", "PATCH", "PUT", "DELETE"],
-        allow_headers=["Accept", "Content-Type", SESSION_HEADER],
+        allow_headers=[
+            "Accept",
+            "Content-Type",
+            "Idempotency-Key",
+            SESSION_HEADER,
+        ],
     )
     app.state.session_token = session_token
     app.state.shutdown_callback = None
@@ -85,6 +91,7 @@ def create_app(session_token: str | None = None) -> FastAPI:
     app.include_router(model_connections_router)
     app.include_router(confirmations_router)
     app.include_router(runs_router)
+    app.include_router(session_runs_router)
     app.include_router(workspaces_router)
     app.include_router(sessions_router)
     app.include_router(messages_router)

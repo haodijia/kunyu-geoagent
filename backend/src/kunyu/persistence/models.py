@@ -105,6 +105,44 @@ class SessionRecord(Base):
     )
 
 
+class SessionPreferenceRecord(Base):
+    __tablename__ = "session_preferences"
+
+    session_id: Mapped[str] = mapped_column(
+        ForeignKey("sessions.id", ondelete="CASCADE"), primary_key=True
+    )
+    connection_id: Mapped[str] = mapped_column(String(64), nullable=False)
+    model_id: Mapped[str] = mapped_column(String(256), nullable=False)
+    reasoning_effort: Mapped[str | None] = mapped_column(String(64))
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False
+    )
+
+
+class MessageIdempotencyRecord(Base):
+    __tablename__ = "message_idempotency"
+    __table_args__ = (
+        UniqueConstraint(
+            "session_id",
+            "idempotency_key",
+            name="uq_message_idempotency_session_key",
+        ),
+        Index("ix_message_idempotency_run_id", "run_id"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    session_id: Mapped[str] = mapped_column(
+        ForeignKey("sessions.id", ondelete="CASCADE"), nullable=False
+    )
+    idempotency_key: Mapped[str] = mapped_column(String(36), nullable=False)
+    normalized_body: Mapped[str] = mapped_column(Text, nullable=False)
+    message_id: Mapped[str] = mapped_column(String(64), nullable=False)
+    run_id: Mapped[str] = mapped_column(String(64), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False
+    )
+
+
 class MessageRecord(Base):
     __tablename__ = "messages"
     __table_args__ = (

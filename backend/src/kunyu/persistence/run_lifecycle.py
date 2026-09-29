@@ -1,16 +1,21 @@
 from dataclasses import dataclass
 from typing import Literal
 
-from dsh.events import RunState
-from dsh.run_state import ReducedRun
 from sqlalchemy import func, select
 
+from dsh.events import RunState
+from dsh.run_state import ReducedRun
 from kunyu.domain.runs import (
     NONTERMINAL_RUN_STATE_VALUES,
     RunDetails,
 )
 from kunyu.persistence.database import Database
-from kunyu.persistence.models import AgentEventRecord, RunModelSnapshotRecord, RunRecord
+from kunyu.persistence.models import (
+    AgentEventRecord,
+    RunModelSnapshotRecord,
+    RunRecord,
+    SessionRecord,
+)
 from kunyu.persistence.runs import SQLAlchemyEventStore
 
 
@@ -36,6 +41,23 @@ class SQLAlchemyRunLifecycleRepository:
         if run is None or snapshot is None:
             return None
         return RunDetails(run, snapshot, self._events.list_tool_calls(run_id))
+
+    def list_details_for_session(
+        self, session_id: str
+    ) -> tuple[RunDetails, ...] | None:
+        statement = (
+            select(RunRecord.id)
+            .where(RunRecord.session_id == session_id)
+            .order_by(RunRecord.created_at, RunRecord.id)
+        )
+        with self._database.sessions() as database_session:
+            if database_session.get(SessionRecord, session_id) is None:
+                return None
+            run_ids = tuple(database_session.scalars(statement).all())
+        details = tuple(self.get_details(run_id) for run_id in run_ids)
+        if any(item is None for item in details):
+            raise RuntimeError("Run query projections are incomplete.")
+        return tuple(item for item in details if item is not None)
 
     def list_startup_candidates(self) -> tuple[ReducedRun, ...]:
         statement = (

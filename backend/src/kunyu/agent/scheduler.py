@@ -5,13 +5,14 @@ import logging
 
 from dsh.events import RunState
 from dsh.runtime import AgentRuntime
-
 from kunyu.application.confirmations import ConfirmationService
+from kunyu.application.run_acceptance import RunAcceptanceService
 from kunyu.application.run_lifecycle import (
     RunLifecycleConflictError,
     RunLifecycleService,
 )
 from kunyu.domain.confirmations import ConfirmationDecisionResult, ConfirmationStatus
+from kunyu.domain.run_acceptance import RunAcceptanceRequest, RunAcceptanceResult
 from kunyu.domain.runs import RunDetails
 from kunyu.persistence.run_lifecycle import SQLAlchemyRunLifecycleRepository
 
@@ -37,11 +38,13 @@ class RunScheduler:
         lifecycle: RunLifecycleService,
         repository: SQLAlchemyRunLifecycleRepository,
         confirmations: ConfirmationService,
+        acceptance: RunAcceptanceService,
     ) -> None:
         self._runtime = runtime
         self._lifecycle = lifecycle
         self._repository = repository
         self._confirmations = confirmations
+        self._acceptance = acceptance
         self._lock = asyncio.Lock()
         self._active: dict[str, asyncio.Task[None]] = {}
         self._blocked: set[str] = set()
@@ -104,6 +107,23 @@ class RunScheduler:
                 )
             self._wake_dispatcher()
             return current
+
+    async def accept(self, request: RunAcceptanceRequest) -> RunAcceptanceResult:
+        existing = self._acceptance.find_idempotent(request)
+        if existing is not None:
+            return existing
+        async with self._lock:
+            self._require_accepting()
+            existing = self._acceptance.find_idempotent(request)
+            if existing is not None:
+                return existing
+            self._require_queue_capacity()
+            result = self._acceptance.accept(
+                request,
+                self._allocate_queue_sequence(),
+            )
+            self._wake_dispatcher()
+            return result
 
     async def resume(self, run_id: str) -> RunDetails:
         async with self._lock:
