@@ -29,9 +29,13 @@ export const messageQueryKeys = {
   session: (sessionId: string) => ["sessions", sessionId, "messages"] as const
 };
 
-export function listMessages(sessionId: string): Promise<SessionMessage[]> {
+export function listMessages(
+  sessionId: string,
+  signal?: AbortSignal
+): Promise<SessionMessage[]> {
   return requestJson<SessionMessage[]>(
-    `/api/v1/sessions/${encodeURIComponent(sessionId)}/messages`
+    `/api/v1/sessions/${encodeURIComponent(sessionId)}/messages`,
+    { signal }
   );
 }
 

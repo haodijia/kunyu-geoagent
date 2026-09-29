@@ -15,23 +15,42 @@ import {
   confirmationQueryKeys,
   listConfirmations
 } from "@/features/confirmations/api";
+import type { SessionEvent } from "@/features/events/api";
 import { useSessionEvents } from "@/features/events/SessionEventContext";
-import { listRuns, runQueryKeys, type RunSnapshot } from "@/features/runs/api";
+import {
+  listRuns,
+  mergeRunSnapshots,
+  runQueryKeys,
+  type RunSnapshot
+} from "@/features/runs/api";
 import { createMapContext } from "@/features/sessions/map-context";
 import { modelConnectionsApi } from "@/features/settings/models/api";
 import type {
   ModelCatalogEntry,
   ModelConnection
 } from "@/features/settings/models/api";
+import { zhCN } from "@/locales/zh-CN";
 import {
   appendUserMessage,
   listMessages,
   messageQueryKeys,
   type SessionMessage
 } from "./api";
-import { applyMessageEvent } from "./message-event-cache";
+import {
+  applyMessageEvent,
+  isMessageEvent,
+  mergeMessageSnapshots
+} from "./message-event-cache";
 
-interface UsableModel {
+const MAX_PENDING_MESSAGE_EVENTS = 256;
+const TERMINAL_RUN_EVENTS = new Set([
+  "run.completed",
+  "run.failed",
+  "run.cancelled",
+  "run.interrupted"
+]);
+
+export interface UsableModel {
   readonly connection: ModelConnection;
   readonly entry: ModelCatalogEntry;
 }
@@ -59,31 +78,38 @@ function useMessages(sessionId: string, workspaceId: string) {
   const setModelSelection = useAppUiStore((state) => state.setModelSelection);
   const { events } = useSessionEvents();
   const queryKey = useMemo(() => messageQueryKeys.session(sessionId), [sessionId]);
-  const processedSequenceRef = useRef(0);
+  const seenSequenceRef = useRef(0);
+  const pendingMessageEventsRef = useRef<SessionEvent[]>([]);
+  const snapshotRequiredSequenceRef = useRef(0);
+  const lastSnapshotRequestSequenceRef = useRef(0);
+  const snapshotRequestPendingRef = useRef(false);
   const frozenSubmissionRef = useRef<FrozenSubmission | null>(null);
   const [requestFrozen, setRequestFrozen] = useState(false);
+  const [reconcileRevision, setReconcileRevision] = useState(0);
 
-  const messagesQuery = useQuery({
+  const messagesQuery = useQuery<SessionMessage[]>({
     queryKey,
-    queryFn: async () => {
-      try {
-        return await listMessages(sessionId);
-      } catch (error) {
-        console.error("[messages] Failed to load session messages.", {
-          sessionId,
-          error
-        });
-        throw error;
-      }
+    queryFn: async ({ signal }) => {
+      const incoming = await listMessages(sessionId, signal);
+      return mergeMessageSnapshots(
+        queryClient.getQueryData<SessionMessage[]>(queryKey),
+        incoming
+      );
     }
   });
   const connectionsQuery = useQuery({
     queryKey: ["model-connections"],
     queryFn: modelConnectionsApi.list
   });
-  const runsQuery = useQuery({
+  const runsQuery = useQuery<RunSnapshot[]>({
     queryKey: runQueryKeys.session(sessionId),
-    queryFn: () => listRuns(sessionId)
+    queryFn: async () => {
+      const incoming = await listRuns(sessionId);
+      return mergeRunSnapshots(
+        queryClient.getQueryData<RunSnapshot[]>(runQueryKeys.session(sessionId)),
+        incoming
+      );
+    }
   });
   const confirmationsQuery = useQuery({
     queryKey: confirmationQueryKeys.session(sessionId),
@@ -101,7 +127,22 @@ function useMessages(sessionId: string, workspaceId: string) {
   );
 
   useEffect(() => {
-    if (modelSelection !== undefined || connectionsQuery.data === undefined) return;
+    if (
+      modelSelection !== undefined ||
+      connectionsQuery.data === undefined ||
+      runsQuery.data === undefined
+    ) {
+      return;
+    }
+    const latestRun = runsQuery.data.at(-1);
+    if (latestRun !== undefined) {
+      setModelSelection(sessionId, {
+        connectionId: latestRun.model_snapshot.connection_id,
+        modelId: latestRun.model_snapshot.model_id,
+        reasoningEffort: latestRun.model_snapshot.reasoning_effort
+      });
+      return;
+    }
     const defaultConnection = connectionsQuery.data.find((item) => item.is_default);
     if (defaultConnection === undefined || defaultConnection.default_model_id === null) {
       return;
@@ -118,37 +159,73 @@ function useMessages(sessionId: string, workspaceId: string) {
         reasoningEffort: null
       });
     }
-  }, [connectionsQuery.data, modelSelection, sessionId, setModelSelection, usableModels]);
+  }, [
+    connectionsQuery.data,
+    modelSelection,
+    runsQuery.data,
+    sessionId,
+    setModelSelection,
+    usableModels
+  ]);
 
   useEffect(() => {
-    let current = queryClient.getQueryData<SessionMessage[]>(queryKey);
-    if (current === undefined) return;
     let needsMessageSnapshot = false;
     let refreshRuns = false;
     let refreshConfirmations = false;
 
     for (const event of events) {
-      if (event.sequence <= processedSequenceRef.current) continue;
-      const merged = applyMessageEvent(current, event);
-      current = merged.messages;
-      needsMessageSnapshot ||= merged.needsSnapshot;
+      if (event.sequence <= seenSequenceRef.current) continue;
+      if (event.sequence !== seenSequenceRef.current + 1) {
+        needsMessageSnapshot = true;
+      }
+      seenSequenceRef.current = event.sequence;
+      if (isMessageEvent(event)) {
+        if (pendingMessageEventsRef.current.length >= MAX_PENDING_MESSAGE_EVENTS) {
+          pendingMessageEventsRef.current = [];
+          needsMessageSnapshot = true;
+        }
+        pendingMessageEventsRef.current.push(event);
+      }
       refreshRuns ||= event.event_type.startsWith("run.");
       refreshConfirmations ||=
         event.event_type === "confirmation.requested" ||
         event.event_type === "confirmation.resolved";
-      if (
-        event.event_type === "run.failed" ||
-        event.event_type === "run.cancelled" ||
-        event.event_type === "run.interrupted"
-      ) {
-        needsMessageSnapshot = true;
-      }
-      processedSequenceRef.current = event.sequence;
+      needsMessageSnapshot ||= TERMINAL_RUN_EVENTS.has(event.event_type);
     }
 
-    queryClient.setQueryData(queryKey, current);
+    const cached = queryClient.getQueryData<SessionMessage[]>(queryKey);
+    if (cached !== undefined) {
+      let merged = cached;
+      while (pendingMessageEventsRef.current.length > 0) {
+        const event = pendingMessageEventsRef.current[0];
+        if (event === undefined) break;
+        const result = applyMessageEvent(merged, event);
+        if (result.needsSnapshot) {
+          needsMessageSnapshot = true;
+          break;
+        }
+        merged = result.messages;
+        pendingMessageEventsRef.current.shift();
+      }
+      if (merged !== cached) queryClient.setQueryData(queryKey, merged);
+    }
+
     if (needsMessageSnapshot) {
-      void queryClient.invalidateQueries({ queryKey });
+      snapshotRequiredSequenceRef.current = Math.max(
+        snapshotRequiredSequenceRef.current,
+        seenSequenceRef.current
+      );
+    }
+    if (
+      !snapshotRequestPendingRef.current &&
+      lastSnapshotRequestSequenceRef.current < snapshotRequiredSequenceRef.current
+    ) {
+      snapshotRequestPendingRef.current = true;
+      lastSnapshotRequestSequenceRef.current = snapshotRequiredSequenceRef.current;
+      void messagesQuery.refetch({ cancelRefetch: true }).finally(() => {
+        snapshotRequestPendingRef.current = false;
+        setReconcileRevision((current) => current + 1);
+      });
     }
     if (refreshRuns) {
       void queryClient.invalidateQueries({ queryKey: runQueryKeys.session(sessionId) });
@@ -158,7 +235,15 @@ function useMessages(sessionId: string, workspaceId: string) {
         queryKey: confirmationQueryKeys.session(sessionId)
       });
     }
-  }, [events, messagesQuery.data, queryClient, queryKey, sessionId]);
+  }, [
+    events,
+    messagesQuery.data,
+    messagesQuery.refetch,
+    queryClient,
+    queryKey,
+    reconcileRevision,
+    sessionId
+  ]);
 
   const mutation = useMutation({
     mutationFn: (submission: FrozenSubmission) =>
@@ -173,20 +258,18 @@ function useMessages(sessionId: string, workspaceId: string) {
       });
       queryClient.setQueryData<RunSnapshot[]>(
         runQueryKeys.session(sessionId),
-        (current) => {
-          if (current === undefined) return [accepted.run];
-          const retained = current.filter((item) => item.id !== accepted.run.id);
-          return [...retained, accepted.run].sort((left, right) =>
-            left.created_at.localeCompare(right.created_at)
-          );
-        }
+        (current) => mergeRunSnapshots(current, [accepted.run])
       );
       frozenSubmissionRef.current = null;
       setRequestFrozen(false);
       clearComposerDraft(sessionId);
     },
     onError: (error) => {
-      console.error("[messages] Failed to send message.", { sessionId, error });
+      console.error("[messages] Failed to send message.", {
+        sessionId,
+        code: error instanceof ApiError ? error.code : null,
+        error
+      });
       if (error instanceof ApiError && error.status < 500) {
         frozenSubmissionRef.current = null;
         setRequestFrozen(false);
@@ -219,6 +302,7 @@ function useMessages(sessionId: string, workspaceId: string) {
 
   return {
     draft,
+    mapContext,
     messagesQuery,
     connectionsQuery,
     runsQuery,
@@ -228,20 +312,41 @@ function useMessages(sessionId: string, workspaceId: string) {
     usableModels,
     selectedModel,
     modelSelection,
+    sendError: mutation.isError
+      ? messageSendError(mutation.error, requestFrozen)
+      : null,
     changeDraft: (value: string) => {
       if (requestFrozen) return;
       mutation.reset();
       setComposerDraft(sessionId, value);
     },
     changeModel: (value: string) => {
+      if (requestFrozen) return;
       const model = usableModels.find(
         ({ connection, entry }) => `${connection.id}\n${entry.model_id}` === value
       );
       if (model === undefined) return;
+      mutation.reset();
       setModelSelection(sessionId, {
         connectionId: model.connection.id,
         modelId: model.entry.model_id,
         reasoningEffort: null
+      });
+    },
+    changeReasoningEffort: (value: string) => {
+      if (requestFrozen || selectedModel === undefined) return;
+      const reasoningEffort = value === "" ? null : value;
+      if (
+        reasoningEffort !== null &&
+        !selectedModel.entry.reasoning_efforts.includes(reasoningEffort)
+      ) {
+        return;
+      }
+      mutation.reset();
+      setModelSelection(sessionId, {
+        connectionId: selectedModel.connection.id,
+        modelId: selectedModel.entry.model_id,
+        reasoningEffort
       });
     },
     sendMessage
@@ -284,4 +389,13 @@ function usableModelsFrom(connections: readonly ModelConnection[]): UsableModel[
           .map((entry) => ({ connection, entry }))
       : []
   );
+}
+
+function messageSendError(error: unknown, requestFrozen: boolean): string {
+  if (requestFrozen) return zhCN.conversation.errors.retryFrozen;
+  if (!(error instanceof ApiError)) return zhCN.conversation.errors.network;
+  const messages: Readonly<Record<string, string>> = zhCN.conversation.errors.byCode;
+  return error.code === null
+    ? zhCN.conversation.errors.requestFailed(error.status)
+    : messages[error.code] ?? zhCN.conversation.errors.requestFailed(error.status);
 }

@@ -5,12 +5,14 @@ const SESSION_HEADER = "X-Kunyu-Session";
 
 export class ApiError extends Error {
   readonly status: number;
+  readonly code: string | null;
   readonly details: unknown;
 
   constructor(status: number, message: string, details: unknown) {
     super(message);
     this.name = "ApiError";
     this.status = status;
+    this.code = extractErrorCode(details);
     this.details = details;
   }
 }
@@ -129,6 +131,21 @@ function extractErrorMessage(details: unknown): string | null {
     typeof details.error.message === "string"
   ) {
     return details.error.message;
+  }
+  return null;
+}
+
+function extractErrorCode(details: unknown): string | null {
+  if (
+    typeof details === "object" &&
+    details !== null &&
+    "error" in details &&
+    typeof details.error === "object" &&
+    details.error !== null &&
+    "code" in details.error &&
+    typeof details.error.code === "string"
+  ) {
+    return details.error.code;
   }
   return null;
 }

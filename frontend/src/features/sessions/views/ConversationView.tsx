@@ -8,10 +8,10 @@ import { zhCN } from "@/locales/zh-CN";
 
 export function ConversationView() {
   const eventStream = useSessionEvents();
-  const { messagesQuery } = useSessionMessages();
+  const { messagesQuery, runsQuery } = useSessionMessages();
   return (
     <div className="flex h-full min-h-0 flex-col bg-background">
-      <div className="min-h-0 flex-1 overflow-y-auto">
+      <div className="min-h-0 flex-1 overflow-y-auto" data-message-scroll>
         {messagesQuery.isPending && <div className="flex h-full items-center justify-center text-sm text-muted-foreground">{zhCN.conversation.loading}</div>}
         {messagesQuery.isError && <div className="flex flex-col items-center gap-3 py-8 text-sm">
           <p role="alert" className="text-destructive">{zhCN.conversation.loadFailed}</p>
@@ -20,7 +20,12 @@ export function ConversationView() {
         {eventStream.status !== "connected" && <div className="mx-auto max-w-[920px] px-6 pt-4">
           <EventStreamNotice error={eventStream.error} status={eventStream.status} />
         </div>}
-        {messagesQuery.data !== undefined && <MessageList messages={messagesQuery.data} />}
+        {messagesQuery.data !== undefined && (
+          <MessageList
+            messages={messagesQuery.data}
+            runs={runsQuery.data ?? []}
+          />
+        )}
       </div>
       <RunControls />
       <SessionComposer />
