@@ -6,6 +6,7 @@ from alembic import command
 from alembic.config import Config
 from alembic.migration import MigrationContext
 from sqlalchemy import Engine, create_engine, inspect
+from sqlalchemy.engine import Connection
 from sqlalchemy.engine.reflection import Inspector
 
 ALEMBIC_REVISION_TABLE = "alembic_version"
@@ -20,7 +21,13 @@ class DatabaseMigrationError(RuntimeError):
 
 def upgrade_database(engine: Engine) -> None:
     config = _alembic_config()
-    with engine.begin() as connection:
+    with engine.connect() as connection:
+        _upgrade_connection(connection, config)
+
+
+def _upgrade_connection(connection: Connection, config: Config) -> None:
+    connection.exec_driver_sql("BEGIN IMMEDIATE")
+    try:
         config.attributes["connection"] = connection
         inspector = inspect(connection)
         tables = frozenset(inspector.get_table_names())
@@ -30,6 +37,10 @@ def upgrade_database(engine: Engine) -> None:
             revision = _legacy_revision(inspector, application_tables)
             command.stamp(config, revision)
         command.upgrade(config, "head")
+        connection.commit()
+    except Exception:
+        connection.rollback()
+        raise
 
 
 def _legacy_revision(inspector: Inspector, tables: frozenset[str]) -> str:
@@ -44,19 +55,16 @@ def _legacy_revision(inspector: Inspector, tables: frozenset[str]) -> str:
 
 @cache
 def _revision_schema_signature(revision: str) -> tuple[Any, ...]:
-    engine = create_engine(
-        "sqlite+pysqlite:///:memory:",
-        connect_args={"autocommit": False},
-    )
+    engine = create_engine("sqlite+pysqlite:///:memory:")
     try:
         config = _alembic_config()
-        with engine.begin() as connection:
+        with engine.connect() as connection:
+            connection.exec_driver_sql("BEGIN IMMEDIATE")
             config.attributes["connection"] = connection
             command.upgrade(config, revision)
+            connection.commit()
             inspector = inspect(connection)
-            tables = frozenset(inspector.get_table_names()) - {
-                ALEMBIC_REVISION_TABLE
-            }
+            tables = frozenset(inspector.get_table_names()) - {ALEMBIC_REVISION_TABLE}
             return _schema_signature(inspector, tables)
     finally:
         engine.dispose()

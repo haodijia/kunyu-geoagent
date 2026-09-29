@@ -51,10 +51,7 @@ def database_url(database_path: Path) -> URL:
 
 
 def create_database_engine(database_path: Path) -> Engine:
-    engine = create_engine(
-        database_url(database_path),
-        connect_args={"autocommit": False},
-    )
+    engine = create_engine(database_url(database_path))
     configure_sqlite(engine)
     return engine
 
@@ -62,12 +59,9 @@ def create_database_engine(database_path: Path) -> Engine:
 def configure_sqlite(engine: Engine) -> None:
     @event.listens_for(engine, "connect")
     def set_sqlite_pragmas(dbapi_connection: SQLiteConnection, _: object) -> None:
-        previous_autocommit = dbapi_connection.autocommit
-        dbapi_connection.autocommit = True
         cursor = dbapi_connection.cursor()
         try:
             cursor.execute("PRAGMA foreign_keys=ON")
             cursor.execute("PRAGMA journal_mode=WAL")
         finally:
             cursor.close()
-            dbapi_connection.autocommit = previous_autocommit
