@@ -1,14 +1,17 @@
-from collections.abc import Callable
 from datetime import datetime
 from typing import Annotated, Literal
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Request
 from pydantic import BaseModel, ConfigDict, JsonValue
 
-from kunyu.api.dependencies import get_database
+from kunyu.agent.scheduler import (
+    RunQueueFullError,
+    RunSchedulerClosingError,
+)
 from kunyu.api.errors import ApiError
+from kunyu.api.run_models import RunResponse, ToolCallResponse
+from kunyu.api.runs import RunSchedulerDependency
 from kunyu.application.confirmations import ConfirmationService
-from kunyu.application.local_tools import LocalToolPolicyGate, LocalToolRegistryFactory
 from kunyu.application.sessions import SessionNotFoundError
 from kunyu.domain.confirmations import (
     Confirmation,
@@ -17,10 +20,6 @@ from kunyu.domain.confirmations import (
     ConfirmationNotFoundError,
     ConfirmationPolicyError,
 )
-from kunyu.domain.runs import Run, RunModelSnapshot, ToolCall
-from kunyu.persistence.agent_context import SQLAlchemyRunContextRepository
-from kunyu.persistence.database import Database
-from kunyu.persistence.workspace_memory import SQLAlchemyWorkspaceMemoryRepository
 
 router = APIRouter(prefix="/api/v1", tags=["confirmations"])
 
@@ -65,166 +64,6 @@ class ConfirmationResponse(BaseModel):
         )
 
 
-class ToolCallResponse(BaseModel):
-    id: str
-    session_id: str
-    run_id: str
-    message_id: str
-    step: int
-    attempt: int
-    provider_call_id: str
-    batch_index: int
-    name: str
-    arguments: dict[str, JsonValue]
-    status: Literal["pending", "running", "completed", "failed", "cancelled"]
-    result: JsonValue | None
-    error_code: str | None
-    error_summary: str | None
-    created_at: datetime
-    updated_at: datetime
-    updated_sequence: int
-
-    @classmethod
-    def from_domain(cls, tool: ToolCall) -> "ToolCallResponse":
-        return cls(
-            id=tool.id,
-            session_id=tool.session_id,
-            run_id=tool.run_id,
-            message_id=tool.message_id,
-            step=tool.step,
-            attempt=tool.attempt,
-            provider_call_id=tool.provider_call_id,
-            batch_index=tool.batch_index,
-            name=tool.name,
-            arguments=tool.arguments,
-            status=tool.status.value,
-            result=tool.result,
-            error_code=tool.error_code,
-            error_summary=tool.error_summary,
-            created_at=tool.created_at,
-            updated_at=tool.updated_at,
-            updated_sequence=tool.updated_sequence,
-        )
-
-
-class RunBudgetResponse(BaseModel):
-    max_model_calls: int
-    model_calls: int
-    max_tool_calls: int
-    tool_calls: int
-    max_active_milliseconds: int
-    active_milliseconds: int
-    max_output_codepoints: int
-    output_codepoints: int
-    input_tokens: int | None
-    output_tokens: int | None
-    total_tokens: int | None
-
-
-class RunResponse(BaseModel):
-    id: str
-    session_id: str
-    user_message_id: str
-    state: Literal[
-        "ready",
-        "model_running",
-        "tool_running",
-        "waiting_confirmation",
-        "interrupted",
-        "completed",
-        "failed",
-        "cancelled",
-    ]
-    step: int
-    attempt: int
-    resume_phase: Literal["model", "tool"]
-    next_tool_index: int
-    requires_resume: bool
-    queue_sequence: int | None
-    pending_confirmation_id: str | None
-    pause_reason: str | None
-    model_snapshot: "RunModelSnapshotResponse"
-    map_context: dict[str, JsonValue]
-    scene: dict[str, JsonValue] | None
-    budget: RunBudgetResponse
-    tool_calls: list[ToolCallResponse]
-    created_at: datetime
-    updated_at: datetime
-    updated_sequence: int
-
-    @classmethod
-    def from_domain(
-        cls,
-        run: Run,
-        snapshot: RunModelSnapshot,
-        tool_calls: tuple[ToolCall, ...],
-    ) -> "RunResponse":
-        return cls(
-            id=run.id,
-            session_id=run.session_id,
-            user_message_id=run.user_message_id,
-            state=run.state.value,
-            step=run.step,
-            attempt=run.attempt,
-            resume_phase=run.resume_phase.value,
-            next_tool_index=run.next_tool_index,
-            requires_resume=run.requires_resume,
-            queue_sequence=run.queue_sequence,
-            pending_confirmation_id=run.pending_confirmation_id,
-            pause_reason=run.pause_reason,
-            model_snapshot=RunModelSnapshotResponse.from_domain(snapshot),
-            map_context=snapshot.map_context,
-            scene=snapshot.scene,
-            budget=RunBudgetResponse(
-                max_model_calls=run.budget.max_model_calls,
-                model_calls=run.budget.model_calls,
-                max_tool_calls=run.budget.max_tool_calls,
-                tool_calls=run.budget.tool_calls,
-                max_active_milliseconds=run.budget.max_active_milliseconds,
-                active_milliseconds=run.budget.active_milliseconds,
-                max_output_codepoints=run.budget.max_output_codepoints,
-                output_codepoints=run.budget.output_codepoints,
-                input_tokens=run.budget.input_tokens,
-                output_tokens=run.budget.output_tokens,
-                total_tokens=run.budget.total_tokens,
-            ),
-            tool_calls=[ToolCallResponse.from_domain(item) for item in tool_calls],
-            created_at=run.created_at,
-            updated_at=run.updated_at,
-            updated_sequence=run.updated_sequence,
-        )
-
-
-class RunModelSnapshotResponse(BaseModel):
-    connection_id: str
-    provider_type: str
-    protocol: Literal["openai_compatible"]
-    base_url: str
-    auth_mode: Literal["api_key", "none"]
-    model_id: str
-    reasoning_effort: str | None
-    connection_revision: int
-    max_tokens_field: Literal["max_tokens", "max_completion_tokens"]
-    include_usage: bool
-    max_output_tokens: int
-
-    @classmethod
-    def from_domain(cls, snapshot: RunModelSnapshot) -> "RunModelSnapshotResponse":
-        return cls(
-            connection_id=snapshot.connection_id,
-            provider_type=snapshot.provider_type.value,
-            protocol=snapshot.protocol.value,
-            base_url=snapshot.base_url,
-            auth_mode=snapshot.auth_mode.value,
-            model_id=snapshot.model_id,
-            reasoning_effort=snapshot.reasoning_effort,
-            connection_revision=snapshot.connection_revision,
-            max_tokens_field=snapshot.max_tokens_field.value,
-            include_usage=snapshot.include_usage,
-            max_output_tokens=snapshot.max_output_tokens,
-        )
-
-
 class ConfirmationDecisionResponse(BaseModel):
     confirmation: ConfirmationResponse
     tool_call: ToolCallResponse
@@ -248,15 +87,9 @@ class ConfirmationDecisionResponse(BaseModel):
 
 
 def get_confirmation_service(
-    database: Annotated[Database, Depends(get_database)],
+    request: Request,
 ) -> ConfirmationService:
-    contexts = SQLAlchemyRunContextRepository(database)
-    memories = SQLAlchemyWorkspaceMemoryRepository(database)
-    return ConfirmationService(
-        database,
-        LocalToolRegistryFactory(contexts, memories),
-        LocalToolPolicyGate(),
-    )
+    return request.app.state.confirmation_service
 
 
 ConfirmationServiceDependency = Annotated[
@@ -285,32 +118,38 @@ def list_confirmations(
     "/confirmations/{confirmation_id}/approve",
     response_model=ConfirmationDecisionResponse,
 )
-def approve_confirmation(
+async def approve_confirmation(
     confirmation_id: str,
     _: EmptyRequest,
-    service: ConfirmationServiceDependency,
+    scheduler: RunSchedulerDependency,
 ) -> ConfirmationDecisionResponse:
-    return _decide(service.approve, confirmation_id)
+    try:
+        return ConfirmationDecisionResponse.from_domain(
+            await scheduler.approve(confirmation_id)
+        )
+    except RunQueueFullError as error:
+        raise ApiError(429, "RUN_QUEUE_FULL", str(error)) from error
+    except RunSchedulerClosingError as error:
+        raise ApiError(503, "SHUTTING_DOWN", str(error)) from error
+    except ConfirmationNotFoundError as error:
+        raise ApiError(404, "NOT_FOUND", str(error)) from error
+    except (ConfirmationConflictError, ConfirmationPolicyError) as error:
+        raise ApiError(409, "CONFIRMATION_CONFLICT", str(error)) from error
 
 
 @router.post(
     "/confirmations/{confirmation_id}/reject",
     response_model=ConfirmationDecisionResponse,
 )
-def reject_confirmation(
+async def reject_confirmation(
     confirmation_id: str,
     _: EmptyRequest,
-    service: ConfirmationServiceDependency,
-) -> ConfirmationDecisionResponse:
-    return _decide(service.reject, confirmation_id)
-
-
-def _decide(
-    operation: Callable[[str], ConfirmationDecisionResult],
-    confirmation_id: str,
+    scheduler: RunSchedulerDependency,
 ) -> ConfirmationDecisionResponse:
     try:
-        result = operation(confirmation_id)
+        result = await scheduler.reject(confirmation_id)
+    except RunSchedulerClosingError as error:
+        raise ApiError(503, "SHUTTING_DOWN", str(error)) from error
     except ConfirmationNotFoundError as error:
         raise ApiError(404, "NOT_FOUND", str(error)) from error
     except (ConfirmationConflictError, ConfirmationPolicyError) as error:

@@ -1,25 +1,15 @@
-"""Bind durable Kunyu state and local capabilities to the DSH runner."""
-
-from uuid import uuid4
-
-import httpx
+"""Bind durable Kunyu state and credentials to the DSH runner contracts."""
 
 from dsh.models import ModelAdapterError, ModelErrorCode
-from dsh.runner import Runner
 from dsh.runner_types import ConfirmationRequester, RunExecution
-from kunyu.application.agent_context import ScopedAgentContextProvider
+
 from kunyu.application.confirmations import ConfirmationService
-from kunyu.application.local_tools import LocalToolPolicyGate, LocalToolRegistryFactory
 from kunyu.domain.model_connections import MaxTokensField, ModelAuthMode, ModelProtocol
 from kunyu.integrations.model.openai_compatible_adapter import (
-    OpenAICompatibleModelAdapter,
     OpenAICompatibleModelConfig,
 )
-from kunyu.persistence.agent_context import SQLAlchemyRunContextRepository
-from kunyu.persistence.database import Database
 from kunyu.persistence.model_connections import SQLAlchemyModelConnectionRepository
 from kunyu.persistence.runs import SQLAlchemyEventStore
-from kunyu.persistence.workspace_memory import SQLAlchemyWorkspaceMemoryRepository
 
 
 class KunyuRunExecutionProvider:
@@ -85,36 +75,3 @@ class SnapshotCredentialResolver:
                 "The model credential is not configured.",
             )
         return api_key
-
-
-def create_agent_runner(
-    database: Database,
-    http_client: httpx.AsyncClient,
-) -> Runner[OpenAICompatibleModelConfig]:
-    events = SQLAlchemyEventStore(database)
-    contexts = SQLAlchemyRunContextRepository(database)
-    memories = SQLAlchemyWorkspaceMemoryRepository(database)
-    tool_registries = LocalToolRegistryFactory(contexts, memories)
-    policy = LocalToolPolicyGate()
-    confirmations = ConfirmationService(
-        database,
-        tool_registries,
-        policy,
-    )
-    connections = SQLAlchemyModelConnectionRepository(database)
-    model = OpenAICompatibleModelAdapter(
-        http_client,
-        SnapshotCredentialResolver(connections),
-    )
-    return Runner(
-        KunyuRunExecutionProvider(events),
-        events,
-        ScopedAgentContextProvider(contexts),
-        model,
-        tool_registries,
-        policy,
-        KunyuConfirmationRequester(confirmations),
-        message_id_factory=lambda: f"msg_{uuid4().hex}",
-        tool_call_id_factory=lambda: f"tlc_{uuid4().hex}",
-        operation_id_factory=lambda: f"op_{uuid4().hex}",
-    )

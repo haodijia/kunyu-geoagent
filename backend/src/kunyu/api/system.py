@@ -2,7 +2,7 @@ import secrets
 from collections.abc import Callable
 from typing import Literal
 
-from fastapi import APIRouter, BackgroundTasks, Header, HTTPException, Request, status
+from fastapi import APIRouter, Header, HTTPException, Request, status
 from pydantic import BaseModel
 
 from kunyu.settings import API_VERSION, SESSION_HEADER
@@ -45,9 +45,8 @@ def get_health() -> HealthResponse:
     response_model=ShutdownResponse,
     status_code=status.HTTP_202_ACCEPTED,
 )
-def shutdown_backend(
+async def shutdown_backend(
     request: Request,
-    background_tasks: BackgroundTasks,
 ) -> ShutdownResponse:
     shutdown_callback: Callable[[], None] | None = request.app.state.shutdown_callback
     if shutdown_callback is None:
@@ -56,5 +55,5 @@ def shutdown_backend(
             detail="Desktop shutdown is unavailable.",
         )
 
-    background_tasks.add_task(shutdown_callback)
+    shutdown_callback()
     return ShutdownResponse(status="shutting_down")

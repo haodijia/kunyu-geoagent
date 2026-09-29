@@ -300,6 +300,7 @@ class RunModelSelectedEvent(_RunEventDraft):
 class RunProgressEvent(_RunEventDraft):
     event_type: Literal[
         "run.started",
+        "run.queued",
         "run.resumed",
         "run.interrupted",
         "run.recovery_required",

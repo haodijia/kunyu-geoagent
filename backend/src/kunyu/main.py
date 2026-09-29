@@ -6,10 +6,12 @@ import httpx
 from fastapi import Depends, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from kunyu.agent.bootstrap import create_agent_runtime
 from kunyu.api.confirmations import router as confirmations_router
 from kunyu.api.errors import install_error_handlers
 from kunyu.api.messages import router as messages_router
 from kunyu.api.model_connections import router as model_connections_router
+from kunyu.api.runs import router as runs_router
 from kunyu.api.sessions import router as sessions_router
 from kunyu.api.system import require_desktop_session
 from kunyu.api.system import router as system_router
@@ -33,22 +35,33 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         timeout=httpx.Timeout(30, connect=10),
     )
     repository = SQLAlchemyModelConnectionRepository(database)
+    agent_runtime = create_agent_runtime(database, http_client)
     catalog_service = ModelCatalogService(
         repository,
         repository,
         locks,
         OpenAICompatibleClient(http_client),
+        agent_runtime.lifecycle,
     )
     discovery_tasks = ModelDiscoveryTasks(catalog_service)
     app.state.connection_operation_locks = locks
     app.state.model_catalog_service = catalog_service
     app.state.model_discovery_tasks = discovery_tasks
     app.state.database = database
+    app.state.run_scheduler = agent_runtime.scheduler
+    app.state.run_lifecycle_service = agent_runtime.lifecycle
+    app.state.confirmation_service = agent_runtime.confirmations
+    app.state.closing_event = agent_runtime.scheduler.closing_event
+    await agent_runtime.host.start()
+    await agent_runtime.scheduler.start()
     discovery_tasks.start()
     try:
         yield
     finally:
+        agent_runtime.scheduler.begin_shutdown()
         await discovery_tasks.stop()
+        await agent_runtime.scheduler.shutdown()
+        await agent_runtime.host.stop()
         await http_client.aclose()
         database.close()
 
@@ -71,6 +84,7 @@ def create_app(session_token: str | None = None) -> FastAPI:
     app.include_router(system_router)
     app.include_router(model_connections_router)
     app.include_router(confirmations_router)
+    app.include_router(runs_router)
     app.include_router(workspaces_router)
     app.include_router(sessions_router)
     app.include_router(messages_router)

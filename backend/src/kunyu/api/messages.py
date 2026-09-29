@@ -38,9 +38,7 @@ class MessageResponse(BaseModel):
     run_id: str | None
     step: int | None
     attempt: int | None
-    status: Literal[
-        "streaming", "completed", "interrupted", "failed", "cancelled"
-    ]
+    status: Literal["streaming", "completed", "interrupted", "failed", "cancelled"]
     content_length: int
     updated_sequence: int
     created_at: datetime
@@ -107,9 +105,7 @@ def append_message(
     service: MessageServiceDependency,
 ) -> MessageResponse:
     try:
-        message = service.append_user_message(
-            session_id, request.role, request.content
-        )
+        message = service.append_user_message(session_id, request.role, request.content)
     except SessionArchivedError as error:
         raise HTTPException(status_code=409, detail=str(error)) from error
     except EmptyMessageError as error:
@@ -177,12 +173,19 @@ async def _event_stream(
     after_sequence: int,
 ) -> AsyncIterator[str]:
     current_sequence = after_sequence
-    while not await request.is_disconnected():
+    closing_event: asyncio.Event = request.app.state.closing_event
+    while not closing_event.is_set() and not await request.is_disconnected():
         events = service.list_events_after(session_id, current_sequence)
         for event in events:
             yield _format_event(event)
             current_sequence = event.sequence
-        await asyncio.sleep(EVENT_POLL_INTERVAL_SECONDS)
+        try:
+            await asyncio.wait_for(
+                closing_event.wait(),
+                timeout=EVENT_POLL_INTERVAL_SECONDS,
+            )
+        except TimeoutError:
+            pass
 
 
 def _format_event(event: AgentEvent) -> str:

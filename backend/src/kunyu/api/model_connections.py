@@ -7,6 +7,7 @@ from pydantic import BaseModel, ConfigDict, Field
 from kunyu.api.dependencies import (
     get_connection_operation_locks,
     get_database,
+    get_run_lifecycle_service,
 )
 from kunyu.api.errors import ApiError
 from kunyu.application.connection_locks import ConnectionOperationLocks
@@ -32,6 +33,10 @@ from kunyu.application.model_connections import (
     ModelConnectionService,
 )
 from kunyu.application.model_discovery_tasks import ModelDiscoveryTasks
+from kunyu.application.run_lifecycle import (
+    ModelConnectionInUseError,
+    RunLifecycleService,
+)
 from kunyu.domain.model_connections import (
     CapabilitySource,
     CapabilityStatus,
@@ -46,8 +51,8 @@ from kunyu.domain.model_connections import (
     ModelCatalogEntry,
     ModelCheck,
     ModelConnection,
-    ModelProviderType,
     ModelProtocol,
+    ModelProviderType,
 )
 from kunyu.integrations.model.openai_compatible import (
     ProviderErrorCode,
@@ -278,8 +283,13 @@ class ModelTestResponse(BaseModel):
 def get_model_connection_service(
     database: Annotated[Database, Depends(get_database)],
     locks: Annotated[ConnectionOperationLocks, Depends(get_connection_operation_locks)],
+    run_lifecycle: Annotated[RunLifecycleService, Depends(get_run_lifecycle_service)],
 ) -> ModelConnectionService:
-    return ModelConnectionService(SQLAlchemyModelConnectionRepository(database), locks)
+    return ModelConnectionService(
+        SQLAlchemyModelConnectionRepository(database),
+        locks,
+        run_lifecycle,
+    )
 
 
 ModelConnectionServiceDependency = Annotated[
@@ -290,12 +300,14 @@ ModelConnectionServiceDependency = Annotated[
 def get_model_credential_service(
     database: Annotated[Database, Depends(get_database)],
     locks: Annotated[ConnectionOperationLocks, Depends(get_connection_operation_locks)],
+    run_lifecycle: Annotated[RunLifecycleService, Depends(get_run_lifecycle_service)],
 ) -> ModelCredentialService:
     repository = SQLAlchemyModelConnectionRepository(database)
     return ModelCredentialService(
         repository,
         repository,
         locks,
+        run_lifecycle,
     )
 
 
@@ -383,6 +395,8 @@ async def update_model_connection(
         raise _default_connection(error) from error
     except ModelConnectionBusyError as error:
         raise _connection_busy(error) from error
+    except ModelConnectionInUseError as error:
+        raise _connection_in_use(error) from error
     except InvalidModelConnectionError as error:
         raise _invalid_input(error) from error
     discovery_tasks.schedule_if_pending(connection)
@@ -402,6 +416,8 @@ def delete_model_connection(
         raise _default_connection(error) from error
     except ModelConnectionBusyError as error:
         raise _connection_busy(error) from error
+    except ModelConnectionInUseError as error:
+        raise _connection_in_use(error) from error
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
@@ -422,6 +438,8 @@ async def set_model_connection_credential(
         raise ApiError(422, "UNSUPPORTED_CAPABILITY", str(error)) from error
     except ModelConnectionBusyError as error:
         raise _connection_busy(error) from error
+    except ModelConnectionInUseError as error:
+        raise _connection_in_use(error) from error
     discovery_tasks.schedule_if_pending(connection)
     return ModelConnectionResponse.from_domain(connection)
 
@@ -437,6 +455,8 @@ def clear_model_connection_credential(
         raise _not_found(error) from error
     except ModelConnectionBusyError as error:
         raise _connection_busy(error) from error
+    except ModelConnectionInUseError as error:
+        raise _connection_in_use(error) from error
     return ModelConnectionResponse.from_domain(connection)
 
 
@@ -452,6 +472,8 @@ def set_default_model_connection(
         raise _not_found(error) from error
     except ModelConnectionBusyError as error:
         raise _connection_busy(error) from error
+    except ModelConnectionInUseError as error:
+        raise _connection_in_use(error) from error
     except InvalidModelConnectionError as error:
         raise _invalid_input(error) from error
     return ModelConnectionResponse.from_domain(connection)
@@ -497,6 +519,8 @@ def add_manual_model(
         raise _invalid_input(error) from error
     except ManualModelExistsError as error:
         raise ApiError(409, "MODEL_EXISTS", str(error)) from error
+    except ModelConnectionInUseError as error:
+        raise _connection_in_use(error) from error
     return ModelCatalogEntryResponse.from_domain(entry)
 
 
@@ -522,6 +546,8 @@ def delete_manual_model(
             "The manual model was not found.",
             {"model_id": error.model_id},
         ) from error
+    except ModelConnectionInUseError as error:
+        raise _connection_in_use(error) from error
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
@@ -572,6 +598,15 @@ def _default_connection(error: Exception) -> ApiError:
 
 def _connection_busy(error: Exception) -> ApiError:
     return ApiError(409, "CONNECTION_BUSY", str(error))
+
+
+def _connection_in_use(error: ModelConnectionInUseError) -> ApiError:
+    return ApiError(
+        409,
+        "CONNECTION_IN_USE",
+        str(error),
+        {"connection_id": error.connection_id},
+    )
 
 
 def _provider_error(error: ProviderRequestError) -> ApiError:
