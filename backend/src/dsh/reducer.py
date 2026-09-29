@@ -87,6 +87,8 @@ def reduce_run(events: Iterable[AgentEvent]) -> ReducedRun:
                 session_id=event.session_id,
                 user_message_id=event.payload.user_message_id,
                 model_snapshot=event.payload.model_snapshot,
+                map_snapshot=event.payload.map_snapshot,
+                scene_snapshot=event.payload.scene_snapshot,
                 limits=limits,
                 budget=_Budget(
                     max_model_calls=limits.model_calls,
@@ -826,6 +828,9 @@ def _freeze(state: _State) -> ReducedRun:
         queue_sequence=state.queue_sequence,
         pending_confirmation_id=state.pending_confirmation_id,
         pause_reason=state.pause_reason,
+        model_snapshot=state.model_snapshot,
+        map_snapshot=state.map_snapshot,
+        scene_snapshot=state.scene_snapshot,
         budget=ReducedBudget(
             max_model_calls=budget.max_model_calls,
             model_calls=budget.model_calls,

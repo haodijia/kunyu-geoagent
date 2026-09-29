@@ -35,9 +35,8 @@ class MessageRepository(Protocol):
     def append(
         self,
         message_id: str,
-        event_id: str,
         session_id: str,
-        role: MessageRole,
+        role: Literal["user"],
         content: str,
         occurred_at: datetime,
     ) -> tuple[Message, AgentEvent] | None: ...

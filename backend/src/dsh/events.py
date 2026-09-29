@@ -90,6 +90,8 @@ class SessionCreatedPayload(EventPayload):
 class UserMessageAppendedPayload(EventPayload):
     message_id: str
     role: Literal["user"]
+    content: str
+    run_id: str | None
 
 
 class BudgetLimitsPayload(EventPayload):
@@ -109,9 +111,23 @@ class BudgetUsagePayload(EventPayload):
     total_tokens: NonNegativeInt | None = None
 
 
+class ModelSnapshotPayload(EventPayload):
+    connection_id: str
+    provider_type: str
+    protocol: Literal["openai_compatible"]
+    base_url: str
+    auth_mode: Literal["api_key", "none"]
+    model_id: str
+    reasoning_effort: str | None
+    connection_revision: PositiveInt
+    max_tokens_field: Literal["max_tokens", "max_completion_tokens"]
+    include_usage: bool
+    max_output_tokens: PositiveInt
+
+
 class RunCreatedPayload(EventPayload):
     user_message_id: str
-    model_snapshot: dict[str, JsonValue]
+    model_snapshot: ModelSnapshotPayload
     map_snapshot: dict[str, JsonValue]
     scene_snapshot: dict[str, JsonValue] | None
     budget_limits: BudgetLimitsPayload
@@ -119,7 +135,7 @@ class RunCreatedPayload(EventPayload):
 
 class RunModelSelectedPayload(EventPayload):
     user_message_id: str
-    model_snapshot: dict[str, JsonValue]
+    model_snapshot: ModelSnapshotPayload
     budget_limits: BudgetLimitsPayload
 
 
@@ -240,12 +256,19 @@ class RunTerminalPayload(EventPayload):
     budget: BudgetUsagePayload
 
 
-class _EventDraft(BaseModel):
+class _EventBase(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
 
     session_id: str
-    run_id: str | None = None
     occurred_at: datetime
+
+
+class _EventDraft(_EventBase):
+    run_id: str | None = None
+
+
+class _RunEventDraft(_EventBase):
+    run_id: str
 
 
 class SessionCreatedEvent(_EventDraft):
@@ -257,105 +280,95 @@ class UserMessageAppendedEvent(_EventDraft):
     event_type: Literal["message.user.appended"]
     payload: UserMessageAppendedPayload
 
+    @model_validator(mode="after")
+    def validate_run_identity(self) -> Self:
+        if self.payload.run_id != self.run_id:
+            raise ValueError("User message payload and envelope run IDs must match.")
+        return self
 
-class RunCreatedEvent(_EventDraft):
+
+class RunCreatedEvent(_RunEventDraft):
     event_type: Literal["run.created"]
-    run_id: str
     payload: RunCreatedPayload
 
 
-class RunModelSelectedEvent(_EventDraft):
+class RunModelSelectedEvent(_RunEventDraft):
     event_type: Literal["run.model_selected"]
-    run_id: str
     payload: RunModelSelectedPayload
 
 
-class RunProgressEvent(_EventDraft):
+class RunProgressEvent(_RunEventDraft):
     event_type: Literal[
         "run.started",
         "run.resumed",
         "run.interrupted",
         "run.recovery_required",
     ]
-    run_id: str
     payload: RunProgressPayload
 
 
-class BudgetReservedEvent(_EventDraft):
+class BudgetReservedEvent(_RunEventDraft):
     event_type: Literal["run.budget_reserved"]
-    run_id: str
     payload: BudgetReservedPayload
 
 
-class BudgetSettledEvent(_EventDraft):
+class BudgetSettledEvent(_RunEventDraft):
     event_type: Literal["run.budget_settled"]
-    run_id: str
     payload: BudgetSettledPayload
 
 
-class AssistantStartedEvent(_EventDraft):
+class AssistantStartedEvent(_RunEventDraft):
     event_type: Literal["message.assistant.started"]
-    run_id: str
     payload: AssistantStartedPayload
 
 
-class AssistantDeltaEvent(_EventDraft):
+class AssistantDeltaEvent(_RunEventDraft):
     event_type: Literal["message.assistant.delta"]
-    run_id: str
     payload: AssistantDeltaPayload
 
 
-class AssistantCompletedEvent(_EventDraft):
+class AssistantCompletedEvent(_RunEventDraft):
     event_type: Literal["message.assistant.completed"]
-    run_id: str
     payload: AssistantCompletedPayload
 
 
-class ModelAttemptFinishedEvent(_EventDraft):
+class ModelAttemptFinishedEvent(_RunEventDraft):
     event_type: Literal["model.attempt.finished"]
-    run_id: str
     payload: ModelAttemptFinishedPayload
 
 
-class ToolRequestedEvent(_EventDraft):
+class ToolRequestedEvent(_RunEventDraft):
     event_type: Literal["tool.requested"]
-    run_id: str
     payload: ToolRequestedPayload
 
 
-class ToolProgressEvent(_EventDraft):
+class ToolProgressEvent(_RunEventDraft):
     event_type: Literal["tool.started", "tool.cancelled"]
-    run_id: str
     payload: ToolProgressPayload
 
 
-class ToolCompletedEvent(_EventDraft):
+class ToolCompletedEvent(_RunEventDraft):
     event_type: Literal["tool.completed"]
-    run_id: str
     payload: ToolCompletedPayload
 
 
-class ToolFailedEvent(_EventDraft):
+class ToolFailedEvent(_RunEventDraft):
     event_type: Literal["tool.failed"]
-    run_id: str
     payload: ToolFailedPayload
 
 
-class ConfirmationRequestedEvent(_EventDraft):
+class ConfirmationRequestedEvent(_RunEventDraft):
     event_type: Literal["confirmation.requested"]
-    run_id: str
     payload: ConfirmationRequestedPayload
 
 
-class ConfirmationResolvedEvent(_EventDraft):
+class ConfirmationResolvedEvent(_RunEventDraft):
     event_type: Literal["confirmation.resolved"]
-    run_id: str
     payload: ConfirmationResolvedPayload
 
 
-class RunTerminalEvent(_EventDraft):
+class RunTerminalEvent(_RunEventDraft):
     event_type: Literal["run.completed", "run.failed", "run.cancelled"]
-    run_id: str
     payload: RunTerminalPayload
 
     @model_validator(mode="after")
@@ -406,13 +419,12 @@ class AgentEvent:
 
 
 @dataclass(frozen=True, slots=True)
-class EventBatch[ProjectionT]:
-    """Events and their query projection committed as one storage unit."""
+class EventBatch:
+    """Events committed as one storage unit."""
 
     session_id: str
     run_id: str | None
     events: tuple[EventDraft, ...]
-    projection: ProjectionT
 
     def __post_init__(self) -> None:
         if not self.events:
@@ -422,9 +434,9 @@ class EventBatch[ProjectionT]:
                 raise ValueError("Every event must belong to the batch session and run.")
 
 
-class EventStore[ProjectionT](Protocol):
+class EventStore(Protocol):
     async def commit(
-        self, batch: EventBatch[ProjectionT]
+        self, batch: EventBatch
     ) -> tuple[AgentEvent, ...]: ...
 
     async def list_after(

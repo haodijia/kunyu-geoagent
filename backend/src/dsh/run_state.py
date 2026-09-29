@@ -7,7 +7,7 @@ from typing import Literal
 
 from pydantic import JsonValue
 
-from dsh.events import BudgetLimitsPayload, ResumePhase, RunState
+from dsh.events import BudgetLimitsPayload, ModelSnapshotPayload, ResumePhase, RunState
 
 type AssistantStatus = Literal[
     "streaming", "completed", "interrupted", "failed", "cancelled"
@@ -82,6 +82,9 @@ class ReducedRun:
     queue_sequence: int | None
     pending_confirmation_id: str | None
     pause_reason: str | None
+    model_snapshot: ModelSnapshotPayload
+    map_snapshot: Mapping[str, JsonValue]
+    scene_snapshot: Mapping[str, JsonValue] | None
     budget: ReducedBudget
     assistants: tuple[ReducedAssistant, ...]
     tool_calls: tuple[ReducedToolCall, ...]
@@ -153,7 +156,9 @@ class _State:
     run_id: str
     session_id: str
     user_message_id: str
-    model_snapshot: Mapping[str, JsonValue]
+    model_snapshot: ModelSnapshotPayload
+    map_snapshot: Mapping[str, JsonValue]
+    scene_snapshot: Mapping[str, JsonValue] | None
     limits: BudgetLimitsPayload
     budget: _Budget
     created_at: datetime

@@ -1,10 +1,13 @@
 from datetime import datetime
+from typing import Literal, cast
 
 from sqlalchemy import func, select, text
 
+from dsh.events import EventBatch, UserMessageAppendedEvent, UserMessageAppendedPayload
 from kunyu.domain.events import AgentEvent
-from kunyu.domain.messages import Message, MessageRole
+from kunyu.domain.messages import Message, MessageRole, MessageStatus
 from kunyu.domain.sessions import SessionArchivedError
+from kunyu.persistence.agent_projections import SQLAlchemyAgentProjectionService
 from kunyu.persistence.database import Database
 from kunyu.persistence.models import (
     AgentEventRecord,
@@ -18,13 +21,13 @@ from kunyu.persistence.time import as_utc
 class SQLAlchemyMessageRepository:
     def __init__(self, database: Database) -> None:
         self._database = database
+        self._projections = SQLAlchemyAgentProjectionService(database)
 
     def append(
         self,
         message_id: str,
-        event_id: str,
         session_id: str,
-        role: MessageRole,
+        role: Literal["user"],
         content: str,
         occurred_at: datetime,
     ) -> tuple[Message, AgentEvent] | None:
@@ -38,40 +41,25 @@ class SQLAlchemyMessageRepository:
             if session_record.archive is not None:
                 raise SessionArchivedError("Archived sessions cannot receive messages.")
 
-            message_sequence_statement = select(
-                func.max(MessageRecord.sequence)
-            ).where(MessageRecord.session_id == session_id)
-            message_sequence = (
-                database_session.scalar(message_sequence_statement) or 0
-            ) + 1
-            event_sequence_statement = select(
-                func.max(AgentEventRecord.sequence)
-            ).where(AgentEventRecord.session_id == session_id)
-            event_sequence = (
-                database_session.scalar(event_sequence_statement) or 0
-            ) + 1
-            message_record = MessageRecord(
-                id=message_id,
+            event = UserMessageAppendedEvent(
                 session_id=session_id,
-                sequence=message_sequence,
-                role=role,
-                content=content,
                 run_id=None,
-                step=None,
-                attempt=None,
-                status="completed",
-                content_length=len(content),
-                updated_sequence=event_sequence,
-                created_at=occurred_at,
-                updated_at=occurred_at,
-            )
-            event_record = AgentEventRecord(
-                id=event_id,
-                session_id=session_id,
-                sequence=event_sequence,
                 event_type="message.user.appended",
-                payload={"message_id": message_id, "role": role},
+                payload=UserMessageAppendedPayload(
+                    message_id=message_id,
+                    role=role,
+                    content=content,
+                    run_id=None,
+                ),
                 occurred_at=occurred_at,
+            )
+            events = self._projections.commit_in_transaction(
+                database_session,
+                EventBatch(
+                    session_id=session_id,
+                    run_id=None,
+                    events=(event,),
+                ),
             )
             session_record.updated_at = occurred_at
             workspace_record = database_session.get(
@@ -83,10 +71,13 @@ class SQLAlchemyMessageRepository:
                 )
             workspace_record.updated_at = occurred_at
 
-            database_session.add_all((message_record, event_record))
             database_session.commit()
 
-        return _message_to_domain(message_record), _event_to_domain(event_record)
+            message_record = database_session.get(MessageRecord, message_id)
+            if message_record is None:
+                raise RuntimeError("User message projection was not persisted.")
+
+        return _message_to_domain(message_record), events[0]
 
     def list_for_session(self, session_id: str) -> list[Message] | None:
         statement = (
@@ -129,12 +120,12 @@ def _message_to_domain(record: MessageRecord) -> Message:
         id=record.id,
         session_id=record.session_id,
         sequence=record.sequence,
-        role=record.role,
+        role=cast(MessageRole, record.role),
         content=record.content,
         run_id=record.run_id,
         step=record.step,
         attempt=record.attempt,
-        status=record.status,
+        status=cast(MessageStatus, record.status),
         content_length=record.content_length,
         updated_sequence=record.updated_sequence,
         created_at=as_utc(record.created_at),

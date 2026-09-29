@@ -12,7 +12,8 @@ from sqlalchemy.engine.reflection import Inspector
 ALEMBIC_REVISION_TABLE = "alembic_version"
 P2_05_REVISION = "0001"
 P2_06_REVISION = "0002"
-LEGACY_REVISIONS = (P2_05_REVISION, P2_06_REVISION)
+P2_07A_REVISION = "0003"
+LEGACY_REVISIONS = (P2_05_REVISION, P2_06_REVISION, P2_07A_REVISION)
 
 
 class DatabaseMigrationError(RuntimeError):
