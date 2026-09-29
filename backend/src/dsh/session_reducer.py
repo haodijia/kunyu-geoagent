@@ -21,6 +21,7 @@ from dsh.session_state import (
 def reduce_session(events: Iterable[AgentEvent]) -> ReducedSession:
     """Fold one complete, one-based contiguous session log."""
     session_id: str | None = None
+    workspace_id: str | None = None
     session_created = False
     expected_sequence = 1
     user_messages: dict[str, ReducedUserMessage] = {}
@@ -59,6 +60,7 @@ def reduce_session(events: Iterable[AgentEvent]) -> ReducedSession:
                     "A session log must begin with one run-independent creation event."
                 )
             session_created = True
+            workspace_id = event.payload.workspace_id
             continue
 
         if not session_created:
@@ -113,6 +115,7 @@ def reduce_session(events: Iterable[AgentEvent]) -> ReducedSession:
 
     message_ids = set(user_messages)
     tool_call_ids: set[str] = set()
+    confirmation_ids: set[str] = set()
     for run in runs:
         for assistant in run.assistants:
             if assistant.message_id in message_ids:
@@ -126,6 +129,16 @@ def reduce_session(events: Iterable[AgentEvent]) -> ReducedSession:
                     f"Tool call identifier '{tool.tool_call_id}' is not unique."
                 )
             tool_call_ids.add(tool.tool_call_id)
+        for confirmation in run.confirmations:
+            if confirmation.workspace_id != workspace_id:
+                raise SessionReductionError(
+                    f"Confirmation '{confirmation.confirmation_id}' crosses workspace scope."
+                )
+            if confirmation.confirmation_id in confirmation_ids:
+                raise SessionReductionError(
+                    f"Confirmation identifier '{confirmation.confirmation_id}' is not unique."
+                )
+            confirmation_ids.add(confirmation.confirmation_id)
 
     return ReducedSession(
         session_id=session_id,

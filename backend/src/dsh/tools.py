@@ -48,6 +48,11 @@ class ToolConfirmationRequiredError(ToolExecutionError):
     """A write tool reached execution without an approved confirmation."""
 
 
+class ToolRiskLevel(Enum):
+    L0 = "l0"
+    L2 = "l2"
+
+
 class PolicyDecision(Enum):
     ALLOW = "allow"
     CONFIRM = "confirm"
@@ -56,6 +61,8 @@ class PolicyDecision(Enum):
 
 class PolicyGate(Protocol):
     def decide(self, call: ToolCall) -> PolicyDecision: ...
+
+    def risk_level(self, call: ToolCall) -> ToolRiskLevel: ...
 
 
 class Tool(Protocol):

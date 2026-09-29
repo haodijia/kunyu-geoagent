@@ -68,9 +68,7 @@ ALLOWED_RUN_TRANSITIONS: Mapping[RunState, frozenset[RunState]] = {
             RunState.CANCELLED,
         }
     ),
-    RunState.WAITING_CONFIRMATION: frozenset(
-        {RunState.READY, RunState.CANCELLED}
-    ),
+    RunState.WAITING_CONFIRMATION: frozenset({RunState.READY, RunState.CANCELLED}),
     RunState.INTERRUPTED: frozenset({RunState.READY, RunState.CANCELLED}),
     RunState.COMPLETED: frozenset(),
     RunState.FAILED: frozenset(),
@@ -238,9 +236,11 @@ class ToolFailedPayload(ToolProgressPayload):
 class ConfirmationRequestedPayload(EventPayload):
     confirmation_id: str
     tool_call_id: str
+    workspace_id: str
     name: str
     arguments: dict[str, JsonValue]
     summary: str
+    side_effect: str
 
 
 class ConfirmationResolvedPayload(EventPayload):
@@ -431,13 +431,13 @@ class EventBatch:
             raise ValueError("An event batch must contain at least one event.")
         for event in self.events:
             if event.session_id != self.session_id or event.run_id != self.run_id:
-                raise ValueError("Every event must belong to the batch session and run.")
+                raise ValueError(
+                    "Every event must belong to the batch session and run."
+                )
 
 
 class EventStore(Protocol):
-    async def commit(
-        self, batch: EventBatch
-    ) -> tuple[AgentEvent, ...]: ...
+    async def commit(self, batch: EventBatch) -> tuple[AgentEvent, ...]: ...
 
     async def list_after(
         self, session_id: str, sequence: int

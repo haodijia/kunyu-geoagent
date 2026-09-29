@@ -109,9 +109,7 @@ class MessageRecord(Base):
     __tablename__ = "messages"
     __table_args__ = (
         CheckConstraint("sequence > 0", name="ck_messages_sequence_positive"),
-        CheckConstraint(
-            "role IN ('user', 'assistant')", name="ck_messages_role"
-        ),
+        CheckConstraint("role IN ('user', 'assistant')", name="ck_messages_role"),
         CheckConstraint(
             "status IN ('streaming', 'completed', 'interrupted', 'failed', "
             "'cancelled')",
@@ -250,8 +248,12 @@ class RunRecord(Base):
     input_tokens: Mapped[int | None] = mapped_column(Integer)
     output_tokens: Mapped[int | None] = mapped_column(Integer)
     total_tokens: Mapped[int | None] = mapped_column(Integer)
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
-    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False
+    )
     updated_sequence: Mapped[int] = mapped_column(Integer, nullable=False)
 
 
@@ -381,8 +383,68 @@ class ToolCallRecord(Base):
     result: Mapped[Any | None] = mapped_column(JSON)
     error_code: Mapped[str | None] = mapped_column(String(100))
     error_summary: Mapped[str | None] = mapped_column(String(500))
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
-    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False
+    )
+    updated_sequence: Mapped[int] = mapped_column(Integer, nullable=False)
+
+
+class ConfirmationRecord(Base):
+    __tablename__ = "confirmations"
+    __table_args__ = (
+        CheckConstraint(
+            "status IN ('pending', 'approved', 'rejected', 'cancelled')",
+            name="ck_confirmations_status",
+        ),
+        CheckConstraint(
+            "updated_sequence > 0",
+            name="ck_confirmations_updated_sequence_positive",
+        ),
+        CheckConstraint(
+            "(status = 'pending' AND decided_at IS NULL) OR "
+            "(status != 'pending' AND decided_at IS NOT NULL)",
+            name="ck_confirmations_decision_shape",
+        ),
+        ForeignKeyConstraint(
+            ["run_id", "session_id"],
+            ["runs.id", "runs.session_id"],
+            ondelete="CASCADE",
+        ),
+        UniqueConstraint(
+            "tool_call_id",
+            name="uq_confirmations_tool_call_id",
+        ),
+        Index(
+            "ix_confirmations_session_created",
+            "session_id",
+            "created_at",
+        ),
+    )
+
+    id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    session_id: Mapped[str] = mapped_column(String(64), nullable=False)
+    run_id: Mapped[str] = mapped_column(String(64), nullable=False)
+    tool_call_id: Mapped[str] = mapped_column(
+        ForeignKey("tool_calls.id", ondelete="CASCADE"), nullable=False
+    )
+    workspace_id: Mapped[str] = mapped_column(
+        ForeignKey("workspaces.id"), nullable=False
+    )
+    name: Mapped[str] = mapped_column(String(200), nullable=False)
+    arguments: Mapped[dict[str, Any]] = mapped_column(JSON, nullable=False)
+    summary: Mapped[str] = mapped_column(String(500), nullable=False)
+    side_effect: Mapped[str] = mapped_column(String(500), nullable=False)
+    status: Mapped[str] = mapped_column(String(32), nullable=False)
+    decided_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False
+    )
     updated_sequence: Mapped[int] = mapped_column(Integer, nullable=False)
 
 
