@@ -1,10 +1,11 @@
 from collections.abc import Callable
 from datetime import UTC, datetime
+from typing import Literal
 from uuid import uuid4
 
 from kunyu.application.sessions import SessionNotFoundError
 from kunyu.domain.events import AgentEvent
-from kunyu.domain.messages import Message, MessageRepository, MessageRole
+from kunyu.domain.messages import Message, MessageRepository
 
 
 class EmptyMessageError(ValueError):
@@ -27,18 +28,16 @@ class MessageService:
         repository: MessageRepository,
         *,
         message_id_factory: Callable[[], str] | None = None,
-        event_id_factory: Callable[[], str] | None = None,
         clock: Callable[[], datetime] | None = None,
     ) -> None:
         self._repository = repository
         self._message_id_factory = message_id_factory or _new_message_id
-        self._event_id_factory = event_id_factory or _new_event_id
         self._clock = clock or _utc_now
 
     def append_user_message(
         self,
         session_id: str,
-        role: MessageRole,
+        role: Literal["user"],
         content: str,
     ) -> Message:
         if not content.strip():
@@ -46,7 +45,6 @@ class MessageService:
 
         result = self._repository.append(
             message_id=self._message_id_factory(),
-            event_id=self._event_id_factory(),
             session_id=session_id,
             role=role,
             content=content,
@@ -78,10 +76,6 @@ class MessageService:
 
 def _new_message_id() -> str:
     return f"msg_{uuid4().hex}"
-
-
-def _new_event_id() -> str:
-    return f"evt_{uuid4().hex}"
 
 
 def _utc_now() -> datetime:

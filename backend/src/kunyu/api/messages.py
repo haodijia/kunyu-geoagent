@@ -81,7 +81,7 @@ class EventResponse(BaseModel):
             session_id=event.session_id,
             sequence=event.sequence,
             event_type=event.event_type,
-            payload=event.payload,
+            payload=dict(event.payload),
             occurred_at=event.occurred_at,
             run_id=event.run_id,
         )

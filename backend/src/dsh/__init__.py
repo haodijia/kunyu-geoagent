@@ -35,6 +35,12 @@ from dsh.run_state import (
     RunReductionError,
 )
 from dsh.runtime import AgentRuntime
+from dsh.session_reducer import reduce_session
+from dsh.session_state import (
+    ReducedSession,
+    ReducedUserMessage,
+    SessionReductionError,
+)
 from dsh.tools import PolicyDecision, PolicyGate, Tool, ToolCall, ToolResult, ToolSpec
 
 __all__ = [
@@ -67,10 +73,13 @@ __all__ = [
     "ReducedAssistant",
     "ReducedBudget",
     "ReducedRun",
+    "ReducedSession",
     "ReducedToolCall",
+    "ReducedUserMessage",
     "ResumePhase",
     "RunReductionError",
     "RunState",
+    "SessionReductionError",
     "TextDelta",
     "TokenUsage",
     "Tool",
@@ -78,4 +87,5 @@ __all__ = [
     "ToolResult",
     "ToolSpec",
     "reduce_run",
+    "reduce_session",
 ]
