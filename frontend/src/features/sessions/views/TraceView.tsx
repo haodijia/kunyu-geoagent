@@ -5,7 +5,8 @@ import { TrajectoryLedger } from "@/features/events/TrajectoryLedger";
 import { TrajectoryInspector } from "@/features/events/TrajectoryInspector";
 import { TrajectoryTimeline } from "@/features/events/TrajectoryTimeline";
 import { TrajectoryToolbar } from "@/features/events/TrajectoryToolbar";
-import { buildTrajectoryRecords, trajectoryTurns } from "@/features/events/trajectory-model";
+import { trajectoryTurns } from "@/features/events/trajectory-model";
+import { buildTrajectoryRecords } from "@/features/events/trajectory-records";
 import { trajectoryTranslate as t } from "@/features/events/trajectory-locales";
 import { trajectoryTimelineFocusIndexes, type TrajectoryTimeRange } from "@/features/events/timeline";
 import { useSessionMessages } from "@/features/messages/SessionMessagesContext";
@@ -16,7 +17,7 @@ import "@/features/events/trajectory-theme.css";
 
 export function TraceView() {
   const eventStream = useSessionEvents();
-  const { messagesQuery } = useSessionMessages();
+  const { messagesQuery, runsQuery, confirmationsQuery } = useSessionMessages();
   const [query, setQuery] = useState("");
   const [actualDuration, setActualDuration] = useState(false);
   const [actualTime, setActualTime] = useState(false);
@@ -25,13 +26,22 @@ export function TraceView() {
   const [focusedIndex, setFocusedIndex] = useState<number | null>(null);
   const root = useRef<HTMLDivElement>(null);
   const composer = useRef<HTMLDivElement>(null);
-  const records = useMemo(() => messagesQuery.data === undefined ? [] :
-    buildTrajectoryRecords(eventStream.records, messagesQuery.data), [eventStream.records, messagesQuery.data]);
+  const records = useMemo(() => buildTrajectoryRecords(
+    eventStream.records,
+    messagesQuery.data ?? [],
+    runsQuery.data ?? [],
+    confirmationsQuery.data ?? []
+  ), [
+    confirmationsQuery.data,
+    eventStream.records,
+    messagesQuery.data,
+    runsQuery.data
+  ]);
   const turns = useMemo(() => trajectoryTurns(records), [records]);
   const mode = actualDuration ? actualTime ? "actual" : "duration" : actualTime ? "time" : "sequence";
   const searchMatches = useMemo(() => {
     const value = query.trim().toLocaleLowerCase("zh-CN");
-    return value === "" ? null : new Set(records.filter(record => record.text.toLocaleLowerCase("zh-CN").includes(value)).map(record => record.index));
+    return value === "" ? null : new Set(records.filter(record => record.searchText.toLocaleLowerCase("zh-CN").includes(value)).map(record => record.index));
   }, [query, records]);
   const rangeMatches = useMemo(() => range === null ? null : trajectoryTimelineFocusIndexes(turns, range, mode), [turns, range, mode]);
   const selected = records.find(record => record.index === selectedIndex);
