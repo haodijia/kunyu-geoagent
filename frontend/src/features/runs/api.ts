@@ -18,12 +18,22 @@ export type RunState =
 
 export interface ToolCall {
   readonly id: string;
+  readonly session_id: string;
+  readonly run_id: string;
+  readonly message_id: string;
+  readonly step: number;
+  readonly attempt: number;
+  readonly provider_call_id: string;
+  readonly batch_index: number;
   readonly name: string;
   readonly arguments: Readonly<Record<string, unknown>>;
   readonly status: "pending" | "running" | "completed" | "failed" | "cancelled";
   readonly result: unknown;
   readonly error_code: string | null;
   readonly error_summary: string | null;
+  readonly created_at: string;
+  readonly updated_at: string;
+  readonly updated_sequence: number;
 }
 
 export interface RunModelSnapshot {

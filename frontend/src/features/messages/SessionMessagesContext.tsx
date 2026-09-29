@@ -186,7 +186,10 @@ function useMessages(sessionId: string, workspaceId: string) {
         }
         pendingMessageEventsRef.current.push(event);
       }
-      refreshRuns ||= event.event_type.startsWith("run.");
+      refreshRuns ||=
+        event.event_type.startsWith("run.") ||
+        event.event_type.startsWith("tool.") ||
+        event.event_type.startsWith("confirmation.");
       refreshConfirmations ||=
         event.event_type === "confirmation.requested" ||
         event.event_type === "confirmation.resolved";

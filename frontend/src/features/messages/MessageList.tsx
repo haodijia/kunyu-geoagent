@@ -1,9 +1,11 @@
-import { Bot, LoaderCircle, MessageCircle } from "lucide-react";
-import { useEffect, useRef, type ReactNode } from "react";
+import { LoaderCircle, MessageCircle } from "lucide-react";
+import { useEffect, useMemo, useRef, type ReactNode } from "react";
 import Markdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 
 import type { MessageStatus, SessionMessage } from "@/features/messages/api";
+import type { RunSnapshot, ToolCall } from "@/features/runs/api";
+import { ToolActivity } from "@/features/runs/ToolActivity";
 import { SessionEmptyState } from "@/features/sessions/SessionEmptyState";
 import { zhCN } from "@/locales/zh-CN";
 
@@ -15,6 +17,7 @@ const timeFormatter = new Intl.DateTimeFormat("zh-CN", {
 
 interface MessageListProps {
   readonly messages: readonly SessionMessage[];
+  readonly runs: readonly RunSnapshot[];
 }
 
 const statusLabels: Record<Exclude<MessageStatus, "completed">, string> = {
@@ -24,9 +27,21 @@ const statusLabels: Record<Exclude<MessageStatus, "completed">, string> = {
   cancelled: content.status.cancelled
 };
 
-export function MessageList({ messages }: MessageListProps) {
+export function MessageList({ messages, runs }: MessageListProps) {
   const endRef = useRef<HTMLDivElement>(null);
   const followStreamRef = useRef(true);
+  const toolsByMessage = useMemo(() => {
+    const grouped = new Map<string, ToolCall[]>();
+    for (const tool of runs.flatMap((run) => run.tool_calls)) {
+      const current = grouped.get(tool.message_id) ?? [];
+      current.push(tool);
+      grouped.set(tool.message_id, current);
+    }
+    for (const tools of grouped.values()) {
+      tools.sort((left, right) => left.batch_index - right.batch_index);
+    }
+    return grouped;
+  }, [runs]);
 
   useEffect(() => {
     const scroller = endRef.current?.closest<HTMLElement>("[data-message-scroll]");
@@ -44,7 +59,7 @@ export function MessageList({ messages }: MessageListProps) {
     if (followStreamRef.current) {
       endRef.current?.scrollIntoView({ block: "end" });
     }
-  }, [messages]);
+  }, [messages, runs]);
 
   if (messages.length === 0) {
     return (
@@ -57,41 +72,45 @@ export function MessageList({ messages }: MessageListProps) {
   }
 
   return (
-    <div className="mx-auto flex w-full max-w-[920px] flex-col gap-7 px-6 py-10">
-      {messages.map((message) => (
-        <article
-          key={message.id}
-          className={
-            message.role === "user"
-              ? "ml-auto flex max-w-[82%] flex-col items-end"
-              : "mr-auto flex max-w-[82%] flex-col items-start"
-          }
-        >
-          {message.role === "user" ? (
-            <div className="rounded-[18px_18px_5px_18px] bg-muted px-4 py-2.5 text-sm leading-6 whitespace-pre-wrap text-foreground [overflow-wrap:anywhere]">
-              {message.content}
+    <div className="mx-auto flex w-full max-w-[920px] flex-col gap-2.5 px-6 py-5">
+      {messages.map((message) => {
+        const tools = toolsByMessage.get(message.id) ?? [];
+        return (
+          <article
+            key={message.id}
+            className={
+              message.role === "user"
+                ? "group ml-auto flex max-w-[82%] flex-col items-end"
+                : "group mr-auto flex w-full flex-col items-start"
+            }
+          >
+            {message.role === "user" ? (
+              <div className="rounded-[8px_0_8px_8px] bg-[var(--message-user-bg)] px-2 py-1.5 text-sm leading-6 whitespace-pre-wrap text-foreground [overflow-wrap:anywhere]">
+                {message.content}
+              </div>
+            ) : (
+              <AssistantContent message={message} />
+            )}
+            {tools.length > 0 ? <ToolActivity tools={tools} /> : null}
+            <div className={`mt-1 flex h-6 items-center gap-2 px-1 text-xs text-muted-foreground transition-opacity ${message.status === "completed" ? "opacity-0 group-hover:opacity-100 group-focus-within:opacity-100" : "opacity-100"}`}>
+              {message.status !== "completed" ? (
+                <span className="inline-flex items-center gap-1" role="status">
+                  {message.status === "streaming" ? (
+                    <LoaderCircle className="size-3 animate-spin" aria-hidden="true" />
+                  ) : null}
+                  {statusLabels[message.status]}
+                  {message.attempt !== null && message.attempt > 1
+                    ? ` · ${content.attempt(message.attempt)}`
+                    : null}
+                </span>
+              ) : null}
+              <time dateTime={message.created_at}>
+                {timeFormatter.format(new Date(message.created_at))}
+              </time>
             </div>
-          ) : (
-            <AssistantContent message={message} />
-          )}
-          <div className="mt-1.5 flex items-center gap-2 px-1 text-xs text-muted-foreground">
-            {message.status !== "completed" && message.status !== "failed" ? (
-              <span className="inline-flex items-center gap-1" role="status">
-                {message.status === "streaming" ? (
-                  <LoaderCircle className="size-3 animate-spin" aria-hidden="true" />
-                ) : null}
-                {statusLabels[message.status]}
-                {message.attempt !== null && message.attempt > 1
-                  ? ` · ${content.attempt(message.attempt)}`
-                  : null}
-              </span>
-            ) : null}
-            <time dateTime={message.created_at}>
-              {timeFormatter.format(new Date(message.created_at))}
-            </time>
-          </div>
-        </article>
-      ))}
+          </article>
+        );
+      })}
       <div ref={endRef} />
     </div>
   );
@@ -99,14 +118,12 @@ export function MessageList({ messages }: MessageListProps) {
 
 function AssistantContent({ message }: { readonly message: SessionMessage }) {
   if (message.content.length === 0) {
-    return (
+    return message.status === "completed" ? null : (
       <div className="flex items-center gap-2 py-1 text-sm text-muted-foreground">
-        <Bot className="size-4" aria-hidden="true" />
-        <span>
-          {message.status === "completed"
-            ? content.toolRoundCompleted
-            : statusLabels[message.status]}
-        </span>
+        {message.status === "streaming" ? (
+          <LoaderCircle className="size-3.5 animate-spin" aria-hidden="true" />
+        ) : null}
+        <span>{statusLabels[message.status]}</span>
       </div>
     );
   }
