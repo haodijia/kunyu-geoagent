@@ -30,8 +30,7 @@ class Database:
         if not database_path.exists():
             database_path.touch(mode=0o600)
         database_path.chmod(0o600)
-        engine = create_engine(database_url(database_path))
-        configure_sqlite(engine)
+        engine = create_database_engine(database_path)
         try:
             upgrade_database(engine)
         except Exception:
@@ -51,12 +50,24 @@ def database_url(database_path: Path) -> URL:
     return URL.create("sqlite+pysqlite", database=str(database_path))
 
 
+def create_database_engine(database_path: Path) -> Engine:
+    engine = create_engine(
+        database_url(database_path),
+        connect_args={"autocommit": False},
+    )
+    configure_sqlite(engine)
+    return engine
+
+
 def configure_sqlite(engine: Engine) -> None:
     @event.listens_for(engine, "connect")
     def set_sqlite_pragmas(dbapi_connection: SQLiteConnection, _: object) -> None:
+        previous_autocommit = dbapi_connection.autocommit
+        dbapi_connection.autocommit = True
         cursor = dbapi_connection.cursor()
         try:
             cursor.execute("PRAGMA foreign_keys=ON")
             cursor.execute("PRAGMA journal_mode=WAL")
         finally:
             cursor.close()
+            dbapi_connection.autocommit = previous_autocommit
