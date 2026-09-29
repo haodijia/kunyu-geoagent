@@ -1,6 +1,6 @@
 # 阶段二：最小 DSH 与模型运行闭环
 
-> 状态：开发中；P2-01～P2-07 已交付，其余开发项待实现。
+> 状态：开发中；P2-01～P2-07 已交付，P2-07A 及其余开发项待实现。
 >
 > 基线日期：2026-09-28。阶段一已完成；本文以当前源码和[开发架构设计](../开发架构设计.md)为基线。
 >
@@ -231,7 +231,7 @@ api/application/domain/persistence 中分别增加模型连接、Run、确认、
 
 1. `kunyu.agent.bootstrap` 显式创建 Host，并按 EventStore → ModelAdapter → Context → ToolRegistry → PolicyGate → Runner 的依赖顺序装配；缺能力或重复提供者立即失败，关闭时逆序释放。
 2. `dsh.runner` 只消费已受理的 run_id，从不可变快照构建模型请求；一次模型响应中的 Tool Call 先组装完整，再按模型关联 ID 校验、登记、过 PolicyGate 和执行。写工具停在持久确认点，不占用模型网络流等待用户。
-3. `dsh.event_store` 只负责会话内有序追加；`dsh.reducer` 从已提交事件得到 RunState。`kunyu` 的 SQLite 适配器把事件、消息、ToolCall 与状态投影放在同一事务，模型可见的已接纳事实必须可由持久记录重建。
+3. `dsh.event_store` 只负责会话内有序追加；`dsh.reducer` 从已提交事件得到 Session/Run 投影。P2-07A 后 `agent_events` 是 Agent 会话与运行事实的唯一事实源，`messages`、`runs`、`run_model_snapshots` 和 `tool_calls` 是可丢弃、可重建的查询投影。`kunyu` 的 SQLite 适配器在同一事务中追加事件并更新投影，禁止绕过 Reducer 直接改变 Agent 状态。WorkspaceMemory、Workspace 和 Artifact 等业务对象不是 Agent 查询投影，仍由各自业务聚合持有。
 4. `dsh.tools` 声明 Schema 和调用契约；`kunyu.agent.tools` 提供白名单业务实现。参数校验和 PolicyGate 位于实际执行之前，模型不能通过提示词、工具名或自报 scope 绕过权限。
 5. Runner 的取消信号终止模型流和未执行工具；已持久的部分正文保持 `interrupted`/`cancelled` 状态。重启只从日志与快照重建，恢复由用户显式触发，不重放状态不明的写入。
 
@@ -282,10 +282,12 @@ API Key 作为模型连接的本地配置写入独立 `ModelCredential` 表，�
 | Run / RunModelSnapshot | Session 下非终态部分唯一索引；快照与 Run 一对一，所有权不能跨 Session；历史 connection_id 是来源标识，不使用会阻止删除连接的外键。 |
 | Message / ToolCall | Message 保持会话 sequence 唯一；Assistant 唯一 `(run_id, step, attempt)`。ToolCall 内部 id 全局唯一，Provider call_id 仅在 `(run_id, step, attempt)` 内唯一，另存 batch_index。 |
 | Confirmation / WorkspaceMemory | 每个 ToolCall 至多一个确认；Memory.source_tool_call_id 唯一。确认绑定原始工具参数和 workspace/session，不接受客户端改 scope。 |
-| AgentEvent / 幂等记录 | 事件唯一 `(session_id, sequence)`；幂等唯一 `(session_id, key)`。所有 run/message/tool 关联须验证同属当前 Session。 |
+| AgentEvent / 幂等记录 | 事件唯一 `(session_id, sequence)`；`run_id` 是事件事实中的稳定标识，不得外键依赖 `runs` 查询投影；幂等唯一 `(session_id, key)`。所有 run/message/tool 关联须验证同属当前 Session。 |
 | SessionPreference / 删除 | 偏好每会话一条，引用失效只提示重新选择；永久删除会话级联 Run、消息、事件、确认、工具和幂等记录。已确认 WorkspaceMemory 属于空间，保留原调用 ID 为来源值，不随会话删除；移除 Workspace 仅软移除。 |
 
 EventStore 的单事件 append 不得自行形成与业务写入分离的提交。P2-06 提供业务无关的批次提交/工作单元接缝，SQLite 实现拥有一次事务：读持久状态 → Reducer 验证事件 → 更新消息/工具/确认/状态投影 → 分配事件序号 → commit。模型与凭据 I/O 不进入该事务。取消和批准走同一提交入口及条件更新。
+
+Agent 投影表不得携带事件中缺失的独占事实。投影重建只读取按 `(session_id, sequence)` 排序的 `agent_events`，不读旧投影表补全字段，不调用模型或工具，不重放 WorkspaceMemory 等外部副作用。日常提交路径与全量重建必须共用同一组 Reducer 和投影写入器，避免形成第二套状态规则。幂等受理记录、会话偏好及业务聚合不属于 Agent 查询投影。
 
 ### 4.11 模型轮次、历史与流式一致性
 
@@ -301,6 +303,7 @@ step 从 1 开始，每次正常模型—工具推进递增；attempt 从 1 开�
 
 | 事件组 | payload 必要信息 |
 | --- | --- |
+| message.user.appended | message_id、完整 content、可空 run_id；role 固定为 user，顺序与时间使用事件信封，不得回查 `messages` 表补齐。 |
 | run.created / model_selected | user_message_id、运行快照/版本、预算上限；重建不得查询后来变化的连接配置。 |
 | run.started / resumed / interrupted / recovery_required | step、attempt、resume_phase、next_tool_index、requires_resume、queue_sequence、暂停原因、累计预算；恢复时不得重置累计值。 |
 | run.budget_reserved / settled | operation_id、模型/工具类型、次数、预留额度、结算实际耗时或崩溃扣减，足以重放累计预算。 |
@@ -447,11 +450,19 @@ P2-02～11 不启用正式消息 Run 入口：旧消息功能持续可用，新�
 
 **检查**：回放同一事件序列得到相同结果；非法转移报错；中断、取消、完成不会互相覆盖；恢复后预算和工具结果不丢失。
 
+### P2-07A `fix(events): make the event log the sole agent fact source`
+
+**结果**：`agent_events` 独立承载完整 Agent 会话与运行事实，所有 Agent 查询投影均可由事件确定性重建。
+
+**范围**：修正 `message.user.appended` 闭合 payload，持久完整用户正文，不再把 `CreateRunProjection.user_message` 作为事件外的事实输入；将 Session 级用户消息投影与已有 Run Reducer 收敛到同一重放路径；`messages`、`runs`、`run_model_snapshots`、`tool_calls` 只能由 Reducer 产生。移除 `agent_events(run_id, session_id) → runs(id, session_id)` 外键及级联删除，`run_id` 仅作为可索引的稳定事实标识，所有权和顺序由闭合事件校验与 Reducer 保证，确保删除 Run 投影不会删除事件。增加内部投影重建服务，按会话事件序列验证连续性并在单个 SQLite 事务内替换投影；无事件正文的现有开发数据通过一次性 Alembic 迁移从同库 `messages` 补入事件，迁移后运行时不保留回查旧投影的兼容路径。P2-09 新增 Confirmation 时必须同步接入该 Reducer/重建契约；WorkspaceMemory 作为已确认业务事实，不在投影重建时重放写入。
+
+**检查**：使用隔离开发库创建独立用户消息和含 Assistant/ToolCall 的 Run；备份后删除 Agent 查询投影、执行全量重建，逐字段确认消息正文/顺序/状态、Run 快照/预算/终态及 ToolCall 参数/结果与重建前一致，`agent_events` 不发生变化；重复重建结果一致；日常提交与重建使用同一 Reducer；重建不调用模型、工具或 WorkspaceMemory 写入。
+
 ### P2-08 `feat(agent): add scoped context and local tools`
 
 **结果**：GeoAgent 能读取当前工作空间并提出本地记忆写入。
 
-**范围**：按 4.11 的完整 step 规则构建模型历史，Context 注入当前会话、地图快照和确认记忆；按 4.13 实现白名单工具、参数 Schema、作用域校验与有界结果；WorkspaceMemory 表与 tool_call_id 唯一约束。写工具此时仅登记，不绕过下一项确认门禁。
+**范围**：以 P2-07A 已重建的查询投影为读取入口，按 4.11 的完整 step 规则构建模型历史，Context 注入当前会话、地图快照和确认记忆；按 4.13 实现白名单工具、参数 Schema、作用域校验与有界结果；WorkspaceMemory 表与 tool_call_id 唯一约束。写工具此时仅登记，不绕过下一项确认门禁。
 
 **检查**：只读工具返回真实业务数据；跨空间 ID 被拒绝；模型不能指定文件路径、SQL 或 URL 执行；未批准记忆不出现在查询结果中。
 
@@ -578,6 +589,7 @@ P2-02～11 不启用正式消息 Run 入口：旧消息功能持续可用，新�
 - 幂等响应丢失后，待 Run 完成再归档或删除原连接，同 key/正文仍返回原记录；改变正文仍为 409。
 - 目录发现/模型检查期间修改配置，以及同修订并发刷新：旧结果不覆盖新结果；保存成功、发现失败在 UI 中分别呈现。
 - 凭据写入、替换、清除和连接删除在事务提交前退出不产生部分更新；提交后重启结果完整一致；数据库不可写时明确失败。
+- 备份隔离数据库后删除 `messages`、`runs`、`run_model_snapshots` 和 `tool_calls` 投影，只依据 `agent_events` 重建；重建前后 REST 消息、Run 状态、快照、预算和工具记录逐字段一致，重复重建不改变结果，且不产生任何业务副作用。
 - 一个模型 step 含“只读—确认写入—只读”三项：第二项等待时重启，批准只推进一次；批准事务提交后入队前退出也不重做写入。拒绝/取消后新 Run 的历史不含未配对工具批次。
 - 文本检查成功但工具检查未通过的模型不能创建 GeoAgent Run；能力 unknown 不发送 reasoning_effort；免密服务无需伪造 key。
 - emoji/组合字符正文、重叠增量、缺口、旧 REST 快照晚返回、新 attempt 均不重复、不回退；流缺 finish_reason、length 和空正常输出不能显示完成。
@@ -593,9 +605,10 @@ P2-02～11 不启用正式消息 Run 入口：旧消息功能持续可用，新�
 
 ```text
 共享输入框 + ModelSelection + MapContext + Idempotency-Key
-  → 应用服务原子写入 User Message / Run / 模型快照 / 创建事件
+  → 应用服务原子追加完整创建事件
+  → Reducer 在同一事务生成 User Message / Run / 模型快照查询投影
   → DSH Context → Model → Tool / Confirmation → Model
-  → 持久 Assistant / ToolCall / RunState / 有序事件
+  → 追加有序事件并同事务更新 Assistant / ToolCall / RunState 查询投影
   → REST 快照 + SSE → 对话 / 轨迹 / 运行操作
 ```
 
