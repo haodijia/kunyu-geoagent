@@ -34,6 +34,17 @@ from dsh.run_state import (
     ReducedToolCall,
     RunReductionError,
 )
+from dsh.runner import Runner
+from dsh.runner_types import (
+    ConfirmationRequester,
+    RunExecution,
+    RunExecutionProvider,
+    RunnerConfig,
+    RunnerConflictError,
+    RunnerError,
+    RunnerNotFoundError,
+    ToolRegistryProvider,
+)
 from dsh.runtime import AgentRuntime
 from dsh.session_reducer import reduce_session
 from dsh.session_state import (
@@ -63,6 +74,7 @@ __all__ = [
     "AgentEvent",
     "AgentRuntime",
     "Capability",
+    "ConfirmationRequester",
     "ContextProvider",
     "EventBatch",
     "EventDraft",
@@ -90,8 +102,15 @@ __all__ = [
     "ReducedToolCall",
     "ReducedUserMessage",
     "ResumePhase",
+    "RunExecution",
+    "RunExecutionProvider",
     "RunReductionError",
     "RunState",
+    "Runner",
+    "RunnerConfig",
+    "RunnerConflictError",
+    "RunnerError",
+    "RunnerNotFoundError",
     "SessionReductionError",
     "TextDelta",
     "TokenUsage",
@@ -102,6 +121,7 @@ __all__ = [
     "ToolNotFoundError",
     "ToolRegistry",
     "ToolRegistryError",
+    "ToolRegistryProvider",
     "ToolResult",
     "ToolSpec",
     "ToolValidationError",
