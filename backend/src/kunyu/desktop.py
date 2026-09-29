@@ -2,6 +2,7 @@ import os
 import socket
 import sys
 from collections.abc import Callable
+from types import FrameType
 from typing import Literal
 
 import uvicorn
@@ -24,9 +25,15 @@ class ReadyMessage(BaseModel):
 
 
 class DesktopServer(uvicorn.Server):
-    def __init__(self, config: uvicorn.Config, ready_message: ReadyMessage) -> None:
+    def __init__(
+        self,
+        config: uvicorn.Config,
+        ready_message: ReadyMessage,
+        begin_shutdown: Callable[[], None],
+    ) -> None:
         super().__init__(config)
         self._ready_message = ready_message
+        self._begin_shutdown = begin_shutdown
         self._ready_emitted = False
 
     async def startup(self, sockets: list[socket.socket] | None = None) -> None:
@@ -37,6 +44,10 @@ class DesktopServer(uvicorn.Server):
         sys.stdout.write(f"{self._ready_message.model_dump_json()}\n")
         sys.stdout.flush()
         self._ready_emitted = True
+
+    def handle_exit(self, sig: int, frame: FrameType | None) -> None:
+        self._begin_shutdown()
+        super().handle_exit(sig, frame)
 
 
 def run_desktop(app_factory: Callable[[str], FastAPI]) -> None:
@@ -58,9 +69,16 @@ def run_desktop(app_factory: Callable[[str], FastAPI]) -> None:
         port=DESKTOP_PORT,
         access_log=False,
     )
-    server = DesktopServer(config, ready_message)
+
+    def begin_shutdown() -> None:
+        scheduler = getattr(app.state, "run_scheduler", None)
+        if scheduler is not None:
+            scheduler.begin_shutdown()
+
+    server = DesktopServer(config, ready_message, begin_shutdown)
 
     def request_shutdown() -> None:
+        begin_shutdown()
         server.should_exit = True
 
     app.state.shutdown_callback = request_shutdown

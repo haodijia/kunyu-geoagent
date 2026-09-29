@@ -1,5 +1,5 @@
 """Kunyu-specific assembly for the generic DSH runtime."""
 
-from kunyu.agent.runner import create_agent_runner
+from kunyu.agent.bootstrap import AgentRuntimeBundle, create_agent_runtime
 
-__all__ = ["create_agent_runner"]
+__all__ = ["AgentRuntimeBundle", "create_agent_runtime"]

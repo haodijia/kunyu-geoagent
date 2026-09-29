@@ -4,9 +4,6 @@ from time import monotonic_ns
 from typing import Literal
 from uuid import uuid4
 
-from pydantic import JsonValue, TypeAdapter
-from sqlalchemy import select, text
-
 from dsh.events import (
     BudgetReservedEvent,
     BudgetReservedPayload,
@@ -19,6 +16,8 @@ from dsh.events import (
     ConfirmationResolvedPayload,
     EventBatch,
     EventDraft,
+    RunProgressEvent,
+    RunProgressPayload,
     RunTerminalEvent,
     RunTerminalPayload,
     ToolCompletedEvent,
@@ -28,6 +27,9 @@ from dsh.events import (
 )
 from dsh.tools import PolicyDecision
 from dsh.tools import ToolCall as PolicyToolCall
+from pydantic import JsonValue, TypeAdapter
+from sqlalchemy import func, select, text
+
 from kunyu.application.local_tools import LocalToolPolicyGate, LocalToolRegistryFactory
 from kunyu.application.sessions import SessionNotFoundError
 from kunyu.domain.confirmations import (
@@ -157,8 +159,20 @@ class ConfirmationService:
             raise RuntimeError("Confirmation projection was not persisted.")
         return confirmation
 
-    def approve(self, confirmation_id: str) -> ConfirmationDecisionResult:
-        return self._decide(confirmation_id, "approved")
+    def get(self, confirmation_id: str) -> Confirmation:
+        confirmation = self._repository.get(confirmation_id)
+        if confirmation is None:
+            raise ConfirmationNotFoundError(confirmation_id)
+        return confirmation
+
+    def approve(
+        self, confirmation_id: str, queue_sequence: int | None
+    ) -> ConfirmationDecisionResult:
+        return self._decide(
+            confirmation_id,
+            "approved",
+            queue_sequence=queue_sequence,
+        )
 
     def reject(self, confirmation_id: str) -> ConfirmationDecisionResult:
         return self._decide(confirmation_id, "rejected")
@@ -222,6 +236,8 @@ class ConfirmationService:
         self,
         confirmation_id: str,
         decision: Literal["approved", "rejected", "cancelled"],
+        *,
+        queue_sequence: int | None = None,
     ) -> ConfirmationDecisionResult:
         with self._database.sessions() as database_session:
             database_session.execute(text("BEGIN IMMEDIATE"))
@@ -267,12 +283,27 @@ class ConfirmationService:
 
             events: tuple[EventDraft, ...]
             if decision == "approved":
+                if queue_sequence is None or queue_sequence <= 0:
+                    raise ConfirmationConflictError(
+                        "Approved continuations require a queue sequence."
+                    )
+                batch_size = database_session.scalar(
+                    select(func.count())
+                    .select_from(ToolCallRecord)
+                    .where(
+                        ToolCallRecord.run_id == run_record.id,
+                        ToolCallRecord.step == run_record.step,
+                        ToolCallRecord.attempt == run_record.attempt,
+                    )
+                )
                 events, memory = self._approve_events(
                     confirmation_record,
                     run_record,
                     tool_record,
                     resolved,
                     now,
+                    queue_sequence,
+                    int(batch_size or 0),
                 )
                 add_workspace_memory(database_session, memory)
                 database_session.flush()
@@ -317,6 +348,8 @@ class ConfirmationService:
         tool: ToolCallRecord,
         resolved: ConfirmationResolvedEvent,
         now: datetime,
+        queue_sequence: int,
+        batch_size: int,
     ) -> tuple[tuple[EventDraft, ...], WorkspaceMemory]:
         arguments = self._validate_exact_snapshot(run.id, tool)
         if arguments != confirmation.arguments:
@@ -414,6 +447,34 @@ class ConfirmationService:
                         **common,
                         next_tool_index=next_tool_index,
                         result=result,
+                    ),
+                    occurred_at=now,
+                ),
+                RunProgressEvent(
+                    session_id=confirmation.session_id,
+                    run_id=confirmation.run_id,
+                    event_type="run.queued",
+                    payload=RunProgressPayload(
+                        step=run.step,
+                        attempt=run.attempt,
+                        resume_phase=(
+                            "tool" if next_tool_index < batch_size else "model"
+                        ),
+                        next_tool_index=next_tool_index,
+                        requires_resume=False,
+                        queue_sequence=queue_sequence,
+                        reason=None,
+                        budget=BudgetUsagePayload(
+                            model_calls=run.model_calls,
+                            tool_calls=run.tool_calls + 1,
+                            active_milliseconds=(
+                                run.active_milliseconds + actual_milliseconds
+                            ),
+                            output_codepoints=run.output_codepoints,
+                            input_tokens=run.input_tokens,
+                            output_tokens=run.output_tokens,
+                            total_tokens=run.total_tokens,
+                        ),
                     ),
                     occurred_at=now,
                 ),

@@ -16,6 +16,7 @@ from kunyu.application.model_connections import (
     ModelConnectionNotFoundError,
     normalize_model_id,
 )
+from kunyu.application.run_lifecycle import RunLifecycleService
 from kunyu.domain.model_connections import (
     CapabilitySource,
     CapabilityStatus,
@@ -90,6 +91,7 @@ class ModelCatalogService:
         credential_repository: ModelCredentialRepository,
         locks: ConnectionOperationLocks,
         provider: OpenAICompatibleClient,
+        run_lifecycle: RunLifecycleService,
         *,
         clock: Callable[[], datetime] | None = None,
     ) -> None:
@@ -97,6 +99,7 @@ class ModelCatalogService:
         self._credentials = credential_repository
         self._locks = locks
         self._provider = provider
+        self._run_lifecycle = run_lifecycle
         self._clock = clock or _utc_now
 
     async def discover(self, connection_id: str) -> DiscoveryResult:
@@ -139,6 +142,7 @@ class ModelCatalogService:
     def add_manual_model(self, connection_id: str, model_id: str) -> ModelCatalogEntry:
         normalized_id = normalize_model_id(model_id)
         with self._locks.hold(connection_id):
+            self._run_lifecycle.require_connection_available(connection_id)
             connection = self._get(connection_id)
             current = find_entry(connection, normalized_id)
             if current is not None and CatalogSource.MANUAL in current.sources:
@@ -206,6 +210,7 @@ class ModelCatalogService:
     def delete_manual_model(self, connection_id: str, model_id: str) -> None:
         normalized_id = normalize_model_id(model_id)
         with self._locks.hold(connection_id):
+            self._run_lifecycle.require_connection_available(connection_id)
             connection = self._get(connection_id)
             current = find_entry(connection, normalized_id)
             if current is None or CatalogSource.MANUAL not in current.sources:

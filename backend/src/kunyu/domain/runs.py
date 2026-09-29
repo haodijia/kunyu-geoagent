@@ -3,9 +3,9 @@ from datetime import datetime
 from enum import StrEnum
 from typing import Literal
 
+from dsh.events import TERMINAL_RUN_STATES, ResumePhase, RunState
 from pydantic import JsonValue
 
-from dsh.events import TERMINAL_RUN_STATES, ResumePhase, RunState
 from kunyu.domain.model_connections import (
     MaxTokensField,
     ModelAuthMode,
@@ -95,6 +95,13 @@ class ToolCall:
     created_at: datetime
     updated_at: datetime
     updated_sequence: int
+
+
+@dataclass(frozen=True, slots=True)
+class RunDetails:
+    run: Run
+    model_snapshot: RunModelSnapshot
+    tool_calls: tuple[ToolCall, ...]
 
 
 class ProjectionConflictError(RuntimeError):

@@ -5,6 +5,7 @@ from urllib.parse import SplitResult, urlsplit, urlunsplit
 from uuid import uuid4
 
 from kunyu.application.connection_locks import ConnectionOperationLocks
+from kunyu.application.run_lifecycle import RunLifecycleService
 from kunyu.domain.model_connections import (
     CapabilitySource,
     CapabilityStatus,
@@ -22,8 +23,8 @@ from kunyu.domain.model_connections import (
     ModelCheck,
     ModelConnection,
     ModelConnectionRepository,
-    ModelProviderType,
     ModelProtocol,
+    ModelProviderType,
 )
 
 MAX_DISPLAY_NAME_LENGTH = 200
@@ -67,12 +68,14 @@ class ModelConnectionService:
         self,
         repository: ModelConnectionRepository,
         locks: ConnectionOperationLocks,
+        run_lifecycle: RunLifecycleService,
         *,
         id_factory: Callable[[], str] | None = None,
         clock: Callable[[], datetime] | None = None,
     ) -> None:
         self._repository = repository
         self._locks = locks
+        self._run_lifecycle = run_lifecycle
         self._id_factory = id_factory or _new_connection_id
         self._clock = clock or _utc_now
 
@@ -162,6 +165,7 @@ class ModelConnectionService:
 
         current = self.get(connection_id)
         _require_ready(current)
+        self._run_lifecycle.require_connection_available(connection_id)
         values: dict[str, object] = dict(changes)
         for field in (
             "display_name",
@@ -280,8 +284,10 @@ class ModelConnectionService:
             with self._locks.hold_many(default_ids | {connection_id}):
                 current = self.get(connection_id)
                 _require_ready(current)
+                self._run_lifecycle.require_connection_available(connection_id)
                 for default_id in default_ids:
                     _require_ready(self.get(default_id))
+                    self._run_lifecycle.require_connection_available(default_id)
                 if not current.enabled:
                     raise InvalidModelConnectionError(
                         "A disabled connection cannot be the default."
@@ -295,6 +301,7 @@ class ModelConnectionService:
         with self._locks.hold(connection_id):
             connection = self.get(connection_id)
             _require_ready(connection)
+            self._run_lifecycle.require_connection_available(connection_id)
             if connection.is_default:
                 raise DefaultModelConnectionError(
                     "Clear the default connection before deleting it."

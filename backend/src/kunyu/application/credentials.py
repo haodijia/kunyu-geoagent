@@ -6,6 +6,7 @@ from kunyu.application.model_connections import (
     ModelConnectionBusyError,
     ModelConnectionNotFoundError,
 )
+from kunyu.application.run_lifecycle import RunLifecycleService
 from kunyu.domain.model_connections import (
     ManagementStatus,
     ModelAuthMode,
@@ -31,12 +32,14 @@ class ModelCredentialService:
         connection_repository: ModelConnectionRepository,
         credential_repository: ModelCredentialRepository,
         locks: ConnectionOperationLocks,
+        run_lifecycle: RunLifecycleService,
         *,
         clock: Callable[[], datetime] | None = None,
     ) -> None:
         self._connections = connection_repository
         self._credentials = credential_repository
         self._locks = locks
+        self._run_lifecycle = run_lifecycle
         self._clock = clock or _utc_now
 
     def set_api_key(self, connection_id: str, api_key: str) -> ModelConnection:
@@ -48,6 +51,7 @@ class ModelCredentialService:
             )
         with self._locks.hold(connection_id):
             connection = self._get(connection_id)
+            self._run_lifecycle.require_connection_available(connection_id)
             if connection.auth_mode is not ModelAuthMode.API_KEY:
                 raise UnsupportedCredentialError(
                     "This connection does not use API key authentication."
@@ -65,6 +69,7 @@ class ModelCredentialService:
     def clear(self, connection_id: str) -> ModelConnection:
         with self._locks.hold(connection_id):
             connection = self._get(connection_id)
+            self._run_lifecycle.require_connection_available(connection_id)
             _require_ready(connection)
             updated = self._credentials.clear_api_key(
                 connection_id,

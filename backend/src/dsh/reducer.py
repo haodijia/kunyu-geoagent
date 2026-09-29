@@ -214,6 +214,16 @@ def _progress(state: _State, event: RunProgressEvent, sequence: int) -> None:
             state, target, payload.step, payload.attempt, payload.next_tool_index
         )
         _transition(state, target)
+    elif event.event_type == "run.queued":
+        if state.state is not RunState.READY or state.requires_resume:
+            raise RunReductionError("Only an executable ready run can be queued.")
+        if (
+            payload.step != state.step
+            or payload.attempt != state.attempt
+            or phase is not state.resume_phase
+            or payload.next_tool_index != state.next_tool_index
+        ):
+            raise RunReductionError("Queued progress must preserve the run boundary.")
     elif event.event_type == "run.resumed":
         if state.state is RunState.INTERRUPTED:
             if phase is ResumePhase.MODEL:
@@ -253,8 +263,26 @@ def _progress(state: _State, event: RunProgressEvent, sequence: int) -> None:
         raise RunReductionError(
             "Interrupted or recovered runs must require explicit resume."
         )
-    if event.event_type in {"run.started", "run.resumed"} and payload.requires_resume:
+    if (
+        event.event_type in {"run.started", "run.queued", "run.resumed"}
+        and payload.requires_resume
+    ):
         raise RunReductionError("Started or resumed runs cannot still require resume.")
+    if (
+        event.event_type in {"run.queued", "run.resumed"}
+        and payload.queue_sequence is None
+    ):
+        raise RunReductionError("Queued and resumed runs require a queue sequence.")
+    if (
+        event.event_type
+        in {
+            "run.started",
+            "run.interrupted",
+            "run.recovery_required",
+        }
+        and payload.queue_sequence is not None
+    ):
+        raise RunReductionError("Non-queued progress cannot retain a queue sequence.")
     state.step = payload.step
     state.attempt = payload.attempt
     state.resume_phase = phase
