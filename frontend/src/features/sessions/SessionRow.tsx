@@ -3,6 +3,7 @@ import { Tooltip } from "@/components/ui/tooltip";
 import { Archive } from "lucide-react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
+import { ApiError } from "@/api/client";
 import { clearLastSessionRoute, readLastSessionRoute } from "@/app/storage";
 import { cn } from "@/lib/utils";
 import { zhCN } from "@/locales/zh-CN";
@@ -43,7 +44,11 @@ export function SessionRow({
     },
     onError: (error) => {
       console.error("[sessions] Archive failed", error);
-      toast.error(content.archiveFailed);
+      toast.error(
+        error instanceof ApiError && error.code === "RUN_CONFLICT"
+          ? content.archiveRunConflict
+          : content.archiveFailed
+      );
     }
   });
   function openSession() {

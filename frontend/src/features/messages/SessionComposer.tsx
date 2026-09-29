@@ -101,9 +101,11 @@ export function SessionComposer({ compact = false }: SessionComposerProps) {
           ? zhCN.conversation.selectModelRequired
           : reasoningSelectionInvalid
             ? zhCN.conversation.reasoningSelectionInvalid
-            : stopMutation.isError
-              ? zhCN.conversation.runActionFailed
-              : null
+            : runsQuery.isError
+              ? zhCN.conversation.runsLoadFailed
+              : stopMutation.isError
+                ? zhCN.conversation.runActionFailed
+                : null
   );
   const { latitude, longitude, zoom } = mapContext.viewport;
 
@@ -142,6 +144,7 @@ export function SessionComposer({ compact = false }: SessionComposerProps) {
           ? false
           : selectedModel === undefined ||
             reasoningSelectionInvalid ||
+            runsQuery.data === undefined ||
             activeRun !== undefined
       }
       showModelSettings={

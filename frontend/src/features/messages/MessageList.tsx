@@ -16,6 +16,7 @@ const timeFormatter = new Intl.DateTimeFormat("zh-CN", {
 });
 
 interface MessageListProps {
+  readonly footer?: ReactNode;
   readonly messages: readonly SessionMessage[];
   readonly runs: readonly RunSnapshot[];
 }
@@ -27,7 +28,7 @@ const statusLabels: Record<Exclude<MessageStatus, "completed">, string> = {
   cancelled: content.status.cancelled
 };
 
-export function MessageList({ messages, runs }: MessageListProps) {
+export function MessageList({ footer, messages, runs }: MessageListProps) {
   const endRef = useRef<HTMLDivElement>(null);
   const followStreamRef = useRef(true);
   const toolsByMessage = useMemo(() => {
@@ -111,6 +112,7 @@ export function MessageList({ messages, runs }: MessageListProps) {
           </article>
         );
       })}
+      {footer}
       <div ref={endRef} />
     </div>
   );

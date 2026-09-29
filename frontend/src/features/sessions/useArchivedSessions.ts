@@ -1,6 +1,7 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import React from "react";
+import { ApiError } from "@/api/client";
 import { workspaceQueryKeys } from "@/features/workspaces/api";
 import { zhCN } from "@/locales/zh-CN";
 import { archivedSessionApi } from "./archive-api";
@@ -302,7 +303,11 @@ export function useArchivedSessions() {
       toast.success(content.deleteSuccess);
     } catch (error) {
       console.error("[archives] Deletion failed", error);
-      toast.error(content.deleteFailed);
+      toast.error(
+        error instanceof ApiError && error.code === "RUN_CONFLICT"
+          ? content.deleteRunConflict
+          : content.deleteFailed
+      );
     } finally {
       setDeleting(false);
     }

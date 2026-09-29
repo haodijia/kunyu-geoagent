@@ -8,6 +8,7 @@ import {
 import { Ellipsis, X } from "lucide-react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useLocation, useNavigate } from "react-router-dom";
+import { ApiError } from "@/api/client";
 import { clearLastSessionRoute, readLastSessionRoute } from "@/app/storage";
 import { parseSessionRoute } from "@/features/sessions/routes";
 import { zhCN } from "@/locales/zh-CN";
@@ -42,7 +43,11 @@ export function WorkspaceActions({
     },
     onError: (error) => {
       console.error("[workspaces] Removal failed", error);
-      toast.error(content.removeFailed);
+      toast.error(
+        error instanceof ApiError && error.code === "RUN_CONFLICT"
+          ? content.removeRunConflict
+          : content.removeFailed
+      );
     }
   });
   return (
