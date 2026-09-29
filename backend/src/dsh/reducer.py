@@ -273,7 +273,14 @@ def _validate_start(
 ) -> None:
     if target is RunState.MODEL_RUNNING:
         if state.state is RunState.READY:
-            expected = (1, 1) if state.step == 0 else (state.step, state.attempt)
+            if state.step == 0:
+                expected = (1, 1)
+            elif state.resume_phase is ResumePhase.MODEL and _complete_attempt_tools(
+                state
+            ):
+                expected = (state.step + 1, 1)
+            else:
+                expected = (state.step, state.attempt)
         elif state.state is RunState.TOOL_RUNNING:
             _require_complete_tool_batch(state)
             expected = (state.step + 1, 1)
@@ -551,7 +558,7 @@ def _progress_tool(state: _State, event: ToolProgressEvent, sequence: int) -> No
         approved = _approved_pending_confirmation(state)
         if (
             state.state not in {RunState.TOOL_RUNNING, RunState.WAITING_CONFIRMATION}
-            or tool.status != "pending"
+            or tool.status not in {"pending", "cancelled"}
             or (
                 state.state is RunState.WAITING_CONFIRMATION
                 and (approved is None or approved.tool_call_id != tool.tool_call_id)
@@ -836,6 +843,15 @@ def _require_complete_tool_batch(state: _State) -> None:
         raise RunReductionError(
             "Only a fully successful tool batch can advance the model step."
         )
+
+
+def _complete_attempt_tools(state: _State) -> bool:
+    calls = _attempt_tools(state)
+    return (
+        bool(calls)
+        and state.next_tool_index == len(calls)
+        and all(item.status == "completed" for item in calls)
+    )
 
 
 def _require_complete_tool_history(state: _State) -> None:
