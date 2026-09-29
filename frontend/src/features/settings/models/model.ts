@@ -45,7 +45,7 @@ export function connectionErrorMessage(error: unknown): string {
   if (!(error instanceof ApiError)) {
     return zhCN.modelConnections.errors.unknown;
   }
-  const code = readErrorCode(error.details);
+  const code = error.code ?? "REQUEST_FAILED";
   const messages: Readonly<Record<string, string>> = zhCN.modelConnections.errors.byCode;
   return messages[code] ??
     zhCN.modelConnections.errors.requestFailed(error.status);
@@ -55,19 +55,4 @@ export function providerErrorLabel(code: string | null): string | null {
   if (code === null) return null;
   const messages: Readonly<Record<string, string>> = zhCN.modelConnections.errors.byCode;
   return messages[code] ?? code;
-}
-
-function readErrorCode(details: unknown): string {
-  if (
-    typeof details === "object" &&
-    details !== null &&
-    "error" in details &&
-    typeof details.error === "object" &&
-    details.error !== null &&
-    "code" in details.error &&
-    typeof details.error.code === "string"
-  ) {
-    return details.error.code;
-  }
-  return "REQUEST_FAILED";
 }
