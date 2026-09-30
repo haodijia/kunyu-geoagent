@@ -20,11 +20,11 @@ import {
 import type { SessionEvent } from "@/features/events/api";
 import { useSessionEvents } from "@/features/events/SessionEventContext";
 import {
-  listRuns,
-  mergeRunSnapshots,
-  runQueryKeys,
-  type RunSnapshot
-} from "@/features/runs/api";
+  listAgentTurns,
+  mergeAgentTurns,
+  agentQueryKeys,
+  type AgentTurn
+} from "@/features/agent/api";
 import { createMapContext } from "@/features/sessions/map-context";
 import { modelConnectionsApi } from "@/features/settings/models/api";
 import type {
@@ -103,12 +103,12 @@ function useMessages(sessionId: string, workspaceId: string) {
     queryKey: ["model-connections"],
     queryFn: modelConnectionsApi.list
   });
-  const runsQuery = useQuery<RunSnapshot[]>({
-    queryKey: runQueryKeys.session(sessionId),
+  const agentTurnsQuery = useQuery<AgentTurn[]>({
+    queryKey: agentQueryKeys.session(sessionId),
     queryFn: async () => {
-      const incoming = await listRuns(sessionId);
-      return mergeRunSnapshots(
-        queryClient.getQueryData<RunSnapshot[]>(runQueryKeys.session(sessionId)),
+      const incoming = await listAgentTurns(sessionId);
+      return mergeAgentTurns(
+        queryClient.getQueryData<AgentTurn[]>(agentQueryKeys.session(sessionId)),
         incoming
       );
     }
@@ -140,16 +140,16 @@ function useMessages(sessionId: string, workspaceId: string) {
     if (
       modelSelection !== undefined ||
       connectionsQuery.data === undefined ||
-      runsQuery.data === undefined
+      agentTurnsQuery.data === undefined
     ) {
       return;
     }
-    const latestRun = runsQuery.data.at(-1);
-    if (latestRun !== undefined) {
+    const latestTurn = agentTurnsQuery.data.at(-1);
+    if (latestTurn !== undefined) {
       setModelSelection(sessionId, {
-        connectionId: latestRun.model_snapshot.connection_id,
-        modelId: latestRun.model_snapshot.model_id,
-        reasoningEffort: latestRun.model_snapshot.reasoning_effort
+        connectionId: latestTurn.model_snapshot.connection_id,
+        modelId: latestTurn.model_snapshot.model_id,
+        reasoningEffort: latestTurn.model_snapshot.reasoning_effort
       });
       return;
     }
@@ -172,7 +172,7 @@ function useMessages(sessionId: string, workspaceId: string) {
   }, [
     connectionsQuery.data,
     modelSelection,
-    runsQuery.data,
+    agentTurnsQuery.data,
     sessionId,
     setModelSelection,
     usableModels
@@ -180,7 +180,7 @@ function useMessages(sessionId: string, workspaceId: string) {
 
   useEffect(() => {
     let needsMessageSnapshot = false;
-    let refreshRuns = false;
+    let refreshAgentTurns = false;
     let refreshConfirmations = false;
 
     for (const event of events) {
@@ -196,7 +196,7 @@ function useMessages(sessionId: string, workspaceId: string) {
         }
         pendingMessageEventsRef.current.push(event);
       }
-      refreshRuns ||=
+      refreshAgentTurns ||=
         event.event_type.startsWith("run.") ||
         event.event_type.startsWith("tool.") ||
         event.event_type.startsWith("confirmation.");
@@ -240,8 +240,8 @@ function useMessages(sessionId: string, workspaceId: string) {
         setReconcileRevision((current) => current + 1);
       });
     }
-    if (refreshRuns) {
-      void queryClient.invalidateQueries({ queryKey: runQueryKeys.session(sessionId) });
+    if (refreshAgentTurns) {
+      void queryClient.invalidateQueries({ queryKey: agentQueryKeys.session(sessionId) });
     }
     if (refreshConfirmations) {
       void queryClient.invalidateQueries({
@@ -269,9 +269,9 @@ function useMessages(sessionId: string, workspaceId: string) {
           (left, right) => left.sequence - right.sequence
         );
       });
-      queryClient.setQueryData<RunSnapshot[]>(
-        runQueryKeys.session(sessionId),
-        (current) => mergeRunSnapshots(current, [accepted.turn])
+      queryClient.setQueryData<AgentTurn[]>(
+        agentQueryKeys.session(sessionId),
+        (current) => mergeAgentTurns(current, [accepted.turn])
       );
       frozenSubmissionRef.current = null;
       setRequestFrozen(false);
@@ -318,7 +318,7 @@ function useMessages(sessionId: string, workspaceId: string) {
     mapContext,
     messagesQuery,
     connectionsQuery,
-    runsQuery,
+    agentTurnsQuery,
     confirmationsQuery,
     mutation,
     requestFrozen,

@@ -6,7 +6,7 @@ import type {
   ModelProviderType
 } from "@/features/settings/models/api";
 
-export type RunState =
+export type AgentTurnState =
   | "ready"
   | "model_running"
   | "tool_running"
@@ -36,7 +36,7 @@ export interface ToolCall {
   readonly updated_sequence: number;
 }
 
-export interface RunModelSnapshot {
+export interface StepModelSnapshot {
   readonly connection_id: string;
   readonly provider_type: ModelProviderType;
   readonly protocol: ModelProtocol;
@@ -50,7 +50,7 @@ export interface RunModelSnapshot {
   readonly max_output_tokens: number;
 }
 
-export interface RunMapContext {
+export interface TurnMapContext {
   readonly workspace_id: string;
   readonly viewport: {
     readonly latitude: number;
@@ -69,7 +69,7 @@ export interface RunMapContext {
   readonly comparison_observation_ids: readonly string[];
 }
 
-export interface RunBudget {
+export interface TurnBudget {
   readonly max_model_calls: number;
   readonly model_calls: number;
   readonly max_tool_calls: number;
@@ -83,11 +83,11 @@ export interface RunBudget {
   readonly total_tokens: number | null;
 }
 
-export interface RunSnapshot {
+export interface AgentTurn {
   readonly id: string;
   readonly session_id: string;
   readonly user_message_id: string;
-  readonly state: RunState;
+  readonly state: AgentTurnState;
   readonly step: number;
   readonly attempt: number;
   readonly resume_phase: "model" | "tool";
@@ -96,50 +96,50 @@ export interface RunSnapshot {
   readonly queue_sequence: number | null;
   readonly pending_confirmation_id: string | null;
   readonly pause_reason: string | null;
-  readonly model_snapshot: RunModelSnapshot;
-  readonly map_context: RunMapContext;
+  readonly model_snapshot: StepModelSnapshot;
+  readonly map_context: TurnMapContext;
   readonly scene: Readonly<Record<string, unknown>> | null;
-  readonly budget: RunBudget;
+  readonly budget: TurnBudget;
   readonly tool_calls: ToolCall[];
   readonly created_at: string;
   readonly updated_at: string;
   readonly updated_sequence: number;
 }
 
-export const runQueryKeys = {
-  session: (sessionId: string) => ["sessions", sessionId, "runs"] as const
+export const agentQueryKeys = {
+  session: (sessionId: string) => ["sessions", sessionId, "agent-turns"] as const
 };
 
-export function listRuns(sessionId: string): Promise<RunSnapshot[]> {
-  return requestJson<RunSnapshot[]>(
+export function listAgentTurns(sessionId: string): Promise<AgentTurn[]> {
+  return requestJson<AgentTurn[]>(
     `/api/v1/sessions/${encodeURIComponent(sessionId)}/agent`
   );
 }
 
-export function cancelRun(sessionId: string): Promise<RunSnapshot> {
-  return requestJson<RunSnapshot>(`/api/v1/sessions/${encodeURIComponent(sessionId)}/agent/cancel`, {
+export function cancelAgent(sessionId: string): Promise<AgentTurn> {
+  return requestJson<AgentTurn>(`/api/v1/sessions/${encodeURIComponent(sessionId)}/agent/cancel`, {
     method: "POST",
     body: "{}"
   });
 }
 
-export function resumeRun(sessionId: string): Promise<RunSnapshot> {
-  return requestJson<RunSnapshot>(`/api/v1/sessions/${encodeURIComponent(sessionId)}/agent/resume`, {
+export function resumeAgent(sessionId: string): Promise<AgentTurn> {
+  return requestJson<AgentTurn>(`/api/v1/sessions/${encodeURIComponent(sessionId)}/agent/resume`, {
     method: "POST",
     body: "{}"
   });
 }
 
-export function mergeRunSnapshots(
-  current: readonly RunSnapshot[] | undefined,
-  incoming: readonly RunSnapshot[]
-): RunSnapshot[] {
+export function mergeAgentTurns(
+  current: readonly AgentTurn[] | undefined,
+  incoming: readonly AgentTurn[]
+): AgentTurn[] {
   if (current === undefined) return [...incoming];
-  const merged = new Map(current.map((run) => [run.id, run]));
-  for (const run of incoming) {
-    const existing = merged.get(run.id);
-    if (existing === undefined || run.updated_sequence >= existing.updated_sequence) {
-      merged.set(run.id, run);
+  const merged = new Map(current.map((turn) => [turn.id, turn]));
+  for (const turn of incoming) {
+    const existing = merged.get(turn.id);
+    if (existing === undefined || turn.updated_sequence >= existing.updated_sequence) {
+      merged.set(turn.id, turn);
     }
   }
   return [...merged.values()].sort((left, right) =>

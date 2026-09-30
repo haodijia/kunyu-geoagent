@@ -1,5 +1,5 @@
 import { requestJson } from "@/api/client";
-import type { RunSnapshot, ToolCall } from "@/features/runs/api";
+import type { AgentTurn, ToolCall } from "@/features/agent/api";
 
 export interface Confirmation {
   readonly id: string;
@@ -21,7 +21,7 @@ export interface Confirmation {
 export interface ConfirmationDecision {
   readonly confirmation: Confirmation;
   readonly tool_call: ToolCall;
-  readonly turn: RunSnapshot;
+  readonly turn: AgentTurn;
   readonly continuation_required: boolean;
 }
 

@@ -3,12 +3,12 @@ import { useSessionEvents } from "@/features/events/SessionEventContext";
 import { MessageList } from "@/features/messages/MessageList";
 import { SessionComposer } from "@/features/messages/SessionComposer";
 import { useSessionMessages } from "@/features/messages/SessionMessagesContext";
-import { RunControls } from "@/features/runs/RunControls";
+import { AgentControls } from "@/features/agent/AgentControls";
 import { zhCN } from "@/locales/zh-CN";
 
 export function ConversationView() {
   const eventStream = useSessionEvents();
-  const { messagesQuery, runsQuery } = useSessionMessages();
+  const { messagesQuery, agentTurnsQuery } = useSessionMessages();
   return (
     <div className="flex h-full min-h-0 flex-col bg-background">
       <div className="min-h-0 flex-1 overflow-y-auto" data-message-scroll>
@@ -22,9 +22,9 @@ export function ConversationView() {
         </div>}
         {messagesQuery.data !== undefined && (
           <MessageList
-            footer={<RunControls embedded />}
+            footer={<AgentControls embedded />}
             messages={messagesQuery.data}
-            runs={runsQuery.data ?? []}
+            turns={agentTurnsQuery.data ?? []}
           />
         )}
       </div>

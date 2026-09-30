@@ -1,6 +1,6 @@
 import type { Confirmation } from "@/features/confirmations/api";
 import type { SessionMessage } from "@/features/messages/api";
-import type { RunSnapshot, ToolCall } from "@/features/runs/api";
+import type { AgentTurn, ToolCall } from "@/features/agent/api";
 import { zhCN } from "@/locales/zh-CN";
 import type { TrajectoryEventProjection } from "./projection";
 import type {
@@ -11,7 +11,7 @@ import type {
 
 interface RecordContext {
   readonly messages: ReadonlyMap<string, SessionMessage>;
-  readonly runs: ReadonlyMap<string, RunSnapshot>;
+  readonly runs: ReadonlyMap<string, AgentTurn>;
   readonly tools: ReadonlyMap<string, ToolCall>;
   readonly confirmations: ReadonlyMap<string, Confirmation>;
   readonly runTurns: ReadonlyMap<string, number>;
@@ -37,7 +37,7 @@ const SENSITIVE_FIELDS = [
 export function buildTrajectoryRecords(
   events: readonly TrajectoryEventProjection[],
   messages: readonly SessionMessage[],
-  runs: readonly RunSnapshot[] = [],
+  runs: readonly AgentTurn[] = [],
   confirmations: readonly Confirmation[] = []
 ): TrajectoryRecord[] {
   const ordered = [...events].sort((left, right) => left.sequence - right.sequence);

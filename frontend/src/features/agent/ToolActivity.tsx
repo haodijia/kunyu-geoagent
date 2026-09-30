@@ -9,7 +9,7 @@ import {
 } from "lucide-react";
 import { useState, type ReactNode } from "react";
 
-import type { ToolCall } from "@/features/runs/api";
+import type { ToolCall } from "@/features/agent/api";
 import { zhCN } from "@/locales/zh-CN";
 
 const content = zhCN.conversation.tools;

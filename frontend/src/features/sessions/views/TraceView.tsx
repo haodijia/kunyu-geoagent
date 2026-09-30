@@ -17,7 +17,7 @@ import "@/features/events/trajectory-theme.css";
 
 export function TraceView() {
   const eventStream = useSessionEvents();
-  const { messagesQuery, runsQuery, confirmationsQuery } = useSessionMessages();
+  const { messagesQuery, agentTurnsQuery, confirmationsQuery } = useSessionMessages();
   const [query, setQuery] = useState("");
   const [actualDuration, setActualDuration] = useState(false);
   const [actualTime, setActualTime] = useState(false);
@@ -29,13 +29,13 @@ export function TraceView() {
   const records = useMemo(() => buildTrajectoryRecords(
     eventStream.records,
     messagesQuery.data ?? [],
-    runsQuery.data ?? [],
+    agentTurnsQuery.data ?? [],
     confirmationsQuery.data ?? []
   ), [
     confirmationsQuery.data,
     eventStream.records,
     messagesQuery.data,
-    runsQuery.data
+    agentTurnsQuery.data
   ]);
   const turns = useMemo(() => trajectoryTurns(records), [records]);
   const mode = actualDuration ? actualTime ? "actual" : "duration" : actualTime ? "time" : "sequence";

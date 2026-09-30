@@ -4,8 +4,8 @@ import Markdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 
 import type { MessageStatus, SessionMessage } from "@/features/messages/api";
-import type { RunSnapshot, ToolCall } from "@/features/runs/api";
-import { ToolActivity } from "@/features/runs/ToolActivity";
+import type { AgentTurn, ToolCall } from "@/features/agent/api";
+import { ToolActivity } from "@/features/agent/ToolActivity";
 import { SessionEmptyState } from "@/features/sessions/SessionEmptyState";
 import { zhCN } from "@/locales/zh-CN";
 
@@ -18,7 +18,7 @@ const timeFormatter = new Intl.DateTimeFormat("zh-CN", {
 interface MessageListProps {
   readonly footer?: ReactNode;
   readonly messages: readonly SessionMessage[];
-  readonly runs: readonly RunSnapshot[];
+  readonly turns: readonly AgentTurn[];
 }
 
 const statusLabels: Record<Exclude<MessageStatus, "completed">, string> = {
@@ -28,12 +28,12 @@ const statusLabels: Record<Exclude<MessageStatus, "completed">, string> = {
   cancelled: content.status.cancelled
 };
 
-export function MessageList({ footer, messages, runs }: MessageListProps) {
+export function MessageList({ footer, messages, turns }: MessageListProps) {
   const endRef = useRef<HTMLDivElement>(null);
   const followStreamRef = useRef(true);
   const toolsByMessage = useMemo(() => {
     const grouped = new Map<string, ToolCall[]>();
-    for (const tool of runs.flatMap((run) => run.tool_calls)) {
+    for (const tool of turns.flatMap((turn) => turn.tool_calls)) {
       const current = grouped.get(tool.message_id) ?? [];
       current.push(tool);
       grouped.set(tool.message_id, current);
@@ -42,7 +42,7 @@ export function MessageList({ footer, messages, runs }: MessageListProps) {
       tools.sort((left, right) => left.batch_index - right.batch_index);
     }
     return grouped;
-  }, [runs]);
+  }, [turns]);
 
   useEffect(() => {
     const scroller = endRef.current?.closest<HTMLElement>("[data-message-scroll]");
@@ -60,7 +60,7 @@ export function MessageList({ footer, messages, runs }: MessageListProps) {
     if (followStreamRef.current) {
       endRef.current?.scrollIntoView({ block: "end" });
     }
-  }, [messages, runs]);
+  }, [messages, turns]);
 
   if (messages.length === 0) {
     return (
