@@ -1,9 +1,10 @@
-"""Serial tool-batch execution for the bounded DSH runner."""
+"""Barrier-scheduled tool-batch execution for the bounded DSH runner."""
 
 import asyncio
 import json
 import logging
 from collections.abc import Awaitable, Callable
+from dataclasses import dataclass
 from datetime import datetime
 from typing import TypedDict
 
@@ -46,6 +47,7 @@ from dsh.tools import (
     ToolExecutionError,
     ToolNotFoundError,
     ToolResult,
+    ToolRiskLevel,
     ToolValidationError,
 )
 
@@ -55,6 +57,21 @@ _JSON_OBJECT_ADAPTER = TypeAdapter(dict[str, JsonValue])
 
 type CommitEvents = Callable[[ReducedRun, tuple[EventDraft, ...]], Awaitable[None]]
 type FailRun = Callable[[ReducedRun, str, str], Awaitable[None]]
+
+
+@dataclass(frozen=True, slots=True)
+class _PreparedTool:
+    persisted: ReducedToolCall
+    tool: Tool
+    call: ToolCall
+
+
+@dataclass(frozen=True, slots=True)
+class _Invocation:
+    elapsed_milliseconds: int
+    result: JsonValue | None = None
+    error_code: str | None = None
+    error_summary: str | None = None
 
 
 class _ToolCommon(TypedDict):
@@ -99,6 +116,12 @@ class ToolBatchExecutor[AdapterConfigT]:
             calls = current_tool_batch(current)
             if current.next_tool_index >= len(calls):
                 return "continue"
+            parallel = self._parallel_group(current, calls, registry)
+            if len(parallel) > 1:
+                outcome = await self._execute_parallel(current, parallel)
+                if outcome != "completed":
+                    return outcome
+                continue
             tool_call = calls[current.next_tool_index]
             call = ToolCall(
                 run_id=current.run_id,
@@ -163,6 +186,183 @@ class ToolBatchExecutor[AdapterConfigT]:
             )
             if outcome != "completed":
                 return outcome
+
+    def _parallel_group(
+        self,
+        run: ReducedRun,
+        calls: tuple[ReducedToolCall, ...],
+        registry,
+    ) -> tuple[_PreparedTool, ...]:
+        prepared: list[_PreparedTool] = []
+        available_calls = run.budget.max_tool_calls - run.budget.tool_calls
+        if available_calls < 2:
+            return ()
+        for persisted in calls[
+            run.next_tool_index : run.next_tool_index + available_calls
+        ]:
+            tool = registry.require(persisted.name)
+            call = ToolCall(
+                run_id=run.run_id,
+                call_id=persisted.tool_call_id,
+                name=persisted.name,
+                arguments=persisted.arguments,
+            )
+            if (
+                tool.spec.execution != "parallel"
+                or self._policy.decide(call) is not PolicyDecision.ALLOW
+                or self._policy.risk_level(call) is not ToolRiskLevel.L0
+            ):
+                break
+            arguments = _JSON_OBJECT_ADAPTER.validate_python(
+                dict(tool.validate(persisted.arguments))
+            )
+            prepared.append(
+                _PreparedTool(
+                    persisted=persisted,
+                    tool=tool,
+                    call=ToolCall(
+                        run_id=run.run_id,
+                        call_id=persisted.tool_call_id,
+                        name=persisted.name,
+                        arguments=arguments,
+                    ),
+                )
+            )
+        return tuple(prepared)
+
+    async def _execute_parallel(
+        self,
+        run: ReducedRun,
+        prepared: tuple[_PreparedTool, ...],
+    ) -> str:
+        remaining = run.budget.max_active_milliseconds - run.budget.active_milliseconds
+        if remaining <= 0:
+            await self._fail_run(
+                run, "ACTIVE_TIME_LIMIT", "Active-time budget exhausted."
+            )
+            return "failed"
+        timeout_milliseconds = min(
+            self._config.tool_active_time_slice_milliseconds,
+            remaining,
+        )
+        invocations = await asyncio.gather(
+            *(
+                self._invoke_parallel_tool(item, timeout_milliseconds)
+                for item in prepared
+            )
+        )
+        for item, invocation in zip(prepared, invocations, strict=True):
+            execution = await self._executions.get(run.run_id)
+            if execution is None:
+                raise RuntimeError(f"Run '{run.run_id}' disappeared during execution.")
+            current = execution.run
+            outcome = await self._commit_parallel_result(current, item, invocation)
+            if outcome != "completed":
+                return outcome
+        return "completed"
+
+    async def _invoke_parallel_tool(
+        self,
+        prepared: _PreparedTool,
+        timeout_milliseconds: int,
+    ) -> _Invocation:
+        started_ns = self._monotonic_ns()
+        try:
+            async with asyncio.timeout(timeout_milliseconds / 1_000):
+                result = _parse_tool_result(
+                    await prepared.tool.execute(prepared.call)
+                )
+            return _Invocation(
+                elapsed_milliseconds=elapsed_milliseconds(
+                    started_ns, self._monotonic_ns()
+                ),
+                result=result,
+            )
+        except TimeoutError:
+            return _Invocation(
+                elapsed_milliseconds=timeout_milliseconds,
+                error_code="TOOL_TIMEOUT",
+                error_summary="The tool exceeded its active-time slice.",
+            )
+        except (ToolExecutionError, ValidationError, ValueError, TypeError):
+            return _Invocation(
+                elapsed_milliseconds=elapsed_milliseconds(
+                    started_ns, self._monotonic_ns()
+                ),
+                error_code="TOOL_EXECUTION_FAILED",
+                error_summary="The tool could not produce a valid result.",
+            )
+        except Exception:
+            logger.exception(
+                "Unexpected parallel tool failure for run %s tool %s",
+                prepared.call.run_id,
+                prepared.call.call_id,
+            )
+            return _Invocation(
+                elapsed_milliseconds=elapsed_milliseconds(
+                    started_ns, self._monotonic_ns()
+                ),
+                error_code="TOOL_RUNTIME_ERROR",
+                error_summary="The tool failed during local execution.",
+            )
+
+    async def _commit_parallel_result(
+        self,
+        run: ReducedRun,
+        prepared: _PreparedTool,
+        invocation: _Invocation,
+    ) -> str:
+        remaining = run.budget.max_active_milliseconds - run.budget.active_milliseconds
+        if run.budget.tool_calls >= run.budget.max_tool_calls:
+            await self._fail_run(run, "TOOL_CALL_LIMIT", "Tool call budget exhausted.")
+            return "failed"
+        if remaining <= 0:
+            await self._fail_run(run, "ACTIVE_TIME_LIMIT", "Active-time budget exhausted.")
+            return "failed"
+        reserved = min(
+            self._config.tool_active_time_slice_milliseconds,
+            remaining,
+        )
+        operation_id = self._operation_id_factory()
+        now = self._clock()
+        await self._commit(
+            run,
+            (
+                BudgetReservedEvent(
+                    session_id=run.session_id,
+                    run_id=run.run_id,
+                    event_type="run.budget_reserved",
+                    payload=BudgetReservedPayload(
+                        operation_id=operation_id,
+                        operation_type="tool",
+                        operation_count=1,
+                        reserved_milliseconds=reserved,
+                    ),
+                    occurred_at=now,
+                ),
+                ToolProgressEvent(
+                    session_id=run.session_id,
+                    run_id=run.run_id,
+                    event_type="tool.started",
+                    payload=ToolProgressPayload(
+                        **_tool_common(prepared.persisted),
+                        next_tool_index=prepared.persisted.batch_index,
+                    ),
+                    occurred_at=now,
+                ),
+            ),
+        )
+        await self._finish_tool(
+            run,
+            prepared.persisted,
+            operation_id,
+            reserved,
+            min(reserved, invocation.elapsed_milliseconds),
+            result=invocation.result,
+            error_code=invocation.error_code,
+            error_summary=invocation.error_summary,
+        )
+        return "completed" if invocation.error_code is None else "failed"
 
     async def _execute_tool(
         self,
