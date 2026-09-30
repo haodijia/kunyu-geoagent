@@ -45,6 +45,7 @@ interface AppUiState {
     selection: SessionModelSelection
   ) => void;
   readonly setSidebarWidth: (width: number) => void;
+  readonly setSidebarCollapsed: (collapsed: boolean) => void;
   readonly setThemeMode: (mode: ThemeMode) => void;
   readonly toggleSidebar: () => void;
 }
@@ -114,6 +115,10 @@ export const useAppUiStore = create<AppUiState>((set) => ({
     const sidebarWidth = Math.min(400, Math.max(200, Math.round(width)));
     writeSidebarWidth(sidebarWidth);
     set({ sidebarWidth });
+  },
+  setSidebarCollapsed: (sidebarCollapsed) => {
+    writeSidebarCollapsed(sidebarCollapsed);
+    set({ sidebarCollapsed });
   },
   setThemeMode: (themeMode) => {
     writeThemeMode(themeMode);
