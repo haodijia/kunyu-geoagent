@@ -11,7 +11,7 @@ from dsh.events import (
     ResumePhase,
     RunState,
 )
-from dsh.host import Capability, Host, HostError, Plugin
+from dsh.kernel import Capability, Context, Kernel, KernelError, Plugin
 from dsh.models import (
     ModelAdapter,
     ModelAdapterError,
@@ -76,11 +76,12 @@ __all__ = [
     "Capability",
     "ConfirmationRequester",
     "ContextProvider",
+    "Context",
     "EventBatch",
     "EventDraft",
     "EventStore",
-    "Host",
-    "HostError",
+    "Kernel",
+    "KernelError",
     "Memory",
     "ModelAdapter",
     "ModelAdapterError",
