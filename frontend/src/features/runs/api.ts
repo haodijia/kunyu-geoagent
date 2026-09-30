@@ -112,19 +112,19 @@ export const runQueryKeys = {
 
 export function listRuns(sessionId: string): Promise<RunSnapshot[]> {
   return requestJson<RunSnapshot[]>(
-    `/api/v1/sessions/${encodeURIComponent(sessionId)}/runs`
+    `/api/v1/sessions/${encodeURIComponent(sessionId)}/agent`
   );
 }
 
-export function cancelRun(runId: string): Promise<RunSnapshot> {
-  return requestJson<RunSnapshot>(`/api/v1/runs/${encodeURIComponent(runId)}/cancel`, {
+export function cancelRun(sessionId: string): Promise<RunSnapshot> {
+  return requestJson<RunSnapshot>(`/api/v1/sessions/${encodeURIComponent(sessionId)}/agent/cancel`, {
     method: "POST",
     body: "{}"
   });
 }
 
-export function resumeRun(runId: string): Promise<RunSnapshot> {
-  return requestJson<RunSnapshot>(`/api/v1/runs/${encodeURIComponent(runId)}/resume`, {
+export function resumeRun(sessionId: string): Promise<RunSnapshot> {
+  return requestJson<RunSnapshot>(`/api/v1/sessions/${encodeURIComponent(sessionId)}/agent/resume`, {
     method: "POST",
     body: "{}"
   });

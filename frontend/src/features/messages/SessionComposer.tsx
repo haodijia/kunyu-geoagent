@@ -41,7 +41,7 @@ export function SessionComposer({ compact = false }: SessionComposerProps) {
   const stopMutation = useMutation({
     mutationFn: () => {
       if (activeRun === undefined) throw new Error("An active run is required.");
-      return cancelRun(activeRun.id);
+      return cancelRun(session.id);
     },
     onSuccess: async () => {
       await Promise.all([

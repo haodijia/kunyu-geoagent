@@ -1,3 +1,5 @@
+"""Session-scoped Agent state and lifecycle API."""
+
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, Request
@@ -13,14 +15,13 @@ from kunyu.api.errors import ApiError
 from kunyu.api.run_models import RunResponse
 from kunyu.application.run_lifecycle import (
     RunLifecycleConflictError,
-    RunLifecycleNotFoundError,
     RunLifecycleService,
 )
 from kunyu.application.sessions import SessionNotFoundError
 from kunyu.domain.confirmations import ConfirmationConflictError
+from kunyu.domain.runs import RunDetails
 
-router = APIRouter(prefix="/api/v1/runs", tags=["runs"])
-session_runs_router = APIRouter(prefix="/api/v1/sessions", tags=["runs"])
+router = APIRouter(prefix="/api/v1/sessions/{session_id}/agent", tags=["agent"])
 
 
 class EmptyRequest(BaseModel):
@@ -37,19 +38,8 @@ RunLifecycleDependency = Annotated[
 ]
 
 
-@router.get("/{run_id}", response_model=RunResponse)
-def get_run(
-    run_id: str,
-    lifecycle: RunLifecycleDependency,
-) -> RunResponse:
-    try:
-        return RunResponse.from_details(lifecycle.get_details(run_id))
-    except RunLifecycleNotFoundError as error:
-        raise ApiError(404, "NOT_FOUND", str(error)) from error
-
-
-@session_runs_router.get("/{session_id}/runs", response_model=list[RunResponse])
-def list_runs(
+@router.get("", response_model=list[RunResponse])
+def agent_turns(
     session_id: str,
     lifecycle: RunLifecycleDependency,
 ) -> list[RunResponse]:
@@ -62,35 +52,56 @@ def list_runs(
         raise ApiError(404, "NOT_FOUND", str(error)) from error
 
 
-@router.post("/{run_id}/resume", response_model=RunResponse)
-async def resume_run(
-    run_id: str,
+@router.post("/resume", response_model=RunResponse)
+async def resume_agent(
+    session_id: str,
     _: EmptyRequest,
     scheduler: RunSchedulerDependency,
+    lifecycle: RunLifecycleDependency,
 ) -> RunResponse:
+    turn = _active_turn(session_id, lifecycle)
     try:
-        return RunResponse.from_details(await scheduler.resume(run_id))
-    except RunLifecycleNotFoundError as error:
-        raise ApiError(404, "NOT_FOUND", str(error)) from error
+        return RunResponse.from_details(await scheduler.resume(turn.run.id))
     except RunLifecycleConflictError as error:
-        raise ApiError(409, "RUN_CONFLICT", str(error)) from error
+        raise ApiError(409, "AGENT_CONFLICT", str(error)) from error
     except RunQueueFullError as error:
-        raise ApiError(429, "RUN_QUEUE_FULL", str(error)) from error
+        raise ApiError(429, "AGENT_QUEUE_FULL", str(error)) from error
     except RunSchedulerClosingError as error:
         raise ApiError(503, "SHUTTING_DOWN", str(error)) from error
 
 
-@router.post("/{run_id}/cancel", response_model=RunResponse)
-async def cancel_run(
-    run_id: str,
+@router.post("/cancel", response_model=RunResponse)
+async def cancel_agent(
+    session_id: str,
     _: EmptyRequest,
     scheduler: RunSchedulerDependency,
+    lifecycle: RunLifecycleDependency,
 ) -> RunResponse:
+    turn = _active_turn(session_id, lifecycle)
     try:
-        return RunResponse.from_details(await scheduler.cancel(run_id))
-    except RunLifecycleNotFoundError as error:
-        raise ApiError(404, "NOT_FOUND", str(error)) from error
+        return RunResponse.from_details(await scheduler.cancel(turn.run.id))
     except (RunLifecycleConflictError, ConfirmationConflictError) as error:
-        raise ApiError(409, "RUN_CONFLICT", str(error)) from error
+        raise ApiError(409, "AGENT_CONFLICT", str(error)) from error
     except RunSchedulerClosingError as error:
         raise ApiError(503, "SHUTTING_DOWN", str(error)) from error
+
+
+def _active_turn(
+    session_id: str,
+    lifecycle: RunLifecycleService,
+) -> RunDetails:
+    try:
+        turns = lifecycle.list_for_session(session_id)
+    except SessionNotFoundError as error:
+        raise ApiError(404, "NOT_FOUND", str(error)) from error
+    active = next(
+        (
+            turn
+            for turn in reversed(turns)
+            if turn.run.state.value not in {"completed", "failed", "cancelled"}
+        ),
+        None,
+    )
+    if active is None:
+        raise ApiError(409, "AGENT_IDLE", "The session Agent has no active turn.")
+    return active

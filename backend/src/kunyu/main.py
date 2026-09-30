@@ -7,12 +7,11 @@ from fastapi import Depends, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from kunyu.agent.bootstrap import create_agent_runtime
+from kunyu.api.agent import router as agent_router
 from kunyu.api.confirmations import router as confirmations_router
 from kunyu.api.errors import install_error_handlers
 from kunyu.api.messages import router as messages_router
 from kunyu.api.model_connections import router as model_connections_router
-from kunyu.api.runs import router as runs_router
-from kunyu.api.runs import session_runs_router
 from kunyu.api.sessions import router as sessions_router
 from kunyu.api.system import require_desktop_session
 from kunyu.api.system import router as system_router
@@ -90,8 +89,7 @@ def create_app(session_token: str | None = None) -> FastAPI:
     app.include_router(system_router)
     app.include_router(model_connections_router)
     app.include_router(confirmations_router)
-    app.include_router(runs_router)
-    app.include_router(session_runs_router)
+    app.include_router(agent_router)
     app.include_router(workspaces_router)
     app.include_router(sessions_router)
     app.include_router(messages_router)
