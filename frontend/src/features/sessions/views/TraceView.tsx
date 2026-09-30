@@ -6,7 +6,7 @@ import { TrajectoryInspector } from "@/features/events/TrajectoryInspector";
 import { TrajectoryTimeline } from "@/features/events/TrajectoryTimeline";
 import { TrajectoryToolbar } from "@/features/events/TrajectoryToolbar";
 import { trajectoryTurns } from "@/features/events/trajectory-model";
-import { buildTrajectoryRecords } from "@/features/events/trajectory-records";
+import { conversationAssembler } from "@/features/conversation/assembler";
 import { trajectoryTranslate as t } from "@/features/events/trajectory-locales";
 import { trajectoryTimelineFocusIndexes, type TrajectoryTimeRange } from "@/features/events/timeline";
 import { useSessionMessages } from "@/features/messages/SessionMessagesContext";
@@ -26,12 +26,12 @@ export function TraceView() {
   const [focusedIndex, setFocusedIndex] = useState<number | null>(null);
   const root = useRef<HTMLDivElement>(null);
   const composer = useRef<HTMLDivElement>(null);
-  const records = useMemo(() => buildTrajectoryRecords(
-    eventStream.records,
-    messagesQuery.data ?? [],
-    agentTurnsQuery.data ?? [],
-    confirmationsQuery.data ?? []
-  ), [
+  const records = useMemo(() => conversationAssembler.assemble("trajectory", {
+    events: eventStream.records,
+    messages: messagesQuery.data ?? [],
+    turns: agentTurnsQuery.data ?? [],
+    confirmations: confirmationsQuery.data ?? []
+  }).records, [
     confirmationsQuery.data,
     eventStream.records,
     messagesQuery.data,
