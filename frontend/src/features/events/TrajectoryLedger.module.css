@@ -377,6 +377,15 @@
   background: var(--dsw-alias-bg-module-platform);
 }
 
+.context {
+  color: var(--mu-violet-6);
+  background: color-mix(
+    in srgb,
+    var(--mu-violet-6) 12%,
+    var(--dsw-alias-bg-layer-1)
+  );
+}
+
 .assistant {
   color: var(--dsw-alias-brand-primary-new-colorprimary-new-color);
   background: color-mix(

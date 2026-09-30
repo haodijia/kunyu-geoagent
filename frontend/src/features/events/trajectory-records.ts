@@ -80,12 +80,33 @@ function buildRecord(
   const first = events[0]!;
   switch (first.kind) {
     case "system": return systemRecord(events, context);
+    case "context": return contextRecord(events, context);
     case "user": return userRecord(events, context);
     case "assistant": return assistantRecord(events, context);
     case "tool": return toolRecord(events, context);
     case "confirmation": return confirmationRecord(events, context);
     case "unsupported": return unsupportedRecord(first, context);
   }
+}
+
+function contextRecord(
+  events: readonly TrajectoryEventProjection[],
+  context: RecordContext
+): TrajectoryRecord {
+  const first = events[0]!;
+  const content = stringValue(first.payload.content) ?? "";
+  return baseRecord(events, {
+    turn: turnFor(first, context),
+    text: zhCN.trajectory.injectedContext,
+    searchText: content,
+    status: "completed",
+    completedAt: first.occurredAt,
+    startedAt: first.occurredAt,
+    isError: false,
+    source: { session_id: first.payload.session_id ?? null },
+    input: content,
+    output: null
+  });
 }
 
 function systemRecord(
