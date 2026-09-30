@@ -284,6 +284,14 @@ export const zhCN = {
       input: "输入",
       output: "输出",
       error: "错误",
+      confirmation: "确认",
+      duration: "耗时",
+      confirmationStatus: {
+        pending: "等待确认",
+        approved: "已批准",
+        rejected: "已拒绝",
+        cancelled: "已取消"
+      },
       groupCompleted: (count: number) => `已完成 ${count} 次工具调用`,
       groupRunning: (count: number, name: string) =>
         `正在执行 ${count} 次工具调用 · ${name}`,

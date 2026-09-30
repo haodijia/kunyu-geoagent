@@ -6,6 +6,7 @@ import remarkGfm from "remark-gfm";
 import type { MessageStatus, SessionMessage } from "@/features/messages/api";
 import type { AgentTurn, ToolCall } from "@/features/agent/api";
 import { ToolActivity } from "@/features/agent/ToolActivity";
+import type { Confirmation } from "@/features/confirmations/api";
 import { SessionEmptyState } from "@/features/sessions/SessionEmptyState";
 import { zhCN } from "@/locales/zh-CN";
 
@@ -17,6 +18,7 @@ const timeFormatter = new Intl.DateTimeFormat("zh-CN", {
 
 interface MessageListProps {
   readonly footer?: ReactNode;
+  readonly confirmations: readonly Confirmation[];
   readonly messages: readonly SessionMessage[];
   readonly turns: readonly AgentTurn[];
 }
@@ -28,7 +30,7 @@ const statusLabels: Record<Exclude<MessageStatus, "completed">, string> = {
   cancelled: content.status.cancelled
 };
 
-export function MessageList({ footer, messages, turns }: MessageListProps) {
+export function MessageList({ confirmations, footer, messages, turns }: MessageListProps) {
   const endRef = useRef<HTMLDivElement>(null);
   const followStreamRef = useRef(true);
   const toolsByMessage = useMemo(() => {
@@ -92,7 +94,9 @@ export function MessageList({ footer, messages, turns }: MessageListProps) {
             ) : (
               <AssistantContent message={message} />
             )}
-            {tools.length > 0 ? <ToolActivity tools={tools} /> : null}
+            {tools.length > 0 ? (
+              <ToolActivity confirmations={confirmations} tools={tools} />
+            ) : null}
             <div className={`mt-1 flex h-6 items-center gap-2 px-1 text-xs text-muted-foreground transition-opacity ${message.status === "completed" ? "opacity-0 group-hover:opacity-100 group-focus-within:opacity-100" : "opacity-100"}`}>
               {message.status !== "completed" ? (
                 <span className="inline-flex items-center gap-1" role="status">
