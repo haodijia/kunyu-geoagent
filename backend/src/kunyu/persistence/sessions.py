@@ -12,7 +12,7 @@ from kunyu.domain.sessions import (
 )
 from kunyu.persistence.database import Database
 from kunyu.persistence.models import (
-    AgentEventRecord,
+    SessionEventRecord,
     RunRecord,
     SessionArchiveRecord,
     SessionRecord,
@@ -156,7 +156,7 @@ class SQLAlchemySessionRepository:
                 created_at=session.created_at,
                 updated_at=session.updated_at,
             )
-            event_record = AgentEventRecord(
+            event_record = SessionEventRecord(
                 id=created_event.id,
                 session_id=created_event.session_id,
                 sequence=created_event.sequence,

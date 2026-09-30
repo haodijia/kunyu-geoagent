@@ -16,7 +16,7 @@ from kunyu.domain.runs import (
     ToolCallStatus,
 )
 from kunyu.persistence.models import (
-    AgentEventRecord,
+    SessionEventRecord,
     MessageRecord,
     RunModelSnapshotRecord,
     RunRecord,
@@ -25,8 +25,8 @@ from kunyu.persistence.models import (
 from kunyu.persistence.time import as_utc
 
 
-def event_record(event: EventDraft, sequence: int) -> AgentEventRecord:
-    return AgentEventRecord(
+def event_record(event: EventDraft, sequence: int) -> SessionEventRecord:
+    return SessionEventRecord(
         id=f"evt_{uuid4().hex}",
         session_id=event.session_id,
         run_id=event.run_id,
@@ -211,7 +211,7 @@ def tool_call_to_domain(record: ToolCallRecord) -> ToolCall:
     )
 
 
-def event_to_domain(record: AgentEventRecord) -> AgentEvent:
+def event_to_domain(record: SessionEventRecord) -> AgentEvent:
     return AgentEvent(
         id=record.id,
         session_id=record.session_id,

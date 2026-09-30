@@ -34,7 +34,7 @@ from kunyu.persistence import run_records
 from kunyu.persistence.confirmations import confirmation_record
 from kunyu.persistence.database import Database
 from kunyu.persistence.models import (
-    AgentEventRecord,
+    SessionEventRecord,
     ConfirmationRecord,
     MessageRecord,
     RunModelSnapshotRecord,
@@ -170,11 +170,11 @@ class SQLAlchemyAgentProjectionService:
 
 def _event_records(
     database_session: Session, session_id: str
-) -> Sequence[AgentEventRecord]:
+) -> Sequence[SessionEventRecord]:
     return database_session.scalars(
-        select(AgentEventRecord)
-        .where(AgentEventRecord.session_id == session_id)
-        .order_by(AgentEventRecord.sequence)
+        select(SessionEventRecord)
+        .where(SessionEventRecord.session_id == session_id)
+        .order_by(SessionEventRecord.sequence)
     ).all()
 
 
