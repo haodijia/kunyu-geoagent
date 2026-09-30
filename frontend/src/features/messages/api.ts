@@ -1,6 +1,6 @@
 import { requestJson } from "@/api/client";
 import type { MapContext } from "@/features/sessions/map-context";
-import type { RunSnapshot } from "@/features/runs/api";
+import type { AgentTurn } from "@/features/agent/api";
 
 export type MessageStatus =
   | "streaming"
@@ -84,5 +84,5 @@ export function appendUserMessage(
 
 export interface AcceptedMessage {
   readonly message: SessionMessage;
-  readonly turn: RunSnapshot;
+  readonly turn: AgentTurn;
 }

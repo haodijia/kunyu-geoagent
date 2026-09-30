@@ -2,7 +2,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useMemo } from "react";
 
 import { messageQueryKeys } from "@/features/messages/api";
-import { cancelRun, runQueryKeys } from "@/features/runs/api";
+import { cancelAgent, agentQueryKeys } from "@/features/agent/api";
 import { useSessionWorkspace } from "@/features/sessions/SessionWorkspaceContext";
 import { zhCN } from "@/locales/zh-CN";
 import {
@@ -26,7 +26,7 @@ export function SessionComposer({ compact = false }: SessionComposerProps) {
     sendMessage,
     messagesQuery,
     connectionsQuery,
-    runsQuery,
+    agentTurnsQuery,
     mutation,
     requestFrozen,
     usableModels,
@@ -35,23 +35,23 @@ export function SessionComposer({ compact = false }: SessionComposerProps) {
     sendError
   } = useSessionMessages();
   const session = useSessionWorkspace();
-  const activeRun = runsQuery.data?.find((run) =>
-    !["completed", "failed", "cancelled"].includes(run.state)
+  const activeTurn = agentTurnsQuery.data?.find((turn) =>
+    !["completed", "failed", "cancelled"].includes(turn.state)
   );
   const stopMutation = useMutation({
     mutationFn: () => {
-      if (activeRun === undefined) throw new Error("An active run is required.");
-      return cancelRun(session.id);
+      if (activeTurn === undefined) throw new Error("An active Agent turn is required.");
+      return cancelAgent(session.id);
     },
     onSuccess: async () => {
       await Promise.all([
-        queryClient.invalidateQueries({ queryKey: runQueryKeys.session(session.id) }),
+        queryClient.invalidateQueries({ queryKey: agentQueryKeys.session(session.id) }),
         queryClient.invalidateQueries({ queryKey: messageQueryKeys.session(session.id) })
       ]);
     },
     onError: (error) => {
-      console.error("[runs] Failed to stop run from composer.", {
-        runId: activeRun?.id,
+      console.error("[agent] Failed to stop the active turn from composer.", {
+        turnId: activeTurn?.id,
         error
       });
     }
@@ -101,7 +101,7 @@ export function SessionComposer({ compact = false }: SessionComposerProps) {
           ? zhCN.conversation.selectModelRequired
           : reasoningSelectionInvalid
             ? zhCN.conversation.reasoningSelectionInvalid
-            : runsQuery.isError
+            : agentTurnsQuery.isError
               ? zhCN.conversation.runsLoadFailed
               : stopMutation.isError
                 ? zhCN.conversation.runActionFailed
@@ -122,9 +122,9 @@ export function SessionComposer({ compact = false }: SessionComposerProps) {
       onSubmit={sendMessage}
       pending={mutation.isPending}
       running={
-        activeRun !== undefined &&
-        activeRun.state !== "interrupted" &&
-        !(activeRun.state === "ready" && activeRun.requires_resume)
+        activeTurn !== undefined &&
+        activeTurn.state !== "interrupted" &&
+        !(activeTurn.state === "ready" && activeTurn.requires_resume)
       }
       stopPending={stopMutation.isPending}
       draftFrozen={requestFrozen}
@@ -134,7 +134,7 @@ export function SessionComposer({ compact = false }: SessionComposerProps) {
       modelDisabled={
         mutation.isPending ||
         requestFrozen ||
-        activeRun !== undefined ||
+        activeTurn !== undefined ||
         connectionsQuery.isPending
       }
       reasoningOptions={selectedModel?.entry.reasoning_efforts ?? []}
@@ -144,8 +144,8 @@ export function SessionComposer({ compact = false }: SessionComposerProps) {
           ? false
           : selectedModel === undefined ||
             reasoningSelectionInvalid ||
-            runsQuery.data === undefined ||
-            activeRun !== undefined
+            agentTurnsQuery.data === undefined ||
+            activeTurn !== undefined
       }
       showModelSettings={
         !requestFrozen &&

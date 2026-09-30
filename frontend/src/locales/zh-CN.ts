@@ -247,7 +247,7 @@ export const zhCN = {
       loadFailed: "无法读取确认详情",
       loadFailedHelp: "未显示完整参数前不能批准；可以重新加载或停止本次运行。",
       retry: "重新加载",
-      cancelRun: "停止运行",
+      cancelAgent: "停止运行",
       cancelling: "正在停止…"
     },
     interruption: {

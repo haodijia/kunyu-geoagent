@@ -11,7 +11,7 @@ import type { ReactNode } from "react";
 
 import { Button } from "@/components/ui/button";
 import type { Confirmation } from "@/features/confirmations/api";
-import { toolLabel } from "@/features/runs/ToolActivity";
+import { toolLabel } from "@/features/agent/ToolActivity";
 import { cn } from "@/lib/utils";
 import { zhCN } from "@/locales/zh-CN";
 
@@ -136,7 +136,7 @@ export function ConfirmationUnavailable({
         ) : null}
         <Button size="sm" variant="outline" disabled={pending} onClick={onCancel}>
           {pending ? <LoaderCircle className="size-3.5 animate-spin" aria-hidden="true" /> : <Square className="size-3" aria-hidden="true" />}
-          {pending ? content.cancelling : content.cancelRun}
+          {pending ? content.cancelling : content.cancelAgent}
         </Button>
       </div>
       {error !== null ? <p className="m-0 w-full text-xs text-destructive" role="alert">{error}</p> : null}
