@@ -8,7 +8,10 @@ import {
 } from "react";
 
 import { ApiError } from "@/api/client";
-import { streamSessionEvents } from "@/features/events/api";
+import {
+  listSessionEventHistory,
+  streamSessionEvents
+} from "@/features/events/api";
 import type { SessionEvent } from "@/features/events/api";
 import {
   projectSessionEvent,
@@ -54,6 +57,28 @@ export function SessionEventProvider({
 
     async function connect() {
       let reconnectDelay = INITIAL_RECONNECT_DELAY_MS;
+
+      try {
+        const history = await listSessionEventHistory(sessionId, controller.signal);
+        if (controller.signal.aborted) return;
+        setEvents(history.slice(-256));
+        setRecords(
+          history.flatMap((event) => {
+            const projection = projectSessionEvent(event);
+            return projection === null ? [] : [projection];
+          })
+        );
+        lastSequenceRef.current = history.at(-1)?.sequence ?? 0;
+      } catch (historyError) {
+        if (controller.signal.aborted) return;
+        setError(
+          historyError instanceof Error
+            ? historyError.message
+            : zhCN.trajectory.streamConnectionFailed
+        );
+        setStatus("failed");
+        return;
+      }
 
       while (!controller.signal.aborted) {
         try {

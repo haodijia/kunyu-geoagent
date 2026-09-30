@@ -29,5 +29,10 @@ class MessageService:
         if sequence > latest_sequence:
             raise InvalidEventSequenceError(sequence, latest_sequence)
 
-    def list_events_after(self, session_id: str, sequence: int) -> list[AgentEvent]:
-        return self._repository.list_events_after(session_id, sequence)
+    def list_events_after(
+        self,
+        session_id: str,
+        sequence: int,
+        limit: int | None = None,
+    ) -> list[AgentEvent]:
+        return self._repository.list_events_after(session_id, sequence, limit)
