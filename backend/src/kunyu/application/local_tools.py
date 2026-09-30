@@ -63,6 +63,8 @@ class WorkspaceGetContextTool:
                 "and available local capabilities for this run."
             ),
             parameters=_NoArguments.model_json_schema(),
+            execution="parallel",
+            presentation="context",
         )
 
     @property
@@ -114,6 +116,8 @@ class MemorySearchTool:
                 "using a literal substring."
             ),
             parameters=_MemorySearchArguments.model_json_schema(),
+            execution="parallel",
+            presentation="search",
         )
 
     @property
@@ -148,6 +152,8 @@ class WorkspaceMemorySaveTool:
                 "confirmation before it is saved."
             ),
             parameters=_MemorySaveArguments.model_json_schema(),
+            execution="exclusive",
+            presentation="write",
         )
 
     @property

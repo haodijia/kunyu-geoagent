@@ -128,6 +128,8 @@ class _ValidatedToolCall:
     provider_call_id: str
     name: str
     arguments: dict[str, JsonValue]
+    execution: Literal["parallel", "exclusive"]
+    presentation: Literal["context", "search", "write"]
 
 
 @dataclass(slots=True)
@@ -431,6 +433,8 @@ class Runner[AdapterConfigT](AgentRuntime):
                                 "name": tool.name,
                                 "description": tool.description,
                                 "parameters": dict(tool.parameters),
+                                "execution": tool.execution,
+                                "presentation": tool.presentation,
                             }
                             for tool in registry.specs
                         ],
@@ -649,6 +653,8 @@ class Runner[AdapterConfigT](AgentRuntime):
                         batch_index=index,
                         name=call.name,
                         arguments=call.arguments,
+                        execution=call.execution,
+                        presentation=call.presentation,
                     ),
                     occurred_at=now,
                 )
@@ -703,6 +709,8 @@ class Runner[AdapterConfigT](AgentRuntime):
                     provider_call_id=call.call_id,
                     name=call.name,
                     arguments=arguments,
+                    execution=tool.spec.execution,
+                    presentation=tool.spec.presentation,
                 )
             )
         return tuple(validated)

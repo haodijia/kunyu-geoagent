@@ -226,6 +226,8 @@ class ToolRequestedPayload(EventPayload):
     batch_index: NonNegativeInt
     name: str
     arguments: dict[str, JsonValue]
+    execution: Literal["parallel", "exclusive"]
+    presentation: Literal["context", "search", "write"]
 
 
 class ToolProgressPayload(EventPayload):
