@@ -44,6 +44,7 @@ export function appendUserMessage(
   idempotencyKey: string,
   input: {
     readonly content: string;
+    readonly delivery: "followup" | "steer";
     readonly connectionId: string;
     readonly modelId: string;
     readonly reasoningEffort: string | null;
@@ -58,6 +59,7 @@ export function appendUserMessage(
       headers: { "Idempotency-Key": idempotencyKey },
       body: JSON.stringify({
         content: input.content,
+        delivery: input.delivery,
         model_selection: {
           connection_id: input.connectionId,
           model_id: input.modelId,

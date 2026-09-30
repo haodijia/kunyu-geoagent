@@ -144,8 +144,7 @@ export function SessionComposer({ compact = false }: SessionComposerProps) {
           ? false
           : selectedModel === undefined ||
             reasoningSelectionInvalid ||
-            agentTurnsQuery.data === undefined ||
-            activeTurn !== undefined
+            agentTurnsQuery.data === undefined
       }
       showModelSettings={
         !requestFrozen &&
