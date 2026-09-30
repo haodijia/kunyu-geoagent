@@ -28,6 +28,8 @@ from dsh.events import (
     EventStore,
     ModelAttemptFinishedEvent,
     ModelAttemptFinishedPayload,
+    RequestHeaderEvent,
+    RequestHeaderPayload,
     ResumePhase,
     RunProgressEvent,
     RunProgressPayload,
@@ -42,7 +44,9 @@ from dsh.models import (
     ModelAdapterError,
     ModelFinish,
     ModelFinishReason,
+    ModelMessage,
     ModelRequest,
+    ModelRole,
     ModelToolCall,
     TextDelta,
     TokenUsage,
@@ -91,6 +95,31 @@ type _ModelOutcome = Literal[
     "error",
 ]
 type _AssistantFinish = Literal["stop", "tool_calls"]
+
+
+def _system_prompt(messages: tuple[ModelMessage, ...]) -> str:
+    return "\n\n".join(
+        message.content for message in messages if message.role is ModelRole.SYSTEM
+    )
+
+
+def _message_snapshot(message: ModelMessage) -> dict[str, JsonValue]:
+    value: dict[str, JsonValue] = {
+        "role": message.role.value,
+        "content": message.content,
+    }
+    if message.tool_call_id is not None:
+        value["tool_call_id"] = message.tool_call_id
+    if message.tool_calls:
+        value["tool_calls"] = [
+            {
+                "call_id": call.call_id,
+                "name": call.name,
+                "arguments": dict(call.arguments),
+            }
+            for call in message.tool_calls
+        ]
+    return value
 
 
 @dataclass(frozen=True, slots=True)
@@ -381,6 +410,30 @@ class Runner[AdapterConfigT](AgentRuntime):
                         message_id=attempt.message_id,
                         step=run.step,
                         attempt=run.attempt,
+                    ),
+                    occurred_at=now,
+                ),
+                RequestHeaderEvent(
+                    session_id=run.session_id,
+                    run_id=run.run_id,
+                    event_type="request.header",
+                    payload=RequestHeaderPayload(
+                        message_id=attempt.message_id,
+                        step=run.step,
+                        attempt=run.attempt,
+                        model_id=run.model_snapshot.model_id,
+                        reasoning_effort=run.model_snapshot.reasoning_effort,
+                        max_output_tokens=run.model_snapshot.max_output_tokens,
+                        system_prompt=_system_prompt(context.messages),
+                        messages=[_message_snapshot(message) for message in context.messages],
+                        tools=[
+                            {
+                                "name": tool.name,
+                                "description": tool.description,
+                                "parameters": dict(tool.parameters),
+                            }
+                            for tool in registry.specs
+                        ],
                     ),
                     occurred_at=now,
                 ),

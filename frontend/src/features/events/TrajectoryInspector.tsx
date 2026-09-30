@@ -21,7 +21,7 @@ export function TrajectoryInspector({ record, onClose }: Props) {
   const id = useId();
   const visibleTabs: readonly Tab[] = [
     "summary",
-    ...(record.kind === "user" || record.kind === "assistant" ? ["preview" as const] : []),
+    ...(record.kind === "system" || record.kind === "user" || record.kind === "assistant" ? ["preview" as const] : []),
     ...(record.input !== null && record.kind !== "user" ? ["input" as const] : []),
     ...(record.output !== null ? ["output" as const] : []),
     "raw",
@@ -35,9 +35,12 @@ export function TrajectoryInspector({ record, onClose }: Props) {
   }
 
   const label = kindLabel(record.kind);
+  const previewText = record.kind === "system" && record.input !== null && typeof record.input === "object"
+    ? String((record.input as Record<string, unknown>).system_prompt ?? "")
+    : record.text;
   const preview = record.kind === "unsupported"
     ? <p>{content.unsupportedDescription}</p>
-    : <div className="[overflow-wrap:anywhere] [&_ul]:list-disc [&_ul]:pl-5 [&_ol]:list-decimal [&_ol]:pl-5 [&_pre]:overflow-x-auto [&_pre]:rounded [&_pre]:bg-muted [&_pre]:p-3 [&_blockquote]:border-l-2 [&_blockquote]:pl-3"><Markdown remarkPlugins={[remarkGfm]}>{record.text}</Markdown></div>;
+    : <div className="[overflow-wrap:anywhere] [&_ul]:list-disc [&_ul]:pl-5 [&_ol]:list-decimal [&_ol]:pl-5 [&_pre]:overflow-x-auto [&_pre]:rounded [&_pre]:bg-muted [&_pre]:p-3 [&_blockquote]:border-l-2 [&_blockquote]:pl-3"><Markdown remarkPlugins={[remarkGfm]}>{previewText}</Markdown></div>;
   return (
     <aside ref={aside} className={css.details} aria-label={content.details}
       style={width === null ? undefined : { width }} onKeyDown={event => { if (event.key === "Escape") onClose(); }}>
@@ -119,7 +122,7 @@ function Summary({ record, onOpen, preview }: {
       <div><dt>{content.source}</dt><dd><button type="button" className="inline-flex items-center gap-1" onClick={() => onOpen("source")}>{content.identifiers}<ChevronRight size={11} className="text-muted-foreground" /></button></dd></div>
     </dl>
     <div className={css.overviewSections}>
-      {(record.kind === "user" || record.kind === "assistant") && <DetailSection label={content.preview} onOpen={() => onOpen("preview")}>{preview}</DetailSection>}
+      {(record.kind === "system" || record.kind === "user" || record.kind === "assistant") && <DetailSection label={record.kind === "system" ? content.prompt : content.preview} onOpen={() => onOpen("preview")}>{preview}</DetailSection>}
       {record.input !== null && record.kind !== "user" && <DetailSection label={content.input} onOpen={() => onOpen("input")}><CompactJson value={record.input} /></DetailSection>}
       {record.output !== null && <DetailSection label={content.output} onOpen={() => onOpen("output")}><CompactJson value={record.output} /></DetailSection>}
     </div>
@@ -172,6 +175,7 @@ function tabLabel(tab: Tab): string {
 
 function kindClass(record: TrajectoryRecord): string {
   switch (record.kind) {
+    case "system": return ledger.system ?? "";
     case "user": return ledger.user ?? "";
     case "assistant": return ledger.assistant ?? "";
     case "tool": return ledger.tool ?? "";

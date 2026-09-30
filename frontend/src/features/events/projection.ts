@@ -2,6 +2,7 @@ import type { SessionEvent } from "@/features/events/api";
 import { zhCN } from "@/locales/zh-CN";
 
 export type TrajectoryEventKind =
+  | "system"
   | "user"
   | "assistant"
   | "tool"
@@ -43,6 +44,12 @@ export function projectSessionEvent(
   }
   if (event.event_type === "message.user.appended") {
     return projection(event, "user", requiredString(event, "message_id"));
+  }
+  if (event.event_type === "request.header") {
+    const step = requiredInteger(event, "step");
+    const attempt = requiredInteger(event, "attempt");
+    const runId = requiredRunId(event);
+    return projection(event, "system", `${runId}:${step}:${attempt}`);
   }
   if (
     event.event_type === "message.assistant.started" ||
