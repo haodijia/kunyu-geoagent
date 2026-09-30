@@ -1,3 +1,4 @@
+import { useMemo } from "react";
 import { EventStreamNotice } from "@/features/events/EventStreamNotice";
 import { useSessionEvents } from "@/features/events/SessionEventContext";
 import { MessageList } from "@/features/messages/MessageList";
@@ -5,10 +6,20 @@ import { SessionComposer } from "@/features/messages/SessionComposer";
 import { useSessionMessages } from "@/features/messages/SessionMessagesContext";
 import { AgentControls } from "@/features/agent/AgentControls";
 import { zhCN } from "@/locales/zh-CN";
+import { conversationAssembler } from "@/features/conversation/assembler";
 
 export function ConversationView() {
   const eventStream = useSessionEvents();
   const { messagesQuery, agentTurnsQuery, confirmationsQuery } = useSessionMessages();
+  const snapshot = useMemo(
+    () => conversationAssembler.assemble("chat", {
+      confirmations: confirmationsQuery.data ?? [],
+      events: eventStream.records,
+      messages: messagesQuery.data ?? [],
+      turns: agentTurnsQuery.data ?? []
+    }),
+    [agentTurnsQuery.data, confirmationsQuery.data, eventStream.records, messagesQuery.data]
+  );
   return (
     <div className="flex h-full min-h-0 flex-col bg-background">
       <div className="min-h-0 flex-1 overflow-y-auto" data-message-scroll>
@@ -23,9 +34,9 @@ export function ConversationView() {
         {messagesQuery.data !== undefined && (
           <MessageList
             footer={<AgentControls embedded />}
-            messages={messagesQuery.data}
-            turns={agentTurnsQuery.data ?? []}
-            confirmations={confirmationsQuery.data ?? []}
+            messages={snapshot.messages}
+            turns={snapshot.turns}
+            confirmations={snapshot.confirmations}
           />
         )}
       </div>

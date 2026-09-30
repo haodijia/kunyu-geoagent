@@ -5,8 +5,8 @@ import remarkGfm from "remark-gfm";
 
 import type { MessageStatus, SessionMessage } from "@/features/messages/api";
 import type { AgentTurn, ToolCall } from "@/features/agent/api";
-import { ToolActivity } from "@/features/agent/ToolActivity";
 import type { Confirmation } from "@/features/confirmations/api";
+import { conversationSlots } from "@/features/conversation/slots";
 import { SessionEmptyState } from "@/features/sessions/SessionEmptyState";
 import { zhCN } from "@/locales/zh-CN";
 
@@ -95,7 +95,7 @@ export function MessageList({ confirmations, footer, messages, turns }: MessageL
               <AssistantContent message={message} />
             )}
             {tools.length > 0 ? (
-              <ToolActivity confirmations={confirmations} tools={tools} />
+              conversationSlots.render("message.tools", { confirmations, tools })
             ) : null}
             <div className={`mt-1 flex h-6 items-center gap-2 px-1 text-xs text-muted-foreground transition-opacity ${message.status === "completed" ? "opacity-0 group-hover:opacity-100 group-focus-within:opacity-100" : "opacity-100"}`}>
               {message.status !== "completed" ? (
