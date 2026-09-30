@@ -60,6 +60,7 @@ export interface UsableModel {
 interface FrozenSubmission {
   readonly idempotencyKey: string;
   readonly content: string;
+  readonly delivery: "followup" | "steer";
   readonly connectionId: string;
   readonly modelId: string;
   readonly reasoningEffort: string | null;
@@ -303,6 +304,11 @@ function useMessages(sessionId: string, workspaceId: string) {
     const submission: FrozenSubmission = {
       idempotencyKey: crypto.randomUUID(),
       content: draft,
+      delivery: agentTurnsQuery.data?.some(
+        (turn) => !["completed", "failed", "cancelled"].includes(turn.state)
+      )
+        ? "steer"
+        : "followup",
       connectionId: selectedModel.connection.id,
       modelId: selectedModel.entry.model_id,
       reasoningEffort: modelSelection?.reasoningEffort ?? null,

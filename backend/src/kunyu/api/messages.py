@@ -55,6 +55,7 @@ class AppendMessageRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     content: str = Field(min_length=1, max_length=32_768)
+    delivery: Literal["followup", "steer"]
     model_selection: "ModelSelectionRequest"
     map_context: "MapContextRequest"
 
@@ -242,7 +243,11 @@ async def append_message(
         map_context=body.map_context.model_dump(mode="json"),
     )
     try:
-        result = await scheduler.accept(request)
+        result = (
+            await scheduler.steer(request)
+            if body.delivery == "steer"
+            else await scheduler.accept(request)
+        )
     except RunAcceptanceNotFoundError as error:
         raise ApiError(404, "NOT_FOUND", str(error)) from error
     except IdempotencyConflictError as error:

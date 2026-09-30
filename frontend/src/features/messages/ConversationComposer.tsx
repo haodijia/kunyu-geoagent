@@ -172,31 +172,43 @@ export function ConversationComposer({
               </select>
             ) : null}
             <Button
-              type={running ? "button" : "submit"}
+              type="submit"
               size="icon"
               className="ml-1 size-8 rounded-full shadow-none"
-              disabled={running ? stopPending : !canSend}
-              onClick={running ? onStop : undefined}
+              disabled={!canSend}
               aria-label={
-                running
-                  ? content.stop
-                  : pending
+                pending
                   ? content.sending
                   : draftFrozen
                     ? content.retrySend
                     : content.send
               }
             >
-              {stopPending || pending ? (
+              {pending ? (
                 <LoaderCircle className="size-3.5 animate-spin" strokeWidth={2.1} />
-              ) : running ? (
-                <Square className="size-3" fill="currentColor" strokeWidth={2.1} />
               ) : draftFrozen ? (
                 <RotateCw className="size-3.5" strokeWidth={2.1} />
               ) : (
                 <ArrowUp className="size-4" strokeWidth={2.1} />
               )}
             </Button>
+            {running ? (
+              <Button
+                type="button"
+                variant="outline"
+                size="icon"
+                className="ml-1 size-8 rounded-full bg-transparent shadow-none"
+                disabled={stopPending}
+                onClick={onStop}
+                aria-label={content.stop}
+              >
+                {stopPending ? (
+                  <LoaderCircle className="size-3.5 animate-spin" strokeWidth={2.1} />
+                ) : (
+                  <Square className="size-3" fill="currentColor" strokeWidth={2.1} />
+                )}
+              </Button>
+            ) : null}
           </div>
         </div>
         {error !== null || showModelSettings ? (

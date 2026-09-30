@@ -3,7 +3,7 @@
 import asyncio
 import logging
 
-from dsh.events import RunState
+from dsh.events import TERMINAL_RUN_STATES, RunState
 from dsh.runtime import AgentRuntime
 from kunyu.application.confirmations import ConfirmationService
 from kunyu.application.run_acceptance import RunAcceptanceService
@@ -124,6 +124,23 @@ class RunScheduler:
             )
             self._wake_dispatcher()
             return result
+
+    async def steer(self, request: RunAcceptanceRequest) -> RunAcceptanceResult:
+        existing = self._acceptance.find_idempotent(request)
+        if existing is not None:
+            return existing
+        turns = self._lifecycle.list_for_session(request.session_id)
+        active = next(
+            (
+                turn
+                for turn in reversed(turns)
+                if turn.run.state not in TERMINAL_RUN_STATES
+            ),
+            None,
+        )
+        if active is not None:
+            await self.cancel(active.run.id)
+        return await self.accept(request)
 
     async def resume(self, run_id: str) -> RunDetails:
         async with self._lock:
