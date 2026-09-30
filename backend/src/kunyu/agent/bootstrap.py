@@ -1,12 +1,11 @@
 """Explicitly assemble the fixed Kunyu agent capability graph."""
 
-from collections.abc import Mapping
 from dataclasses import dataclass
 from uuid import uuid4
 
 import httpx
 
-from dsh.host import Capability, Host
+from dsh.kernel import Capability, Context, Kernel
 from dsh.runner import Runner
 from kunyu.agent.runner import (
     KunyuConfirmationRequester,
@@ -41,7 +40,8 @@ class _StaticPlugin:
         requires: frozenset[Capability] = frozenset(),
     ) -> None:
         self._name = name
-        self._provides = {capability: value}
+        self._capability = capability
+        self._value = value
         self._requires = requires
 
     @property
@@ -49,27 +49,22 @@ class _StaticPlugin:
         return self._name
 
     @property
-    def provides(self) -> Mapping[Capability, object]:
-        return self._provides
+    def provides(self) -> frozenset[Capability]:
+        return frozenset({self._capability})
 
     @property
     def requires(self) -> frozenset[Capability]:
         return self._requires
 
-    async def start(self, capabilities: Mapping[Capability, object]) -> None:
+    async def apply(self, context: Context) -> None:
         for capability in self._requires:
-            if capability not in capabilities:
-                raise RuntimeError(
-                    f"Plugin '{self._name}' is missing capability '{capability.value}'."
-                )
-
-    async def stop(self) -> None:
-        return None
+            context.require(capability)
+        context.provide(self._capability, self._value)
 
 
 @dataclass(frozen=True, slots=True)
 class AgentRuntimeBundle:
-    host: Host
+    kernel: Kernel
     scheduler: RunScheduler
     confirmations: ConfirmationService
     lifecycle: RunLifecycleService
@@ -119,9 +114,9 @@ def create_agent_runtime(
         acceptance,
     )
 
-    host = Host()
-    host.register(_StaticPlugin("events", Capability.EVENT_STORE, events))
-    host.register(
+    kernel = Kernel()
+    kernel.register(_StaticPlugin("events", Capability.EVENT_STORE, events))
+    kernel.register(
         _StaticPlugin(
             "model",
             Capability.MODEL_ADAPTER,
@@ -129,7 +124,7 @@ def create_agent_runtime(
             frozenset({Capability.EVENT_STORE}),
         )
     )
-    host.register(
+    kernel.register(
         _StaticPlugin(
             "context",
             Capability.CONTEXT,
@@ -137,7 +132,7 @@ def create_agent_runtime(
             frozenset({Capability.MODEL_ADAPTER}),
         )
     )
-    host.register(
+    kernel.register(
         _StaticPlugin(
             "memory",
             Capability.MEMORY,
@@ -145,7 +140,7 @@ def create_agent_runtime(
             frozenset({Capability.CONTEXT}),
         )
     )
-    host.register(
+    kernel.register(
         _StaticPlugin(
             "tools",
             Capability.TOOL_REGISTRY,
@@ -153,7 +148,7 @@ def create_agent_runtime(
             frozenset({Capability.CONTEXT, Capability.MEMORY}),
         )
     )
-    host.register(
+    kernel.register(
         _StaticPlugin(
             "policy",
             Capability.POLICY_GATE,
@@ -161,7 +156,7 @@ def create_agent_runtime(
             frozenset({Capability.TOOL_REGISTRY}),
         )
     )
-    host.register(
+    kernel.register(
         _StaticPlugin(
             "runner",
             Capability.RUNNER,
@@ -177,4 +172,4 @@ def create_agent_runtime(
             ),
         )
     )
-    return AgentRuntimeBundle(host, scheduler, confirmations, lifecycle)
+    return AgentRuntimeBundle(kernel, scheduler, confirmations, lifecycle)
