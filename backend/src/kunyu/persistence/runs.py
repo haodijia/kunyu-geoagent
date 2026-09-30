@@ -8,7 +8,7 @@ from kunyu.persistence import run_records
 from kunyu.persistence.agent_projections import SQLAlchemyAgentProjectionService
 from kunyu.persistence.database import Database
 from kunyu.persistence.models import (
-    AgentEventRecord,
+    SessionEventRecord,
     RunModelSnapshotRecord,
     RunRecord,
     ToolCallRecord,
@@ -29,12 +29,12 @@ class SQLAlchemyEventStore:
         self, session_id: str, sequence: int
     ) -> tuple[AgentEvent, ...]:
         statement = (
-            select(AgentEventRecord)
+            select(SessionEventRecord)
             .where(
-                AgentEventRecord.session_id == session_id,
-                AgentEventRecord.sequence > sequence,
+                SessionEventRecord.session_id == session_id,
+                SessionEventRecord.sequence > sequence,
             )
-            .order_by(AgentEventRecord.sequence)
+            .order_by(SessionEventRecord.sequence)
         )
         with self._database.sessions() as database_session:
             records = database_session.scalars(statement).all()
@@ -54,9 +54,9 @@ class SQLAlchemyEventStore:
 
     def get_reduced_run(self, run_id: str) -> ReducedRun | None:
         statement = (
-            select(AgentEventRecord)
-            .where(AgentEventRecord.run_id == run_id)
-            .order_by(AgentEventRecord.sequence)
+            select(SessionEventRecord)
+            .where(SessionEventRecord.run_id == run_id)
+            .order_by(SessionEventRecord.sequence)
         )
         with self._database.sessions() as database_session:
             records = tuple(database_session.scalars(statement).all())

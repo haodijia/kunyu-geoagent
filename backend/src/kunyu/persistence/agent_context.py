@@ -7,7 +7,7 @@ from kunyu.domain.workspaces import Workspace
 from kunyu.persistence import run_records
 from kunyu.persistence.database import Database
 from kunyu.persistence.models import (
-    AgentEventRecord,
+    SessionEventRecord,
     SessionRecord,
     WorkspaceRecord,
 )
@@ -24,9 +24,9 @@ class SQLAlchemyRunContextRepository:
             raise ValueError("Context memory limit must be positive.")
         with self._database.sessions() as database_session:
             session_id = database_session.scalar(
-                select(AgentEventRecord.session_id)
-                .where(AgentEventRecord.run_id == run_id)
-                .order_by(AgentEventRecord.sequence)
+                select(SessionEventRecord.session_id)
+                .where(SessionEventRecord.run_id == run_id)
+                .order_by(SessionEventRecord.sequence)
                 .limit(1)
             )
             if session_id is None:
@@ -41,9 +41,9 @@ class SQLAlchemyRunContextRepository:
                 return None
 
             event_records = database_session.scalars(
-                select(AgentEventRecord)
-                .where(AgentEventRecord.session_id == session_id)
-                .order_by(AgentEventRecord.sequence)
+                select(SessionEventRecord)
+                .where(SessionEventRecord.session_id == session_id)
+                .order_by(SessionEventRecord.sequence)
             ).all()
             reduced_session = reduce_session(
                 run_records.event_to_domain(record) for record in event_records

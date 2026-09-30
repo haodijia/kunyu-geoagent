@@ -338,17 +338,17 @@ class RunModelSnapshotRecord(Base):
     scene: Mapped[dict[str, Any] | None] = mapped_column(JSON)
 
 
-class AgentEventRecord(Base):
-    __tablename__ = "agent_events"
+class SessionEventRecord(Base):
+    __tablename__ = "session_events"
     __table_args__ = (
-        CheckConstraint("sequence > 0", name="ck_agent_events_sequence_positive"),
+        CheckConstraint("sequence > 0", name="ck_session_events_sequence_positive"),
         Index(
-            "ix_agent_events_session_sequence",
+            "ix_session_events_session_sequence",
             "session_id",
             "sequence",
             unique=True,
         ),
-        Index("ix_agent_events_run_id", "run_id"),
+        Index("ix_session_events_run_id", "run_id"),
     )
 
     id: Mapped[str] = mapped_column(String(64), primary_key=True)

@@ -6,7 +6,7 @@ from kunyu.domain.events import AgentEvent
 from kunyu.domain.messages import Message, MessageRole, MessageStatus
 from kunyu.persistence.database import Database
 from kunyu.persistence.models import (
-    AgentEventRecord,
+    SessionEventRecord,
     MessageRecord,
     SessionRecord,
 )
@@ -33,8 +33,8 @@ class SQLAlchemyMessageRepository:
         with self._database.sessions() as database_session:
             if database_session.get(SessionRecord, session_id) is None:
                 return None
-            statement = select(func.max(AgentEventRecord.sequence)).where(
-                AgentEventRecord.session_id == session_id
+            statement = select(func.max(SessionEventRecord.sequence)).where(
+                SessionEventRecord.session_id == session_id
             )
             return database_session.scalar(statement) or 0
 
@@ -45,12 +45,12 @@ class SQLAlchemyMessageRepository:
         limit: int | None = None,
     ) -> list[AgentEvent]:
         statement = (
-            select(AgentEventRecord)
+            select(SessionEventRecord)
             .where(
-                AgentEventRecord.session_id == session_id,
-                AgentEventRecord.sequence > sequence,
+                SessionEventRecord.session_id == session_id,
+                SessionEventRecord.sequence > sequence,
             )
-            .order_by(AgentEventRecord.sequence)
+            .order_by(SessionEventRecord.sequence)
         )
         if limit is not None:
             statement = statement.limit(limit)
@@ -77,7 +77,7 @@ def _message_to_domain(record: MessageRecord) -> Message:
     )
 
 
-def _event_to_domain(record: AgentEventRecord) -> AgentEvent:
+def _event_to_domain(record: SessionEventRecord) -> AgentEvent:
     return AgentEvent(
         id=record.id,
         session_id=record.session_id,

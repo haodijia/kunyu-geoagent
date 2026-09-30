@@ -11,7 +11,7 @@ from kunyu.domain.runs import (
 )
 from kunyu.persistence.database import Database
 from kunyu.persistence.models import (
-    AgentEventRecord,
+    SessionEventRecord,
     RunModelSnapshotRecord,
     RunRecord,
     SessionRecord,
@@ -124,14 +124,14 @@ class SQLAlchemyRunLifecycleRepository:
 
     def open_budget_reservation(self, run_id: str) -> OpenBudgetReservation | None:
         statement = (
-            select(AgentEventRecord.event_type, AgentEventRecord.payload)
+            select(SessionEventRecord.event_type, SessionEventRecord.payload)
             .where(
-                AgentEventRecord.run_id == run_id,
-                AgentEventRecord.event_type.in_(
+                SessionEventRecord.run_id == run_id,
+                SessionEventRecord.event_type.in_(
                     ("run.budget_reserved", "run.budget_settled")
                 ),
             )
-            .order_by(AgentEventRecord.sequence)
+            .order_by(SessionEventRecord.sequence)
         )
         reservations: dict[str, OpenBudgetReservation] = {}
         with self._database.sessions() as database_session:
