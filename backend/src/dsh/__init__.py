@@ -1,6 +1,12 @@
 """Business-independent contracts and lifecycle for the agent runtime."""
 
-from dsh.context import AgentContext, ContextProvider, Memory
+from dsh.context import (
+    AgentContext,
+    ContextProvider,
+    Memory,
+    PromptSection,
+    PromptSectionRegistry,
+)
 from dsh.events import (
     ALLOWED_RUN_TRANSITIONS,
     TERMINAL_RUN_STATES,
@@ -94,6 +100,8 @@ __all__ = [
     "ModelRole",
     "ModelToolCall",
     "Plugin",
+    "PromptSection",
+    "PromptSectionRegistry",
     "PolicyDecision",
     "PolicyGate",
     "ReducedAssistant",
