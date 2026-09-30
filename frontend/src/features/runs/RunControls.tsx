@@ -49,8 +49,8 @@ export function RunControls({ embedded = false }: { readonly embedded?: boolean 
   const mutation = useMutation({
     mutationFn: async (action: RunAction): Promise<RunActionResult> => {
       if (run === undefined) throw new Error("An active run is required.");
-      if (action === "cancel") return { run: await cancelRun(run.id) };
-      if (action === "resume") return { run: await resumeRun(run.id) };
+      if (action === "cancel") return { run: await cancelRun(session.id) };
+      if (action === "resume") return { run: await resumeRun(session.id) };
       if (confirmation === undefined) {
         throw new Error("A pending confirmation is required.");
       }

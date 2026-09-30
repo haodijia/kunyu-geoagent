@@ -9,8 +9,8 @@ from kunyu.agent.scheduler import (
     RunSchedulerClosingError,
 )
 from kunyu.api.errors import ApiError
+from kunyu.api.agent import RunSchedulerDependency
 from kunyu.api.run_models import RunResponse, ToolCallResponse
-from kunyu.api.runs import RunSchedulerDependency
 from kunyu.application.confirmations import ConfirmationService
 from kunyu.application.sessions import SessionNotFoundError
 from kunyu.domain.confirmations import (
