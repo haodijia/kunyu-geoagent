@@ -84,5 +84,5 @@ export function appendUserMessage(
 
 export interface AcceptedMessage {
   readonly message: SessionMessage;
-  readonly run: RunSnapshot;
+  readonly turn: RunSnapshot;
 }

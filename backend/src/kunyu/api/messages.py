@@ -21,7 +21,7 @@ from kunyu.agent.scheduler import (
 )
 from kunyu.api.dependencies import get_database
 from kunyu.api.errors import ApiError
-from kunyu.api.run_models import RunResponse
+from kunyu.api.run_models import AgentTurnResponse
 from kunyu.application.messages import (
     InvalidEventSequenceError,
     MessageService,
@@ -99,7 +99,7 @@ class MapContextRequest(BaseModel):
 
 class AcceptedMessageResponse(BaseModel):
     message: "MessageResponse"
-    run: RunResponse
+    turn: AgentTurnResponse
 
 
 class MessageResponse(BaseModel):
@@ -270,7 +270,7 @@ async def append_message(
         raise ApiError(503, "SHUTTING_DOWN", str(error)) from error
     return AcceptedMessageResponse(
         message=MessageResponse.from_domain(result.message),
-        run=RunResponse.from_details(result.run),
+        turn=AgentTurnResponse.from_details(result.run),
     )
 
 

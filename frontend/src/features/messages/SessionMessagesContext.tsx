@@ -271,7 +271,7 @@ function useMessages(sessionId: string, workspaceId: string) {
       });
       queryClient.setQueryData<RunSnapshot[]>(
         runQueryKeys.session(sessionId),
-        (current) => mergeRunSnapshots(current, [accepted.run])
+        (current) => mergeRunSnapshots(current, [accepted.turn])
       );
       frozenSubmissionRef.current = null;
       setRequestFrozen(false);

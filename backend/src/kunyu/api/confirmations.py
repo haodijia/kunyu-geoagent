@@ -10,7 +10,7 @@ from kunyu.agent.scheduler import (
 )
 from kunyu.api.errors import ApiError
 from kunyu.api.agent import RunSchedulerDependency
-from kunyu.api.run_models import RunResponse, ToolCallResponse
+from kunyu.api.run_models import AgentTurnResponse, ToolCallResponse
 from kunyu.application.confirmations import ConfirmationService
 from kunyu.application.sessions import SessionNotFoundError
 from kunyu.domain.confirmations import (
@@ -67,7 +67,7 @@ class ConfirmationResponse(BaseModel):
 class ConfirmationDecisionResponse(BaseModel):
     confirmation: ConfirmationResponse
     tool_call: ToolCallResponse
-    run: RunResponse
+    turn: AgentTurnResponse
     continuation_required: bool
 
     @classmethod
@@ -77,7 +77,7 @@ class ConfirmationDecisionResponse(BaseModel):
         return cls(
             confirmation=ConfirmationResponse.from_domain(result.confirmation),
             tool_call=ToolCallResponse.from_domain(result.tool_call),
-            run=RunResponse.from_domain(
+            turn=AgentTurnResponse.from_domain(
                 result.run,
                 result.model_snapshot,
                 result.tool_calls,

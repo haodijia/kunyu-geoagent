@@ -57,7 +57,7 @@ export function RunControls({ embedded = false }: { readonly embedded?: boolean 
       const decision: ConfirmationDecision = action === "approve"
         ? await approveConfirmation(confirmation.id)
         : await rejectConfirmation(confirmation.id);
-      return { run: decision.run, confirmation: decision.confirmation };
+      return { run: decision.turn, confirmation: decision.confirmation };
     },
     onSuccess: ({ run: updatedRun, confirmation: updatedConfirmation }) => {
       queryClient.setQueryData<RunSnapshot[]>(

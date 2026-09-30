@@ -21,7 +21,7 @@ export interface Confirmation {
 export interface ConfirmationDecision {
   readonly confirmation: Confirmation;
   readonly tool_call: ToolCall;
-  readonly run: RunSnapshot;
+  readonly turn: RunSnapshot;
   readonly continuation_required: boolean;
 }
 
