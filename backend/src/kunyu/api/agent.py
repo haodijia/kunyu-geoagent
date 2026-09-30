@@ -10,16 +10,12 @@ from kunyu.agent.scheduler import (
     RunScheduler,
     RunSchedulerClosingError,
 )
-from kunyu.api.dependencies import get_run_lifecycle_service
 from kunyu.api.errors import ApiError
 from kunyu.api.run_models import AgentTurnResponse
-from kunyu.application.run_lifecycle import (
-    RunLifecycleConflictError,
-    RunLifecycleService,
-)
+from kunyu.agent.session_agent import AgentDirectory, SessionAgentIdleError
+from kunyu.application.run_lifecycle import RunLifecycleConflictError
 from kunyu.application.sessions import SessionNotFoundError
 from kunyu.domain.confirmations import ConfirmationConflictError
-from kunyu.domain.runs import RunDetails
 
 router = APIRouter(prefix="/api/v1/sessions/{session_id}/agent", tags=["agent"])
 
@@ -33,20 +29,24 @@ def get_run_scheduler(request: Request) -> RunScheduler:
 
 
 RunSchedulerDependency = Annotated[RunScheduler, Depends(get_run_scheduler)]
-RunLifecycleDependency = Annotated[
-    RunLifecycleService, Depends(get_run_lifecycle_service)
-]
+
+
+def get_agent_directory(request: Request) -> AgentDirectory:
+    return request.app.state.agent_directory
+
+
+AgentDirectoryDependency = Annotated[AgentDirectory, Depends(get_agent_directory)]
 
 
 @router.get("", response_model=list[AgentTurnResponse])
 def agent_turns(
     session_id: str,
-    lifecycle: RunLifecycleDependency,
+    agents: AgentDirectoryDependency,
 ) -> list[AgentTurnResponse]:
     try:
         return [
             AgentTurnResponse.from_details(item)
-            for item in lifecycle.list_for_session(session_id)
+            for item in agents.for_session(session_id).turns()
         ]
     except SessionNotFoundError as error:
         raise ApiError(404, "NOT_FOUND", str(error)) from error
@@ -56,12 +56,14 @@ def agent_turns(
 async def resume_agent(
     session_id: str,
     _: EmptyRequest,
-    scheduler: RunSchedulerDependency,
-    lifecycle: RunLifecycleDependency,
+    agents: AgentDirectoryDependency,
 ) -> AgentTurnResponse:
-    turn = _active_turn(session_id, lifecycle)
     try:
-        return AgentTurnResponse.from_details(await scheduler.resume(turn.run.id))
+        return AgentTurnResponse.from_details(
+            await agents.for_session(session_id).resume()
+        )
+    except SessionAgentIdleError as error:
+        raise ApiError(409, "AGENT_IDLE", str(error)) from error
     except RunLifecycleConflictError as error:
         raise ApiError(409, "AGENT_CONFLICT", str(error)) from error
     except RunQueueFullError as error:
@@ -74,34 +76,15 @@ async def resume_agent(
 async def cancel_agent(
     session_id: str,
     _: EmptyRequest,
-    scheduler: RunSchedulerDependency,
-    lifecycle: RunLifecycleDependency,
+    agents: AgentDirectoryDependency,
 ) -> AgentTurnResponse:
-    turn = _active_turn(session_id, lifecycle)
     try:
-        return AgentTurnResponse.from_details(await scheduler.cancel(turn.run.id))
+        return AgentTurnResponse.from_details(
+            await agents.for_session(session_id).cancel()
+        )
+    except SessionAgentIdleError as error:
+        raise ApiError(409, "AGENT_IDLE", str(error)) from error
     except (RunLifecycleConflictError, ConfirmationConflictError) as error:
         raise ApiError(409, "AGENT_CONFLICT", str(error)) from error
     except RunSchedulerClosingError as error:
         raise ApiError(503, "SHUTTING_DOWN", str(error)) from error
-
-
-def _active_turn(
-    session_id: str,
-    lifecycle: RunLifecycleService,
-) -> RunDetails:
-    try:
-        turns = lifecycle.list_for_session(session_id)
-    except SessionNotFoundError as error:
-        raise ApiError(404, "NOT_FOUND", str(error)) from error
-    active = next(
-        (
-            turn
-            for turn in reversed(turns)
-            if turn.run.state.value not in {"completed", "failed", "cancelled"}
-        ),
-        None,
-    )
-    if active is None:
-        raise ApiError(409, "AGENT_IDLE", "The session Agent has no active turn.")
-    return active
