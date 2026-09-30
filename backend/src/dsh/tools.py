@@ -3,7 +3,7 @@
 from collections.abc import Mapping
 from dataclasses import dataclass
 from enum import Enum
-from typing import Protocol
+from typing import Literal, Protocol
 
 
 @dataclass(frozen=True)
@@ -11,6 +11,8 @@ class ToolSpec:
     name: str
     description: str
     parameters: Mapping[str, object]
+    execution: Literal["parallel", "exclusive"]
+    presentation: Literal["context", "search", "write"]
 
 
 @dataclass(frozen=True)
