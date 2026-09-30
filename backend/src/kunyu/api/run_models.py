@@ -48,7 +48,7 @@ class ToolCallResponse(BaseModel):
         )
 
 
-class RunBudgetResponse(BaseModel):
+class TurnBudgetResponse(BaseModel):
     max_model_calls: int
     model_calls: int
     max_tool_calls: int
@@ -62,7 +62,7 @@ class RunBudgetResponse(BaseModel):
     total_tokens: int | None
 
 
-class RunModelSnapshotResponse(BaseModel):
+class StepModelResponse(BaseModel):
     connection_id: str
     provider_type: str
     protocol: Literal["openai_compatible"]
@@ -76,7 +76,7 @@ class RunModelSnapshotResponse(BaseModel):
     max_output_tokens: int
 
     @classmethod
-    def from_domain(cls, snapshot: RunModelSnapshot) -> "RunModelSnapshotResponse":
+    def from_domain(cls, snapshot: RunModelSnapshot) -> "StepModelResponse":
         return cls(
             connection_id=snapshot.connection_id,
             provider_type=snapshot.provider_type.value,
@@ -92,7 +92,7 @@ class RunModelSnapshotResponse(BaseModel):
         )
 
 
-class RunResponse(BaseModel):
+class AgentTurnResponse(BaseModel):
     id: str
     session_id: str
     user_message_id: str
@@ -114,10 +114,10 @@ class RunResponse(BaseModel):
     queue_sequence: int | None
     pending_confirmation_id: str | None
     pause_reason: str | None
-    model_snapshot: RunModelSnapshotResponse
+    model_snapshot: StepModelResponse
     map_context: dict[str, JsonValue]
     scene: dict[str, JsonValue] | None
-    budget: RunBudgetResponse
+    budget: TurnBudgetResponse
     tool_calls: list[ToolCallResponse]
     created_at: datetime
     updated_at: datetime
@@ -129,7 +129,7 @@ class RunResponse(BaseModel):
         run: Run,
         snapshot: RunModelSnapshot,
         tool_calls: tuple[ToolCall, ...],
-    ) -> "RunResponse":
+    ) -> "AgentTurnResponse":
         return cls(
             id=run.id,
             session_id=run.session_id,
@@ -143,10 +143,10 @@ class RunResponse(BaseModel):
             queue_sequence=run.queue_sequence,
             pending_confirmation_id=run.pending_confirmation_id,
             pause_reason=run.pause_reason,
-            model_snapshot=RunModelSnapshotResponse.from_domain(snapshot),
+            model_snapshot=StepModelResponse.from_domain(snapshot),
             map_context=snapshot.map_context,
             scene=snapshot.scene,
-            budget=RunBudgetResponse(
+            budget=TurnBudgetResponse(
                 max_model_calls=run.budget.max_model_calls,
                 model_calls=run.budget.model_calls,
                 max_tool_calls=run.budget.max_tool_calls,
@@ -166,7 +166,7 @@ class RunResponse(BaseModel):
         )
 
     @classmethod
-    def from_details(cls, details: RunDetails) -> "RunResponse":
+    def from_details(cls, details: RunDetails) -> "AgentTurnResponse":
         return cls.from_domain(
             details.run,
             details.model_snapshot,

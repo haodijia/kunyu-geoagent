@@ -12,7 +12,7 @@ from kunyu.agent.scheduler import (
 )
 from kunyu.api.dependencies import get_run_lifecycle_service
 from kunyu.api.errors import ApiError
-from kunyu.api.run_models import RunResponse
+from kunyu.api.run_models import AgentTurnResponse
 from kunyu.application.run_lifecycle import (
     RunLifecycleConflictError,
     RunLifecycleService,
@@ -38,30 +38,30 @@ RunLifecycleDependency = Annotated[
 ]
 
 
-@router.get("", response_model=list[RunResponse])
+@router.get("", response_model=list[AgentTurnResponse])
 def agent_turns(
     session_id: str,
     lifecycle: RunLifecycleDependency,
-) -> list[RunResponse]:
+) -> list[AgentTurnResponse]:
     try:
         return [
-            RunResponse.from_details(item)
+            AgentTurnResponse.from_details(item)
             for item in lifecycle.list_for_session(session_id)
         ]
     except SessionNotFoundError as error:
         raise ApiError(404, "NOT_FOUND", str(error)) from error
 
 
-@router.post("/resume", response_model=RunResponse)
+@router.post("/resume", response_model=AgentTurnResponse)
 async def resume_agent(
     session_id: str,
     _: EmptyRequest,
     scheduler: RunSchedulerDependency,
     lifecycle: RunLifecycleDependency,
-) -> RunResponse:
+) -> AgentTurnResponse:
     turn = _active_turn(session_id, lifecycle)
     try:
-        return RunResponse.from_details(await scheduler.resume(turn.run.id))
+        return AgentTurnResponse.from_details(await scheduler.resume(turn.run.id))
     except RunLifecycleConflictError as error:
         raise ApiError(409, "AGENT_CONFLICT", str(error)) from error
     except RunQueueFullError as error:
@@ -70,16 +70,16 @@ async def resume_agent(
         raise ApiError(503, "SHUTTING_DOWN", str(error)) from error
 
 
-@router.post("/cancel", response_model=RunResponse)
+@router.post("/cancel", response_model=AgentTurnResponse)
 async def cancel_agent(
     session_id: str,
     _: EmptyRequest,
     scheduler: RunSchedulerDependency,
     lifecycle: RunLifecycleDependency,
-) -> RunResponse:
+) -> AgentTurnResponse:
     turn = _active_turn(session_id, lifecycle)
     try:
-        return RunResponse.from_details(await scheduler.cancel(turn.run.id))
+        return AgentTurnResponse.from_details(await scheduler.cancel(turn.run.id))
     except (RunLifecycleConflictError, ConfirmationConflictError) as error:
         raise ApiError(409, "AGENT_CONFLICT", str(error)) from error
     except RunSchedulerClosingError as error:
