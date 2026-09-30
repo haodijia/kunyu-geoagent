@@ -1,4 +1,4 @@
-import { streamEvents } from "@/api/client";
+import { requestJson, streamEvents } from "@/api/client";
 import { zhCN } from "@/locales/zh-CN";
 
 export interface SessionEvent {
@@ -11,6 +11,32 @@ export interface SessionEvent {
   readonly run_id: string | null;
 }
 
+interface EventHistoryPage {
+  readonly items: readonly SessionEvent[];
+  readonly next_after_sequence: number;
+  readonly has_more: boolean;
+}
+
+export async function listSessionEventHistory(
+  sessionId: string,
+  signal: AbortSignal
+): Promise<SessionEvent[]> {
+  const events: SessionEvent[] = [];
+  let afterSequence = 0;
+  let hasMore = true;
+  while (hasMore) {
+    const page = await requestJson<EventHistoryPage>(
+      `/api/v1/sessions/${encodeURIComponent(sessionId)}/events/history` +
+        `?after_sequence=${afterSequence}&limit=500`,
+      { signal }
+    );
+    events.push(...page.items);
+    afterSequence = page.next_after_sequence;
+    hasMore = page.has_more;
+  }
+  return events;
+}
+
 export async function* streamSessionEvents(
   sessionId: string,
   afterSequence: number,
@@ -18,7 +44,7 @@ export async function* streamSessionEvents(
   onOpen: () => void
 ): AsyncGenerator<SessionEvent> {
   const path =
-    `/api/v1/sessions/${encodeURIComponent(sessionId)}/events` +
+    `/api/v1/sessions/${encodeURIComponent(sessionId)}/events/stream` +
     `?after_sequence=${afterSequence}`;
 
   for await (const frame of streamEvents(path, signal, onOpen)) {

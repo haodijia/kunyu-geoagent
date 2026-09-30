@@ -38,7 +38,12 @@ class SQLAlchemyMessageRepository:
             )
             return database_session.scalar(statement) or 0
 
-    def list_events_after(self, session_id: str, sequence: int) -> list[AgentEvent]:
+    def list_events_after(
+        self,
+        session_id: str,
+        sequence: int,
+        limit: int | None = None,
+    ) -> list[AgentEvent]:
         statement = (
             select(AgentEventRecord)
             .where(
@@ -47,6 +52,8 @@ class SQLAlchemyMessageRepository:
             )
             .order_by(AgentEventRecord.sequence)
         )
+        if limit is not None:
+            statement = statement.limit(limit)
         with self._database.sessions() as database_session:
             records = database_session.scalars(statement).all()
             return [_event_to_domain(record) for record in records]

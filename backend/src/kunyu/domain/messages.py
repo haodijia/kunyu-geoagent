@@ -36,4 +36,9 @@ class MessageRepository(Protocol):
 
     def latest_event_sequence(self, session_id: str) -> int | None: ...
 
-    def list_events_after(self, session_id: str, sequence: int) -> list[AgentEvent]: ...
+    def list_events_after(
+        self,
+        session_id: str,
+        sequence: int,
+        limit: int | None = None,
+    ) -> list[AgentEvent]: ...

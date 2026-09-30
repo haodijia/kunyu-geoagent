@@ -145,6 +145,12 @@ class EventResponse(BaseModel):
         )
 
 
+class EventHistoryResponse(BaseModel):
+    items: list[EventResponse]
+    next_after_sequence: int
+    has_more: bool
+
+
 def get_message_service(
     database: Annotated[Database, Depends(get_database)],
 ) -> MessageService:
@@ -240,7 +246,29 @@ def list_messages(
     return [MessageResponse.from_domain(item) for item in messages]
 
 
-@router.get("/events", response_class=StreamingResponse)
+@router.get("/events/history", response_model=EventHistoryResponse)
+def event_history(
+    session_id: str,
+    service: MessageServiceDependency,
+    after_sequence: Annotated[int, Query(ge=0)] = 0,
+    limit: Annotated[int, Query(ge=1, le=500)] = 200,
+) -> EventHistoryResponse:
+    try:
+        service.validate_event_cursor(session_id, after_sequence)
+    except SessionNotFoundError as error:
+        raise HTTPException(status_code=404, detail=str(error)) from error
+    except InvalidEventSequenceError as error:
+        raise HTTPException(status_code=422, detail=str(error)) from error
+    events = service.list_events_after(session_id, after_sequence, limit + 1)
+    page = events[:limit]
+    return EventHistoryResponse(
+        items=[EventResponse.from_domain(event) for event in page],
+        next_after_sequence=page[-1].sequence if page else after_sequence,
+        has_more=len(events) > limit,
+    )
+
+
+@router.get("/events/stream", response_class=StreamingResponse)
 def stream_events(
     session_id: str,
     request: Request,
