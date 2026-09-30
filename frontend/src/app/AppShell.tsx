@@ -1,6 +1,6 @@
 import { Bell, Monitor, Moon, Search, Sun } from "lucide-react";
 import { ArrowCircleLeft, SettingTwo } from "@icon-park/react";
-import { useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { SettingsSidebar } from "@/features/settings/SettingsSidebar";
 import { Outlet, useLocation, useNavigate } from "react-router-dom";
 
@@ -23,9 +23,22 @@ export function AppShell() {
   const sidebarCollapsed = useAppUiStore((state) => state.sidebarCollapsed);
   const sidebarWidth = useAppUiStore((state) => state.sidebarWidth);
   const setSidebarWidth = useAppUiStore((state) => state.setSidebarWidth);
+  const setSidebarCollapsed = useAppUiStore((state) => state.setSidebarCollapsed);
   const themeMode = useAppUiStore((state) => state.themeMode);
   const setThemeMode = useAppUiStore((state) => state.setThemeMode);
   const toggleSidebar = useAppUiStore((state) => state.toggleSidebar);
+  const [mobile, setMobile] = useState(false);
+
+  useEffect(() => {
+    const media = window.matchMedia("(max-width: 720px)");
+    const update = () => {
+      setMobile(media.matches);
+      if (media.matches) setSidebarCollapsed(true);
+    };
+    update();
+    media.addEventListener("change", update);
+    return () => media.removeEventListener("change", update);
+  }, [setSidebarCollapsed]);
   const toggleLabel = sidebarCollapsed
     ? content.expandSidebar
     : content.collapseSidebar;
@@ -34,18 +47,30 @@ export function AppShell() {
     <div className="flex h-screen min-h-[480px] min-w-0 flex-col overflow-hidden bg-muted">
       <AppTitlebar
         sidebarCollapsed={sidebarCollapsed}
-        sidebarWidth={sidebarWidth}
+        sidebarWidth={mobile ? 0 : sidebarWidth}
         toggleLabel={toggleLabel}
         onToggleSidebar={toggleSidebar}
       />
 
       <div
         className="grid min-h-0 flex-1 overflow-hidden transition-[grid-template-columns] duration-200 ease-out"
-        style={{ gridTemplateColumns: `${sidebarCollapsed ? 56 : sidebarWidth}px minmax(0, 1fr)` }}
+        style={{ gridTemplateColumns: mobile ? "minmax(0, 1fr)" : `${sidebarCollapsed ? 56 : sidebarWidth}px minmax(0, 1fr)` }}
       >
+        {mobile && !sidebarCollapsed ? (
+          <button
+            type="button"
+            className="fixed inset-0 top-[45px] z-30 bg-overlay"
+            aria-label={content.collapseSidebar}
+            onClick={() => setSidebarCollapsed(true)}
+          />
+        ) : null}
         <aside
           id="task-sidebar"
-          className="flex min-w-0 flex-col overflow-hidden border-r border-border bg-[var(--bg-2)] px-2"
+          className={cn(
+            "flex min-w-0 flex-col overflow-hidden border-r border-border bg-[var(--bg-2)] px-2",
+            mobile && "fixed top-[45px] bottom-0 left-0 z-40 w-[min(86vw,320px)] shadow-lg transition-transform duration-200",
+            mobile && sidebarCollapsed && "-translate-x-full"
+          )}
           aria-label={content.sidebarLabel}
         >
           <div
@@ -134,7 +159,7 @@ export function AppShell() {
               }
             />
           </div>
-          {sidebarCollapsed ? null : (
+          {sidebarCollapsed || mobile ? null : (
             <div
               className="absolute bottom-0 top-[45px] z-40 w-1 cursor-col-resize touch-none hover:bg-[var(--mu-accent-border)] active:bg-[var(--mu-accent-border)]"
               style={{ left: sidebarWidth - 2 }}
