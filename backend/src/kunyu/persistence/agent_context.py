@@ -48,6 +48,20 @@ class SQLAlchemyRunContextRepository:
             reduced_session = reduce_session(
                 run_records.event_to_domain(record) for record in event_records
             )
+            last_request_sequence = max(
+                (
+                    record.sequence
+                    for record in event_records
+                    if record.event_type == "request.header"
+                ),
+                default=0,
+            )
+            injected_context = tuple(
+                str(record.payload["content"])
+                for record in event_records
+                if record.event_type == "context.injected"
+                and record.sequence > last_request_sequence
+            )
             run = next(
                 (item for item in reduced_session.runs if item.run_id == run_id),
                 None,
@@ -75,4 +89,5 @@ class SQLAlchemyRunContextRepository:
                 run=run,
                 reduced_session=reduced_session,
                 memories=memories,
+                injected_context=injected_context,
             )

@@ -16,6 +16,7 @@ class RunContextSource:
     run: ReducedRun
     reduced_session: ReducedSession
     memories: WorkspaceMemoryPage
+    injected_context: tuple[str, ...]
 
 
 class RunContextRepository(Protocol):

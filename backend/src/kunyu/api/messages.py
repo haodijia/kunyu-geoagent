@@ -1,7 +1,7 @@
 import asyncio
 import json
 from collections.abc import AsyncIterator
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import Annotated, Any, Literal
 from uuid import UUID
 
@@ -9,6 +9,11 @@ from fastapi import APIRouter, Depends, Header, HTTPException, Query, Request, s
 from pydantic import BaseModel, ConfigDict, Field, JsonValue
 from starlette.responses import StreamingResponse
 
+from dsh.events import (
+    ContextInjectedEvent,
+    ContextInjectedPayload,
+    EventBatch,
+)
 from kunyu.agent.scheduler import (
     RunQueueFullError,
     RunScheduler,
@@ -24,6 +29,7 @@ from kunyu.application.messages import (
 from kunyu.application.sessions import SessionNotFoundError
 from kunyu.domain.events import AgentEvent
 from kunyu.domain.messages import Message
+from kunyu.domain.runs import ProjectionNotFoundError
 from kunyu.domain.run_acceptance import (
     CredentialUnavailableError,
     IdempotencyConflictError,
@@ -38,6 +44,7 @@ from kunyu.domain.run_acceptance import (
     WorkspaceRemovedAcceptanceError,
 )
 from kunyu.persistence.database import Database
+from kunyu.persistence.agent_projections import SQLAlchemyAgentProjectionService
 from kunyu.persistence.messages import SQLAlchemyMessageRepository
 
 router = APIRouter(prefix="/api/v1/sessions/{session_id}", tags=["messages"])
@@ -50,6 +57,12 @@ class AppendMessageRequest(BaseModel):
     content: str = Field(min_length=1, max_length=32_768)
     model_selection: "ModelSelectionRequest"
     map_context: "MapContextRequest"
+
+
+class InjectContextRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    content: str = Field(min_length=1, max_length=32_768)
 
 
 class ModelSelectionRequest(BaseModel):
@@ -149,6 +162,36 @@ class EventHistoryResponse(BaseModel):
     items: list[EventResponse]
     next_after_sequence: int
     has_more: bool
+
+
+@router.post("/context", response_model=EventResponse, status_code=201)
+def inject_context(
+    session_id: str,
+    body: InjectContextRequest,
+    database: Annotated[Database, Depends(get_database)],
+) -> EventResponse:
+    content = body.content.strip()
+    if not content:
+        raise ApiError(422, "INVALID_INPUT", "Injected context must not be blank.")
+    try:
+        events = SQLAlchemyAgentProjectionService(database).commit(
+            EventBatch(
+                session_id=session_id,
+                run_id=None,
+                events=(
+                    ContextInjectedEvent(
+                        session_id=session_id,
+                        run_id=None,
+                        event_type="context.injected",
+                        payload=ContextInjectedPayload(content=content),
+                        occurred_at=datetime.now(UTC),
+                    ),
+                ),
+            )
+        )
+    except ProjectionNotFoundError as error:
+        raise ApiError(404, "NOT_FOUND", str(error)) from error
+    return EventResponse.from_domain(events[0])
 
 
 def get_message_service(

@@ -165,6 +165,7 @@ def _complete_tool_batch(calls: tuple[ReducedToolCall, ...]) -> bool:
 def create_prompt_registry() -> PromptSectionRegistry:
     registry = PromptSectionRegistry()
     registry.register(PromptSection("scope", 10, _scope_prompt))
+    registry.register(PromptSection("injected", 15, _injected_prompt))
     registry.register(PromptSection("memory", 20, _memory_prompt))
     registry.register(PromptSection("tools", 30, _tool_prompt))
     return registry
@@ -208,6 +209,15 @@ def _memory_prompt(value: object) -> str:
         },
     }
     return "Use only confirmed memories as durable user context.\n" + _json_text(payload)
+
+
+def _injected_prompt(value: object) -> str:
+    source = _require_source(value)
+    if not source.injected_context:
+        return ""
+    return "Context injected for this model step only:\n" + _json_text(
+        {"items": list(source.injected_context)}
+    )
 
 
 def _tool_prompt(value: object) -> str:

@@ -92,6 +92,10 @@ class UserMessageAppendedPayload(EventPayload):
     run_id: str | None
 
 
+class ContextInjectedPayload(EventPayload):
+    content: str
+
+
 class BudgetLimitsPayload(EventPayload):
     model_calls: PositiveInt
     tool_calls: PositiveInt
@@ -301,6 +305,17 @@ class UserMessageAppendedEvent(_EventDraft):
         return self
 
 
+class ContextInjectedEvent(_EventDraft):
+    event_type: Literal["context.injected"]
+    payload: ContextInjectedPayload
+
+    @model_validator(mode="after")
+    def validate_session_scope(self) -> Self:
+        if self.run_id is not None:
+            raise ValueError("Injected context must be scoped to the session.")
+        return self
+
+
 class RunCreatedEvent(_RunEventDraft):
     event_type: Literal["run.created"]
     payload: RunCreatedPayload
@@ -401,6 +416,7 @@ class RunTerminalEvent(_RunEventDraft):
 type EventDraft = Annotated[
     SessionCreatedEvent
     | UserMessageAppendedEvent
+    | ContextInjectedEvent
     | RunCreatedEvent
     | RunModelSelectedEvent
     | RunProgressEvent
