@@ -2,7 +2,6 @@ import { Ellipsis, Share } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Tooltip } from "@/components/ui/tooltip";
-import { cn } from "@/lib/utils";
 import { zhCN } from "@/locales/zh-CN";
 
 const content = zhCN.shell;
@@ -30,12 +29,14 @@ function SidebarToggleIcon() {
 interface AppTitlebarProps {
   readonly onToggleSidebar: () => void;
   readonly sidebarCollapsed: boolean;
+  readonly sidebarWidth: number;
   readonly toggleLabel: string;
 }
 
 export function AppTitlebar({
   onToggleSidebar,
   sidebarCollapsed,
+  sidebarWidth,
   toggleLabel
 }: AppTitlebarProps) {
   return (
@@ -58,21 +59,13 @@ export function AppTitlebar({
       </div>
       <div
         id="session-titlebar-title-slot"
-        className={cn(
-          "pointer-events-none absolute inset-y-0 flex max-w-[38%] items-center transition-[left] duration-200 ease-out",
-          sidebarCollapsed
-            ? "left-[124px]"
-            : "left-[300px] max-[820px]:left-[252px]"
-        )}
+        className="pointer-events-none absolute inset-y-0 flex max-w-[38%] items-center transition-[left] duration-200 ease-out"
+        style={{ left: sidebarCollapsed ? 124 : sidebarWidth + 20 }}
       />
       <div
         id="session-titlebar-mode-slot"
-        className={cn(
-          "absolute top-1/2 -translate-x-1/2 -translate-y-1/2 transition-[left] duration-200 ease-out [-webkit-app-region:no-drag]",
-          sidebarCollapsed
-            ? "left-[calc((100%+56px)/2)]"
-            : "left-[calc((100%+280px)/2)] max-[820px]:left-[calc((100%+232px)/2)]"
-        )}
+        className="absolute top-1/2 -translate-x-1/2 -translate-y-1/2 transition-[left] duration-200 ease-out [-webkit-app-region:no-drag]"
+        style={{ left: `calc((100% + ${sidebarCollapsed ? 56 : sidebarWidth}px) / 2)` }}
       />
       <div className="ml-auto mr-4 flex shrink-0 items-center gap-5 text-muted-foreground [-webkit-app-region:no-drag] max-[640px]:hidden">
         <span

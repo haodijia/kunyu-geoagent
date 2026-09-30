@@ -7,7 +7,12 @@ import {
 } from "@/features/sessions/map-context";
 import {
   readSidebarCollapsed,
-  writeSidebarCollapsed
+  readSidebarWidth,
+  readThemeMode,
+  writeSidebarCollapsed,
+  writeSidebarWidth,
+  writeThemeMode,
+  type ThemeMode
 } from "@/app/storage";
 
 export type AnalysisMode = "conversation" | "trace";
@@ -24,6 +29,8 @@ interface AppUiState {
   readonly mapContextBySession: Readonly<Record<string, MapContext>>;
   readonly modelSelectionBySession: Readonly<Record<string, SessionModelSelection>>;
   readonly sidebarCollapsed: boolean;
+  readonly sidebarWidth: number;
+  readonly themeMode: ThemeMode;
   readonly clearComposerDraft: (sessionId: string) => void;
   readonly initializeMapContext: (sessionId: string, workspaceId: string) => void;
   readonly setAnalysisMode: (sessionId: string, mode: AnalysisMode) => void;
@@ -37,6 +44,8 @@ interface AppUiState {
     sessionId: string,
     selection: SessionModelSelection
   ) => void;
+  readonly setSidebarWidth: (width: number) => void;
+  readonly setThemeMode: (mode: ThemeMode) => void;
   readonly toggleSidebar: () => void;
 }
 
@@ -46,6 +55,8 @@ export const useAppUiStore = create<AppUiState>((set) => ({
   mapContextBySession: {},
   modelSelectionBySession: {},
   sidebarCollapsed: readSidebarCollapsed(),
+  sidebarWidth: readSidebarWidth(),
+  themeMode: readThemeMode(),
   clearComposerDraft: (sessionId) =>
     set((state) => ({
       composerDraftBySession: {
@@ -99,6 +110,15 @@ export const useAppUiStore = create<AppUiState>((set) => ({
         [sessionId]: selection
       }
     })),
+  setSidebarWidth: (width) => {
+    const sidebarWidth = Math.min(400, Math.max(200, Math.round(width)));
+    writeSidebarWidth(sidebarWidth);
+    set({ sidebarWidth });
+  },
+  setThemeMode: (themeMode) => {
+    writeThemeMode(themeMode);
+    set({ themeMode });
+  },
   toggleSidebar: () =>
     set((state) => {
       const sidebarCollapsed = !state.sidebarCollapsed;
