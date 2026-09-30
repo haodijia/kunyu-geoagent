@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { AlarmClock, Box, CirclePlus, Ellipsis, Plus, SquarePen } from "lucide-react";
+import { CirclePlus, Plus, SquarePen } from "lucide-react";
 import { useState } from "react";
 import { matchPath, useLocation, useNavigate } from "react-router-dom";
 
@@ -105,24 +105,6 @@ export function TaskSidebarContent({
             </Tooltip>
           )}
         </div>
-        <SidebarItem
-          collapsed={collapsed}
-          disabled
-          icon={<Box size={16} strokeWidth={1.8} />}
-          label={shellContent.geoSkill}
-        />
-        <SidebarItem
-          collapsed={collapsed}
-          disabled
-          icon={<Ellipsis size={18} strokeWidth={2.4} />}
-          label={shellContent.explore}
-        />
-        <SidebarItem
-          collapsed={collapsed}
-          disabled
-          icon={<AlarmClock size={16} strokeWidth={1.8} />}
-          label={shellContent.scheduledTasks}
-        />
       </nav>
 
       {collapsed ? null : (

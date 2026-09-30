@@ -1,4 +1,4 @@
-import { Bell, Search } from "lucide-react";
+import { Bell, Monitor, Moon, Search, Sun } from "lucide-react";
 import { ArrowCircleLeft, SettingTwo } from "@icon-park/react";
 import { useRef } from "react";
 import { SettingsSidebar } from "@/features/settings/SettingsSidebar";
@@ -21,6 +21,10 @@ export function AppShell() {
   const returnPath = useRef("/");
   if (!isSettings) returnPath.current = location.pathname;
   const sidebarCollapsed = useAppUiStore((state) => state.sidebarCollapsed);
+  const sidebarWidth = useAppUiStore((state) => state.sidebarWidth);
+  const setSidebarWidth = useAppUiStore((state) => state.setSidebarWidth);
+  const themeMode = useAppUiStore((state) => state.themeMode);
+  const setThemeMode = useAppUiStore((state) => state.setThemeMode);
   const toggleSidebar = useAppUiStore((state) => state.toggleSidebar);
   const toggleLabel = sidebarCollapsed
     ? content.expandSidebar
@@ -30,17 +34,14 @@ export function AppShell() {
     <div className="flex h-screen min-h-[480px] min-w-0 flex-col overflow-hidden bg-muted">
       <AppTitlebar
         sidebarCollapsed={sidebarCollapsed}
+        sidebarWidth={sidebarWidth}
         toggleLabel={toggleLabel}
         onToggleSidebar={toggleSidebar}
       />
 
       <div
-        className={cn(
-          "grid min-h-0 flex-1 overflow-hidden transition-[grid-template-columns] duration-200 ease-out",
-          sidebarCollapsed
-            ? "grid-cols-[56px_minmax(0,1fr)]"
-            : "grid-cols-[280px_minmax(0,1fr)] max-[820px]:grid-cols-[232px_minmax(0,1fr)]"
-        )}
+        className="grid min-h-0 flex-1 overflow-hidden transition-[grid-template-columns] duration-200 ease-out"
+        style={{ gridTemplateColumns: `${sidebarCollapsed ? 56 : sidebarWidth}px minmax(0, 1fr)` }}
       >
         <aside
           id="task-sidebar"
@@ -97,6 +98,24 @@ export function AppShell() {
             <SidebarItem
               collapsed={sidebarCollapsed}
               icon={
+                themeMode === "system" ? (
+                  <Monitor size={16} strokeWidth={1.8} />
+                ) : themeMode === "dark" ? (
+                  <Moon size={16} strokeWidth={1.8} />
+                ) : (
+                  <Sun size={16} strokeWidth={1.8} />
+                )
+              }
+              label={content.theme[themeMode]}
+              onClick={() =>
+                setThemeMode(
+                  themeMode === "system" ? "light" : themeMode === "light" ? "dark" : "system"
+                )
+              }
+            />
+            <SidebarItem
+              collapsed={sidebarCollapsed}
+              icon={
                 isSettings ? (
                   <ArrowCircleLeft
                     theme="outline"
@@ -115,6 +134,24 @@ export function AppShell() {
               }
             />
           </div>
+          {sidebarCollapsed ? null : (
+            <div
+              className="absolute bottom-0 top-[45px] z-40 w-1 cursor-col-resize touch-none hover:bg-[var(--mu-accent-border)] active:bg-[var(--mu-accent-border)]"
+              style={{ left: sidebarWidth - 2 }}
+              role="separator"
+              aria-label={content.resizeSidebar}
+              aria-orientation="vertical"
+              onPointerDown={(event) => {
+                event.currentTarget.setPointerCapture(event.pointerId);
+              }}
+              onPointerMove={(event) => {
+                if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+                  setSidebarWidth(event.clientX);
+                }
+              }}
+              onPointerUp={(event) => event.currentTarget.releasePointerCapture(event.pointerId)}
+            />
+          )}
         </aside>
 
         <main className="min-h-0 min-w-0 overflow-auto">
