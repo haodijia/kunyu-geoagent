@@ -18,6 +18,7 @@ from dsh.events import (
     ConfirmationResolvedEvent,
     EventDraft,
     ModelAttemptFinishedEvent,
+    RequestHeaderEvent,
     ResumePhase,
     RunCreatedEvent,
     RunModelSelectedEvent,
@@ -160,6 +161,8 @@ def _apply(state: _State, event: EventDraft, sequence: int) -> None:
         _reserve_budget(state, event)
     elif isinstance(event, BudgetSettledEvent):
         _settle_budget(state, event)
+    elif isinstance(event, RequestHeaderEvent):
+        return
     elif isinstance(event, AssistantStartedEvent):
         _start_assistant(state, event, sequence)
     elif isinstance(event, AssistantDeltaEvent):

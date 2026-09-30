@@ -171,6 +171,18 @@ class AssistantStartedPayload(EventPayload):
     attempt: PositiveInt
 
 
+class RequestHeaderPayload(EventPayload):
+    message_id: str
+    step: PositiveInt
+    attempt: PositiveInt
+    model_id: str
+    reasoning_effort: str | None
+    max_output_tokens: PositiveInt
+    system_prompt: str
+    messages: list[dict[str, JsonValue]]
+    tools: list[dict[str, JsonValue]]
+
+
 class AssistantDeltaPayload(EventPayload):
     message_id: str
     step: PositiveInt
@@ -323,6 +335,11 @@ class AssistantStartedEvent(_RunEventDraft):
     payload: AssistantStartedPayload
 
 
+class RequestHeaderEvent(_RunEventDraft):
+    event_type: Literal["request.header"]
+    payload: RequestHeaderPayload
+
+
 class AssistantDeltaEvent(_RunEventDraft):
     event_type: Literal["message.assistant.delta"]
     payload: AssistantDeltaPayload
@@ -387,6 +404,7 @@ type EventDraft = Annotated[
     | RunProgressEvent
     | BudgetReservedEvent
     | BudgetSettledEvent
+    | RequestHeaderEvent
     | AssistantStartedEvent
     | AssistantDeltaEvent
     | AssistantCompletedEvent

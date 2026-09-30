@@ -79,12 +79,51 @@ function buildRecord(
 ): TrajectoryRecord {
   const first = events[0]!;
   switch (first.kind) {
+    case "system": return systemRecord(events, context);
     case "user": return userRecord(events, context);
     case "assistant": return assistantRecord(events, context);
     case "tool": return toolRecord(events, context);
     case "confirmation": return confirmationRecord(events, context);
     case "unsupported": return unsupportedRecord(first, context);
   }
+}
+
+function systemRecord(
+  events: readonly TrajectoryEventProjection[],
+  context: RecordContext
+): TrajectoryRecord {
+  const first = events[0]!;
+  const prompt = stringValue(first.payload.system_prompt) ?? "";
+  const modelId = stringValue(first.payload.model_id) ?? "";
+  const tools = Array.isArray(first.payload.tools) ? first.payload.tools : [];
+  return baseRecord(events, {
+    turn: turnFor(first, context),
+    text: modelId.length > 0
+      ? zhCN.trajectory.requestPromptFor(modelId)
+      : zhCN.trajectory.requestPrompt,
+    searchText: `${prompt} ${modelId} ${safeString(tools)}`,
+    status: "completed",
+    completedAt: first.occurredAt,
+    startedAt: first.occurredAt,
+    isError: false,
+    source: {
+      run_id: first.runId,
+      message_id: first.payload.message_id ?? null,
+      step: first.payload.step ?? null,
+      attempt: first.payload.attempt ?? null
+    },
+    input: {
+      system_prompt: prompt,
+      messages: sanitizeTrajectoryValue(first.payload.messages ?? []),
+      tools: sanitizeTrajectoryValue(tools),
+      model: {
+        model_id: modelId || null,
+        reasoning_effort: first.payload.reasoning_effort ?? null,
+        max_output_tokens: first.payload.max_output_tokens ?? null
+      }
+    },
+    output: null
+  });
 }
 
 function userRecord(
