@@ -4,8 +4,7 @@
 * 按功能和职责组织代码，保持结构清晰。
 * 前端优先复用已有组件，避免重复实现。
 * 基础 UI 优先使用 `shadcn/ui` 和 Tailwind CSS。
-* 原型位于 `docs/ui-mockups`，实现页面时以原型为参考。
-* 开发前后端功能前，**必须**先参考 `/Users/dijkstra/project/02-ts/mu` `/Users/dijkstra/project/02-ts/deepseek-harness` 和中的相近实现，只抄样式，不抄话语。
+* 开发前后端功能前，**必须**样式参考 `/Users/dijkstra/project/02-ts/mu`，Agent相关功能架构和轨迹页面参考`/Users/dijkstra/project/02-ts/deepseek-harness`。
 * 可直接复用的组件、样式、图标和架构优先复用，但不要照搬无关业务。
 * 保持实现简单、易维护，避免不必要的抽象。
 * 数据与结构分离，方便 i18n 国际化。
