@@ -353,6 +353,7 @@ export const zhCN = {
     turnSuffix: "轮",
     user: "用户",
     system: "系统",
+    context: "上下文",
     assistant: "助手",
     tool: "工具",
     confirmation: "确认",
@@ -366,6 +367,7 @@ export const zhCN = {
     emptyAssistant: "模型未返回可见文本",
     requestPrompt: "模型请求提示词",
     requestPromptFor: (modelId: string) => `${modelId} · 模型请求提示词`,
+    injectedContext: "下一步注入上下文",
     unknownTool: "未知工具",
     statuses: {
       pending: "等待执行",

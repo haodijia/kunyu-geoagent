@@ -1,5 +1,5 @@
 import { useEffect, useLayoutEffect, useRef, type ReactNode } from "react";
-import { CircleHelp, Cpu, ShieldCheck, Sparkles, UserRound, Wrench } from "lucide-react";
+import { Braces, CircleHelp, Cpu, ShieldCheck, Sparkles, UserRound, Wrench } from "lucide-react";
 import type { TrajectoryEventKind } from "./projection";
 import type { TrajectoryRecord } from "./trajectory-model";
 import { zhCN } from "@/locales/zh-CN";
@@ -95,6 +95,7 @@ export function TrajectoryLedger({ records, selectedIndex, focusedIndex, searchM
 export function kindLabel(kind: TrajectoryEventKind): string {
   switch (kind) {
     case "system": return content.system;
+    case "context": return content.context;
     case "user": return content.user;
     case "assistant": return content.assistant;
     case "tool": return content.tool;
@@ -106,6 +107,7 @@ export function kindLabel(kind: TrajectoryEventKind): string {
 function kindIcon(kind: TrajectoryEventKind): ReactNode {
   switch (kind) {
     case "system": return <Cpu size={13} />;
+    case "context": return <Braces size={13} />;
     case "user": return <UserRound size={13} />;
     case "assistant": return <Sparkles size={13} />;
     case "tool": return <Wrench size={13} />;
@@ -117,6 +119,7 @@ function kindIcon(kind: TrajectoryEventKind): ReactNode {
 function kindClass(kind: TrajectoryEventKind): string {
   switch (kind) {
     case "system": return css.system ?? "";
+    case "context": return css.context ?? "";
     case "user": return css.user ?? "";
     case "assistant": return css.assistant ?? "";
     case "tool": return css.tool ?? "";

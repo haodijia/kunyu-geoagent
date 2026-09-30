@@ -92,6 +92,7 @@ export function formatDurationMillis(
 function cellKind(kind: TrajectoryEventKind): TrajectoryCellKind {
   switch (kind) {
     case "system": return "system";
+    case "context": return "context";
     case "user": return "user";
     case "assistant": return "message";
     case "tool": return "tool";

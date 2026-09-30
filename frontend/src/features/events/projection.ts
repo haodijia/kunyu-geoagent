@@ -3,6 +3,7 @@ import { zhCN } from "@/locales/zh-CN";
 
 export type TrajectoryEventKind =
   | "system"
+  | "context"
   | "user"
   | "assistant"
   | "tool"
@@ -44,6 +45,9 @@ export function projectSessionEvent(
   }
   if (event.event_type === "message.user.appended") {
     return projection(event, "user", requiredString(event, "message_id"));
+  }
+  if (event.event_type === "context.injected") {
+    return projection(event, "context", event.id);
   }
   if (event.event_type === "request.header") {
     const step = requiredInteger(event, "step");

@@ -1,6 +1,7 @@
 import { requestJson } from "@/api/client";
 import type { MapContext } from "@/features/sessions/map-context";
 import type { AgentTurn } from "@/features/agent/api";
+import type { SessionEvent } from "@/features/events/api";
 
 export type MessageStatus =
   | "streaming"
@@ -80,6 +81,19 @@ export function appendUserMessage(
           comparison_observation_ids: map.comparisonObservationIds
         }
       })
+    }
+  );
+}
+
+export function injectSessionContext(
+  sessionId: string,
+  content: string
+): Promise<SessionEvent> {
+  return requestJson<SessionEvent>(
+    `/api/v1/sessions/${encodeURIComponent(sessionId)}/context`,
+    {
+      method: "POST",
+      body: JSON.stringify({ content })
     }
   );
 }
