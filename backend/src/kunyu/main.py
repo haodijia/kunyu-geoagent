@@ -51,6 +51,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     app.state.run_scheduler = agent_runtime.scheduler
     app.state.run_lifecycle_service = agent_runtime.lifecycle
     app.state.confirmation_service = agent_runtime.confirmations
+    app.state.agent_directory = agent_runtime.agents
     app.state.closing_event = agent_runtime.scheduler.closing_event
     await agent_runtime.kernel.start()
     await agent_runtime.scheduler.start()

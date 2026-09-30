@@ -13,6 +13,7 @@ from kunyu.agent.runner import (
     SnapshotCredentialResolver,
 )
 from kunyu.agent.scheduler import RunScheduler
+from kunyu.agent.session_agent import AgentDirectory
 from kunyu.application.agent_context import (
     ScopedAgentContextProvider,
     create_prompt_registry,
@@ -71,6 +72,7 @@ class AgentRuntimeBundle:
     scheduler: RunScheduler
     confirmations: ConfirmationService
     lifecycle: RunLifecycleService
+    agents: AgentDirectory
 
 
 def create_agent_runtime(
@@ -175,4 +177,10 @@ def create_agent_runtime(
             ),
         )
     )
-    return AgentRuntimeBundle(kernel, scheduler, confirmations, lifecycle)
+    return AgentRuntimeBundle(
+        kernel,
+        scheduler,
+        confirmations,
+        lifecycle,
+        AgentDirectory(scheduler, lifecycle, database),
+    )

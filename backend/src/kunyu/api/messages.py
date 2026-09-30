@@ -1,7 +1,7 @@
 import asyncio
 import json
 from collections.abc import AsyncIterator
-from datetime import UTC, datetime
+from datetime import datetime
 from typing import Annotated, Any, Literal
 from uuid import UUID
 
@@ -9,18 +9,13 @@ from fastapi import APIRouter, Depends, Header, HTTPException, Query, Request, s
 from pydantic import BaseModel, ConfigDict, Field, JsonValue
 from starlette.responses import StreamingResponse
 
-from dsh.events import (
-    ContextInjectedEvent,
-    ContextInjectedPayload,
-    EventBatch,
-)
 from kunyu.agent.scheduler import (
     RunQueueFullError,
-    RunScheduler,
     RunSchedulerClosingError,
 )
 from kunyu.api.dependencies import get_database
 from kunyu.api.errors import ApiError
+from kunyu.api.agent import AgentDirectoryDependency
 from kunyu.api.run_models import AgentTurnResponse
 from kunyu.application.messages import (
     InvalidEventSequenceError,
@@ -44,7 +39,6 @@ from kunyu.domain.run_acceptance import (
     WorkspaceRemovedAcceptanceError,
 )
 from kunyu.persistence.database import Database
-from kunyu.persistence.agent_projections import SQLAlchemyAgentProjectionService
 from kunyu.persistence.messages import SQLAlchemyMessageRepository
 
 router = APIRouter(prefix="/api/v1/sessions/{session_id}", tags=["messages"])
@@ -169,30 +163,16 @@ class EventHistoryResponse(BaseModel):
 def inject_context(
     session_id: str,
     body: InjectContextRequest,
-    database: Annotated[Database, Depends(get_database)],
+    agents: AgentDirectoryDependency,
 ) -> EventResponse:
     content = body.content.strip()
     if not content:
         raise ApiError(422, "INVALID_INPUT", "Injected context must not be blank.")
     try:
-        events = SQLAlchemyAgentProjectionService(database).commit(
-            EventBatch(
-                session_id=session_id,
-                run_id=None,
-                events=(
-                    ContextInjectedEvent(
-                        session_id=session_id,
-                        run_id=None,
-                        event_type="context.injected",
-                        payload=ContextInjectedPayload(content=content),
-                        occurred_at=datetime.now(UTC),
-                    ),
-                ),
-            )
-        )
+        event = agents.for_session(session_id).inject(content)
     except ProjectionNotFoundError as error:
         raise ApiError(404, "NOT_FOUND", str(error)) from error
-    return EventResponse.from_domain(events[0])
+    return EventResponse.from_domain(event)
 
 
 def get_message_service(
@@ -204,13 +184,6 @@ def get_message_service(
 MessageServiceDependency = Annotated[MessageService, Depends(get_message_service)]
 
 
-def get_run_scheduler(request: Request) -> RunScheduler:
-    return request.app.state.run_scheduler
-
-
-RunSchedulerDependency = Annotated[RunScheduler, Depends(get_run_scheduler)]
-
-
 @router.post(
     "/messages",
     response_model=AcceptedMessageResponse,
@@ -219,7 +192,7 @@ RunSchedulerDependency = Annotated[RunScheduler, Depends(get_run_scheduler)]
 async def append_message(
     session_id: str,
     body: AppendMessageRequest,
-    scheduler: RunSchedulerDependency,
+    agents: AgentDirectoryDependency,
     idempotency_key: Annotated[UUID, Header(alias="Idempotency-Key")],
 ) -> AcceptedMessageResponse:
     if not body.content.strip():
@@ -243,10 +216,11 @@ async def append_message(
         map_context=body.map_context.model_dump(mode="json"),
     )
     try:
+        agent = agents.for_session(session_id)
         result = (
-            await scheduler.steer(request)
+            await agent.steer(request)
             if body.delivery == "steer"
-            else await scheduler.accept(request)
+            else await agent.followup(request)
         )
     except RunAcceptanceNotFoundError as error:
         raise ApiError(404, "NOT_FOUND", str(error)) from error
