@@ -8,7 +8,7 @@ import { zhCN } from "@/locales/zh-CN";
 
 export function ConversationView() {
   const eventStream = useSessionEvents();
-  const { messagesQuery, agentTurnsQuery } = useSessionMessages();
+  const { messagesQuery, agentTurnsQuery, confirmationsQuery } = useSessionMessages();
   return (
     <div className="flex h-full min-h-0 flex-col bg-background">
       <div className="min-h-0 flex-1 overflow-y-auto" data-message-scroll>
@@ -25,6 +25,7 @@ export function ConversationView() {
             footer={<AgentControls embedded />}
             messages={messagesQuery.data}
             turns={agentTurnsQuery.data ?? []}
+            confirmations={confirmationsQuery.data ?? []}
           />
         )}
       </div>

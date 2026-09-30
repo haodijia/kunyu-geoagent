@@ -10,14 +10,23 @@ import {
 import { useState, type ReactNode } from "react";
 
 import type { ToolCall } from "@/features/agent/api";
+import type { Confirmation } from "@/features/confirmations/api";
 import { zhCN } from "@/locales/zh-CN";
 
 const content = zhCN.conversation.tools;
 
-export function ToolActivity({ tools }: { readonly tools: readonly ToolCall[] }) {
+export function ToolActivity({
+  confirmations,
+  tools
+}: {
+  readonly confirmations: readonly Confirmation[];
+  readonly tools: readonly ToolCall[];
+}) {
   const [expanded, setExpanded] = useState(false);
   if (tools.length === 0) return null;
-  if (tools.length === 1) return <ToolCallRow tool={tools[0]!} />;
+  if (tools.length === 1) {
+    return <ToolCallRow confirmation={confirmationFor(tools[0]!, confirmations)} tool={tools[0]!} />;
+  }
 
   const runningTool = tools.find((tool) =>
     tool.status === "pending" || tool.status === "running"
@@ -43,7 +52,13 @@ export function ToolActivity({ tools }: { readonly tools: readonly ToolCall[] })
       </button>
       {expanded ? (
         <div className="ml-2 flex flex-col gap-0.5">
-          {tools.map((tool) => <ToolCallRow key={tool.id} tool={tool} />)}
+          {tools.map((tool) => (
+            <ToolCallRow
+              key={tool.id}
+              confirmation={confirmationFor(tool, confirmations)}
+              tool={tool}
+            />
+          ))}
         </div>
       ) : null}
       {!expanded
@@ -59,11 +74,22 @@ export function ToolActivity({ tools }: { readonly tools: readonly ToolCall[] })
   );
 }
 
-function ToolCallRow({ tool }: { readonly tool: ToolCall }) {
+function ToolCallRow({
+  confirmation,
+  tool
+}: {
+  readonly confirmation: Confirmation | undefined;
+  readonly tool: ToolCall;
+}) {
   const [expanded, setExpanded] = useState(false);
   const hasDetails = Object.keys(tool.arguments).length > 0 ||
     tool.result !== null ||
-    tool.error_summary !== null;
+    tool.error_summary !== null ||
+    confirmation !== undefined;
+  const duration = Math.max(
+    0,
+    Date.parse(tool.updated_at) - Date.parse(tool.created_at)
+  );
 
   return (
     <div className="w-full min-w-0 py-0.5">
@@ -109,10 +135,29 @@ function ToolCallRow({ tool }: { readonly tool: ToolCall }) {
               {tool.error_summary}
             </ToolDetail>
           ) : null}
+          {confirmation !== undefined ? (
+            <ToolDetail label={content.confirmation}>
+              {content.confirmationStatus[confirmation.status]}
+            </ToolDetail>
+          ) : null}
+          <ToolDetail label={content.duration}>{formatDuration(duration)}</ToolDetail>
         </div>
       ) : null}
     </div>
   );
+}
+
+function confirmationFor(
+  tool: ToolCall,
+  confirmations: readonly Confirmation[]
+): Confirmation | undefined {
+  return confirmations.find((item) => item.tool_call_id === tool.id);
+}
+
+function formatDuration(milliseconds: number): string {
+  return milliseconds < 1_000
+    ? `${milliseconds} ms`
+    : `${(milliseconds / 1_000).toFixed(2)} s`;
 }
 
 function ToolDetail({
