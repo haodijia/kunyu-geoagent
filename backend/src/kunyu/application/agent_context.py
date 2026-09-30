@@ -1,7 +1,7 @@
 import json
 from dataclasses import dataclass
 
-from dsh.context import AgentContext
+from dsh.context import AgentContext, PromptSection, PromptSectionRegistry
 from dsh.models import ModelMessage, ModelRole, ModelToolCall
 from dsh.run_state import ReducedAssistant, ReducedRun, ReducedToolCall
 
@@ -27,8 +27,13 @@ class _HistoryStep:
 
 
 class ScopedAgentContextProvider:
-    def __init__(self, repository: RunContextRepository) -> None:
+    def __init__(
+        self,
+        repository: RunContextRepository,
+        prompts: PromptSectionRegistry,
+    ) -> None:
         self._repository = repository
+        self._prompts = prompts
 
     async def build(self, run_id: str) -> AgentContext:
         source = self._repository.get(run_id, CONTEXT_MEMORY_LIMIT)
@@ -39,7 +44,7 @@ class ScopedAgentContextProvider:
             messages=(
                 ModelMessage(
                     role=ModelRole.SYSTEM,
-                    content=_system_context(source),
+                    content=self._prompts.render(source),
                 ),
                 *build_model_history(source),
             )
@@ -157,18 +162,38 @@ def _complete_tool_batch(calls: tuple[ReducedToolCall, ...]) -> bool:
     )
 
 
-def _system_context(source: RunContextSource) -> str:
+def create_prompt_registry() -> PromptSectionRegistry:
+    registry = PromptSectionRegistry()
+    registry.register(PromptSection("scope", 10, _scope_prompt))
+    registry.register(PromptSection("memory", 20, _memory_prompt))
+    registry.register(PromptSection("tools", 30, _tool_prompt))
+    return registry
+
+
+def _require_source(value: object) -> RunContextSource:
+    if not isinstance(value, RunContextSource):
+        raise TypeError("Prompt source must be a RunContextSource.")
+    return value
+
+
+def _scope_prompt(value: object) -> str:
+    source = _require_source(value)
+    payload = {
+        "workspace": {"id": source.workspace.id, "name": source.workspace.name},
+        "session": {"id": source.session.id, "title": source.session.title},
+        "map_context": dict(source.run.map_snapshot),
+    }
+    return (
+        "Use the server-bound workspace and session scope below. "
+        "Do not invent or replace scope identifiers.\n"
+        + _json_text(payload)
+    )
+
+
+def _memory_prompt(value: object) -> str:
+    source = _require_source(value)
     memories = source.memories
     payload = {
-        "workspace": {
-            "id": source.workspace.id,
-            "name": source.workspace.name,
-        },
-        "session": {
-            "id": source.session.id,
-            "title": source.session.title,
-        },
-        "map_context": dict(source.run.map_snapshot),
         "confirmed_memories": {
             "items": [
                 {
@@ -181,17 +206,16 @@ def _system_context(source: RunContextSource) -> str:
             "total_count": memories.total_count,
             "truncated": len(memories.items) < memories.total_count,
         },
-        "available_tools": [
-            "workspace_get_context",
-            "memory_search",
-            "workspace_memory_save",
-        ],
     }
+    return "Use only confirmed memories as durable user context.\n" + _json_text(payload)
+
+
+def _tool_prompt(value: object) -> str:
+    _require_source(value)
     return (
-        "Use the server-bound workspace and session scope below. "
-        "Do not invent or replace scope identifiers. "
-        "workspace_memory_save always requires user confirmation.\n"
-        + _json_text(payload)
+        "Available local tools: workspace_get_context, memory_search, "
+        "workspace_memory_save. workspace_memory_save always requires exact "
+        "user confirmation before execution."
     )
 
 

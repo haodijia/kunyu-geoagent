@@ -13,7 +13,10 @@ from kunyu.agent.runner import (
     SnapshotCredentialResolver,
 )
 from kunyu.agent.scheduler import RunScheduler
-from kunyu.application.agent_context import ScopedAgentContextProvider
+from kunyu.application.agent_context import (
+    ScopedAgentContextProvider,
+    create_prompt_registry,
+)
 from kunyu.application.confirmations import ConfirmationService
 from kunyu.application.connection_locks import ConnectionOperationLocks
 from kunyu.application.local_tools import LocalToolPolicyGate, LocalToolRegistryFactory
@@ -83,7 +86,7 @@ def create_agent_runtime(
         http_client,
         SnapshotCredentialResolver(connections),
     )
-    context = ScopedAgentContextProvider(contexts)
+    context = ScopedAgentContextProvider(contexts, create_prompt_registry())
     tool_registries = LocalToolRegistryFactory(contexts, memories)
     policy = LocalToolPolicyGate()
     confirmations = ConfirmationService(database, tool_registries, policy)
