@@ -12,16 +12,13 @@ from kunyu.persistence.models import (
     WorkspaceRecord,
 )
 from kunyu.persistence.time import as_utc
-from kunyu.persistence.workspace_memory import list_recent_workspace_memories
 
 
 class SQLAlchemyRunContextRepository:
     def __init__(self, database: Database) -> None:
         self._database = database
 
-    def get(self, run_id: str, memory_limit: int) -> RunContextSource | None:
-        if memory_limit <= 0:
-            raise ValueError("Context memory limit must be positive.")
+    def get(self, run_id: str) -> RunContextSource | None:
         with self._database.sessions() as database_session:
             session_id = database_session.scalar(
                 select(SessionEventRecord.session_id)
@@ -68,9 +65,6 @@ class SQLAlchemyRunContextRepository:
             )
             if run is None:
                 return None
-            memories = list_recent_workspace_memories(
-                database_session, workspace_record.id, memory_limit
-            )
             return RunContextSource(
                 workspace=Workspace(
                     id=workspace_record.id,
@@ -88,6 +82,5 @@ class SQLAlchemyRunContextRepository:
                 ),
                 run=run,
                 reduced_session=reduced_session,
-                memories=memories,
                 injected_context=injected_context,
             )
