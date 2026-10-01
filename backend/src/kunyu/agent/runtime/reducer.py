@@ -4,7 +4,7 @@ from collections.abc import Iterable
 from datetime import datetime
 from typing import Literal, Protocol
 
-from dsh.events import (
+from kunyu.agent.runtime.events import (
     ALLOWED_RUN_TRANSITIONS,
     TERMINAL_RUN_STATES,
     AgentEvent,
@@ -32,7 +32,7 @@ from dsh.events import (
     UserMessageAppendedEvent,
     validate_event_draft,
 )
-from dsh.run_state import (
+from kunyu.agent.runtime.run_state import (
     AssistantStatus,
     ReducedAssistant,
     ReducedBudget,

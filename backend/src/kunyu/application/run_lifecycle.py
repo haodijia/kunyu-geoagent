@@ -1,7 +1,7 @@
 from collections.abc import Callable
 from datetime import UTC, datetime
 
-from dsh.events import (
+from kunyu.agent.runtime.events import (
     TERMINAL_RUN_STATES,
     BudgetSettledEvent,
     BudgetSettledPayload,
@@ -15,7 +15,7 @@ from dsh.events import (
     ToolProgressEvent,
     ToolProgressPayload,
 )
-from dsh.runner_types import budget_usage, current_tool_batch
+from kunyu.agent.runtime.runner_types import budget_usage, current_tool_batch
 from kunyu.application.sessions import SessionNotFoundError
 from kunyu.domain.runs import RunDetails
 from kunyu.persistence.run_lifecycle import SQLAlchemyRunLifecycleRepository

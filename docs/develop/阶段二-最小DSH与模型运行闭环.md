@@ -39,7 +39,7 @@
 | 来源 | 核对位置 | 本项目对齐方式 |
 | --- | --- | --- |
 | maka-agent | `apps/desktop/src/renderer/settings/ProvidersPanel.tsx`、`provider-catalog-page.tsx`、`provider-add-form.tsx`、`provider-display.tsx`、`provider-brand-marks.tsx`、`provider-connection-detail.tsx`、`provider-enabled-model-manager.tsx`，以及主进程的 `connection-model-discovery.ts` | 模型设置对齐其四层页面流转：连接列表 → 供应商目录 → 连接表单 → 连接详情；复用紧凑供应商行、品牌图标、搜索/分类、凭据可展开行、模型多选和三段式详情结构。将 Electron IPC 连接管理与 `/models` 发现改为 FastAPI 应用服务；不移植账号 OAuth、非 OpenAI-compatible 协议或其组件库。 |
-| deepseek-harness | `packages/llm/llm-pi-ai/src/adapter.ts`、`packages/llm/llm-pi-ai/src/stream.ts`、`packages/llm/llm-pi-ai/src/catalog.ts`、`packages/core/agent-loop/src/agent.ts`、`packages/core/agent-loop/src/tool-calls.ts`、`packages/core/session/src/index.ts`、`packages/core/session/src/surface.ts`、`packages/core/tools/src/index.ts` | ModelAdapter 以其调用快照、流事件转换、结构化 Tool Call、用量、超时/取消和显式 Provider 能力/参数配置为主要参考；产品消息过滤隐藏推理。Agent 运行对齐模型—工具—模型推进、可见历史重建、工具守卫、持久事件与恢复边界。落到本项目的 `dsh` Protocol、显式 Host 装配与 SQLite 事务，不照搬 pi-ai 或 Cordis。 |
+| deepseek-harness | `packages/llm/llm-pi-ai/src/adapter.ts`、`packages/llm/llm-pi-ai/src/stream.ts`、`packages/llm/llm-pi-ai/src/catalog.ts`、`packages/core/agent-loop/src/agent.ts`、`packages/core/agent-loop/src/tool-calls.ts`、`packages/core/session/src/index.ts`、`packages/core/session/src/surface.ts`、`packages/core/tools/src/index.ts` | ModelAdapter 以其调用快照、流事件转换、结构化 Tool Call、用量、超时/取消和显式 Provider 能力/参数配置为主要参考；产品消息过滤隐藏推理。Agent 运行对齐模型—工具—模型推进、可见历史重建、工具守卫、持久事件与恢复边界。落到本项目的 `kunyu.agent.runtime` Protocol、显式组件装配与 SQLite 事务，不照搬 pi-ai 或 Cordis。 |
 
 只对齐下表明确列出的阶段二行为，不要求整个参考产品等价。开发时按“来源路径/符号 → 源行为 → 本项目契约 → 实现位置 → 验证结果”记录；不得把有意舍弃的行为重新引入。未列出的差异先按本文冻结契约处理并记录理由。每个实现 commit 正文均包含该映射及实际检查结果，不能仅写“参考 maka-agent/DSH”。
 
@@ -65,7 +65,7 @@
 
 ### 3.1 本阶段交付
 
-- 最小 DSH 的 Host、Plugin、Capability、ModelAdapter、Tool、PolicyGate、EventStore、Reducer 和 Runner。
+- 内部 Agent 的 ModelAdapter、Tool、PolicyGate、EventStore、Reducer 和 Runner，统一位于 kunyu 包。
 - 多个模型连接、唯一默认连接、数据库凭据配置、连接测试与自动发现模型名称的目录。
 - 一个明确的 OpenAI-compatible 协议适配器，支持真实文本流和结构化 Tool Call；Provider 差异使用显式配置处理。
 - 输入框选择连接、模型和受支持的推理强度，Run 保存不可变模型与地图上下文快照。
@@ -206,7 +206,7 @@ SSE 沿用现有路径。阶段二无需新建 /trace REST 接口，继续由统
 新增目录按需建立，不预先创建空模块：
 
 ```text
-backend/src/dsh/                 # 通用契约、Host、Runner、Reducer
+backend/src/kunyu/agent/runtime/ # 运行契约、Runner、Reducer
 backend/src/kunyu/agent/         # 装配、Context、业务 Tool、Policy
 backend/src/kunyu/integrations/model/
 backend/src/kunyu/secrets/
@@ -228,19 +228,19 @@ api/application/domain/persistence 中分别增加模型连接、Run、确认、
 
 借鉴 deepseek-harness 的 `agent-loop`、`session`、`tools` 三个接缝，阶段二只实现单一 `GeoAgent` 的最小闭环：
 
-1. `kunyu.agent.bootstrap` 显式创建 Host，并按 EventStore → ModelAdapter → Context → ToolRegistry → PolicyGate → Runner 的依赖顺序装配；缺能力或重复提供者立即失败，关闭时逆序释放。
-2. `dsh.runner` 只消费已受理的 run_id，从不可变快照构建模型请求；一次模型响应中的 Tool Call 先组装完整，再按模型关联 ID 校验、登记、过 PolicyGate 和执行。写工具停在持久确认点，不占用模型网络流等待用户。
-3. `dsh.event_store` 只负责会话内有序追加；`dsh.reducer` 从已提交事件得到 Session/Run 投影。P2-07A 后 `agent_events` 是 Agent 会话与运行事实的唯一事实源，`messages`、`runs`、`run_model_snapshots` 和 `tool_calls` 是可丢弃、可重建的查询投影。`kunyu` 的 SQLite 适配器在同一事务中追加事件并更新投影，禁止绕过 Reducer 直接改变 Agent 状态。WorkspaceMemory、Workspace 和 Artifact 等业务对象不是 Agent 查询投影，仍由各自业务聚合持有。
-4. `dsh.tools` 声明 Schema 和调用契约；`kunyu.agent.tools` 提供白名单业务实现。参数校验和 PolicyGate 位于实际执行之前，模型不能通过提示词、工具名或自报 scope 绕过权限。
+1. `kunyu.agent.bootstrap` 显式创建并注入 EventStore、ModelAdapter、Context、ToolRegistry、PolicyGate 和 Runner；应用生命周期管理后台任务、HTTP client 和数据库，不使用插件 Host。
+2. `kunyu.agent.runtime.runner` 只消费已受理的 run_id，从不可变快照构建模型请求；一次模型响应中的 Tool Call 先组装完整，再按模型关联 ID 校验、登记、过 PolicyGate 和执行。写工具停在持久确认点，不占用模型网络流等待用户。
+3. 事件存储契约负责会话内有序追加；`kunyu.agent.runtime.reducer` 从已提交事件得到 Session/Run 投影。P2-07A 后 `agent_events` 是 Agent 会话与运行事实的唯一事实源，`messages`、`runs`、`run_model_snapshots` 和 `tool_calls` 是可丢弃、可重建的查询投影。`kunyu` 的 SQLite 适配器在同一事务中追加事件并更新投影，禁止绕过 Reducer 直接改变 Agent 状态。WorkspaceMemory、Workspace 和 Artifact 等业务对象不是 Agent 查询投影，仍由各自业务聚合持有。
+4. `kunyu.agent.runtime.tools` 声明 Schema 和调用契约；`kunyu.agent.tools` 提供白名单业务实现。参数校验和 PolicyGate 位于实际执行之前，模型不能通过提示词、工具名或自报 scope 绕过权限。
 5. Runner 的取消信号终止模型流和未执行工具；已持久的部分正文保持 `interrupted`/`cancelled` 状态。重启只从日志与快照重建，恢复由用户显式触发，不重放状态不明的写入。
 
-这里的“插件化”是固定代码装配和能力注入，不做 deepseek-harness 的 Cordis 运行时、动态插件加载、通用消息 surface、并行工具调度或多 Agent。`dsh` 不依赖 FastAPI、SQLAlchemy 或坤舆业务类型；`kunyu` 实现这些 Protocol 并拥有事务、凭据与 API。
+组件以代码显式装配和依赖注入。`kunyu.agent.runtime` 不依赖 FastAPI、SQLAlchemy、具体业务工具或模型 SDK；业务服务与适配器拥有事务、凭据与 API。不实现 Cordis 运行时、动态插件加载、通用消息 surface 或多 Agent；工具支持有界并行和独占调度。
 
 ### 4.9 模型适配、验证与目录并发
 
 首期固定 Chat Completions wire protocol：Base URL 为包含可选路径前缀的绝对 http/https 地址，去掉尾部 `/` 后追加 `/models` 或 `/chat/completions`；不猜测或补 `/v1`。禁止 userinfo、query、fragment；不跟随重定向发送凭据。认证为 Bearer API Key 或显式 none。不支持 Responses 协议、任意额外请求参数及需要隐藏推理回传的模式；不支持时明确报错。
 
-P2-04B 必须扩展已交付的 `dsh.models`：
+P2-04B 必须扩展已交付的 `kunyu.agent.runtime.models`：
 
 - ModelRequest 绑定唯一 RunModelSnapshot 对应的适配器配置，包含输出 Token 上限；取消由 Runner 取消调用任务并关闭 HTTP 流，不以停止读取界面作为取消。
 - 输出除 TextDelta、完整 ModelToolCall、可空 TokenUsage 外，必须有一次终止结果：`stop / tool_calls / length / content_filter`。网络、认证、无终止事件、非法 JSON 等通过稳定异常契约报告，不能把迭代结束直接视为成功。
@@ -332,7 +332,7 @@ P2-12 起 SessionEventProvider 向消息缓存分发原始类型事件，同时�
 
 活动时间包括模型/工具执行，不含排队和用户等待。每次模型调用预留 min(60 秒, 剩余活动预算)、工具执行预留 min(5 秒, 剩余活动预算)，并以该时间片为硬超时，执行前持久扣留、正常结束返还未用额度；崩溃留下未结算时间片时按预留上限计入活动预算，避免反复重启获得无限额度，并在 DTO 标明该段是预算扣减而非实际测量耗时。UI 的实际耗时缺失保持 null。
 
-系统 shutdown 请求处理先设置 closing 信号，使所有 SSE 主动结束，然后请求 Uvicorn 退出；不能等 lifespan finally 才关 SSE，避免其阻塞请求排空。信号退出走相同关闭入口。关闭按顺序停止受理/批准/恢复 → 取消模型流及未开始工具 → 等待短事务 → 持久中断 → 释放 Host/数据库。后端关闭预算 3 秒，配合 Electron 当前 5 秒退出等待；不修改 waiting_confirmation。超过期限仍由 Electron 强制结束，启动扫描依据持久事实恢复。P2-11 手工验证活跃 SSE、确认等待、模型流和写事务四种关闭场景，不能只验证无任务退出。
+系统 shutdown 请求处理先设置 closing 信号，使所有 SSE 主动结束，然后请求 Uvicorn 退出；不能等 lifespan finally 才关 SSE，避免其阻塞请求排空。信号退出走相同关闭入口。关闭按顺序停止受理/批准/恢复 → 取消模型流及未开始工具 → 等待短事务 → 持久中断 → 关闭 HTTP client/数据库。后端关闭预算 3 秒，配合 Electron 当前 5 秒退出等待；不修改 waiting_confirmation。超过期限仍由 Electron 强制结束，启动扫描依据持久事实恢复。P2-11 手工验证活跃 SSE、确认等待、模型流和写事务四种关闭场景，不能只验证无任务退出。
 
 ### 4.13 API DTO、错误与工具参数
 
@@ -375,19 +375,19 @@ Scene DTO 分开返回 structure_status=valid|invalid、dependency_status=ready|
 
 ## 5. Commit 计划
 
-P2-01 已有 `feat(dsh): define runtime contracts and host lifecycle` 提交，实际文件为 `dsh/{host,runtime,models,tools,context,events}.py`；安装包已配置同时包含 dsh/kunyu。既有提交正文记录了导入、构建及 Host 手工检查，本次文档修订未重新运行这些检查。后续直接扩展这些模块，不另建功能重复的 agent.py/event_store.py。尚缺的模型终止契约归 P2-04B，批次工作单元归 P2-06。
+P2-01 最初采用独立 dsh 包；2026-10-01 已收拢为 `kunyu.agent.runtime`，移除未实际使用的插件内核及双包配置。后续结构以[后端 Agent 结构](后端Agent结构.md)为准。
 
 依赖顺序：P2-01 → P2-02 → P2-03 → P2-04A → P2-04B → P2-05 → P2-06 → P2-07 → P2-07A → P2-08 → P2-09 → P2-10 → P2-11 → P2-12 → P2-13 → P2-14 → P2-15 → P2-16 → P2-17 → P2-18。P2-04 拆成 A/B，保留其它编号与现有页面链接。每项注明前置、对外变化和人工验证方法；内部能力尚未接入 API 时使用 uv 临时脚本调用真实仓储/服务检查，不新增测试文件、假服务或临时公开调试路由。
 
 P2-02～11 不启用正式消息 Run 入口：旧消息功能持续可用，新增内部能力不自动启动执行。P2-12 一次性切换消息受理、最小 Assistant 展示、幂等请求和活动 Run 操作，不保留两套发送协议；P2-13～15 完善体验。内部已变更的 GET DTO 也必须同步前端类型和最低限度展示，不能等后续页面项才修正。
 
-### P2-01 `feat(dsh): define runtime contracts and host lifecycle`（已交付）
+### P2-01 运行契约与组装（已交付，结构已调整）
 
-**结果**：可导入的业务无关 DSH 核心和确定性插件装配。
+**结果**：后端统一发布 kunyu 包；运行契约、Runner、Reducer 位于 `kunyu.agent.runtime`，业务工具按功能位于 `kunyu.agent.tools`。
 
-**范围**：对照 deepseek-harness 的 `packages/core/agent-loop`、`session`、`tools`，定义 AgentRuntime、ModelAdapter、Tool、PolicyGate、EventStore、Context/Memory Protocol；按能力拆文件；Host 检查重复提供者和缺失依赖，按顺序启动、逆序清理。同步 uv_build 的 dsh 包发现，不引入业务 ORM 或 Cordis。
+**范围**：参考 harness 的模型—工具循环、事件重放与工具边界。`bootstrap.py` 显式组装组件，不保留通用插件内核或旧导入兼容层；工具自行声明风险级别，本地写入通过注册处理器与确认事件共同提交。
 
-**检查**：uv 环境能导入 dsh 和 kunyu；安装包实际包含两个包；重复能力与缺失依赖明确失败，已启动插件在后续启动失败时释放资源。
+**检查**：uv 环境可导入 `kunyu.agent.runtime` 与业务模块；安装包包含全部内部模块和提示词资源。具体重构验证记录见[后端 Agent 结构](后端Agent结构.md)。
 
 ### P2-02 `feat(models): persist connections and model catalog`（已交付）
 
@@ -417,7 +417,7 @@ P2-02～11 不启用正式消息 Run 入口：旧消息功能持续可用，新�
 
 **前置**：P2-04A 与 P2-01。**结果**：可区分正常完成、工具批次、截断、取消和异常的 ModelAdapter。
 
-**范围**：对照 DSH llm-pi-ai 的 adapter.ts/stream.ts/catalog.ts，按 4.9 扩展现有 dsh.models，落实快照绑定、完整结构化调用、终止结果、显式输出字段/用量参数、可靠推理枚举、超时与取消。不引入 pi-ai，不重试或切协议，不保存隐藏推理。
+**范围**：对照 DSH llm-pi-ai 的 adapter.ts/stream.ts/catalog.ts，按 4.9 扩展现有 kunyu.agent.runtime.models，落实快照绑定、完整结构化调用、终止结果、显式输出字段/用量参数、可靠推理枚举、超时与取消。不引入 pi-ai，不重试或切协议，不保存隐藏推理。
 
 **检查**：用 uv 临时脚本消费真实文本和工具流；检查终止结果、取消后连接释放、低输出上限触发 length、用量缺失保留 null；记录未能在真实服务触发的错误分支，不宣称已验收。P2-10 再验证 Runner 如何消费这些结果。
 
@@ -485,7 +485,7 @@ P2-02～11 不启用正式消息 Run 入口：旧消息功能持续可用，新�
 
 **结果**：运行生命周期独立于 HTTP 请求和页面生命周期。
 
-**范围**：按 4.12 在 FastAPI lifespan 装配 Host 和进程内调度；会话名额、全局并发/排队、容量预留、锁顺序；启动扫描、显式 resume/cancel、批准后入队；3 秒关闭中断落盘与 Electron 5 秒期限配合；修改/删除未完成 Run 引用的连接时返回冲突。
+**范围**：按 4.12 在 FastAPI lifespan 装配 Agent 组件和进程内调度；会话名额、全局并发/排队、容量预留、锁顺序；启动扫描、显式 resume/cancel、批准后入队；3 秒关闭中断落盘与 Electron 5 秒期限配合；修改/删除未完成 Run 引用的连接时返回冲突。
 
 **检查**：刷新或切换页面不重启 Runner；关闭重启后能辨别完成、确认等待和中断；取消阻止晚到增量；恢复不重复本地写入、不重置预算。
 
@@ -552,8 +552,8 @@ P2-02～11 不启用正式消息 Run 入口：旧消息功能持续可用，新�
 ### 6.1 工程检查
 
 - uv sync --project backend
-- uv build --project backend，并检查构建产物包含 dsh 和 kunyu。
-- uv run --project backend python -c "import dsh; import kunyu"
+- uv build --project backend，并检查构建产物只发布 kunyu，包含 agent/runtime、agent/tools 和提示词资源。
+- uv run --project backend python -c "import kunyu; import kunyu.agent.runtime"
 - npm run typecheck --prefix frontend
 - npm run build --prefix frontend
 - npm run typecheck --prefix electron

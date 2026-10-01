@@ -3,17 +3,17 @@ from typing import Literal
 
 from sqlalchemy import func, select
 
-from dsh.events import RunState
-from dsh.run_state import ReducedRun
+from kunyu.agent.runtime.events import RunState
+from kunyu.agent.runtime.run_state import ReducedRun
 from kunyu.domain.runs import (
     NONTERMINAL_RUN_STATE_VALUES,
     RunDetails,
 )
 from kunyu.persistence.database import Database
 from kunyu.persistence.models import (
-    SessionEventRecord,
     RunModelSnapshotRecord,
     RunRecord,
+    SessionEventRecord,
     SessionRecord,
 )
 from kunyu.persistence.runs import SQLAlchemyEventStore

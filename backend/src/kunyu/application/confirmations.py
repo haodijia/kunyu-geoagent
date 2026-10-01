@@ -4,7 +4,11 @@ from time import monotonic_ns
 from typing import Literal
 from uuid import uuid4
 
-from dsh.events import (
+from pydantic import JsonValue, TypeAdapter
+from sqlalchemy import func, select, text
+from sqlalchemy.orm import Session as DatabaseSession
+
+from kunyu.agent.runtime.events import (
     BudgetReservedEvent,
     BudgetReservedPayload,
     BudgetSettledEvent,
@@ -25,12 +29,9 @@ from dsh.events import (
     ToolProgressEvent,
     ToolProgressPayload,
 )
-from dsh.tools import PolicyDecision
-from dsh.tools import ToolCall as PolicyToolCall
-from pydantic import JsonValue, TypeAdapter
-from sqlalchemy import func, select, text
-
-from kunyu.application.local_tools import LocalToolPolicyGate, LocalToolRegistryFactory
+from kunyu.agent.runtime.tools import PolicyDecision
+from kunyu.agent.runtime.tools import ToolCall as PolicyToolCall
+from kunyu.agent.tools.registry import ToolPolicyGate, ToolRegistryFactory
 from kunyu.application.sessions import SessionNotFoundError
 from kunyu.domain.confirmations import (
     Confirmation,
@@ -40,7 +41,6 @@ from kunyu.domain.confirmations import (
     ConfirmationPolicyError,
     ConfirmationStatus,
 )
-from kunyu.domain.workspace_memory import WorkspaceMemory
 from kunyu.persistence import run_records
 from kunyu.persistence.agent_projections import SQLAlchemyAgentProjectionService
 from kunyu.persistence.confirmations import (
@@ -55,7 +55,6 @@ from kunyu.persistence.models import (
     SessionRecord,
     ToolCallRecord,
 )
-from kunyu.persistence.workspace_memory import add_workspace_memory
 
 TOOL_ACTIVE_TIME_SLICE_MILLISECONDS = 5_000
 _JSON_OBJECT_ADAPTER = TypeAdapter(dict[str, JsonValue])
@@ -65,11 +64,10 @@ class ConfirmationService:
     def __init__(
         self,
         database: Database,
-        tool_registries: LocalToolRegistryFactory,
-        policy: LocalToolPolicyGate,
+        tool_registries: ToolRegistryFactory,
+        policy: ToolPolicyGate,
         *,
         confirmation_id_factory: Callable[[], str] | None = None,
-        memory_id_factory: Callable[[], str] | None = None,
         operation_id_factory: Callable[[], str] | None = None,
         clock: Callable[[], datetime] | None = None,
     ) -> None:
@@ -79,7 +77,6 @@ class ConfirmationService:
         self._projections = SQLAlchemyAgentProjectionService(database)
         self._repository = SQLAlchemyConfirmationRepository(database)
         self._confirmation_id_factory = confirmation_id_factory or _new_confirmation_id
-        self._memory_id_factory = memory_id_factory or _new_memory_id
         self._operation_id_factory = operation_id_factory or _new_operation_id
         self._clock = clock or _utc_now
 
@@ -126,6 +123,7 @@ class ConfirmationService:
                 )
 
             arguments = self._validate_exact_snapshot(run_id, tool_record)
+            handler = self._tool_registries.require_write_handler(tool_record.name)
             confirmation_id = self._confirmation_id_factory()
             now = self._clock()
             event = ConfirmationRequestedEvent(
@@ -138,11 +136,8 @@ class ConfirmationService:
                     workspace_id=session_record.workspace_id,
                     name=tool_record.name,
                     arguments=arguments,
-                    summary="Save this exact memory to the current workspace.",
-                    side_effect=(
-                        "Creates one persistent workspace memory visible to future "
-                        "agent runs in this workspace."
-                    ),
+                    summary=handler.summary,
+                    side_effect=handler.side_effect,
                 ),
                 occurred_at=now,
             )
@@ -296,7 +291,8 @@ class ConfirmationService:
                         ToolCallRecord.attempt == run_record.attempt,
                     )
                 )
-                events, memory = self._approve_events(
+                events = self._approve_events(
+                    database_session,
                     confirmation_record,
                     run_record,
                     tool_record,
@@ -305,8 +301,6 @@ class ConfirmationService:
                     queue_sequence,
                     int(batch_size or 0),
                 )
-                add_workspace_memory(database_session, memory)
-                database_session.flush()
             else:
                 events = (
                     resolved,
@@ -343,6 +337,7 @@ class ConfirmationService:
 
     def _approve_events(
         self,
+        database_session: DatabaseSession,
         confirmation: ConfirmationRecord,
         run: RunRecord,
         tool: ToolCallRecord,
@@ -350,19 +345,12 @@ class ConfirmationService:
         now: datetime,
         queue_sequence: int,
         batch_size: int,
-    ) -> tuple[tuple[EventDraft, ...], WorkspaceMemory]:
+    ) -> tuple[EventDraft, ...]:
         arguments = self._validate_exact_snapshot(run.id, tool)
         if arguments != confirmation.arguments:
             raise ConfirmationConflictError(
                 "The confirmed arguments no longer match the tool call."
             )
-        if tool.name != "memory_write":
-            raise ConfirmationPolicyError(
-                "The approved write tool has no local transaction handler."
-            )
-        content = arguments.get("content")
-        if not isinstance(content, str):
-            raise ConfirmationConflictError("The memory content snapshot is invalid.")
         remaining_milliseconds = run.max_active_milliseconds - run.active_milliseconds
         if run.tool_calls >= run.max_tool_calls or remaining_milliseconds <= 0:
             raise ConfirmationConflictError("The run tool budget is exhausted.")
@@ -370,23 +358,16 @@ class ConfirmationService:
             TOOL_ACTIVE_TIME_SLICE_MILLISECONDS, remaining_milliseconds
         )
         operation_id = self._operation_id_factory()
-        memory = WorkspaceMemory(
-            id=self._memory_id_factory(),
-            workspace_id=confirmation.workspace_id,
-            content=content,
-            source_tool_call_id=tool.id,
-            created_at=now,
+        handler = self._tool_registries.require_write_handler(tool.name)
+        call = PolicyToolCall(
+            run_id=run.id,
+            call_id=tool.id,
+            name=tool.name,
+            arguments=arguments,
         )
         started_ns = monotonic_ns()
         result = _JSON_OBJECT_ADAPTER.validate_python(
-            {
-                "memory": {
-                    "id": memory.id,
-                    "workspace_id": memory.workspace_id,
-                    "content": memory.content,
-                    "created_at": memory.created_at.isoformat(),
-                }
-            }
+            handler.execute(database_session, confirmation.workspace_id, call, now)
         )
         actual_milliseconds = min(
             reserved_milliseconds,
@@ -400,86 +381,81 @@ class ConfirmationService:
             "batch_index": tool.batch_index,
         }
         return (
-            (
-                resolved,
-                BudgetReservedEvent(
-                    session_id=confirmation.session_id,
-                    run_id=confirmation.run_id,
-                    event_type="run.budget_reserved",
-                    payload=BudgetReservedPayload(
-                        operation_id=operation_id,
-                        operation_type="tool",
-                        operation_count=1,
-                        reserved_milliseconds=reserved_milliseconds,
-                    ),
-                    occurred_at=now,
+            resolved,
+            BudgetReservedEvent(
+                session_id=confirmation.session_id,
+                run_id=confirmation.run_id,
+                event_type="run.budget_reserved",
+                payload=BudgetReservedPayload(
+                    operation_id=operation_id,
+                    operation_type="tool",
+                    operation_count=1,
+                    reserved_milliseconds=reserved_milliseconds,
                 ),
-                ToolProgressEvent(
-                    session_id=confirmation.session_id,
-                    run_id=confirmation.run_id,
-                    event_type="tool.started",
-                    payload=ToolProgressPayload(
-                        **common,
-                        next_tool_index=tool.batch_index,
-                    ),
-                    occurred_at=now,
-                ),
-                BudgetSettledEvent(
-                    session_id=confirmation.session_id,
-                    run_id=confirmation.run_id,
-                    event_type="run.budget_settled",
-                    payload=BudgetSettledPayload(
-                        operation_id=operation_id,
-                        operation_type="tool",
-                        operation_count=1,
-                        reserved_milliseconds=reserved_milliseconds,
-                        actual_milliseconds=actual_milliseconds,
-                        charged_milliseconds=actual_milliseconds,
-                        crashed=False,
-                    ),
-                    occurred_at=now,
-                ),
-                ToolCompletedEvent(
-                    session_id=confirmation.session_id,
-                    run_id=confirmation.run_id,
-                    event_type="tool.completed",
-                    payload=ToolCompletedPayload(
-                        **common,
-                        next_tool_index=next_tool_index,
-                        result=result,
-                    ),
-                    occurred_at=now,
-                ),
-                RunProgressEvent(
-                    session_id=confirmation.session_id,
-                    run_id=confirmation.run_id,
-                    event_type="run.queued",
-                    payload=RunProgressPayload(
-                        step=run.step,
-                        attempt=run.attempt,
-                        resume_phase=(
-                            "tool" if next_tool_index < batch_size else "model"
-                        ),
-                        next_tool_index=next_tool_index,
-                        requires_resume=False,
-                        queue_sequence=queue_sequence,
-                        reason=None,
-                        budget=BudgetUsagePayload(
-                            model_calls=run.model_calls,
-                            tool_calls=run.tool_calls + 1,
-                            active_milliseconds=(
-                                run.active_milliseconds + actual_milliseconds
-                            ),
-                            output_codepoints=run.output_codepoints,
-                            input_tokens=run.input_tokens,
-                            output_tokens=run.output_tokens,
-                            total_tokens=run.total_tokens,
-                        ),
-                    ),
-                    occurred_at=now,
-                ),
+                occurred_at=now,
             ),
-            memory,
+            ToolProgressEvent(
+                session_id=confirmation.session_id,
+                run_id=confirmation.run_id,
+                event_type="tool.started",
+                payload=ToolProgressPayload(
+                    **common,
+                    next_tool_index=tool.batch_index,
+                ),
+                occurred_at=now,
+            ),
+            BudgetSettledEvent(
+                session_id=confirmation.session_id,
+                run_id=confirmation.run_id,
+                event_type="run.budget_settled",
+                payload=BudgetSettledPayload(
+                    operation_id=operation_id,
+                    operation_type="tool",
+                    operation_count=1,
+                    reserved_milliseconds=reserved_milliseconds,
+                    actual_milliseconds=actual_milliseconds,
+                    charged_milliseconds=actual_milliseconds,
+                    crashed=False,
+                ),
+                occurred_at=now,
+            ),
+            ToolCompletedEvent(
+                session_id=confirmation.session_id,
+                run_id=confirmation.run_id,
+                event_type="tool.completed",
+                payload=ToolCompletedPayload(
+                    **common,
+                    next_tool_index=next_tool_index,
+                    result=result,
+                ),
+                occurred_at=now,
+            ),
+            RunProgressEvent(
+                session_id=confirmation.session_id,
+                run_id=confirmation.run_id,
+                event_type="run.queued",
+                payload=RunProgressPayload(
+                    step=run.step,
+                    attempt=run.attempt,
+                    resume_phase=("tool" if next_tool_index < batch_size else "model"),
+                    next_tool_index=next_tool_index,
+                    requires_resume=False,
+                    queue_sequence=queue_sequence,
+                    reason=None,
+                    budget=BudgetUsagePayload(
+                        model_calls=run.model_calls,
+                        tool_calls=run.tool_calls + 1,
+                        active_milliseconds=(
+                            run.active_milliseconds + actual_milliseconds
+                        ),
+                        output_codepoints=run.output_codepoints,
+                        input_tokens=run.input_tokens,
+                        output_tokens=run.output_tokens,
+                        total_tokens=run.total_tokens,
+                    ),
+                ),
+                occurred_at=now,
+            ),
         )
 
     def _validate_exact_snapshot(
@@ -587,10 +563,6 @@ def _budget_usage(run: RunRecord) -> BudgetUsagePayload:
 
 def _new_confirmation_id() -> str:
     return f"cnf_{uuid4().hex}"
-
-
-def _new_memory_id() -> str:
-    return f"mem_{uuid4().hex}"
 
 
 def _new_operation_id() -> str:

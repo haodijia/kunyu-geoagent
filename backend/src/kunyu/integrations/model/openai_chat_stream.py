@@ -2,7 +2,7 @@ import json
 from dataclasses import dataclass, field
 from typing import Any
 
-from dsh.models import (
+from kunyu.agent.runtime.models import (
     ModelAdapterError,
     ModelErrorCode,
     ModelFinish,

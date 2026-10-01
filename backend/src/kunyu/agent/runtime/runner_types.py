@@ -6,10 +6,10 @@ from datetime import UTC, datetime
 from time import monotonic_ns
 from typing import Protocol
 
-from dsh.events import BudgetUsagePayload
-from dsh.models import TokenUsage
-from dsh.run_state import ReducedRun, ReducedToolCall
-from dsh.tools import ToolRegistry
+from kunyu.agent.runtime.events import BudgetUsagePayload
+from kunyu.agent.runtime.models import TokenUsage
+from kunyu.agent.runtime.run_state import ReducedRun, ReducedToolCall
+from kunyu.agent.runtime.tools import ToolRegistry
 
 MODEL_ACTIVE_TIME_SLICE_MILLISECONDS = 60_000
 TOOL_ACTIVE_TIME_SLICE_MILLISECONDS = 5_000

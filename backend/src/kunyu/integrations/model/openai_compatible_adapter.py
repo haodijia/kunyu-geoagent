@@ -5,7 +5,8 @@ from dataclasses import dataclass
 from urllib.parse import urlsplit
 
 import httpx
-from dsh.models import (
+
+from kunyu.agent.runtime.models import (
     ModelAdapterError,
     ModelErrorCode,
     ModelMessage,
@@ -14,8 +15,7 @@ from dsh.models import (
     ModelRole,
     ModelToolCall,
 )
-from dsh.tools import ToolSpec
-
+from kunyu.agent.runtime.tools import ToolSpec
 from kunyu.domain.model_connections import MaxTokensField, ModelAuthMode
 from kunyu.integrations.model.openai_chat_stream import OpenAIChatStreamParser
 

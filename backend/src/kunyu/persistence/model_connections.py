@@ -18,8 +18,8 @@ from kunyu.domain.model_connections import (
     ModelCatalogEntry,
     ModelCheck,
     ModelConnection,
-    ModelProviderType,
     ModelProtocol,
+    ModelProviderType,
 )
 from kunyu.persistence.database import Database
 from kunyu.persistence.models import (

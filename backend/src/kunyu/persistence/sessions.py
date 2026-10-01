@@ -12,9 +12,9 @@ from kunyu.domain.sessions import (
 )
 from kunyu.persistence.database import Database
 from kunyu.persistence.models import (
-    SessionEventRecord,
     RunRecord,
     SessionArchiveRecord,
+    SessionEventRecord,
     SessionRecord,
     WorkspaceRecord,
     WorkspaceRemovalRecord,

@@ -1,8 +1,7 @@
-"""Bind durable Kunyu state and credentials to the DSH runner contracts."""
+"""Bind durable Kunyu state and credentials to the internal runner contracts."""
 
-from dsh.models import ModelAdapterError, ModelErrorCode
-from dsh.runner_types import ConfirmationRequester, RunExecution
-
+from kunyu.agent.runtime.models import ModelAdapterError, ModelErrorCode
+from kunyu.agent.runtime.runner_types import ConfirmationRequester, RunExecution
 from kunyu.application.confirmations import ConfirmationService
 from kunyu.domain.model_connections import MaxTokensField, ModelAuthMode, ModelProtocol
 from kunyu.integrations.model.openai_compatible_adapter import (
@@ -12,7 +11,7 @@ from kunyu.persistence.model_connections import SQLAlchemyModelConnectionReposit
 from kunyu.persistence.runs import SQLAlchemyEventStore
 
 
-class KunyuRunExecutionProvider:
+class StoredRunExecutionProvider:
     def __init__(self, events: SQLAlchemyEventStore) -> None:
         self._events = events
 
@@ -47,7 +46,7 @@ class KunyuRunExecutionProvider:
         )
 
 
-class KunyuConfirmationRequester(ConfirmationRequester):
+class ServiceConfirmationRequester(ConfirmationRequester):
     def __init__(self, service: ConfirmationService) -> None:
         self._service = service
 
