@@ -1,8 +1,10 @@
 """Long-lived Session Agent facade over durable turn execution."""
 
 import asyncio
+from builtins import BaseExceptionGroup
 from datetime import UTC, datetime
 
+from kunyu.agent import services as s
 from kunyu.agent.runtime.events import (
     TERMINAL_RUN_STATES,
     ContextInjectedEvent,
@@ -11,11 +13,11 @@ from kunyu.agent.runtime.events import (
     RunState,
 )
 from kunyu.agent.scheduler import RunScheduler
+from kunyu.agent.scope import Context
 from kunyu.application.run_lifecycle import RunLifecycleService
 from kunyu.domain.run_acceptance import RunAcceptanceRequest, RunAcceptanceResult
 from kunyu.domain.runs import RunDetails
 from kunyu.persistence.agent_projections import SQLAlchemyAgentProjectionService
-from kunyu.persistence.database import Database
 
 
 class SessionAgent:
@@ -25,11 +27,13 @@ class SessionAgent:
         scheduler: RunScheduler,
         lifecycle: RunLifecycleService,
         projections: SQLAlchemyAgentProjectionService,
+        context: Context,
     ) -> None:
         self.session_id = session_id
         self._scheduler = scheduler
         self._lifecycle = lifecycle
         self._projections = projections
+        self.ctx = context
 
     async def followup(self, request: RunAcceptanceRequest) -> RunAcceptanceResult:
         self._require_request(request)
@@ -40,6 +44,7 @@ class SessionAgent:
         return await self._scheduler.steer(request)
 
     def inject(self, content: str):
+        self.ctx.assert_active()
         return self._projections.commit(
             EventBatch(
                 session_id=self.session_id,
@@ -57,6 +62,7 @@ class SessionAgent:
         )[0]
 
     def turns(self) -> tuple[RunDetails, ...]:
+        self.ctx.assert_active()
         return self._lifecycle.list_for_session(self.session_id)
 
     async def cancel(self) -> RunDetails:
@@ -92,6 +98,7 @@ class SessionAgent:
         )
 
     def _require_request(self, request: RunAcceptanceRequest) -> None:
+        self.ctx.assert_active()
         if request.session_id != self.session_id:
             raise ValueError("Agent request belongs to another session.")
 
@@ -102,25 +109,50 @@ class SessionAgentIdleError(RuntimeError):
 
 
 class AgentDirectory:
-    def __init__(
-        self,
-        scheduler: RunScheduler,
-        lifecycle: RunLifecycleService,
-        database: Database,
-    ) -> None:
-        self._scheduler = scheduler
-        self._lifecycle = lifecycle
-        self._projections = SQLAlchemyAgentProjectionService(database)
+    def __init__(self, owner: Context) -> None:
+        self._owner = owner
         self._agents: dict[str, SessionAgent] = {}
+        owner.effect(self._close_scopes)
+
+    async def _close_scopes(self) -> None:
+        results = await asyncio.gather(
+            *(agent.ctx.close() for agent in tuple(self._agents.values())),
+            return_exceptions=True,
+        )
+        failures = [result for result in results if isinstance(result, BaseException)]
+        if failures:
+            raise BaseExceptionGroup("Agent directory disposal failed.", failures)
 
     def for_session(self, session_id: str) -> SessionAgent:
+        self._owner.assert_active()
         agent = self._agents.get(session_id)
         if agent is None:
+            context = self._owner.require(s.SCOPES).for_session(session_id)
             agent = SessionAgent(
                 session_id,
-                self._scheduler,
-                self._lifecycle,
-                self._projections,
+                context.require(s.SCHEDULER),
+                context.require(s.LIFECYCLE),
+                context.require(s.PROJECTIONS),
+                context,
             )
+            context.provide(s.SESSION_ID, session_id)
+            context.provide(s.SESSION_AGENT, agent)
+            context.effect(lambda: self._agents.pop(session_id))
+            scheduler = context.require(s.SCHEDULER)
+            lifecycle = context.require(s.LIFECYCLE)
+            runtime = context.require(s.RUNTIME)
+
+            async def quiesce() -> None:
+                if scheduler.closing_event.is_set():
+                    return
+                for turn in lifecycle.list_for_session(session_id):
+                    if turn.run.state not in TERMINAL_RUN_STATES:
+                        await runtime.cancel(turn.run.id)
+                        await scheduler.cancel(turn.run.id)
+
+            context.effect(quiesce, before_children=True)
             self._agents[session_id] = agent
         return agent
+
+    async def dispose(self, session_id: str) -> None:
+        await self.for_session(session_id).ctx.close()

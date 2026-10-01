@@ -1,7 +1,7 @@
 from sqlalchemy import select
 
 from kunyu.agent.runtime.session_reducer import reduce_session
-from kunyu.domain.agent_context import RunContextSource
+from kunyu.domain.agent_context import InjectedContext, RunContextSource
 from kunyu.domain.sessions import Session
 from kunyu.domain.workspaces import Workspace
 from kunyu.persistence import run_records
@@ -45,26 +45,31 @@ class SQLAlchemyRunContextRepository:
             reduced_session = reduce_session(
                 run_records.event_to_domain(record) for record in event_records
             )
-            last_request_sequence = max(
-                (
-                    record.sequence
-                    for record in event_records
-                    if record.event_type == "request.header"
-                ),
-                default=0,
-            )
-            injected_context = tuple(
-                str(record.payload["content"])
-                for record in event_records
-                if record.event_type == "context.injected"
-                and record.sequence > last_request_sequence
-            )
             run = next(
                 (item for item in reduced_session.runs if item.run_id == run_id),
                 None,
             )
             if run is None:
                 return None
+            current_user_sequence = next(
+                message.created_sequence
+                for message in reduced_session.user_messages
+                if message.message_id == run.user_message_id
+            )
+            next_turn_sequence = min(
+                (
+                    message.created_sequence
+                    for message in reduced_session.user_messages
+                    if message.created_sequence > current_user_sequence
+                ),
+                default=len(event_records) + 1,
+            )
+            injected_context = tuple(
+                InjectedContext(record.sequence, str(record.payload["content"]))
+                for record in event_records
+                if record.event_type == "context.injected"
+                and record.sequence < next_turn_sequence
+            )
             return RunContextSource(
                 workspace=Workspace(
                     id=workspace_record.id,

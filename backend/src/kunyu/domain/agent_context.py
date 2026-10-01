@@ -8,12 +8,18 @@ from kunyu.domain.workspaces import Workspace
 
 
 @dataclass(frozen=True, slots=True)
+class InjectedContext:
+    sequence: int
+    content: str
+
+
+@dataclass(frozen=True, slots=True)
 class RunContextSource:
     workspace: Workspace
     session: Session
     run: ReducedRun
     reduced_session: ReducedSession
-    injected_context: tuple[str, ...]
+    injected_context: tuple[InjectedContext, ...]
 
 
 class RunContextRepository(Protocol):

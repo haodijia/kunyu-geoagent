@@ -1,6 +1,6 @@
 import argparse
 from collections.abc import AsyncIterator
-from contextlib import asynccontextmanager
+from contextlib import AsyncExitStack, asynccontextmanager
 
 import httpx
 from fastapi import Depends, FastAPI
@@ -28,41 +28,41 @@ from kunyu.settings import DESKTOP_RENDERER_ORIGINS, SESSION_HEADER
 
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
-    database = Database.open()
-    locks = ConnectionOperationLocks()
-    http_client = httpx.AsyncClient(
-        follow_redirects=False,
-        timeout=httpx.Timeout(30, connect=10),
-    )
-    repository = SQLAlchemyModelConnectionRepository(database)
-    agent_runtime = create_agent_runtime(database, http_client, locks)
-    catalog_service = ModelCatalogService(
-        repository,
-        repository,
-        locks,
-        OpenAICompatibleClient(http_client),
-        agent_runtime.lifecycle,
-    )
-    discovery_tasks = ModelDiscoveryTasks(catalog_service)
-    app.state.connection_operation_locks = locks
-    app.state.model_catalog_service = catalog_service
-    app.state.model_discovery_tasks = discovery_tasks
-    app.state.database = database
-    app.state.run_scheduler = agent_runtime.scheduler
-    app.state.run_lifecycle_service = agent_runtime.lifecycle
-    app.state.confirmation_service = agent_runtime.confirmations
-    app.state.agent_directory = agent_runtime.agents
-    app.state.closing_event = agent_runtime.scheduler.closing_event
-    await agent_runtime.scheduler.start()
-    discovery_tasks.start()
-    try:
+    async with AsyncExitStack() as resources:
+        database = Database.open()
+        resources.callback(database.close)
+        locks = ConnectionOperationLocks()
+        http_client = await resources.enter_async_context(
+            httpx.AsyncClient(
+                follow_redirects=False,
+                timeout=httpx.Timeout(30, connect=10),
+            )
+        )
+        repository = SQLAlchemyModelConnectionRepository(database)
+        agent_runtime = await create_agent_runtime(database, http_client, locks)
+        resources.push_async_callback(agent_runtime.kernel.stop)
+        catalog_service = ModelCatalogService(
+            repository,
+            repository,
+            locks,
+            OpenAICompatibleClient(http_client),
+            agent_runtime.lifecycle,
+        )
+        discovery_tasks = ModelDiscoveryTasks(catalog_service)
+        resources.push_async_callback(discovery_tasks.stop)
+        resources.callback(agent_runtime.scheduler.begin_shutdown)
+        app.state.connection_operation_locks = locks
+        app.state.model_catalog_service = catalog_service
+        app.state.model_discovery_tasks = discovery_tasks
+        app.state.database = database
+        app.state.agent_kernel = agent_runtime.kernel
+        app.state.run_scheduler = agent_runtime.scheduler
+        app.state.run_lifecycle_service = agent_runtime.lifecycle
+        app.state.confirmation_service = agent_runtime.confirmations
+        app.state.agent_directory = agent_runtime.agents
+        app.state.closing_event = agent_runtime.scheduler.closing_event
+        discovery_tasks.start()
         yield
-    finally:
-        agent_runtime.scheduler.begin_shutdown()
-        await discovery_tasks.stop()
-        await agent_runtime.scheduler.shutdown()
-        await http_client.aclose()
-        database.close()
 
 
 def create_app(session_token: str | None = None) -> FastAPI:

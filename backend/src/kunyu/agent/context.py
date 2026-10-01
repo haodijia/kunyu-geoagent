@@ -9,6 +9,7 @@ from kunyu.agent.runtime.context import (
 )
 from kunyu.agent.runtime.models import ModelMessage, ModelRole, ModelToolCall
 from kunyu.agent.runtime.run_state import ReducedAssistant, ReducedRun, ReducedToolCall
+from kunyu.agent.scope import Context
 from kunyu.domain.agent_context import RunContextRepository, RunContextSource
 
 SYSTEM_PROMPT_PATH = Path(__file__).parent / "prompts" / "system.md"
@@ -35,9 +36,11 @@ class ScopedAgentContextProvider:
         self,
         repository: RunContextRepository,
         prompts: PromptSectionRegistry,
+        scope: Context,
     ) -> None:
         self._repository = repository
         self._prompts = prompts
+        self._scope = scope
 
     async def build(self, run_id: str) -> AgentContext:
         source = self._repository.get(run_id)
@@ -48,7 +51,7 @@ class ScopedAgentContextProvider:
             messages=(
                 ModelMessage(
                     role=ModelRole.SYSTEM,
-                    content=self._prompts.render(source),
+                    content=self._prompts.render(source, self._scope),
                 ),
                 ModelMessage(
                     role=ModelRole.USER,
@@ -56,14 +59,6 @@ class ScopedAgentContextProvider:
                     context_source="workspace",
                 ),
                 *build_model_history(source),
-                *(
-                    ModelMessage(
-                        role=ModelRole.USER,
-                        content=content,
-                        context_source="injected",
-                    )
-                    for content in source.injected_context
-                ),
             )
         )
 
@@ -89,6 +84,17 @@ def build_model_history(source: RunContextSource) -> tuple[ModelMessage, ...]:
         for message in source.reduced_session.user_messages
         if message.created_sequence <= current_user_messages[0].created_sequence
     ]
+    steps.extend(
+        _HistoryStep(
+            sequence=item.sequence,
+            messages=(
+                ModelMessage(
+                    role=ModelRole.USER, content=item.content, context_source="injected"
+                ),
+            ),
+        )
+        for item in source.injected_context
+    )
     for run in source.reduced_session.runs:
         if run.created_sequence > source.run.created_sequence:
             continue
@@ -125,6 +131,10 @@ def validate_run_context_source(source: RunContextSource, run_id: str) -> None:
 def _visible_assistant_step(
     run: ReducedRun, assistant: ReducedAssistant
 ) -> tuple[ModelMessage, ...] | None:
+    if assistant.status in {"interrupted", "failed", "cancelled"}:
+        if assistant.content:
+            return (ModelMessage(role=ModelRole.ASSISTANT, content=assistant.content),)
+        return None
     if assistant.status != "completed" or assistant.finish_reason is None:
         return None
     calls = tuple(
@@ -163,7 +173,15 @@ def _visible_assistant_step(
     results = tuple(
         ModelMessage(
             role=ModelRole.TOOL,
-            content=_json_text(call.result),
+            content=_json_text(
+                call.result
+                if call.status == "completed"
+                else {
+                    "status": call.status,
+                    "error_code": call.error_code,
+                    "error_summary": call.error_summary,
+                }
+            ),
             tool_call_id=call.provider_call_id,
         )
         for call in calls
@@ -173,15 +191,14 @@ def _visible_assistant_step(
 
 def _complete_tool_batch(calls: tuple[ReducedToolCall, ...]) -> bool:
     return bool(calls) and all(
-        call.batch_index == index and call.status == "completed"
+        call.batch_index == index
+        and call.status in {"completed", "failed", "cancelled"}
         for index, call in enumerate(calls)
     )
 
 
-def create_prompt_registry() -> PromptSectionRegistry:
-    registry = PromptSectionRegistry()
-    registry.register(PromptSection("identity", 10, _identity_prompt))
-    return registry
+def register_system_prompt(owner: Context, registry: PromptSectionRegistry) -> None:
+    registry.register(owner, PromptSection("identity", 10, _identity_prompt))
 
 
 def _require_source(value: object) -> RunContextSource:

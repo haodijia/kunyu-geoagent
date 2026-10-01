@@ -228,13 +228,13 @@ api/application/domain/persistence 中分别增加模型连接、Run、确认、
 
 借鉴 deepseek-harness 的 `agent-loop`、`session`、`tools` 三个接缝，阶段二只实现单一 `GeoAgent` 的最小闭环：
 
-1. `kunyu.agent.bootstrap` 显式创建并注入 EventStore、ModelAdapter、Context、ToolRegistry、PolicyGate 和 Runner；应用生命周期管理后台任务、HTTP client 和数据库，不使用插件 Host。
+1. `kunyu.agent.bootstrap` 选择真实插件组合；`kunyu.agent.kernel` 按依赖安装服务，插件从 Context 构造 EventStore、ModelAdapter、提示词/工具注册表、PolicyGate 和循环服务。每个会话及执行拥有作用域，应用在内核关闭后释放 HTTP client 和数据库。
 2. `kunyu.agent.runtime.runner` 只消费已受理的 run_id，从不可变快照构建模型请求；一次模型响应中的 Tool Call 先组装完整，再按模型关联 ID 校验、登记、过 PolicyGate 和执行。写工具停在持久确认点，不占用模型网络流等待用户。
 3. 事件存储契约负责会话内有序追加；`kunyu.agent.runtime.reducer` 从已提交事件得到 Session/Run 投影。P2-07A 后 `agent_events` 是 Agent 会话与运行事实的唯一事实源，`messages`、`runs`、`run_model_snapshots` 和 `tool_calls` 是可丢弃、可重建的查询投影。`kunyu` 的 SQLite 适配器在同一事务中追加事件并更新投影，禁止绕过 Reducer 直接改变 Agent 状态。WorkspaceMemory、Workspace 和 Artifact 等业务对象不是 Agent 查询投影，仍由各自业务聚合持有。
 4. `kunyu.agent.runtime.tools` 声明 Schema 和调用契约；`kunyu.agent.tools` 提供白名单业务实现。参数校验和 PolicyGate 位于实际执行之前，模型不能通过提示词、工具名或自报 scope 绕过权限。
 5. Runner 的取消信号终止模型流和未执行工具；已持久的部分正文保持 `interrupted`/`cancelled` 状态。重启只从日志与快照重建，恢复由用户显式触发，不重放状态不明的写入。
 
-组件以代码显式装配和依赖注入。`kunyu.agent.runtime` 不依赖 FastAPI、SQLAlchemy、具体业务工具或模型 SDK；业务服务与适配器拥有事务、凭据与 API。不实现 Cordis 运行时、动态插件加载、通用消息 surface 或多 Agent；工具支持有界并行和独占调度。
+组件以代码选择插件组合，通过类型化服务和作用域装配。`kunyu.agent.runtime` 不依赖 FastAPI、SQLAlchemy、具体业务工具或模型 SDK；业务服务与适配器拥有事务、凭据与 API。不引入 Cordis TypeScript 运行时；Python 插件可安装/释放，尚无 profile 动态配置装载、通用消息 surface 或多 Agent；工具支持有界并行和独占调度。
 
 ### 4.9 模型适配、验证与目录并发
 
@@ -375,7 +375,7 @@ Scene DTO 分开返回 structure_status=valid|invalid、dependency_status=ready|
 
 ## 5. Commit 计划
 
-P2-01 最初采用独立 dsh 包；2026-10-01 已收拢为 `kunyu.agent.runtime`，移除未实际使用的插件内核及双包配置。后续结构以[后端 Agent 结构](后端Agent结构.md)为准。
+P2-01 最初采用独立 dsh 包；2026-10-01 已收拢为 `kunyu.agent.runtime`，去除双包配置，并随后按用户要求落实真实插件内核、作用域及生命周期。后续结构以[后端 Agent 结构](后端Agent结构.md)为准。
 
 依赖顺序：P2-01 → P2-02 → P2-03 → P2-04A → P2-04B → P2-05 → P2-06 → P2-07 → P2-07A → P2-08 → P2-09 → P2-10 → P2-11 → P2-12 → P2-13 → P2-14 → P2-15 → P2-16 → P2-17 → P2-18。P2-04 拆成 A/B，保留其它编号与现有页面链接。每项注明前置、对外变化和人工验证方法；内部能力尚未接入 API 时使用 uv 临时脚本调用真实仓储/服务检查，不新增测试文件、假服务或临时公开调试路由。
 
@@ -385,7 +385,7 @@ P2-02～11 不启用正式消息 Run 入口：旧消息功能持续可用，新�
 
 **结果**：后端统一发布 kunyu 包；运行契约、Runner、Reducer 位于 `kunyu.agent.runtime`，业务工具按功能位于 `kunyu.agent.tools`。
 
-**范围**：参考 harness 的模型—工具循环、事件重放与工具边界。`bootstrap.py` 显式组装组件，不保留通用插件内核或旧导入兼容层；工具自行声明风险级别，本地写入通过注册处理器与确认事件共同提交。
+**范围**：参考 harness 的模型—工具循环、事件重放与工具边界。`bootstrap.py` 选择插件，内核解析服务依赖、隔离作用域并管理生命周期，不保留旧导入兼容层；工具自行声明风险级别，本地写入通过注册处理器与确认事件共同提交。
 
 **检查**：uv 环境可导入 `kunyu.agent.runtime` 与业务模块；安装包包含全部内部模块和提示词资源。具体重构验证记录见[后端 Agent 结构](后端Agent结构.md)。
 
