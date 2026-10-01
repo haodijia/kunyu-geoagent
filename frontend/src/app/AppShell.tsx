@@ -1,9 +1,10 @@
-import { Monitor, Moon, Sun } from "lucide-react";
+import { Bell, Monitor, Moon, Search, Sun } from "lucide-react";
 import { ArrowCircleLeft, SettingTwo } from "@icon-park/react";
 import { useEffect, useRef, useState } from "react";
 import { SettingsSidebar } from "@/features/settings/SettingsSidebar";
 import { Outlet, useLocation, useNavigate } from "react-router-dom";
 
+import kunyuLogo from "../../../assets/kunyu.svg?raw";
 import { useAppUiStore } from "@/app/store";
 import { AppTitlebar } from "@/components/layout/AppTitlebar";
 import { SidebarItem } from "@/components/navigation/SidebarItem";
@@ -79,6 +80,42 @@ export function AppShell() {
           )}
           aria-label={content.sidebarLabel}
         >
+          <div
+            className={cn(
+              "flex h-12 shrink-0 items-center whitespace-nowrap text-foreground",
+              sidebarCollapsed ? "justify-center" : "gap-3 px-2.5",
+            )}
+            aria-label={sidebarCollapsed ? content.productName : undefined}
+          >
+            <span
+              className="flex size-8 shrink-0 items-center justify-center rounded-lg border border-border bg-primary text-primary-foreground shadow-sm [&>svg]:size-6"
+              dangerouslySetInnerHTML={{ __html: kunyuLogo }}
+              aria-hidden="true"
+            />
+            {sidebarCollapsed ? null : (
+              <span className="text-base font-semibold tracking-normal">
+                {content.productName}
+              </span>
+            )}
+            {sidebarCollapsed ? null : (
+              <div className="ml-auto flex items-center gap-1 text-muted-foreground">
+                <span
+                  className="flex size-8 items-center justify-center"
+                  role="img"
+                  aria-label={content.search}
+                >
+                  <Search size={16} strokeWidth={1.8} aria-hidden="true" />
+                </span>
+                <span
+                  className="flex size-8 items-center justify-center"
+                  role="img"
+                  aria-label={content.notifications}
+                >
+                  <Bell size={16} strokeWidth={1.8} aria-hidden="true" />
+                </span>
+              </div>
+            )}
+          </div>
           {isSettings ? (
             <SettingsSidebar collapsed={sidebarCollapsed} />
           ) : (
