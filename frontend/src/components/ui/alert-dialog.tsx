@@ -14,7 +14,7 @@ export function AlertDialogContent({
       <AlertDialogPrimitive.Overlay className="fixed inset-0 z-[100] bg-overlay" />
       <AlertDialogPrimitive.Content
         className={cn(
-          "fixed top-1/2 left-1/2 z-[101] grid w-[calc(100%-2rem)] max-w-lg -translate-x-1/2 -translate-y-1/2 gap-4 rounded-lg border bg-background p-6 text-foreground shadow-lg",
+          "fixed top-1/2 left-1/2 z-[101] grid w-[calc(100%-2rem)] max-w-lg -translate-x-1/2 -translate-y-1/2 gap-4 rounded-[var(--mu-radius-lg)] border bg-[var(--dialog-fill-0)] p-6 text-foreground shadow-lg",
           className
         )}
         {...props}
@@ -29,7 +29,7 @@ export function AlertDialogTitle({
 }: ComponentProps<typeof AlertDialogPrimitive.Title>) {
   return (
     <AlertDialogPrimitive.Title
-      className={cn("m-0 text-lg font-semibold", className)}
+      className={cn("m-0 text-base font-semibold", className)}
       {...props}
     />
   );
@@ -41,7 +41,7 @@ export function AlertDialogDescription({
 }: ComponentProps<typeof AlertDialogPrimitive.Description>) {
   return (
     <AlertDialogPrimitive.Description
-      className={cn("m-0 text-sm leading-6 text-muted-foreground", className)}
+      className={cn("m-0 text-[13px] leading-[22px] text-muted-foreground", className)}
       {...props}
     />
   );

@@ -40,7 +40,7 @@ const WorkspaceCollapse: React.FC<WorkspaceCollapseProps> = ({
   stickyHeader = false,
   stickyTop = 0,
   rowKey,
-  tabIndex = 0
+  tabIndex = 0,
 }) => {
   // 侧栏折叠时，强制展开内容并隐藏头部
   const showContent = siderCollapsed || expanded;
@@ -54,14 +54,14 @@ const WorkspaceCollapse: React.FC<WorkspaceCollapseProps> = ({
       {!siderCollapsed && (
         <div
           className={classNames(
-            stickyEnabled && "sticky z-[9] bg-[var(--bg-2)]"
+            stickyEnabled && "sticky z-[9] bg-[var(--bg-2)]",
           )}
           style={stickyEnabled ? { top: stickyTop } : undefined}
         >
           {/* A button for the keyboard too: Tab reaches the header, Enter or Space folds or unfolds the project. Keys
               pressed on the buttons at its end bubble up here and are theirs. */}
           <div
-            className="flex items-center gap-[8px] h-[34px] ps-[10px] pe-[8px] cursor-pointer hover:bg-fill-3 rounded-[8px] transition-colors min-w-0 group"
+            className="flex items-center gap-[6px] h-[30px] ps-[4px] pe-[8px] cursor-pointer hover:bg-fill-3 rounded-[6px] transition-colors min-w-0 group"
             role="button"
             tabIndex={tabIndex}
             data-roving-row={rowKey}

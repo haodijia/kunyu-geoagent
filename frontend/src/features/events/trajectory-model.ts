@@ -2,13 +2,7 @@ import type { TrajectoryEventKind } from "./projection";
 import type { TrajectoryTranslate } from "./trajectory-locales";
 
 export type TrajectoryCellKind =
-  | "system"
-  | "user"
-  | "context"
-  | "compacted"
-  | "message"
-  | "tool"
-  | "subtool";
+  "system" | "user" | "context" | "compacted" | "message" | "tool" | "subtool";
 
 export interface AssistantMetricDetail {
   stepStartTime: number | null;
@@ -58,9 +52,23 @@ export interface TrajectoryRecord {
   readonly raw: Readonly<Record<string, unknown>>;
   readonly usage: TrajectoryUsage | null;
   readonly assistantMetrics?: AssistantMetricDetail;
+  readonly requestOnly?: boolean;
+  readonly callOnly?: boolean;
+  readonly step?: number;
+  readonly schema?: unknown;
+  readonly prompt?: TrajectoryPrompt;
+  readonly previousPrompt?: TrajectoryPrompt;
 }
 
-export function trajectoryTurns(records: readonly TrajectoryRecord[]): TrajectoryTurnModel[] {
+export interface TrajectoryPrompt {
+  readonly system: string;
+  readonly tools: readonly unknown[];
+  readonly model: Readonly<Record<string, unknown>>;
+}
+
+export function trajectoryTurns(
+  records: readonly TrajectoryRecord[],
+): TrajectoryTurnModel[] {
   const grouped = new Map<number | null, TrajectoryCellProps[]>();
   for (const record of records) {
     const cells = grouped.get(record.turn) ?? [];
@@ -69,35 +77,48 @@ export function trajectoryTurns(records: readonly TrajectoryRecord[]): Trajector
       kind: cellKind(record.kind),
       text: record.text,
       startedAt: timestamp(record.occurredAt),
-      timeSeconds: record.durationMillis === null ? null : record.durationMillis / 1_000,
+      timeSeconds:
+        record.durationMillis === null ? null : record.durationMillis / 1_000,
       isError: record.isError,
-      ...(record.assistantMetrics === undefined ? {} : { assistantMetrics: record.assistantMetrics })
+      requestOnly: record.requestOnly,
+      ...(record.assistantMetrics === undefined
+        ? {}
+        : { assistantMetrics: record.assistantMetrics }),
     });
     grouped.set(record.turn, cells);
   }
   return [...grouped.entries()].map(([recordTurn, cells]) => ({
     turn: recordTurn,
-    groups: [{ cells }]
+    groups: [{ cells }],
   }));
 }
 
 export function formatDurationMillis(
   milliseconds: number | null,
-  t: TrajectoryTranslate
+  t: TrajectoryTranslate,
 ): string {
   if (milliseconds === null || !Number.isFinite(milliseconds)) return "—";
-  return t("unit.milliseconds", { value: Math.round(milliseconds).toLocaleString("zh-CN") });
+  return t("unit.milliseconds", {
+    value: Math.round(milliseconds).toLocaleString("zh-CN"),
+  });
 }
 
 function cellKind(kind: TrajectoryEventKind): TrajectoryCellKind {
   switch (kind) {
-    case "system": return "system";
-    case "context": return "context";
-    case "user": return "user";
-    case "assistant": return "message";
-    case "tool": return "tool";
-    case "confirmation": return "tool";
-    case "unsupported": return "system";
+    case "system":
+      return "system";
+    case "context":
+      return "context";
+    case "user":
+      return "user";
+    case "assistant":
+      return "message";
+    case "tool":
+      return "tool";
+    case "confirmation":
+      return "tool";
+    case "unsupported":
+      return "system";
   }
 }
 

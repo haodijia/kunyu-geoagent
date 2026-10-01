@@ -1,3 +1,5 @@
+import { attachRequestDetails } from "./trajectory-requests";
+import { sanitizeTrajectoryValue } from "./trajectory-sanitize";
 import type { Confirmation } from "@/features/confirmations/api";
 import type { SessionMessage } from "@/features/messages/api";
 import type { AgentTurn, ToolCall } from "@/features/agent/api";
@@ -6,7 +8,7 @@ import type { TrajectoryEventProjection } from "./projection";
 import type {
   AssistantMetricDetail,
   TrajectoryRecord,
-  TrajectoryUsage
+  TrajectoryUsage,
 } from "./trajectory-model";
 
 interface RecordContext {
@@ -18,29 +20,15 @@ interface RecordContext {
   readonly messageTurns: ReadonlyMap<string, number>;
 }
 
-const REDACTED = "[已隐藏]";
-const SENSITIVE_TEXT = /(Bearer\s+)[^\s,;]+|(sk-[A-Za-z0-9_-]{12,})/gi;
-const SENSITIVE_FIELDS = [
-  "authorization",
-  "apikey",
-  "accesstoken",
-  "authtoken",
-  "clientsecret",
-  "credential",
-  "cookie",
-  "password",
-  "refreshtoken",
-  "secret",
-  "token"
-];
-
 export function buildTrajectoryRecords(
   events: readonly TrajectoryEventProjection[],
   messages: readonly SessionMessage[],
   runs: readonly AgentTurn[] = [],
-  confirmations: readonly Confirmation[] = []
+  confirmations: readonly Confirmation[] = [],
 ): TrajectoryRecord[] {
-  const ordered = [...events].sort((left, right) => left.sequence - right.sequence);
+  const ordered = [...events].sort(
+    (left, right) => left.sequence - right.sequence,
+  );
   const runTurns = new Map<string, number>();
   const messageTurns = new Map<string, number>();
   let turn = 0;
@@ -63,55 +51,72 @@ export function buildTrajectoryRecords(
   const context: RecordContext = {
     messages: new Map(messages.map((message) => [message.id, message])),
     runs: runMap,
-    tools: new Map(runs.flatMap((run) => run.tool_calls).map((tool) => [tool.id, tool])),
+    tools: new Map(
+      runs.flatMap((run) => run.tool_calls).map((tool) => [tool.id, tool]),
+    ),
     confirmations: new Map(confirmations.map((item) => [item.id, item])),
     runTurns,
-    messageTurns
+    messageTurns,
   };
-  return [...grouped.values()]
-    .map((group) => buildRecord(group, context))
-    .sort((left, right) => left.index - right.index);
+  const records = [...grouped.values()].map((group) =>
+    buildRecord(group, context),
+  );
+  return attachRequestDetails(
+    records,
+    ordered.filter((event) => event.kind === "system"),
+  );
 }
 
 function buildRecord(
   events: readonly TrajectoryEventProjection[],
-  context: RecordContext
+  context: RecordContext,
 ): TrajectoryRecord {
   const first = events[0]!;
   switch (first.kind) {
-    case "system": return systemRecord(events, context);
-    case "context": return contextRecord(events, context);
-    case "user": return userRecord(events, context);
-    case "assistant": return assistantRecord(events, context);
-    case "tool": return toolRecord(events, context);
-    case "confirmation": return confirmationRecord(events, context);
-    case "unsupported": return unsupportedRecord(first, context);
+    case "system":
+      return systemRecord(events, context);
+    case "context":
+      return contextRecord(events, context);
+    case "user":
+      return userRecord(events, context);
+    case "assistant":
+      return assistantRecord(events, context);
+    case "tool":
+      return toolRecord(events, context);
+    case "confirmation":
+      return confirmationRecord(events, context);
+    case "unsupported":
+      return unsupportedRecord(first, context);
   }
 }
 
 function contextRecord(
   events: readonly TrajectoryEventProjection[],
-  context: RecordContext
+  context: RecordContext,
 ): TrajectoryRecord {
   const first = events[0]!;
   const content = stringValue(first.payload.content) ?? "";
   return baseRecord(events, {
     turn: turnFor(first, context),
-    text: zhCN.trajectory.injectedContext,
+    text: content,
     searchText: content,
     status: "completed",
     completedAt: first.occurredAt,
     startedAt: first.occurredAt,
     isError: false,
-    source: { session_id: first.payload.session_id ?? null },
+    source: {
+      kind: "context",
+      producer: "injected",
+      session_id: first.payload.session_id ?? null,
+    },
     input: content,
-    output: null
+    output: null,
   });
 }
 
 function systemRecord(
   events: readonly TrajectoryEventProjection[],
-  context: RecordContext
+  context: RecordContext,
 ): TrajectoryRecord {
   const first = events[0]!;
   const prompt = stringValue(first.payload.system_prompt) ?? "";
@@ -119,9 +124,7 @@ function systemRecord(
   const tools = Array.isArray(first.payload.tools) ? first.payload.tools : [];
   return baseRecord(events, {
     turn: turnFor(first, context),
-    text: modelId.length > 0
-      ? zhCN.trajectory.requestPromptFor(modelId)
-      : zhCN.trajectory.requestPrompt,
+    text: zhCN.trajectory.initialPrompt,
     searchText: `${prompt} ${modelId} ${safeString(tools)}`,
     status: "completed",
     completedAt: first.occurredAt,
@@ -131,7 +134,7 @@ function systemRecord(
       run_id: first.runId,
       message_id: first.payload.message_id ?? null,
       step: first.payload.step ?? null,
-      attempt: first.payload.attempt ?? null
+      attempt: first.payload.attempt ?? null,
     },
     input: {
       system_prompt: prompt,
@@ -140,22 +143,23 @@ function systemRecord(
       model: {
         model_id: modelId || null,
         reasoning_effort: first.payload.reasoning_effort ?? null,
-        max_output_tokens: first.payload.max_output_tokens ?? null
-      }
+        max_output_tokens: first.payload.max_output_tokens ?? null,
+      },
     },
-    output: null
+    output: null,
   });
 }
 
 function userRecord(
   events: readonly TrajectoryEventProjection[],
-  context: RecordContext
+  context: RecordContext,
 ): TrajectoryRecord {
   const first = events[0]!;
   const message = context.messages.get(first.entityId);
-  const content = message?.role === "user"
-    ? message.content
-    : stringValue(first.payload.content) ?? "";
+  const content =
+    message?.role === "user"
+      ? message.content
+      : (stringValue(first.payload.content) ?? "");
   return baseRecord(events, {
     turn: context.messageTurns.get(first.entityId) ?? null,
     text: content,
@@ -166,51 +170,69 @@ function userRecord(
     isError: false,
     source: { role: "user", message_id: first.entityId, run_id: first.runId },
     input: content,
-    output: null
+    output: null,
   });
 }
 
 function assistantRecord(
   events: readonly TrajectoryEventProjection[],
-  context: RecordContext
+  context: RecordContext,
 ): TrajectoryRecord {
   const first = events[0]!;
-  const started = events.find((event) => event.eventType === "message.assistant.started");
-  const completed = [...events].reverse().find((event) =>
-    event.eventType === "model.attempt.finished" ||
-    event.eventType === "message.assistant.completed"
+  const started = events.find(
+    (event) => event.eventType === "message.assistant.started",
   );
-  const attemptFinished = [...events].reverse().find(
-    (event) => event.eventType === "model.attempt.finished"
-  );
-  const messageId = events.find((event) => event.messageId !== null)?.messageId ?? null;
-  const message = messageId === null ? undefined : context.messages.get(messageId);
+  const completed = [...events]
+    .reverse()
+    .find(
+      (event) =>
+        event.eventType === "model.attempt.finished" ||
+        event.eventType === "message.assistant.completed",
+    );
+  const attemptFinished = [...events]
+    .reverse()
+    .find((event) => event.eventType === "model.attempt.finished");
+  const messageId =
+    events.find((event) => event.messageId !== null)?.messageId ?? null;
+  const message =
+    messageId === null ? undefined : context.messages.get(messageId);
   const run = first.runId === null ? undefined : context.runs.get(first.runId);
-  const content = message?.role === "assistant"
-    ? message.content
-    : reconstructAssistantText(events);
+  const content =
+    message?.role === "assistant"
+      ? message.content
+      : reconstructAssistantText(events);
   const finishReason = events.find(
-    (event) => event.eventType === "message.assistant.completed"
+    (event) => event.eventType === "message.assistant.completed",
   )?.payload.finish_reason;
   const outcome = stringValue(attemptFinished?.payload.outcome);
-  const status = message?.role === "assistant"
-    ? message.status
-    : outcome === "error" || outcome === "length" || outcome === "content_filter"
-      ? "failed"
-      : completed === undefined ? "streaming" : "completed";
+  const status =
+    message?.role === "assistant"
+      ? message.status
+      : outcome === "error" ||
+          outcome === "length" ||
+          outcome === "content_filter"
+        ? "failed"
+        : completed === undefined
+          ? "streaming"
+          : "completed";
   const step = integerValue(first.payload.step);
   const attempt = integerValue(first.payload.attempt);
   const startTime = timestamp(started?.occurredAt);
-  const firstTokenTime = timestamp(events.find((event) =>
-    event.eventType === "message.assistant.delta" && stringValue(event.payload.text) !== null
-  )?.occurredAt);
+  const firstTokenTime = timestamp(
+    events.find(
+      (event) =>
+        event.eventType === "message.assistant.delta" &&
+        stringValue(event.payload.text) !== null,
+    )?.occurredAt,
+  );
   const completedTime = timestamp(completed?.occurredAt);
   const usage = usageFrom(attemptFinished);
-  const displayText = content.trim().length > 0
-    ? content
-    : finishReason === "tool_calls"
-      ? zhCN.trajectory.toolCallResponse
-      : zhCN.trajectory.emptyAssistant;
+  const displayText =
+    content.trim().length > 0
+      ? content
+      : finishReason === "tool_calls"
+        ? ""
+        : zhCN.trajectory.emptyAssistant;
   return baseRecord(events, {
     turn: turnFor(first, context),
     text: displayText,
@@ -218,27 +240,32 @@ function assistantRecord(
     status,
     completedAt: completed?.occurredAt ?? null,
     startedAt: started?.occurredAt ?? null,
-    isError: status === "failed" || outcome === "error" || outcome === "length" || outcome === "content_filter",
+    isError:
+      status === "failed" ||
+      outcome === "error" ||
+      outcome === "length" ||
+      outcome === "content_filter",
     source: {
       role: "assistant",
       run_id: first.runId,
       message_id: messageId,
       step,
-      attempt
+      attempt,
     },
     input: {
       model_id: run?.model_snapshot.model_id ?? null,
       reasoning_effort: run?.model_snapshot.reasoning_effort ?? null,
       step,
-      attempt
+      attempt,
     },
     output: {
       content,
       finish_reason: typeof finishReason === "string" ? finishReason : null,
       outcome,
-      error_code: stringValue(attemptFinished?.payload.error_code)
+      error_code: stringValue(attemptFinished?.payload.error_code),
     },
     usage,
+    callOnly: content.trim().length === 0 && finishReason === "tool_calls",
     assistantMetrics: {
       stepStartTime: startTime,
       firstTokenTime,
@@ -248,39 +275,56 @@ function assistantRecord(
         firstTokenTime !== null &&
         completedTime !== null &&
         startTime <= firstTokenTime &&
-        firstTokenTime <= completedTime
-    }
+        firstTokenTime <= completedTime,
+    },
   });
 }
 
 function toolRecord(
   events: readonly TrajectoryEventProjection[],
-  context: RecordContext
+  context: RecordContext,
 ): TrajectoryRecord {
   const first = events[0]!;
-  const requested = events.find((event) => event.eventType === "tool.requested");
-  const started = events.find((event) => event.eventType === "tool.started");
-  const terminal = [...events].reverse().find((event) =>
-    event.eventType === "tool.completed" ||
-    event.eventType === "tool.failed" ||
-    event.eventType === "tool.cancelled"
+  const requested = events.find(
+    (event) => event.eventType === "tool.requested",
   );
+  const started = events.find((event) => event.eventType === "tool.started");
+  const terminal = [...events]
+    .reverse()
+    .find(
+      (event) =>
+        event.eventType === "tool.completed" ||
+        event.eventType === "tool.failed" ||
+        event.eventType === "tool.cancelled",
+    );
   const snapshot = context.tools.get(first.entityId);
-  const name = snapshot?.name ?? stringValue(requested?.payload.name) ?? zhCN.trajectory.unknownTool;
-  const status = terminal?.eventType.replace("tool.", "") ?? snapshot?.status ?? "pending";
-  const input = sanitizeTrajectoryValue(snapshot?.arguments ?? requested?.payload.arguments ?? {});
+  const name =
+    snapshot?.name ??
+    stringValue(requested?.payload.name) ??
+    zhCN.trajectory.unknownTool;
+  const status =
+    terminal?.eventType.replace("tool.", "") ?? snapshot?.status ?? "pending";
+  const input = sanitizeTrajectoryValue(
+    snapshot?.arguments ?? requested?.payload.arguments ?? {},
+  );
   const output = sanitizeTrajectoryValue(
     snapshot?.error_summary !== null && snapshot?.error_summary !== undefined
-      ? { error_code: snapshot.error_code, error_summary: snapshot.error_summary }
-      : snapshot?.result ?? terminal?.payload.result ?? (
-        terminal?.eventType === "tool.failed"
-          ? { error_code: terminal.payload.error_code, error_summary: terminal.payload.error_summary }
-          : null
-      )
+      ? {
+          error_code: snapshot.error_code,
+          error_summary: snapshot.error_summary,
+        }
+      : (snapshot?.result ??
+          terminal?.payload.result ??
+          (terminal?.eventType === "tool.failed"
+            ? {
+                error_code: terminal.payload.error_code,
+                error_summary: terminal.payload.error_summary,
+              }
+            : null)),
   );
   return baseRecord(events, {
     turn: turnFor(first, context),
-    text: `${toolLabel(name)} · ${statusLabel(status)}`,
+    text: `${name} ${safeString(input)}`,
     searchText: `${name} ${toolLabel(name)} ${safeString(input)} ${safeString(output)}`,
     status,
     completedAt: terminal?.occurredAt ?? null,
@@ -290,28 +334,44 @@ function toolRecord(
       run_id: first.runId,
       message_id: requested?.messageId ?? snapshot?.message_id ?? null,
       tool_call_id: first.entityId,
-      provider_call_id: snapshot?.provider_call_id ?? requested?.payload.provider_call_id ?? null,
-      tool_name: name
+      provider_call_id:
+        snapshot?.provider_call_id ??
+        requested?.payload.provider_call_id ??
+        null,
+      tool_name: name,
+      step: requested?.payload.step ?? snapshot?.step ?? null,
+      attempt: requested?.payload.attempt ?? snapshot?.attempt ?? null,
     },
     input,
-    output
+    output,
   });
 }
 
 function confirmationRecord(
   events: readonly TrajectoryEventProjection[],
-  context: RecordContext
+  context: RecordContext,
 ): TrajectoryRecord {
   const first = events[0]!;
-  const requested = events.find((event) => event.eventType === "confirmation.requested");
-  const resolved = [...events].reverse().find(
-    (event) => event.eventType === "confirmation.resolved"
+  const requested = events.find(
+    (event) => event.eventType === "confirmation.requested",
   );
+  const resolved = [...events]
+    .reverse()
+    .find((event) => event.eventType === "confirmation.resolved");
   const snapshot = context.confirmations.get(first.entityId);
-  const status = stringValue(resolved?.payload.decision) ?? snapshot?.status ?? "pending";
-  const name = snapshot?.name ?? stringValue(requested?.payload.name) ?? zhCN.trajectory.unknownTool;
-  const summary = snapshot?.summary ?? stringValue(requested?.payload.summary) ?? toolLabel(name);
-  const input = sanitizeTrajectoryValue(snapshot?.arguments ?? requested?.payload.arguments ?? {});
+  const status =
+    stringValue(resolved?.payload.decision) ?? snapshot?.status ?? "pending";
+  const name =
+    snapshot?.name ??
+    stringValue(requested?.payload.name) ??
+    zhCN.trajectory.unknownTool;
+  const summary =
+    snapshot?.summary ??
+    stringValue(requested?.payload.summary) ??
+    toolLabel(name);
+  const input = sanitizeTrajectoryValue(
+    snapshot?.arguments ?? requested?.payload.arguments ?? {},
+  );
   return baseRecord(events, {
     turn: turnFor(first, context),
     text: `${summary} · ${statusLabel(status)}`,
@@ -323,23 +383,31 @@ function confirmationRecord(
     source: {
       run_id: first.runId,
       confirmation_id: first.entityId,
-      tool_call_id: snapshot?.tool_call_id ?? requested?.payload.tool_call_id ?? null,
+      tool_call_id:
+        snapshot?.tool_call_id ?? requested?.payload.tool_call_id ?? null,
       tool_name: name,
-      workspace_id: snapshot?.workspace_id ?? requested?.payload.workspace_id ?? null
+      workspace_id:
+        snapshot?.workspace_id ?? requested?.payload.workspace_id ?? null,
     },
     input: {
       arguments: input,
-      side_effect: snapshot?.side_effect ?? requested?.payload.side_effect ?? null
+      side_effect:
+        snapshot?.side_effect ?? requested?.payload.side_effect ?? null,
     },
-    output: resolved === undefined
-      ? null
-      : { decision: status, decided_at: resolved.payload.decided_at ?? snapshot?.decided_at ?? null }
+    output:
+      resolved === undefined
+        ? null
+        : {
+            decision: status,
+            decided_at:
+              resolved.payload.decided_at ?? snapshot?.decided_at ?? null,
+          },
   });
 }
 
 function unsupportedRecord(
   event: TrajectoryEventProjection,
-  context: RecordContext
+  context: RecordContext,
 ): TrajectoryRecord {
   const payload = sanitizeTrajectoryValue(event.payload);
   return baseRecord([event], {
@@ -350,9 +418,13 @@ function unsupportedRecord(
     completedAt: null,
     startedAt: event.occurredAt,
     isError: false,
-    source: { run_id: event.runId, event_id: event.id, event_type: event.eventType },
+    source: {
+      run_id: event.runId,
+      event_id: event.id,
+      event_type: event.eventType,
+    },
     input: payload,
-    output: null
+    output: null,
   });
 }
 
@@ -371,7 +443,8 @@ function baseRecord(
     readonly output: unknown | null;
     readonly usage?: TrajectoryUsage | null;
     readonly assistantMetrics?: AssistantMetricDetail;
-  }
+    readonly callOnly?: boolean;
+  },
 ): TrajectoryRecord {
   const first = events[0]!;
   const last = events.at(-1)!;
@@ -389,44 +462,42 @@ function baseRecord(
     durationMillis,
     status: value.status,
     isError: value.isError,
-    source: sanitizeTrajectoryValue(value.source) as Readonly<Record<string, unknown>>,
+    source: sanitizeTrajectoryValue(value.source) as Readonly<
+      Record<string, unknown>
+    >,
     input: value.input,
     output: value.output,
     raw: {
-      event_types: events.map((event) => event.eventType),
-      sequence_start: first.sequence,
-      sequence_end: last.sequence,
-      input: value.input,
-      output: value.output
+      events: events.map((event) => ({
+        sequence: event.sequence,
+        event_type: event.eventType,
+        occurred_at: event.occurredAt,
+        payload: sanitizeTrajectoryValue(event.payload),
+      })),
     },
+    ...(integerValue(first.payload.step) === null
+      ? {}
+      : { step: integerValue(first.payload.step)! }),
     usage: value.usage ?? null,
-    ...(value.assistantMetrics === undefined ? {} : { assistantMetrics: value.assistantMetrics })
+    callOnly: value.callOnly,
+    ...(value.assistantMetrics === undefined
+      ? {}
+      : { assistantMetrics: value.assistantMetrics }),
   };
 }
 
-export function sanitizeTrajectoryValue(value: unknown, depth = 0): unknown {
-  if (depth > 8) return "[内容过深]";
-  if (typeof value === "string") return value.replace(SENSITIVE_TEXT, REDACTED);
-  if (Array.isArray(value)) return value.map((item) => sanitizeTrajectoryValue(item, depth + 1));
-  if (value !== null && typeof value === "object") {
-    return Object.fromEntries(Object.entries(value).map(([key, item]) => [
-      key,
-      isSensitiveField(key) ? REDACTED : sanitizeTrajectoryValue(item, depth + 1)
-    ]));
-  }
-  return value;
+function turnFor(
+  event: TrajectoryEventProjection,
+  context: RecordContext,
+): number | null {
+  return event.runId === null
+    ? null
+    : (context.runTurns.get(event.runId) ?? null);
 }
 
-function isSensitiveField(key: string): boolean {
-  const normalized = key.replace(/[^a-z0-9]/gi, "").toLocaleLowerCase("en-US");
-  return SENSITIVE_FIELDS.some((field) => normalized === field || normalized.endsWith(field));
-}
-
-function turnFor(event: TrajectoryEventProjection, context: RecordContext): number | null {
-  return event.runId === null ? null : context.runTurns.get(event.runId) ?? null;
-}
-
-function reconstructAssistantText(events: readonly TrajectoryEventProjection[]): string {
+function reconstructAssistantText(
+  events: readonly TrajectoryEventProjection[],
+): string {
   const result: string[] = [];
   for (const event of events) {
     if (event.eventType !== "message.assistant.delta") continue;
@@ -435,25 +506,34 @@ function reconstructAssistantText(events: readonly TrajectoryEventProjection[]):
     if (text === null || offset === null || offset > result.length) continue;
     const delta = Array.from(text);
     const overlap = Math.min(result.length - offset, delta.length);
-    if (result.slice(offset, offset + overlap).some((item, index) => item !== delta[index])) continue;
+    if (
+      result
+        .slice(offset, offset + overlap)
+        .some((item, index) => item !== delta[index])
+    )
+      continue;
     result.push(...delta.slice(overlap));
   }
   return result.join("");
 }
 
-function usageFrom(event: TrajectoryEventProjection | undefined): TrajectoryUsage | null {
+function usageFrom(
+  event: TrajectoryEventProjection | undefined,
+): TrajectoryUsage | null {
   if (event === undefined) return null;
   const inputTokens = nullableInteger(event.payload.input_tokens);
   const outputTokens = nullableInteger(event.payload.output_tokens);
   const totalTokens = nullableInteger(event.payload.total_tokens);
-  if (inputTokens === null && outputTokens === null && totalTokens === null) return null;
+  if (inputTokens === null && outputTokens === null && totalTokens === null)
+    return null;
   return { inputTokens, outputTokens, totalTokens };
 }
 
 function duration(start: string | null, end: string | null): number | null {
   const startTime = timestamp(start);
   const endTime = timestamp(end);
-  if (startTime === null || endTime === null || endTime < startTime) return null;
+  if (startTime === null || endTime === null || endTime < startTime)
+    return null;
   return endTime - startTime;
 }
 
@@ -468,7 +548,9 @@ function stringValue(value: unknown): string | null {
 }
 
 function integerValue(value: unknown): number | null {
-  return Number.isSafeInteger(value) && (value as number) >= 0 ? value as number : null;
+  return Number.isSafeInteger(value) && (value as number) >= 0
+    ? (value as number)
+    : null;
 }
 
 function nullableInteger(value: unknown): number | null {
@@ -477,15 +559,13 @@ function nullableInteger(value: unknown): number | null {
 
 function safeString(value: unknown): string {
   if (typeof value === "string") return value;
-  try {
-    return JSON.stringify(value);
-  } catch {
-    return "";
-  }
+  return JSON.stringify(value);
 }
 
 function toolLabel(name: string): string {
-  const names = zhCN.conversation.tools.names as Readonly<Record<string, string>>;
+  const names = zhCN.conversation.tools.names as Readonly<
+    Record<string, string>
+  >;
   return names[name] ?? name;
 }
 

@@ -18,15 +18,15 @@ export function SidebarItem({
   icon,
   label,
   pending = false,
-  onClick
+  onClick,
 }: SidebarItemProps) {
   return (
     <Tooltip label={label} visible={collapsed}>
       <button
         type="button"
         className={cn(
-          "flex h-[34px] w-full items-center rounded-lg border-0 bg-transparent text-sm font-medium text-secondary-foreground outline-none transition-colors hover:bg-muted active:bg-accent focus-visible:ring-2 focus-visible:ring-ring/50 aria-disabled:cursor-default aria-disabled:hover:bg-transparent aria-disabled:active:bg-transparent disabled:pointer-events-none",
-          collapsed ? "justify-center" : "gap-2 px-2.5"
+          "flex h-[32px] w-full items-center rounded-md border-0 bg-transparent text-[13px] font-normal text-secondary-foreground outline-none transition-colors hover:bg-accent active:bg-accent focus-visible:ring-2 focus-visible:ring-ring/50 aria-disabled:cursor-default aria-disabled:hover:bg-transparent aria-disabled:active:bg-transparent disabled:pointer-events-none",
+          collapsed ? "justify-center" : "gap-1.5 px-1",
         )}
         onClick={disabled ? undefined : onClick}
         disabled={pending}

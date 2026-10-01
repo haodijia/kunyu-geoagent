@@ -108,6 +108,8 @@ def _message_snapshot(message: ModelMessage) -> dict[str, JsonValue]:
         "role": message.role.value,
         "content": message.content,
     }
+    if message.context_source is not None:
+        value["source"] = {"kind": "context", "producer": message.context_source}
     if message.tool_call_id is not None:
         value["tool_call_id"] = message.tool_call_id
     if message.tool_calls:
@@ -404,17 +406,6 @@ class Runner[AdapterConfigT](AgentRuntime):
                     ),
                     occurred_at=now,
                 ),
-                AssistantStartedEvent(
-                    session_id=run.session_id,
-                    run_id=run.run_id,
-                    event_type="message.assistant.started",
-                    payload=AssistantStartedPayload(
-                        message_id=attempt.message_id,
-                        step=run.step,
-                        attempt=run.attempt,
-                    ),
-                    occurred_at=now,
-                ),
                 RequestHeaderEvent(
                     session_id=run.session_id,
                     run_id=run.run_id,
@@ -438,6 +429,17 @@ class Runner[AdapterConfigT](AgentRuntime):
                             }
                             for tool in registry.specs
                         ],
+                    ),
+                    occurred_at=now,
+                ),
+                AssistantStartedEvent(
+                    session_id=run.session_id,
+                    run_id=run.run_id,
+                    event_type="message.assistant.started",
+                    payload=AssistantStartedPayload(
+                        message_id=attempt.message_id,
+                        step=run.step,
+                        attempt=run.attempt,
                     ),
                     occurred_at=now,
                 ),

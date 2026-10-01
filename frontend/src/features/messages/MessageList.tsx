@@ -13,7 +13,7 @@ import { zhCN } from "@/locales/zh-CN";
 const content = zhCN.conversation;
 const timeFormatter = new Intl.DateTimeFormat("zh-CN", {
   hour: "2-digit",
-  minute: "2-digit"
+  minute: "2-digit",
 });
 
 interface MessageListProps {
@@ -27,10 +27,15 @@ const statusLabels: Record<Exclude<MessageStatus, "completed">, string> = {
   streaming: content.status.streaming,
   interrupted: content.status.interrupted,
   failed: content.status.failed,
-  cancelled: content.status.cancelled
+  cancelled: content.status.cancelled,
 };
 
-export function MessageList({ confirmations, footer, messages, turns }: MessageListProps) {
+export function MessageList({
+  confirmations,
+  footer,
+  messages,
+  turns,
+}: MessageListProps) {
   const endRef = useRef<HTMLDivElement>(null);
   const followStreamRef = useRef(true);
   const toolsByMessage = useMemo(() => {
@@ -47,7 +52,9 @@ export function MessageList({ confirmations, footer, messages, turns }: MessageL
   }, [turns]);
 
   useEffect(() => {
-    const scroller = endRef.current?.closest<HTMLElement>("[data-message-scroll]");
+    const scroller = endRef.current?.closest<HTMLElement>(
+      "[data-message-scroll]",
+    );
     if (scroller === undefined || scroller === null) return;
     const trackPosition = () => {
       const distanceFromEnd =
@@ -75,7 +82,7 @@ export function MessageList({ confirmations, footer, messages, turns }: MessageL
   }
 
   return (
-    <div className="mx-auto flex w-full max-w-[920px] flex-col gap-2.5 px-6 py-5">
+    <div className="chat-surface-fluid flex flex-col gap-4 px-3 py-5">
       {messages.map((message) => {
         const tools = toolsByMessage.get(message.id) ?? [];
         return (
@@ -83,25 +90,33 @@ export function MessageList({ confirmations, footer, messages, turns }: MessageL
             key={message.id}
             className={
               message.role === "user"
-                ? "group ml-auto flex max-w-[82%] flex-col items-end"
+                ? "group ml-auto flex w-full flex-col items-end"
                 : "group mr-auto flex w-full flex-col items-start"
             }
           >
             {message.role === "user" ? (
-              <div className="rounded-[8px_0_8px_8px] bg-[var(--message-user-bg)] px-2 py-1.5 text-sm leading-6 whitespace-pre-wrap text-foreground [overflow-wrap:anywhere]">
+              <div className="max-w-full rounded-[8px] bg-[var(--message-user-bg)] px-2.5 py-2 text-[13px] leading-5 whitespace-pre-wrap text-foreground [overflow-wrap:anywhere]">
                 {message.content}
               </div>
             ) : (
               <AssistantContent message={message} />
             )}
-            {tools.length > 0 ? (
-              conversationSlots.render("message.tools", { confirmations, tools })
-            ) : null}
-            <div className={`mt-1 flex h-6 items-center gap-2 px-1 text-xs text-muted-foreground transition-opacity ${message.status === "completed" ? "opacity-0 group-hover:opacity-100 group-focus-within:opacity-100" : "opacity-100"}`}>
+            {tools.length > 0
+              ? conversationSlots.render("message.tools", {
+                  confirmations,
+                  tools,
+                })
+              : null}
+            <div
+              className={`mt-1 flex h-6 items-center gap-2 px-1 text-xs text-muted-foreground transition-opacity ${message.status === "completed" ? "opacity-0 group-hover:opacity-100 group-focus-within:opacity-100" : "opacity-100"}`}
+            >
               {message.status !== "completed" ? (
                 <span className="inline-flex items-center gap-1" role="status">
                   {message.status === "streaming" ? (
-                    <LoaderCircle className="size-3 animate-spin" aria-hidden="true" />
+                    <LoaderCircle
+                      className="size-3 animate-spin"
+                      aria-hidden="true"
+                    />
                   ) : null}
                   {statusLabels[message.status]}
                   {message.attempt !== null && message.attempt > 1
@@ -134,12 +149,15 @@ function AssistantContent({ message }: { readonly message: SessionMessage }) {
     );
   }
   return (
-    <div className="w-full text-sm leading-7 text-foreground [overflow-wrap:anywhere]">
+    <div className="w-full text-[13px] leading-[1.65] text-foreground [overflow-wrap:anywhere]">
       <Markdown
         remarkPlugins={[remarkGfm]}
         components={{
           a: ({ children, href }) => (
-            <a className="text-foreground underline underline-offset-4" href={href}>
+            <a
+              className="text-foreground underline underline-offset-4"
+              href={href}
+            >
               {children}
             </a>
           ),
@@ -156,8 +174,12 @@ function AssistantContent({ message }: { readonly message: SessionMessage }) {
           h1: ({ children }) => <Heading>{children}</Heading>,
           h2: ({ children }) => <Heading>{children}</Heading>,
           h3: ({ children }) => <Heading>{children}</Heading>,
-          ol: ({ children }) => <ol className="my-3 list-decimal space-y-1 pl-6">{children}</ol>,
-          p: ({ children }) => <p className="my-0 mb-3 last:mb-0">{children}</p>,
+          ol: ({ children }) => (
+            <ol className="my-3 list-decimal space-y-1 pl-6">{children}</ol>
+          ),
+          p: ({ children }) => (
+            <p className="my-0 mb-3 last:mb-0">{children}</p>
+          ),
           pre: ({ children }) => (
             <pre className="my-3 overflow-x-auto rounded-lg bg-muted p-3 text-xs leading-5">
               {children}
@@ -168,9 +190,17 @@ function AssistantContent({ message }: { readonly message: SessionMessage }) {
               {children}
             </table>
           ),
-          td: ({ children }) => <td className="border border-border px-2 py-1.5">{children}</td>,
-          th: ({ children }) => <th className="border border-border bg-muted px-2 py-1.5">{children}</th>,
-          ul: ({ children }) => <ul className="my-3 list-disc space-y-1 pl-6">{children}</ul>
+          td: ({ children }) => (
+            <td className="border border-border px-2 py-1.5">{children}</td>
+          ),
+          th: ({ children }) => (
+            <th className="border border-border bg-muted px-2 py-1.5">
+              {children}
+            </th>
+          ),
+          ul: ({ children }) => (
+            <ul className="my-3 list-disc space-y-1 pl-6">{children}</ul>
+          ),
         }}
       >
         {message.content}
@@ -183,5 +213,9 @@ function AssistantContent({ message }: { readonly message: SessionMessage }) {
 }
 
 function Heading({ children }: { readonly children: ReactNode }) {
-  return <h3 className="mt-5 mb-2 text-sm font-semibold first:mt-0">{children}</h3>;
+  return (
+    <h3 className="mt-4 mb-2 text-[13px] font-semibold first:mt-0">
+      {children}
+    </h3>
+  );
 }

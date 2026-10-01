@@ -11,7 +11,7 @@ import {
   createSession,
   listSessions,
   type Workspace,
-  workspaceQueryKeys
+  workspaceQueryKeys,
 } from "@/features/workspaces/api";
 import { WorkspaceActions } from "./WorkspaceActions";
 import { SessionRow } from "@/features/sessions/SessionRow";
@@ -22,11 +22,13 @@ const content = zhCN.workspaceSidebar;
 interface WorkspaceGroupProps {
   readonly activeSessionId: string | null;
   readonly workspace: Workspace;
+  readonly search: string;
 }
 
 export function WorkspaceGroup({
   activeSessionId,
-  workspace
+  workspace,
+  search,
 }: WorkspaceGroupProps) {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
@@ -34,20 +36,20 @@ export function WorkspaceGroup({
   const [expanded, setExpanded] = useState(true);
   const sessionsQuery = useQuery({
     queryKey: workspaceQueryKeys.sessions(workspace.id),
-    queryFn: () => listSessions(workspace.id)
+    queryFn: () => listSessions(workspace.id),
   });
   const createMutation = useMutation({
     mutationFn: (title: string) => createSession(workspace.id, title),
     onSuccess: async (session) => {
       await Promise.all([
         queryClient.invalidateQueries({
-          queryKey: workspaceQueryKeys.sessions(workspace.id)
+          queryKey: workspaceQueryKeys.sessions(workspace.id),
         }),
-        queryClient.invalidateQueries({ queryKey: workspaceQueryKeys.all })
+        queryClient.invalidateQueries({ queryKey: workspaceQueryKeys.all }),
       ]);
       setFormOpen(false);
       void navigate(sessionOverviewPath(session.workspace_id, session.id));
-    }
+    },
   });
 
   return (
@@ -57,7 +59,7 @@ export function WorkspaceGroup({
       stickyHeader
       stickyTop={0}
       header={
-        <span className="min-w-0 flex-1 truncate text-[14px] font-medium text-t-primary">
+        <span className="min-w-0 flex-1 truncate text-[13px] font-normal text-t-primary">
           {workspace.name}
         </span>
       }
@@ -118,13 +120,21 @@ export function WorkspaceGroup({
         </p>
       ) : null}
       <div className="mt-px grid gap-[2px]">
-        {sessionsQuery.data?.map((session) => (
-          <SessionRow
-            key={session.id}
-            session={session}
-            selected={session.id === activeSessionId}
-          />
-        ))}
+        {sessionsQuery.data
+          ?.filter(
+            (session) =>
+              search === "" ||
+              `${workspace.name} ${session.title}`
+                .toLocaleLowerCase()
+                .includes(search.toLocaleLowerCase()),
+          )
+          .map((session) => (
+            <SessionRow
+              key={session.id}
+              session={session}
+              selected={session.id === activeSessionId}
+            />
+          ))}
       </div>
     </WorkspaceCollapse>
   );

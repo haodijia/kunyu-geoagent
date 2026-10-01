@@ -22,7 +22,7 @@
   container: trajectory-table / inline-size;
 }
 
-.table:not([data-scroll-ready='true']) {
+.table:not([data-scroll-ready="true"]) {
   visibility: hidden;
 }
 
@@ -52,6 +52,13 @@
 
 .contentColumn {
   width: auto;
+}
+.resultColumn {
+  width: 38%;
+}
+.result {
+  color: var(--dsw-alias-label-tertiary);
+  font-family: var(--ds-font-family-code);
 }
 
 .table th {
@@ -83,7 +90,11 @@
   white-space: nowrap;
 }
 
-.table tbody tr:not([data-collapsed-summary]):not([data-virtual-spacer]):not([data-history-load]) {
+.table
+  tbody
+  tr:not([data-collapsed-summary]):not([data-virtual-spacer]):not(
+    [data-history-load]
+  ) {
   cursor: default;
   outline: none;
   transition:
@@ -91,30 +102,34 @@
     opacity 120ms var(--ds-ease-in-out);
 }
 
-.table tbody tr[data-timeline-focus='outside'] {
+.table tbody tr[data-timeline-focus="outside"] {
   opacity: 0.24;
 }
 
-.table tbody tr:not([data-collapsed-summary]):not([data-virtual-spacer]):not([data-history-load]):not([data-selected='true']):hover {
+.table
+  tbody
+  tr:not([data-collapsed-summary]):not([data-virtual-spacer]):not(
+    [data-history-load]
+  ):not([data-selected="true"]):hover {
   background: var(--dsw-alias-interactive-bg-hover);
 }
 
-.table tbody tr[data-request-only='true']:hover {
+.table tbody tr[data-request-only="true"]:hover {
   background: transparent;
 }
 
-.table tbody tr[data-request-only='true'] td {
+.table tbody tr[data-request-only="true"] td {
   height: 0;
   padding-top: 0;
   padding-bottom: 0;
   border-bottom: 0;
 }
 
-.table tbody tr[data-terminal-request-boundary='true'] td {
+.table tbody tr[data-terminal-request-boundary="true"] td {
   height: 9px;
 }
 
-.table tbody tr[data-request-only='true'] .turnRail {
+.table tbody tr[data-request-only="true"] .turnRail {
   top: -15px;
   bottom: 0;
 }
@@ -123,8 +138,11 @@
   box-shadow: inset 0 0 0 1px var(--dsw-alias-state-business-primary);
 }
 
-.table tbody tr[data-selected='true'] {
+.table tbody tr[data-selected="true"] {
   background: var(--dsw-alias-interactive-bg-active);
+  box-shadow:
+    inset 0 1px var(--dsw-alias-state-business-primary),
+    inset 0 -1px var(--dsw-alias-state-business-primary);
 }
 
 .event {
@@ -135,7 +153,7 @@
 .selectionRail {
   position: absolute;
   left: 0;
-  background: var(--dsw-alias-brand-primary-new-colorprimary-new-color);
+  background: var(--dsw-alias-state-business-primary);
   pointer-events: none;
 }
 
@@ -147,7 +165,7 @@
   background: var(--trajectory-turn-accent);
 }
 
-.table tbody tr[data-turn-end='true'] .turnRail {
+.table tbody tr[data-turn-end="true"] .turnRail {
   bottom: 0;
 }
 
@@ -158,7 +176,7 @@
   width: 3px;
 }
 
-.table tbody tr[data-error='true'] .turnRail {
+.table tbody tr[data-error="true"] .turnRail {
   background: color-mix(
     in srgb,
     var(--dsw-alias-state-error-primary) 22%,
@@ -166,16 +184,16 @@
   );
 }
 
-.table tbody tr[data-error='true'] .selectionRail {
+.table tbody tr[data-error="true"] .selectionRail {
   background: var(--dsw-alias-state-error-primary);
 }
 
-.table tbody tr[data-turn-start='true'] td {
+.table tbody tr[data-turn-start="true"] td {
   position: relative;
   overflow: visible;
 }
 
-.table tbody tr[data-turn-start='true']:not(:first-child) td::before {
+.table tbody tr[data-turn-start="true"]:not(:first-child) td::before {
   position: absolute;
   z-index: 1;
   top: 0;
@@ -183,7 +201,7 @@
   left: 0;
   height: 2px;
   background: var(--dsw-alias-border-l1);
-  content: '';
+  content: "";
   pointer-events: none;
   transform: translateY(-50%);
 }
@@ -257,7 +275,7 @@
   width: 44px;
 }
 
-.kindSlot :global([role='tooltip']) {
+.kindSlot :global([role="tooltip"]) {
   border: 0;
   background: var(--dsw-alias-bg-layer-2);
   box-shadow: var(--dsw-elevation-panel);
@@ -342,7 +360,6 @@
 }
 
 @media (prefers-reduced-motion: no-preference) {
-
   .eventColumn,
   .kindSlot {
     transition-property: width;
@@ -378,19 +395,28 @@
 }
 
 .context {
-  color: var(--mu-violet-6);
+  color: var(--dsw-alias-state-success-primary);
   background: color-mix(
     in srgb,
-    var(--mu-violet-6) 12%,
+    var(--dsw-alias-state-success-primary) 12%,
     var(--dsw-alias-bg-layer-1)
   );
 }
 
 .assistant {
-  color: var(--dsw-alias-brand-primary-new-colorprimary-new-color);
+  color: color-mix(
+    in srgb,
+    var(--dsw-alias-brand-primary-new-colorprimary-new-color) 60%,
+    var(--dsw-alias-state-error-secondary)
+  );
   background: color-mix(
     in srgb,
-    var(--dsw-alias-brand-primary-new-colorprimary-new-color) 12%,
+    color-mix(
+        in srgb,
+        var(--dsw-alias-brand-primary-new-colorprimary-new-color) 60%,
+        var(--dsw-alias-state-error-secondary)
+      )
+      12%,
     var(--dsw-alias-bg-layer-1)
   );
 }
@@ -426,8 +452,8 @@
   white-space: nowrap;
 }
 
-.table tbody tr[data-collapsed-summary='turn'] td,
-.table tbody tr[data-collapsed-summary='assistant'] td {
+.table tbody tr[data-collapsed-summary="turn"] td,
+.table tbody tr[data-collapsed-summary="assistant"] td {
   height: 20px;
 }
 
@@ -445,6 +471,24 @@
   box-shadow: inset 0 0 0 1px var(--dsw-alias-state-business-primary);
 }
 
-.table tbody tr[data-kind='subtool'] .content {
+.table tbody tr[data-kind="subtool"] .content {
   padding-left: 26px;
+}
+
+.table tbody tr[data-call-only="true"] td {
+  height: 9px;
+  border-bottom: 0;
+}
+.table tbody tr[data-call-only="true"] .kindTag {
+  display: none;
+}
+.table tbody tr[data-call-only="true"] .event::after {
+  content: "";
+  position: absolute;
+  top: 3px;
+  left: 16px;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--dsw-alias-label-tertiary);
 }
