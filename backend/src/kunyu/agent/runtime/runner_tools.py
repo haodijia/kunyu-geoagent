@@ -10,7 +10,7 @@ from typing import TypedDict
 
 from pydantic import JsonValue, TypeAdapter, ValidationError
 
-from dsh.events import (
+from kunyu.agent.runtime.events import (
     BudgetReservedEvent,
     BudgetReservedPayload,
     BudgetSettledEvent,
@@ -28,8 +28,8 @@ from dsh.events import (
     ToolProgressEvent,
     ToolProgressPayload,
 )
-from dsh.run_state import ReducedRun, ReducedToolCall
-from dsh.runner_types import (
+from kunyu.agent.runtime.run_state import ReducedRun, ReducedToolCall
+from kunyu.agent.runtime.runner_types import (
     ConfirmationRequester,
     RunExecutionProvider,
     RunnerConfig,
@@ -39,7 +39,7 @@ from dsh.runner_types import (
     elapsed_milliseconds,
     summary,
 )
-from dsh.tools import (
+from kunyu.agent.runtime.tools import (
     PolicyDecision,
     PolicyGate,
     Tool,

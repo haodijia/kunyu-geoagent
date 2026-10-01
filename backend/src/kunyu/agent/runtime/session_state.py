@@ -3,7 +3,7 @@
 from dataclasses import dataclass
 from datetime import datetime
 
-from dsh.run_state import ReducedRun
+from kunyu.agent.runtime.run_state import ReducedRun
 
 
 class SessionReductionError(ValueError):

@@ -6,11 +6,17 @@ from enum import Enum
 from typing import Literal, Protocol
 
 
+class ToolRiskLevel(Enum):
+    L0 = "l0"
+    L2 = "l2"
+
+
 @dataclass(frozen=True)
 class ToolSpec:
     name: str
     description: str
     parameters: Mapping[str, object]
+    risk_level: ToolRiskLevel
     execution: Literal["parallel", "exclusive"]
     presentation: Literal["context", "search", "write"]
 
@@ -48,11 +54,6 @@ class ToolExecutionError(RuntimeError):
 
 class ToolConfirmationRequiredError(ToolExecutionError):
     """A write tool reached execution without an approved confirmation."""
-
-
-class ToolRiskLevel(Enum):
-    L0 = "l0"
-    L2 = "l2"
 
 
 class PolicyDecision(Enum):

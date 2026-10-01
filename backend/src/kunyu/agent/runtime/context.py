@@ -1,10 +1,10 @@
-"""Replayable model context and memory access boundaries."""
+"""Model context contracts and ordered system-prompt sections."""
 
 from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Protocol
 
-from dsh.models import ModelMessage
+from kunyu.agent.runtime.models import ModelMessage
 
 
 @dataclass(frozen=True)
@@ -14,10 +14,6 @@ class AgentContext:
 
 class ContextProvider(Protocol):
     async def build(self, run_id: str) -> AgentContext: ...
-
-
-class Memory(Protocol):
-    async def search(self, scope_id: str, query: str, limit: int) -> tuple[str, ...]: ...
 
 
 @dataclass(frozen=True, slots=True)

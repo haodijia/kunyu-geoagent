@@ -2,13 +2,16 @@ import json
 from dataclasses import dataclass
 from pathlib import Path
 
-from dsh.context import AgentContext, PromptSection, PromptSectionRegistry
-from dsh.models import ModelMessage, ModelRole, ModelToolCall
-from dsh.run_state import ReducedAssistant, ReducedRun, ReducedToolCall
-
+from kunyu.agent.runtime.context import (
+    AgentContext,
+    PromptSection,
+    PromptSectionRegistry,
+)
+from kunyu.agent.runtime.models import ModelMessage, ModelRole, ModelToolCall
+from kunyu.agent.runtime.run_state import ReducedAssistant, ReducedRun, ReducedToolCall
 from kunyu.domain.agent_context import RunContextRepository, RunContextSource
 
-SYSTEM_PROMPT_PATH = Path(__file__).parents[1] / "agent" / "prompts" / "system.md"
+SYSTEM_PROMPT_PATH = Path(__file__).parent / "prompts" / "system.md"
 
 
 class RunContextNotFoundError(LookupError):

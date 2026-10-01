@@ -3,8 +3,8 @@
 import asyncio
 import logging
 
-from dsh.events import TERMINAL_RUN_STATES, RunState
-from dsh.runtime import AgentRuntime
+from kunyu.agent.runtime.driver import AgentRuntime
+from kunyu.agent.runtime.events import TERMINAL_RUN_STATES, RunState
 from kunyu.application.confirmations import ConfirmationService
 from kunyu.application.run_acceptance import RunAcceptanceService
 from kunyu.application.run_lifecycle import (

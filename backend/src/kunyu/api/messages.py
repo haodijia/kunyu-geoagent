@@ -13,9 +13,9 @@ from kunyu.agent.scheduler import (
     RunQueueFullError,
     RunSchedulerClosingError,
 )
+from kunyu.api.agent import AgentDirectoryDependency
 from kunyu.api.dependencies import get_database
 from kunyu.api.errors import ApiError
-from kunyu.api.agent import AgentDirectoryDependency
 from kunyu.api.run_models import AgentTurnResponse
 from kunyu.application.messages import (
     InvalidEventSequenceError,
@@ -24,7 +24,6 @@ from kunyu.application.messages import (
 from kunyu.application.sessions import SessionNotFoundError
 from kunyu.domain.events import AgentEvent
 from kunyu.domain.messages import Message
-from kunyu.domain.runs import ProjectionNotFoundError
 from kunyu.domain.run_acceptance import (
     CredentialUnavailableError,
     IdempotencyConflictError,
@@ -38,6 +37,7 @@ from kunyu.domain.run_acceptance import (
     UnsupportedModelCapabilityError,
     WorkspaceRemovedAcceptanceError,
 )
+from kunyu.domain.runs import ProjectionNotFoundError
 from kunyu.persistence.database import Database
 from kunyu.persistence.messages import SQLAlchemyMessageRepository
 

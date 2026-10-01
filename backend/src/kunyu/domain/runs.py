@@ -5,7 +5,7 @@ from typing import Literal
 
 from pydantic import JsonValue
 
-from dsh.events import TERMINAL_RUN_STATES, ResumePhase, RunState
+from kunyu.agent.runtime.events import TERMINAL_RUN_STATES, ResumePhase, RunState
 from kunyu.domain.model_connections import (
     MaxTokensField,
     ModelAuthMode,

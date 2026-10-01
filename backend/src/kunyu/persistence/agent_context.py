@@ -1,6 +1,6 @@
-from dsh.session_reducer import reduce_session
 from sqlalchemy import select
 
+from kunyu.agent.runtime.session_reducer import reduce_session
 from kunyu.domain.agent_context import RunContextSource
 from kunyu.domain.sessions import Session
 from kunyu.domain.workspaces import Workspace

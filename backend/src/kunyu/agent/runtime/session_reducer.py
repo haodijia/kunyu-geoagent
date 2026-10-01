@@ -3,15 +3,15 @@
 from collections import defaultdict
 from collections.abc import Iterable
 
-from dsh.events import (
+from kunyu.agent.runtime.events import (
     AgentEvent,
     SessionCreatedEvent,
     UserMessageAppendedEvent,
     validate_event_draft,
 )
-from dsh.reducer import reduce_run
-from dsh.run_state import RunReductionError
-from dsh.session_state import (
+from kunyu.agent.runtime.reducer import reduce_run
+from kunyu.agent.runtime.run_state import RunReductionError
+from kunyu.agent.runtime.session_state import (
     ReducedSession,
     ReducedUserMessage,
     SessionReductionError,

@@ -10,8 +10,9 @@ from typing import Literal
 
 from pydantic import JsonValue, TypeAdapter, ValidationError
 
-from dsh.context import ContextProvider
-from dsh.events import (
+from kunyu.agent.runtime.context import ContextProvider
+from kunyu.agent.runtime.driver import AgentRuntime
+from kunyu.agent.runtime.events import (
     TERMINAL_RUN_STATES,
     AssistantCompletedEvent,
     AssistantCompletedPayload,
@@ -39,7 +40,7 @@ from dsh.events import (
     ToolRequestedEvent,
     ToolRequestedPayload,
 )
-from dsh.models import (
+from kunyu.agent.runtime.models import (
     ModelAdapter,
     ModelAdapterError,
     ModelFinish,
@@ -51,9 +52,9 @@ from dsh.models import (
     TextDelta,
     TokenUsage,
 )
-from dsh.run_state import ReducedRun
-from dsh.runner_tools import ToolBatchExecutor
-from dsh.runner_types import (
+from kunyu.agent.runtime.run_state import ReducedRun
+from kunyu.agent.runtime.runner_tools import ToolBatchExecutor
+from kunyu.agent.runtime.runner_types import (
     ConfirmationRequester,
     DeltaBuffer,
     RunExecution,
@@ -71,11 +72,10 @@ from dsh.runner_types import (
     settled_model_budget,
     utc_now,
 )
-from dsh.runner_types import (
+from kunyu.agent.runtime.runner_types import (
     summary as summarize,
 )
-from dsh.runtime import AgentRuntime
-from dsh.tools import (
+from kunyu.agent.runtime.tools import (
     PolicyGate,
     ToolCall,
     ToolNotFoundError,
@@ -424,6 +424,7 @@ class Runner[AdapterConfigT](AgentRuntime):
                                 "name": tool.name,
                                 "description": tool.description,
                                 "parameters": dict(tool.parameters),
+                                "risk_level": tool.risk_level.value,
                                 "execution": tool.execution,
                                 "presentation": tool.presentation,
                             }

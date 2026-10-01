@@ -6,8 +6,8 @@ from kunyu.domain.events import AgentEvent
 from kunyu.domain.messages import Message, MessageRole, MessageStatus
 from kunyu.persistence.database import Database
 from kunyu.persistence.models import (
-    SessionEventRecord,
     MessageRecord,
+    SessionEventRecord,
     SessionRecord,
 )
 from kunyu.persistence.time import as_utc

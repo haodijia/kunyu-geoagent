@@ -3,7 +3,7 @@
 import asyncio
 from datetime import UTC, datetime
 
-from dsh.events import (
+from kunyu.agent.runtime.events import (
     TERMINAL_RUN_STATES,
     ContextInjectedEvent,
     ContextInjectedPayload,

@@ -53,7 +53,6 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     app.state.confirmation_service = agent_runtime.confirmations
     app.state.agent_directory = agent_runtime.agents
     app.state.closing_event = agent_runtime.scheduler.closing_event
-    await agent_runtime.kernel.start()
     await agent_runtime.scheduler.start()
     discovery_tasks.start()
     try:
@@ -62,7 +61,6 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         agent_runtime.scheduler.begin_shutdown()
         await discovery_tasks.stop()
         await agent_runtime.scheduler.shutdown()
-        await agent_runtime.kernel.stop()
         await http_client.aclose()
         database.close()
 

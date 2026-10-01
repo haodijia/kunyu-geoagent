@@ -1,9 +1,8 @@
 from dataclasses import dataclass
 from typing import Protocol
 
-from dsh.run_state import ReducedRun
-from dsh.session_state import ReducedSession
-
+from kunyu.agent.runtime.run_state import ReducedRun
+from kunyu.agent.runtime.session_state import ReducedSession
 from kunyu.domain.sessions import Session
 from kunyu.domain.workspaces import Workspace
 
