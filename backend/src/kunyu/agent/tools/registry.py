@@ -1,6 +1,7 @@
 """Explicit tool construction, write handlers and risk-based policy."""
 
-from collections.abc import Callable, Mapping
+from collections.abc import Callable
+from dataclasses import dataclass
 from datetime import datetime
 from typing import Protocol
 
@@ -16,6 +17,7 @@ from kunyu.agent.runtime.tools import (
     ToolRegistry,
     ToolRiskLevel,
 )
+from kunyu.agent.scope import Context, ScopedEntries
 
 
 class ConfirmedWriteHandler(Protocol):
@@ -34,28 +36,48 @@ class ConfirmedWriteHandler(Protocol):
     ) -> dict[str, JsonValue]: ...
 
 
+@dataclass(frozen=True, slots=True)
+class ToolRegistration:
+    build: Callable[[str], Tool]
+    write_handler: ConfirmedWriteHandler | None = None
+
+
 class ToolRegistryFactory:
     def __init__(
         self,
-        builders: tuple[Callable[[str], Tool], ...],
-        write_handlers: Mapping[str, ConfirmedWriteHandler],
+        resolve_scope: Callable[[str], Context],
     ) -> None:
-        self._builders = builders
-        self._write_handlers = dict(write_handlers)
+        self._resolve_scope = resolve_scope
+        self._entries: ScopedEntries[ToolRegistration] = ScopedEntries()
+
+    def register(
+        self, owner: Context, name: str, registration: ToolRegistration
+    ) -> None:
+        self._entries.register(owner, name, registration)
 
     def for_run(self, run_id: str) -> ToolRegistry:
-        registry = ToolRegistry(tuple(build(run_id) for build in self._builders))
+        entries = self._entries.view(self._resolve_scope(run_id))
+        tools = []
+        for name, entry in entries.items():
+            tool = entry.build(run_id)
+            if tool.spec.name != name:
+                raise ToolExecutionError(
+                    f"Tool registration '{name}' has a mismatched name."
+                )
+            tools.append(tool)
+        registry = ToolRegistry(tuple(tools))
         for spec in registry.specs:
             if spec.risk_level is ToolRiskLevel.L2:
-                self.require_write_handler(spec.name)
+                self.require_write_handler(spec.name, run_id)
         return registry
 
-    def require_write_handler(self, name: str) -> ConfirmedWriteHandler:
-        if name not in self._write_handlers:
+    def require_write_handler(self, name: str, run_id: str) -> ConfirmedWriteHandler:
+        entry = self._entries.view(self._resolve_scope(run_id)).get(name)
+        if entry is None or entry.write_handler is None:
             raise ToolExecutionError(
                 f"Tool '{name}' has no confirmed local write handler."
             )
-        return self._write_handlers[name]
+        return entry.write_handler
 
 
 class ToolPolicyGate:

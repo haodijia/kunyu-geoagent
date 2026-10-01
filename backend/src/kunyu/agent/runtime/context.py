@@ -5,6 +5,7 @@ from dataclasses import dataclass
 from typing import Protocol
 
 from kunyu.agent.runtime.models import ModelMessage
+from kunyu.agent.scope import Context, ScopedEntries
 
 
 @dataclass(frozen=True)
@@ -27,18 +28,14 @@ class PromptSectionRegistry:
     """Code-registered, deterministically ordered system-prompt sections."""
 
     def __init__(self) -> None:
-        self._sections: dict[str, PromptSection] = {}
+        self._sections: ScopedEntries[PromptSection] = ScopedEntries()
 
-    def register(self, section: PromptSection) -> None:
-        if not section.name:
-            raise ValueError("Prompt section names must not be empty.")
-        if section.name in self._sections:
-            raise ValueError(f"Prompt section '{section.name}' is already registered.")
-        self._sections[section.name] = section
+    def register(self, owner: Context, section: PromptSection) -> None:
+        self._sections.register(owner, section.name, section)
 
-    def render(self, source: object) -> str:
+    def render(self, source: object, context: Context) -> str:
         sections = sorted(
-            self._sections.values(),
+            self._sections.view(context).values(),
             key=lambda section: (section.order, section.name),
         )
         return "\n\n".join(

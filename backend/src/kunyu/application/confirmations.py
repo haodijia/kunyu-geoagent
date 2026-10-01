@@ -123,7 +123,9 @@ class ConfirmationService:
                 )
 
             arguments = self._validate_exact_snapshot(run_id, tool_record)
-            handler = self._tool_registries.require_write_handler(tool_record.name)
+            handler = self._tool_registries.require_write_handler(
+                tool_record.name, run_id
+            )
             confirmation_id = self._confirmation_id_factory()
             now = self._clock()
             event = ConfirmationRequestedEvent(
@@ -358,7 +360,7 @@ class ConfirmationService:
             TOOL_ACTIVE_TIME_SLICE_MILLISECONDS, remaining_milliseconds
         )
         operation_id = self._operation_id_factory()
-        handler = self._tool_registries.require_write_handler(tool.name)
+        handler = self._tool_registries.require_write_handler(tool.name, run.id)
         call = PolicyToolCall(
             run_id=run.id,
             call_id=tool.id,

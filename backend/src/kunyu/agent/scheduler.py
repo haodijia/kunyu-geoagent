@@ -95,6 +95,10 @@ class RunScheduler:
                 SHUTDOWN_TIMEOUT_SECONDS,
                 len(pending),
             )
+            # Scope resources remain live until execution acknowledges cancellation.
+            await asyncio.gather(*pending, return_exceptions=True)
+            for task in pending:
+                _consume_task_result(task)
 
     async def queue(self, run_id: str) -> RunDetails:
         async with self._lock:
