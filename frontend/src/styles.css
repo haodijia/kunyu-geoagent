@@ -1,6 +1,7 @@
 @import "tailwindcss";
 @import "@icon-park/react/styles/index.css" layer(components);
 @import "./styles/theme.css";
+@import "./styles/conversation.css";
 @import "./features/settings/settings.css";
 @import "./features/settings/models/models.css";
 

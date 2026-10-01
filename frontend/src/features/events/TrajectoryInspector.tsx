@@ -1,188 +1,437 @@
-import { useId, useRef, useState, type ReactNode } from "react";
-import { ChevronRight } from "lucide-react";
+import {
+  useId,
+  useLayoutEffect,
+  useRef,
+  useState,
+  type ReactNode,
+} from "react";
+import { ChevronRight, X } from "lucide-react";
 import Markdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { kindLabel } from "./TrajectoryLedger";
-import { formatDurationMillis, type TrajectoryRecord } from "./trajectory-model";
+import { TrajectoryPayload, payloadText } from "./TrajectoryPayload";
+import {
+  formatDurationMillis,
+  type TrajectoryRecord,
+} from "./trajectory-model";
 import { trajectoryTranslate as t } from "./trajectory-locales";
 import { zhCN } from "@/locales/zh-CN";
 import css from "./TrajectoryInspector.module.css";
 import ledger from "./TrajectoryLedger.module.css";
-
 const content = zhCN.trajectory;
-type Tab = "summary" | "preview" | "input" | "output" | "raw" | "source";
-interface Props { record: TrajectoryRecord; onClose: () => void }
-
-export function TrajectoryInspector({ record, onClose }: Props) {
-  const [tab, setTab] = useState<Tab>("summary");
+type Tab =
+  | "summary"
+  | "preview"
+  | "input"
+  | "output"
+  | "raw"
+  | "source"
+  | "systemPrompt"
+  | "toolDefinitions"
+  | "model"
+  | "changes"
+  | "schema"
+  | "timing";
+interface Props {
+  record: TrajectoryRecord;
+  onClose: () => void;
+  onWidthChange: (width: number) => void;
+}
+export function TrajectoryInspector({ record, onClose, onWidthChange }: Props) {
+  const visibleTabs = tabsFor(record);
+  const [tab, setTab] = useState<Tab>(visibleTabs[0]!);
   const [width, setWidth] = useState<number | null>(null);
   const aside = useRef<HTMLElement>(null);
   const drag = useRef<{ x: number; width: number } | null>(null);
   const id = useId();
-  const visibleTabs: readonly Tab[] = [
-    "summary",
-    ...(record.kind === "system" || record.kind === "context" || record.kind === "user" || record.kind === "assistant" ? ["preview" as const] : []),
-    ...(record.input !== null && record.kind !== "user" ? ["input" as const] : []),
-    ...(record.output !== null ? ["output" as const] : []),
-    "raw",
-    "source"
-  ];
-
+  useLayoutEffect(() => {
+    const element = aside.current;
+    if (element === null) return;
+    const observer = new ResizeObserver(() =>
+      onWidthChange(element.getBoundingClientRect().width),
+    );
+    observer.observe(element);
+    return () => observer.disconnect();
+  }, [onWidthChange]);
   function resize(next: number) {
     const parentWidth = aside.current?.parentElement?.clientWidth;
     if (parentWidth === undefined) return;
-    setWidth(Math.max(320, Math.min(720, parentWidth - 280, next)));
+    const value = Math.max(300, Math.min(720, parentWidth - 280, next));
+    setWidth(value);
+    onWidthChange(value);
   }
-
-  const label = kindLabel(record.kind);
-  const previewText = record.kind === "system" && record.input !== null && typeof record.input === "object"
-    ? String((record.input as Record<string, unknown>).system_prompt ?? "")
-    : record.kind === "context" && typeof record.input === "string"
-      ? record.input
-      : record.text;
-  const preview = record.kind === "unsupported"
-    ? <p>{content.unsupportedDescription}</p>
-    : <div className="[overflow-wrap:anywhere] [&_ul]:list-disc [&_ul]:pl-5 [&_ol]:list-decimal [&_ol]:pl-5 [&_pre]:overflow-x-auto [&_pre]:rounded [&_pre]:bg-muted [&_pre]:p-3 [&_blockquote]:border-l-2 [&_blockquote]:pl-3"><Markdown remarkPlugins={[remarkGfm]}>{previewText}</Markdown></div>;
   return (
-    <aside ref={aside} className={css.details} aria-label={content.details}
-      style={width === null ? undefined : { width }} onKeyDown={event => { if (event.key === "Escape") onClose(); }}>
-      <div className={css.detailsResizeHandle} role="separator" tabIndex={0}
-        aria-label={content.resizeDetails} aria-orientation="vertical" aria-valuemin={320} aria-valuemax={720}
-        aria-valuenow={width === null ? 380 : width}
-        onDoubleClick={() => setWidth(null)}
-        onPointerDown={event => {
+    <aside
+      ref={aside}
+      className={css.details}
+      aria-label={content.details}
+      style={width === null ? undefined : { width }}
+      onKeyDown={(event) => {
+        if (event.key === "Escape") onClose();
+      }}
+    >
+      <div
+        className={css.detailsResizeHandle}
+        role="separator"
+        tabIndex={0}
+        aria-label={content.resizeDetails}
+        aria-orientation="vertical"
+        aria-valuemin={300}
+        aria-valuemax={720}
+        aria-valuenow={width ?? 440}
+        onDoubleClick={() => {
+          setWidth(null);
+          onWidthChange(440);
+        }}
+        onPointerDown={(event) => {
           if (aside.current === null) return;
-          drag.current = { x: event.clientX, width: aside.current.getBoundingClientRect().width };
+          drag.current = {
+            x: event.clientX,
+            width: aside.current.getBoundingClientRect().width,
+          };
           event.currentTarget.setPointerCapture(event.pointerId);
         }}
-        onPointerMove={event => {
-          if (drag.current !== null) resize(drag.current.width + drag.current.x - event.clientX);
+        onPointerMove={(event) => {
+          if (drag.current !== null)
+            resize(drag.current.width + drag.current.x - event.clientX);
         }}
-        onPointerUp={event => { drag.current = null; event.currentTarget.releasePointerCapture(event.pointerId); }}
-        onLostPointerCapture={() => { drag.current = null; }}
-        onKeyDown={event => {
+        onPointerUp={(event) => {
+          drag.current = null;
+          event.currentTarget.releasePointerCapture(event.pointerId);
+        }}
+        onLostPointerCapture={() => {
+          drag.current = null;
+        }}
+        onKeyDown={(event) => {
           if (event.key === "ArrowLeft" || event.key === "ArrowRight") {
             event.preventDefault();
-            if (aside.current !== null) resize(aside.current.clientWidth + (event.key === "ArrowLeft" ? 16 : -16));
+            if (aside.current !== null)
+              resize(
+                aside.current.clientWidth +
+                  (event.key === "ArrowLeft" ? 16 : -16),
+              );
           }
         }}
       />
       <header className={css.detailsHeader}>
         <div className={css.detailsTitle}>
-          <span className={`${ledger.kindTag} ${kindClass(record)}`}>{label}</span>
+          <span className={`${ledger.kindTag} ${kindClass(record)}`}>
+            {kindLabel(record.kind)}
+          </span>
           <span className={css.detailsLocation}>
-            {record.turn === null ? `#${record.index}` : `${content.turnPrefix} ${record.turn} ${content.turnSuffix} · #${record.index}`}
+            {record.turn === null
+              ? ""
+              : `${content.turnPrefix} ${record.turn} ${content.turnSuffix}`}
+            {record.step === undefined ? "" : ` · ${content.step(record.step)}`}
           </span>
         </div>
-        <button type="button" className={css.close} aria-label={content.closeDetails} onClick={onClose}><span aria-hidden="true">×</span></button>
+        <button
+          type="button"
+          className={css.close}
+          aria-label={content.closeDetails}
+          onClick={onClose}
+        >
+          <X size={14} />
+        </button>
       </header>
-      <div className={css.detailTabs} role="tablist" aria-label={content.details}>
+      <div
+        className={css.detailTabs}
+        role="tablist"
+        aria-label={content.details}
+      >
         {visibleTabs.map((item, index) => (
-          <button key={item} type="button" role="tab" id={`${id}-${item}`}
-            aria-controls={`${id}-panel`} aria-selected={tab === item} tabIndex={tab === item ? 0 : -1}
+          <button
+            key={item}
+            type="button"
+            role="tab"
+            id={`${id}-${item}`}
+            aria-controls={`${id}-panel`}
+            aria-selected={tab === item}
+            tabIndex={tab === item ? 0 : -1}
             className={`${css.detailTab} ${tab === item ? css.detailTabActive : ""}`}
             onClick={() => setTab(item)}
-            onKeyDown={event => {
-              if (event.key !== "ArrowLeft" && event.key !== "ArrowRight") return;
-              const next = visibleTabs[(index + (event.key === "ArrowRight" ? 1 : visibleTabs.length - 1)) % visibleTabs.length];
-              if (next !== undefined) {
-                event.preventDefault(); setTab(next);
-                document.getElementById(`${id}-${next}`)?.focus();
-              }
-            }}>{tabLabel(item)}</button>
+            onKeyDown={(event) => {
+              if (event.key !== "ArrowLeft" && event.key !== "ArrowRight")
+                return;
+              const next =
+                visibleTabs[
+                  (index +
+                    (event.key === "ArrowRight" ? 1 : visibleTabs.length - 1)) %
+                    visibleTabs.length
+                ]!;
+              event.preventDefault();
+              setTab(next);
+              document.getElementById(`${id}-${next}`)?.focus();
+            }}
+          >
+            {tabLabel(item)}
+          </button>
         ))}
       </div>
-      <div className={`${css.detailBody} ${tab === "summary" ? css.detailBodySummary : ""}`} role="tabpanel" id={`${id}-panel`} aria-labelledby={`${id}-${tab}`}>
-        {tab === "summary" && <Summary record={record} onOpen={setTab} preview={preview} />}
-        {tab === "preview" && <div className={css.markdownPayload}>{preview}</div>}
-        {tab === "input" && <JsonPayload value={record.input} />}
-        {tab === "output" && <JsonPayload value={record.output} />}
-        {tab === "raw" && <JsonPayload value={record.raw} />}
-        {tab === "source" && <JsonPayload value={record.source} />}
+      <div
+        className={css.detailBody}
+        role="tabpanel"
+        id={`${id}-panel`}
+        aria-labelledby={`${id}-${tab}`}
+      >
+        {tab === "summary" && <Summary record={record} onOpen={setTab} />}
+        {tab === "preview" && (
+          <div className={css.markdownPayload}>
+            <Preview record={record} />
+          </div>
+        )}
+        {tab === "input" && <TrajectoryPayload value={record.input} tree />}
+        {tab === "output" && <TrajectoryPayload value={record.output} tree />}
+        {tab === "raw" && <TrajectoryPayload value={record.raw} />}
+        {tab === "source" && <TrajectoryPayload value={record.source} tree />}
+        {tab === "systemPrompt" && (
+          <TrajectoryPayload value={record.prompt!.system} />
+        )}
+        {tab === "toolDefinitions" && (
+          <TrajectoryPayload value={record.prompt!.tools} tree />
+        )}
+        {tab === "model" && (
+          <TrajectoryPayload value={record.prompt!.model} tree />
+        )}
+        {tab === "schema" && <Schema record={record} />}
+        {tab === "timing" && <Timing record={record} />}
+        {tab === "changes" && <PromptChanges record={record} />}
       </div>
     </aside>
   );
 }
-
-function Summary({ record, onOpen, preview }: {
-  readonly record: TrajectoryRecord;
-  readonly onOpen: (tab: Tab) => void;
-  readonly preview: ReactNode;
+function tabsFor(record: TrajectoryRecord): readonly Tab[] {
+  if (record.kind === "system" && record.prompt !== undefined)
+    return [
+      ...(record.previousPrompt === undefined ? [] : ["changes" as const]),
+      "systemPrompt",
+      "toolDefinitions",
+      "model",
+    ];
+  if (["context", "user", "assistant"].includes(record.kind))
+    return ["summary", "preview", "raw", "source"];
+  return [
+    "summary",
+    ...(record.input === null ? [] : ["input" as const]),
+    ...(record.output === null ? [] : ["output" as const]),
+    "schema",
+    "timing",
+  ];
+}
+function Summary({
+  record,
+  onOpen,
+}: {
+  record: TrajectoryRecord;
+  onOpen: (tab: Tab) => void;
 }) {
-  const statusLabels = content.statuses as Readonly<Record<string, string>>;
-  return <>
-    <dl className={css.overview}>
-      <div><dt>{content.status}</dt><dd>{statusLabels[record.status] ?? record.status}</dd></div>
-      <div><dt>{content.startedAt}</dt><dd>{formatTime(record.occurredAt)}</dd></div>
-      <div><dt>{content.completedAt}</dt><dd>{record.completedAt === null ? "—" : formatTime(record.completedAt)}</dd></div>
-      <div><dt>{content.duration}</dt><dd>{formatDurationMillis(record.durationMillis, t)}</dd></div>
-      {record.kind === "assistant" && <>
-        <div><dt>{content.inputTokens}</dt><dd>{record.usage?.inputTokens ?? "—"}</dd></div>
-        <div><dt>{content.outputTokens}</dt><dd>{record.usage?.outputTokens ?? "—"}</dd></div>
-        <div><dt>{content.totalTokens}</dt><dd>{record.usage?.totalTokens ?? "—"}</dd></div>
-      </>}
-      <div><dt>{content.source}</dt><dd><button type="button" className="inline-flex items-center gap-1" onClick={() => onOpen("source")}>{content.identifiers}<ChevronRight size={11} className="text-muted-foreground" /></button></dd></div>
-    </dl>
-    <div className={css.overviewSections}>
-      {(record.kind === "system" || record.kind === "context" || record.kind === "user" || record.kind === "assistant") && <DetailSection label={record.kind === "system" ? content.prompt : content.preview} onOpen={() => onOpen("preview")}>{preview}</DetailSection>}
-      {record.input !== null && record.kind !== "user" && <DetailSection label={content.input} onOpen={() => onOpen("input")}><CompactJson value={record.input} /></DetailSection>}
-      {record.output !== null && <DetailSection label={content.output} onOpen={() => onOpen("output")}><CompactJson value={record.output} /></DetailSection>}
+  const tool = record.kind === "tool" || record.kind === "confirmation";
+  const schema = record.schema as Record<string, unknown> | undefined;
+  return (
+    <>
+      <div className={css.summaryText}>
+        {tool ? (
+          String(schema?.description ?? record.source.tool_name)
+        ) : (
+          <Preview record={record} />
+        )}
+      </div>
+      <dl className={css.overview}>
+        {tool && (
+          <div>
+            <dt>{content.layer}</dt>
+            <dd>{content.assistantLayer}</dd>
+          </div>
+        )}
+        <div>
+          <dt>{content.status}</dt>
+          <dd>{statusLabel(record.status)}</dd>
+        </div>
+        {record.kind === "context" && (
+          <div>
+            <dt>{content.source}</dt>
+            <dd>{producerLabel(record.source.producer)}</dd>
+          </div>
+        )}
+        {record.kind === "assistant" && (
+          <>
+            <div>
+              <dt>{content.inputTokens}</dt>
+              <dd>{record.usage?.inputTokens ?? "—"}</dd>
+            </div>
+            <div>
+              <dt>{content.outputTokens}</dt>
+              <dd>{record.usage?.outputTokens ?? "—"}</dd>
+            </div>
+            <div>
+              <dt>{content.totalTokens}</dt>
+              <dd>{record.usage?.totalTokens ?? "—"}</dd>
+            </div>
+          </>
+        )}
+      </dl>
+      {tool && (
+        <>
+          <DetailSection label={content.payload} onOpen={() => onOpen("input")}>
+            <TrajectoryPayload value={record.input} tree />
+          </DetailSection>
+          {record.output !== null && (
+            <DetailSection
+              label={content.result}
+              onOpen={() => onOpen("output")}
+            >
+              <TrajectoryPayload value={record.output} tree />
+            </DetailSection>
+          )}
+        </>
+      )}
+      <DetailSection
+        label={content.timing}
+        onOpen={tool ? () => onOpen("timing") : undefined}
+      >
+        <Timing record={record} />
+      </DetailSection>
+    </>
+  );
+}
+function Preview({ record }: { record: TrajectoryRecord }) {
+  const text =
+    record.kind === "context" || record.kind === "user"
+      ? String(record.input)
+      : record.text;
+  return (
+    <div className={css.markdown}>
+      <Markdown remarkPlugins={[remarkGfm]}>{text}</Markdown>
     </div>
-  </>;
+  );
 }
-
-function DetailSection({ children, label, onOpen }: { readonly children: ReactNode; readonly label: string; readonly onOpen: () => void }) {
-  return <section className={css.overviewSection}>
-    <button type="button" className="flex w-full items-center gap-1 px-[14px] py-2 text-left text-xs text-muted-foreground hover:text-foreground" onClick={onOpen}>
-      {label}<ChevronRight size={12} />
-    </button>
-    <div className={css.markdownPreview}>{children}</div>
-  </section>;
+function Timing({ record }: { record: TrajectoryRecord }) {
+  return (
+    <dl className={css.overview}>
+      <div>
+        <dt>{content.startedAt}</dt>
+        <dd>{formatTime(record.occurredAt)}</dd>
+      </div>
+      <div>
+        <dt>{content.duration}</dt>
+        <dd>{formatDurationMillis(record.durationMillis, t)}</dd>
+      </div>
+      {record.completedAt !== null && (
+        <div>
+          <dt>{content.completedAt}</dt>
+          <dd>{formatTime(record.completedAt)}</dd>
+        </div>
+      )}
+    </dl>
+  );
 }
-
-function CompactJson({ value }: { readonly value: unknown }) {
-  return <pre className="m-0 max-h-40 overflow-hidden whitespace-pre-wrap font-mono text-xs leading-5 [overflow-wrap:anywhere]">{formatJson(value)}</pre>;
+function Schema({ record }: { record: TrajectoryRecord }) {
+  if (record.schema === undefined)
+    return <p className={css.summaryText}>{content.noSchema}</p>;
+  const schema = record.schema as Record<string, unknown>;
+  return (
+    <>
+      <div className={css.summaryText}>
+        <strong>{String(schema.name)}</strong>
+        <p>{String(schema.description)}</p>
+      </div>
+      <TrajectoryPayload value={schema.parameters} tree />
+    </>
+  );
 }
-
-function JsonPayload({ value }: { readonly value: unknown }) {
-  return <div className={css.sourceBlocks}><section className={css.sourceBlock}>
-    <pre className={css.sourceBlockContent}>{formatJson(value)}</pre>
-  </section></div>;
+function DetailSection({
+  children,
+  label,
+  onOpen,
+}: {
+  children: ReactNode;
+  label: string;
+  onOpen?: () => void;
+}) {
+  return (
+    <section className={css.overviewSection}>
+      <button
+        type="button"
+        className={css.sectionHeading}
+        onClick={onOpen}
+        disabled={onOpen === undefined}
+      >
+        {label}
+        {onOpen !== undefined && <ChevronRight size={11} />}
+      </button>
+      {children}
+    </section>
+  );
 }
-
-function formatJson(value: unknown): string {
-  if (typeof value === "string") return value;
-  return JSON.stringify(value, null, 2);
+function PromptChanges({ record }: { record: TrajectoryRecord }) {
+  const before = record.previousPrompt!;
+  const after = record.prompt!;
+  return (
+    <>
+      {(["system", "tools", "model"] as const)
+        .filter((key) => payloadText(before[key]) !== payloadText(after[key]))
+        .map((key) => {
+          const oldLines = payloadText(before[key]).split("\n");
+          const newLines = payloadText(after[key]).split("\n");
+          return (
+            <section key={key}>
+              <h3 className={css.sectionHeading}>
+                {tabLabel(
+                  key === "system"
+                    ? "systemPrompt"
+                    : key === "tools"
+                      ? "toolDefinitions"
+                      : "model",
+                )}
+              </h3>
+              <pre className={css.diff}>
+                {oldLines
+                  .filter((line) => !newLines.includes(line))
+                  .map((line, index) => (
+                    <div className={css.diffRemoved} key={`old-${index}`}>
+                      − {line}
+                    </div>
+                  ))}
+                {newLines.map((line, index) => (
+                  <div
+                    className={oldLines.includes(line) ? "" : css.diffAdded}
+                    key={`new-${index}`}
+                  >
+                    {oldLines.includes(line) ? "  " : "+ "}
+                    {line}
+                  </div>
+                ))}
+              </pre>
+            </section>
+          );
+        })}
+    </>
+  );
 }
-
 function formatTime(value: string): string {
-  return new Date(value).toLocaleTimeString("zh-CN", {
+  return new Date(value).toLocaleString("sv-SE", {
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
     hour: "2-digit",
     minute: "2-digit",
     second: "2-digit",
-    fractionalSecondDigits: 3
+    fractionalSecondDigits: 3,
   });
 }
-
-function tabLabel(tab: Tab): string {
-  switch (tab) {
-    case "summary": return content.summary;
-    case "preview": return content.preview;
-    case "input": return content.input;
-    case "output": return content.output;
-    case "raw": return content.raw;
-    case "source": return content.source;
-  }
+function producerLabel(value: unknown): string {
+  const labels = content.producers as Record<string, string>;
+  return typeof value === "string" ? (labels[value] ?? value) : "—";
 }
-
+function statusLabel(value: string): string {
+  return (content.statuses as Record<string, string>)[value] ?? value;
+}
+function tabLabel(tab: Tab): string {
+  if (tab === "model") return zhCN.modelConnections.title;
+  if (tab === "input") return content.payload;
+  if (tab === "output") return content.result;
+  return content[tab];
+}
 function kindClass(record: TrajectoryRecord): string {
-  switch (record.kind) {
-    case "system": return ledger.system ?? "";
-    case "context": return ledger.context ?? "";
-    case "user": return ledger.user ?? "";
-    case "assistant": return ledger.assistant ?? "";
-    case "tool": return ledger.tool ?? "";
-    case "confirmation": return ledger.confirmation ?? "";
-    case "unsupported": return ledger.systemNeutral ?? "";
-  }
+  return ledger[record.kind === "unsupported" ? "systemNeutral" : record.kind]!;
 }

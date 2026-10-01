@@ -11,7 +11,7 @@ import { workspaceQueryKeys } from "@/features/workspaces/api";
 import {
   setSessionArchived,
   sessionQueryKeys,
-  type SessionSummary
+  type SessionSummary,
 } from "./api";
 import { parseSessionRoute, sessionOverviewPath } from "./routes";
 
@@ -19,7 +19,7 @@ const content = zhCN.workspaceSidebar;
 
 export function SessionRow({
   session,
-  selected
+  selected,
 }: {
   readonly session: SessionSummary;
   readonly selected: boolean;
@@ -38,7 +38,7 @@ export function SessionRow({
       queryClient.setQueryData(sessionQueryKeys.detail(session.id), updated);
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: workspaceQueryKeys.all }),
-        queryClient.invalidateQueries({ queryKey: sessionQueryKeys.archived })
+        queryClient.invalidateQueries({ queryKey: sessionQueryKeys.archived }),
       ]);
       toast.success(content.archiveSuccess);
     },
@@ -47,9 +47,9 @@ export function SessionRow({
       toast.error(
         error instanceof ApiError && error.code === "RUN_CONFLICT"
           ? content.archiveRunConflict
-          : content.archiveFailed
+          : content.archiveFailed,
       );
-    }
+    },
   });
   function openSession() {
     void navigate(sessionOverviewPath(session.workspace_id, session.id));
@@ -58,8 +58,8 @@ export function SessionRow({
     <Tooltip label={session.title} side="right">
       <div
         className={cn(
-          "chat-history__item group relative flex h-[34px] min-w-0 shrink-0 cursor-pointer items-center justify-start gap-[8px] overflow-hidden rounded-[8px] ps-[40px] pe-[36px] transition-colors",
-          selected ? "bg-fill-3" : "hover:bg-fill-3"
+          "chat-history__item group relative flex h-[30px] min-w-0 shrink-0 cursor-pointer items-center justify-start gap-[8px] overflow-hidden rounded-[6px] ps-[32px] pe-[28px] transition-colors",
+          selected ? "bg-fill-3" : "hover:bg-fill-3",
         )}
         role="button"
         tabIndex={0}
@@ -76,7 +76,7 @@ export function SessionRow({
           openSession();
         }}
       >
-        <span className="min-w-0 flex-1 truncate text-[14px] text-t-primary">
+        <span className="min-w-0 flex-1 truncate text-[13px] text-t-primary">
           {session.title}
         </span>
         <Tooltip label={content.archiveSession} side="top">

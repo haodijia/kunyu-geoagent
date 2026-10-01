@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { CirclePlus, Plus, SquarePen } from "lucide-react";
-import { useState } from "react";
+import { Archive, List, Plus, Search } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
 import { matchPath, useLocation, useNavigate } from "react-router-dom";
 
 import { SidebarItem } from "@/components/navigation/SidebarItem";
@@ -12,7 +12,7 @@ import {
   createSession,
   createWorkspace,
   listWorkspaces,
-  workspaceQueryKeys
+  workspaceQueryKeys,
 } from "@/features/workspaces/api";
 import { zhCN } from "@/locales/zh-CN";
 
@@ -26,27 +26,42 @@ interface TaskSidebarContentProps {
 
 export function TaskSidebarContent({
   collapsed,
-  onRequestExpand
+  onRequestExpand,
 }: TaskSidebarContentProps) {
   const navigate = useNavigate();
   const location = useLocation();
   const queryClient = useQueryClient();
   const sessionMatch = matchPath(
     "/workspaces/:workspaceId/sessions/:sessionId/*",
-    location.pathname
+    location.pathname,
   );
   const activeSessionId = sessionMatch?.params.sessionId ?? null;
   const [workspaceFormOpen, setWorkspaceFormOpen] = useState(false);
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [search, setSearch] = useState("");
+  const searchInput = useRef<HTMLInputElement>(null);
+  useEffect(() => {
+    const handler = (event: KeyboardEvent) => {
+      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "k") {
+        event.preventDefault();
+        if (collapsed) onRequestExpand();
+        setSearchOpen(true);
+        requestAnimationFrame(() => searchInput.current?.focus());
+      }
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [collapsed, onRequestExpand]);
   const workspacesQuery = useQuery({
     queryKey: workspaceQueryKeys.all,
-    queryFn: listWorkspaces
+    queryFn: listWorkspaces,
   });
   const createWorkspaceMutation = useMutation({
     mutationFn: createWorkspace,
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: workspaceQueryKeys.all });
       setWorkspaceFormOpen(false);
-    }
+    },
   });
   const createSessionMutation = useMutation({
     mutationFn: (workspaceId: string) =>
@@ -54,14 +69,15 @@ export function TaskSidebarContent({
     onSuccess: async (session) => {
       await Promise.all([
         queryClient.invalidateQueries({
-          queryKey: workspaceQueryKeys.sessions(session.workspace_id)
+          queryKey: workspaceQueryKeys.sessions(session.workspace_id),
         }),
-        queryClient.invalidateQueries({ queryKey: workspaceQueryKeys.all })
+        queryClient.invalidateQueries({ queryKey: workspaceQueryKeys.all }),
       ]);
       void navigate(sessionOverviewPath(session.workspace_id, session.id));
-    }
+    },
   });
-  const newChatUnavailable = workspacesQuery.isPending || workspacesQuery.isError;
+  const newChatUnavailable =
+    workspacesQuery.isPending || workspacesQuery.isError;
 
   function handleNewChat() {
     const firstWorkspace = workspacesQuery.data?.[0];
@@ -77,12 +93,19 @@ export function TaskSidebarContent({
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
-      <nav className="grid shrink-0 gap-0.5" aria-label={shellContent.navigationLabel}>
+      <nav
+        className="grid shrink-0 gap-0.5 pt-1"
+        aria-label={shellContent.navigationLabel}
+      >
         <div className="flex items-center">
           <div className="min-w-0 flex-1">
             <SidebarItem
               collapsed={collapsed}
-              icon={<SquarePen size={16} strokeWidth={1.9} />}
+              icon={
+                <span className="flex size-5 items-center justify-center rounded-[5px] border border-border bg-accent">
+                  <Plus size={13} strokeWidth={1.8} />
+                </span>
+              }
               label={shellContent.newChat}
               onClick={handleNewChat}
               disabled={newChatUnavailable}
@@ -100,11 +123,44 @@ export function TaskSidebarContent({
                 aria-busy={createSessionMutation.isPending || undefined}
                 aria-label={content.createSession}
               >
-                <CirclePlus size={16} strokeWidth={1.8} aria-hidden="true" />
+                <List size={13} strokeWidth={1.8} aria-hidden="true" />
               </button>
             </Tooltip>
           )}
         </div>
+        <SidebarItem
+          collapsed={collapsed}
+          icon={<Search size={15} strokeWidth={1.8} />}
+          label={shellContent.search}
+          onClick={() => {
+            if (collapsed) onRequestExpand();
+            setSearchOpen((value) => !value);
+            setSearch("");
+            requestAnimationFrame(() => searchInput.current?.focus());
+          }}
+        />
+        <SidebarItem
+          collapsed={collapsed}
+          icon={<Archive size={15} strokeWidth={1.8} />}
+          label={zhCN.archivedSessions.title}
+          onClick={() => void navigate("/settings/archived")}
+        />
+        {searchOpen && !collapsed && (
+          <input
+            ref={searchInput}
+            className="mx-1 my-1 h-7 min-w-0 rounded-md border border-border bg-background px-2 text-xs outline-none focus:border-ring"
+            aria-label={shellContent.search}
+            placeholder={content.searchPlaceholder}
+            value={search}
+            onChange={(event) => setSearch(event.target.value)}
+            onKeyDown={(event) => {
+              if (event.key === "Escape") {
+                setSearchOpen(false);
+                setSearch("");
+              }
+            }}
+          />
+        )}
       </nav>
 
       {collapsed ? null : (
@@ -138,7 +194,10 @@ export function TaskSidebarContent({
           ) : null}
 
           {createSessionMutation.isError ? (
-            <p className="m-0 px-2 py-1 text-xs leading-4 text-destructive" role="alert">
+            <p
+              className="m-0 px-2 py-1 text-xs leading-4 text-destructive"
+              role="alert"
+            >
               {createSessionMutation.error.message}
             </p>
           ) : null}
@@ -148,7 +207,10 @@ export function TaskSidebarContent({
             </p>
           ) : null}
           {workspacesQuery.isError ? (
-            <p className="m-0 px-2 py-2 text-xs leading-4 text-destructive" role="alert">
+            <p
+              className="m-0 px-2 py-2 text-xs leading-4 text-destructive"
+              role="alert"
+            >
               {workspacesQuery.error.message}
             </p>
           ) : null}
@@ -164,6 +226,7 @@ export function TaskSidebarContent({
                 key={workspace.id}
                 activeSessionId={activeSessionId}
                 workspace={workspace}
+                search={search}
               />
             ))}
           </div>

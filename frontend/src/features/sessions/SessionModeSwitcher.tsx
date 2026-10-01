@@ -5,7 +5,7 @@ import { useAppUiStore, type AnalysisMode } from "@/app/store";
 import {
   sessionAnalysisPath,
   sessionMapPath,
-  sessionOverviewPath
+  sessionOverviewPath,
 } from "@/features/sessions/routes";
 import { useSessionWorkspace } from "@/features/sessions/SessionWorkspaceContext";
 import { cn } from "@/lib/utils";
@@ -18,7 +18,7 @@ export function SessionModeSwitcher() {
   const navigate = useNavigate();
   const session = useSessionWorkspace();
   const rememberedMode = useAppUiStore(
-    (state) => state.analysisModeBySession[session.id] ?? "conversation"
+    (state) => state.analysisModeBySession[session.id] ?? "conversation",
   );
   const setAnalysisMode = useAppUiStore((state) => state.setAnalysisMode);
   const activeSection = location.pathname.endsWith("/overview")
@@ -36,12 +36,12 @@ export function SessionModeSwitcher() {
     if (rememberedMode !== mode) {
       return "text-muted-foreground hover:text-foreground";
     }
-    return activeSection === "analysis" ? "text-primary-foreground" : "text-foreground";
+    return activeSection === "analysis" ? "text-foreground" : "text-foreground";
   }
 
   return (
     <nav
-      className="flex items-center gap-1 rounded-xl border border-border bg-background p-1 shadow-sm"
+      className="flex items-center gap-1 rounded-lg border border-border bg-background p-0.5"
       aria-label={content.viewNavigation}
     >
       <button
@@ -49,8 +49,8 @@ export function SessionModeSwitcher() {
         className={cn(
           "flex size-8 items-center justify-center rounded-lg transition-colors",
           activeSection === "overview"
-            ? "bg-primary text-primary-foreground"
-            : "text-muted-foreground hover:bg-muted hover:text-foreground"
+            ? "bg-accent text-foreground"
+            : "text-muted-foreground hover:bg-muted hover:text-foreground",
         )}
         onClick={() =>
           void navigate(sessionOverviewPath(session.workspace_id, session.id))
@@ -67,15 +67,15 @@ export function SessionModeSwitcher() {
       <div
         className={cn(
           "relative grid grid-cols-2 rounded-lg bg-muted transition-colors",
-          activeSection === "analysis" && "bg-accent"
+          activeSection === "analysis" && "bg-accent",
         )}
         aria-label={content.analysisMode}
       >
         <span
           className={cn(
             "pointer-events-none absolute top-0 left-0 size-8 rounded-lg shadow-sm transition-[color,background-color,transform] duration-200 ease-out",
-            activeSection === "analysis" ? "bg-primary" : "bg-background",
-            rememberedMode === "trace" && "translate-x-8"
+            activeSection === "analysis" ? "bg-accent" : "bg-background",
+            rememberedMode === "trace" && "translate-x-8",
           )}
           aria-hidden="true"
         />
@@ -83,7 +83,7 @@ export function SessionModeSwitcher() {
           type="button"
           className={cn(
             "relative z-10 flex size-8 items-center justify-center rounded-lg transition-colors",
-            analysisModeTextClass("conversation")
+            analysisModeTextClass("conversation"),
           )}
           onClick={() => openAnalysis("conversation")}
           aria-pressed={
@@ -98,10 +98,12 @@ export function SessionModeSwitcher() {
           type="button"
           className={cn(
             "relative z-10 flex size-8 items-center justify-center rounded-lg transition-colors",
-            analysisModeTextClass("trace")
+            analysisModeTextClass("trace"),
           )}
           onClick={() => openAnalysis("trace")}
-          aria-pressed={activeSection === "analysis" && rememberedMode === "trace"}
+          aria-pressed={
+            activeSection === "analysis" && rememberedMode === "trace"
+          }
           aria-label={content.trace}
           title={content.trace}
         >
@@ -116,8 +118,8 @@ export function SessionModeSwitcher() {
         className={cn(
           "flex size-8 items-center justify-center rounded-lg transition-colors",
           activeSection === "map"
-            ? "bg-primary text-primary-foreground"
-            : "text-muted-foreground hover:bg-muted hover:text-foreground"
+            ? "bg-accent text-foreground"
+            : "text-muted-foreground hover:bg-muted hover:text-foreground",
         )}
         onClick={() =>
           void navigate(sessionMapPath(session.workspace_id, session.id))

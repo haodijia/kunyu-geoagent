@@ -1,21 +1,30 @@
 import {
   ArrowUp,
+  Bot,
+  Check,
+  ChevronDown,
   LoaderCircle,
   MapPinned,
   RotateCw,
   Settings2,
-  Square
+  Square,
 } from "lucide-react";
 import {
   useEffect,
   useRef,
   type ChangeEvent,
   type FormEvent,
-  type KeyboardEvent
+  type KeyboardEvent,
 } from "react";
 import { Link } from "react-router-dom";
 
 import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Textarea } from "@/components/ui/textarea";
 import { zhCN } from "@/locales/zh-CN";
 
@@ -74,9 +83,14 @@ export function ConversationComposer({
   onModelChange,
   onReasoningEffortChange,
   onSubmit,
-  onStop
+  onStop,
 }: ConversationComposerProps) {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const modelLabel =
+    modelGroups
+      .flatMap((group) => group.options)
+      .find((option) => option.value === selectedModel)?.label ??
+    content.selectModel;
   const canSend = draft.trim().length > 0 && !pending && !sendDisabled;
 
   useEffect(() => {
@@ -111,18 +125,20 @@ export function ConversationComposer({
   }
 
   return (
-    <div className={compact ? "shrink-0 px-4 pb-4" : "shrink-0 px-6 pt-3 pb-6"}>
+    <div
+      className={
+        compact
+          ? "composer-host shrink-0 px-3 pb-3"
+          : "composer-host shrink-0 px-3 pt-2 pb-3"
+      }
+    >
       <form
-        className={`mx-auto border border-[var(--mu-input-border)] bg-[var(--mu-composer-bg)] shadow-sm transition-[border-color,box-shadow] duration-200 focus-within:border-[var(--mu-input-border-active)] focus-within:shadow-[var(--mu-input-shadow-active)] ${
-          compact
-            ? "max-w-[720px] rounded-2xl p-3"
-            : "max-w-[880px] rounded-[20px] p-4"
-        }`}
+        className={`chat-surface-fluid composer-panel border border-[var(--mu-input-border)] bg-[var(--mu-composer-bg)] transition-[border-color,box-shadow] duration-200 ${compact ? "rounded-2xl p-3" : "rounded-[20px] px-3.5 py-3"}`}
         onSubmit={handleSubmit}
       >
         <Textarea
           ref={textareaRef}
-          className={`block w-full resize-none overflow-y-auto rounded-none border-0 bg-transparent px-0 py-0 text-sm leading-5 text-foreground shadow-none outline-none placeholder:text-muted-foreground focus-visible:border-transparent focus-visible:ring-0 disabled:cursor-wait ${compact ? "min-h-5" : "min-h-10"}`}
+          className={`block w-full resize-none overflow-y-auto rounded-none border-0 bg-transparent px-0 py-0 text-[13px] leading-5 text-foreground shadow-none outline-none placeholder:text-muted-foreground focus-visible:border-transparent focus-visible:ring-0 disabled:cursor-wait ${compact ? "min-h-5" : "min-h-7"}`}
           value={draft}
           placeholder={content.composerPlaceholder}
           disabled={pending || draftFrozen}
@@ -131,50 +147,86 @@ export function ConversationComposer({
           onKeyDown={handleKeyDown}
           aria-label={content.composerLabel}
         />
-        <div className={`${compact ? "mt-2" : "mt-3"} flex min-h-8 flex-wrap items-center justify-between gap-x-4 gap-y-2`}>
-          <span className="inline-flex min-w-0 items-center gap-1.5 text-xs text-muted-foreground">
+        <div
+          className={`${compact ? "mt-2" : "mt-2.5"} flex min-h-8 flex-wrap items-center justify-between gap-x-4 gap-y-2`}
+        >
+          <span className="inline-flex max-w-[45%] min-w-0 items-center gap-1.5 rounded-full border border-border px-2 py-1 text-[11px] text-muted-foreground">
             <MapPinned className="size-3.5 shrink-0" aria-hidden="true" />
             <span className="truncate">{contextLabel}</span>
           </span>
           <div className="flex min-w-0 flex-wrap items-center justify-end gap-1">
-            <select
-              className="h-8 max-w-56 rounded-lg border-0 bg-transparent px-2 text-xs text-foreground outline-none hover:bg-muted focus:ring-2 focus:ring-ring/50 disabled:opacity-50"
-              value={selectedModel}
-              disabled={modelDisabled}
-              aria-label={content.modelSelectorLabel}
-              onChange={(event) => onModelChange(event.target.value)}
-            >
-              <option value="">{content.selectModel}</option>
-              {modelGroups.map((group) => (
-                <optgroup key={group.id} label={group.label}>
-                  {group.options.map((option) => (
-                    <option key={option.value} value={option.value}>
-                      {option.label}
-                    </option>
-                  ))}
-                </optgroup>
-              ))}
-            </select>
-            {reasoningOptions.length > 0 || selectedReasoningEffort !== "" ? (
-              <select
-                className="h-8 max-w-44 rounded-lg border-0 bg-transparent px-2 text-xs text-foreground outline-none hover:bg-muted focus:ring-2 focus:ring-ring/50 disabled:opacity-50"
-                value={selectedReasoningEffort}
-                disabled={modelDisabled}
-                aria-label={content.reasoningSelectorLabel}
-                onChange={(event) => onReasoningEffortChange(event.target.value)}
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <button
+                  type="button"
+                  className="composer-chip"
+                  disabled={modelDisabled}
+                  aria-label={content.modelSelectorLabel}
+                >
+                  <Bot size={13} />
+                  <span className="truncate">{modelLabel}</span>
+                  <ChevronDown size={12} />
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent
+                side="top"
+                align="end"
+                className="max-h-80 overflow-y-auto"
               >
-                <option value="">{content.reasoningNotSpecified}</option>
-                {reasoningOptions.map((effort) => (
-                  <option key={effort} value={effort}>
-                    {content.reasoningValue(effort)}
-                  </option>
+                {modelGroups.map((group) => (
+                  <div key={group.id}>
+                    <div className="px-2 py-1.5 text-[11px] text-muted-foreground">
+                      {group.label}
+                    </div>
+                    {group.options.map((option) => (
+                      <DropdownMenuItem
+                        key={option.value}
+                        onSelect={() => onModelChange(option.value)}
+                      >
+                        <span className="flex-1">{option.label}</span>
+                        {selectedModel === option.value && <Check size={12} />}
+                      </DropdownMenuItem>
+                    ))}
+                  </div>
                 ))}
-              </select>
+              </DropdownMenuContent>
+            </DropdownMenu>
+            {reasoningOptions.length > 0 || selectedReasoningEffort !== "" ? (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <button
+                    type="button"
+                    className="composer-chip"
+                    disabled={modelDisabled}
+                    aria-label={content.reasoningSelectorLabel}
+                  >
+                    {selectedReasoningEffort === ""
+                      ? content.reasoningNotSpecified
+                      : content.reasoningValue(selectedReasoningEffort)}
+                    <ChevronDown size={12} />
+                  </button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent side="top" align="end">
+                  <DropdownMenuItem
+                    onSelect={() => onReasoningEffortChange("")}
+                  >
+                    {content.reasoningNotSpecified}
+                  </DropdownMenuItem>
+                  {reasoningOptions.map((effort) => (
+                    <DropdownMenuItem
+                      key={effort}
+                      onSelect={() => onReasoningEffortChange(effort)}
+                    >
+                      {content.reasoningValue(effort)}
+                    </DropdownMenuItem>
+                  ))}
+                </DropdownMenuContent>
+              </DropdownMenu>
             ) : null}
             <Button
               type="submit"
               size="icon"
-              className="ml-1 size-8 rounded-full shadow-none"
+              className="composer-send ml-1 size-7 rounded-full shadow-none"
               disabled={!canSend}
               aria-label={
                 pending
@@ -185,7 +237,10 @@ export function ConversationComposer({
               }
             >
               {pending ? (
-                <LoaderCircle className="size-3.5 animate-spin" strokeWidth={2.1} />
+                <LoaderCircle
+                  className="size-3.5 animate-spin"
+                  strokeWidth={2.1}
+                />
               ) : draftFrozen ? (
                 <RotateCw className="size-3.5" strokeWidth={2.1} />
               ) : (
@@ -197,15 +252,22 @@ export function ConversationComposer({
                 type="button"
                 variant="outline"
                 size="icon"
-                className="ml-1 size-8 rounded-full bg-transparent shadow-none"
+                className="ml-1 size-7 rounded-full border-border bg-accent text-muted-foreground shadow-none"
                 disabled={stopPending}
                 onClick={onStop}
                 aria-label={content.stop}
               >
                 {stopPending ? (
-                  <LoaderCircle className="size-3.5 animate-spin" strokeWidth={2.1} />
+                  <LoaderCircle
+                    className="size-3.5 animate-spin"
+                    strokeWidth={2.1}
+                  />
                 ) : (
-                  <Square className="size-3" fill="currentColor" strokeWidth={2.1} />
+                  <Square
+                    className="size-3"
+                    fill="currentColor"
+                    strokeWidth={2.1}
+                  />
                 )}
               </Button>
             ) : null}
@@ -220,7 +282,13 @@ export function ConversationComposer({
               {error}
             </span>
             {showModelSettings ? (
-              <Button asChild type="button" size="sm" variant="ghost" className="h-7 px-2">
+              <Button
+                asChild
+                type="button"
+                size="sm"
+                variant="ghost"
+                className="h-7 px-2"
+              >
                 <Link to="/settings/models">
                   <Settings2 className="size-3.5" />
                   {content.configureModels}

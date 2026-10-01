@@ -1,0 +1,75 @@
+/* Shared transcript and composer geometry from mu's chat surface. */
+.chat-surface-container {
+  container-type: inline-size;
+}
+.chat-surface-fluid {
+  width: 100%;
+  max-width: 100%;
+  margin-inline: auto;
+}
+@container (min-width: 720px) {
+  .chat-surface-fluid {
+    width: calc(100% - clamp(80px, 10cqw, 240px));
+    max-width: none;
+  }
+}
+.message-list-scroller {
+  mask-image: linear-gradient(to bottom, transparent, black 12px);
+}
+.chat-history__item[aria-current="page"]::before {
+  content: "";
+  position: absolute;
+  inset-inline-start: 0;
+  top: 8px;
+  bottom: 8px;
+  width: 3px;
+  border-radius: 0 3px 3px 0;
+  background: var(--mu-accent-dot);
+}
+.composer-panel {
+  box-shadow: none;
+}
+.composer-panel:focus-within {
+  border-color: var(--bg-4);
+  box-shadow: var(--mu-shadow-2);
+}
+.composer-chip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  height: 27px;
+  max-width: 280px;
+  min-width: 0;
+  padding: 0 9px;
+  border: 1px solid var(--border-base);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 12px;
+  cursor: pointer;
+}
+.composer-chip:hover {
+  border-color: var(--bg-4);
+  color: var(--text-primary);
+}
+.composer-chip:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+.composer-send:disabled {
+  background: var(--bg-3);
+  color: var(--text-disabled);
+  opacity: 1;
+}
+#task-sidebar {
+  scrollbar-width: none;
+}
+#task-sidebar ::-webkit-scrollbar {
+  width: 0;
+}
+@media (max-width: 719px) {
+  .composer-chip {
+    max-width: 180px;
+  }
+}

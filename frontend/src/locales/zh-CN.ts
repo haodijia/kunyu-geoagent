@@ -3,7 +3,7 @@ export const zhCN = {
     runtimeUnavailable: "桌面运行时连接不可用。",
     eventStreamMissingBody: "事件流响应缺少正文。",
     invalidPath: (path: string) => `接口路径必须以 /api/ 开头：${path}`,
-    requestFailed: (status: number) => `请求失败（${status}）。`
+    requestFailed: (status: number) => `请求失败（${status}）。`,
   },
   shell: {
     productName: "坤舆",
@@ -21,24 +21,26 @@ export const zhCN = {
     theme: {
       system: "主题：跟随系统",
       light: "主题：浅色",
-      dark: "主题：深色"
+      dark: "主题：深色",
     },
     settings: "设置",
     collapseSidebar: "收起侧边栏",
-    expandSidebar: "展开侧边栏"
+    expandSidebar: "展开侧边栏",
   },
   workspaceSidebar: {
+    searchPlaceholder: "搜索项目或会话…",
     close: "关闭",
     workspaceActions: "工作空间操作",
     removeWorkspace: "移除工作空间",
     removeSuccess: "工作空间已移除",
     removeFailed: "移除失败，请刷新列表后重试。",
-    removeRunConflict: "工作空间内有未完成运行，请先在对应会话中处理或停止运行。",
+    removeRunConflict:
+      "工作空间内有未完成运行，请先在对应会话中处理或停止运行。",
     archiveSession: "归档会话",
     archiveSuccess: "会话已归档",
     archiveFailed: "归档未完成，请重试。",
     archiveRunConflict: "此会话有未完成运行，请先处理确认、恢复或停止运行。",
-    workspaces: "工作空间",
+    workspaces: "项目",
     createWorkspace: "新建工作空间",
     workspaceNamePlaceholder: "工作空间名称",
     loadingWorkspaces: "正在加载工作空间…",
@@ -49,12 +51,12 @@ export const zhCN = {
     defaultSessionTitle: "新会话",
     loadingSessions: "正在加载会话…",
     emptySessions: "暂无会话",
-    cancel: "取消"
+    cancel: "取消",
   },
   settings: {
     title: "设置",
     system: "系统",
-    back: "返回会话"
+    back: "返回会话",
   },
   modelConnections: {
     title: "模型",
@@ -77,7 +79,7 @@ export const zhCN = {
       credentialRequired: "待写入密钥",
       discoveryFailed: "发现失败",
       needsSetup: "待验证",
-      ready: "可用"
+      ready: "可用",
     },
     catalog: {
       title: "添加模型连接",
@@ -87,7 +89,7 @@ export const zhCN = {
       search: "搜索供应商",
       searchLabel: "搜索模型供应商",
       category: "供应商分类",
-      empty: "没有匹配的供应商"
+      empty: "没有匹配的供应商",
     },
     create: {
       connect: (name: string) => `连接 ${name}`,
@@ -97,7 +99,7 @@ export const zhCN = {
       name: "显示名称",
       endpoint: "服务地址",
       save: "保存供应商",
-      saving: "正在保存…"
+      saving: "正在保存…",
     },
     detail: {
       loading: "正在加载模型连接…",
@@ -131,7 +133,7 @@ export const zhCN = {
       dangerHelp: "删除后，本机保存的凭据和模型目录也会一起移除。",
       delete: "删除",
       deleteTitle: (name: string) => `删除 ${name}？`,
-      deleteDescription: "此操作会永久删除连接、本机凭据和模型目录，无法撤销。"
+      deleteDescription: "此操作会永久删除连接、本机凭据和模型目录，无法撤销。",
     },
     errors: {
       unknown: "模型连接操作失败，请重试。",
@@ -142,16 +144,17 @@ export const zhCN = {
         DEFAULT_CONNECTION: "请先清除默认连接，再执行此操作。",
         CONNECTION_BUSY: "连接正在执行其他管理操作，请稍后重试。",
         MODEL_EXISTS: "该模型 ID 已有手工来源，无需重复添加。",
-        DISCOVERY_SUPERSEDED: "此次发现结果已被更新的连接配置取代，请重新刷新。",
+        DISCOVERY_SUPERSEDED:
+          "此次发现结果已被更新的连接配置取代，请重新刷新。",
         CHECK_SUPERSEDED: "此次检查结果已被更新的连接配置取代，请重新检查。",
         PROVIDER_AUTH: "服务拒绝了当前凭据，请重新写入有效密钥。",
         PROVIDER_TIMEOUT: "连接服务超时，请检查端点后重试。",
         PROVIDER_NETWORK: "无法连接模型服务，请检查地址与网络。",
         PROVIDER_PROTOCOL: "模型服务返回了不符合协议的响应，或没有可用模型。",
         REQUEST_FAILED: "模型连接操作失败，请重试。",
-        UNSUPPORTED_CAPABILITY: "当前认证或模型能力不支持此操作。"
-      }
-    }
+        UNSUPPORTED_CAPABILITY: "当前认证或模型能力不支持此操作。",
+      },
+    },
   },
   archivedSessions: {
     title: "已归档会话",
@@ -164,9 +167,11 @@ export const zhCN = {
     loadFailed: "归档会话加载失败，请重试。",
     delete: "删除",
     deleteTitle: "永久删除会话？",
-    deleteDescription: (name: string) => `将永久删除“${name}”及其消息和轨迹，无法恢复。`,
+    deleteDescription: (name: string) =>
+      `将永久删除“${name}”及其消息和轨迹，无法恢复。`,
     deleteSelectedTitle: "永久删除所选内容？",
-    deleteSelectedDescription: (count: number) => `将永久删除所选的 ${count} 个会话；选中整个工作空间时，也会删除其中未加载的归档会话。此操作无法撤销。`,
+    deleteSelectedDescription: (count: number) =>
+      `将永久删除所选的 ${count} 个会话；选中整个工作空间时，也会删除其中未加载的归档会话。此操作无法撤销。`,
     deleteSelected: "删除所选",
     deleteSuccess: "归档内容已删除",
     deleteFailed: "删除失败，请重试。",
@@ -177,7 +182,7 @@ export const zhCN = {
     selectedCount: (count: number) => `已选 ${count} 项`,
     chatCount: (count: number) => `${count} 个会话`,
     loadMore: "加载更多",
-    readOnly: "此会话已归档，恢复后可继续发送消息。"
+    readOnly: "此会话已归档，恢复后可继续发送消息。",
   },
   workspaceStart: {
     eyebrow: "继续研判",
@@ -192,7 +197,7 @@ export const zhCN = {
     emptyDescription: "从左侧工作空间区域新建一个工作空间开始使用。",
     loadingSessions: "正在读取会话…",
     loadSessionsFailed: "无法读取此工作空间的会话。",
-    emptySessions: "此工作空间暂无会话。"
+    emptySessions: "此工作空间暂无会话。",
   },
   sessionWorkspace: {
     loading: "正在加载会话…",
@@ -208,7 +213,7 @@ export const zhCN = {
     traceEmptyTitle: "暂无轨迹",
     traceEmptyDescription: "Agent 开始执行任务后，运行轨迹将在这里显示。",
     mapEmptyTitle: "地图尚无图层",
-    mapEmptyDescription: "会话产生空间数据后，相关图层将在这里显示。"
+    mapEmptyDescription: "会话产生空间数据后，相关图层将在这里显示。",
   },
   conversation: {
     loading: "正在加载对话…",
@@ -248,19 +253,23 @@ export const zhCN = {
       loadFailedHelp: "未显示完整参数前不能批准；可以重新加载或停止本次运行。",
       retry: "重新加载",
       cancelAgent: "停止运行",
-      cancelling: "正在停止…"
+      cancelling: "正在停止…",
     },
     interruption: {
       title: "运行已中断",
       readyTitle: "运行等待恢复",
-      modelDescription: "模型调用在完成前中断。已保存的回复不会丢失；恢复后会开始新的模型尝试。",
-      toolDescription: "工具执行在完成前中断。恢复后仅从服务端确认的安全检查点继续。",
-      readyDescription: "应用重启前已受理此请求但尚未继续执行。恢复后仍使用原模型与地图快照。",
-      snapshot: (modelId: string, attempt: number) => `模型 ${modelId} · 已执行 ${attempt} 次尝试`,
+      modelDescription:
+        "模型调用在完成前中断。已保存的回复不会丢失；恢复后会开始新的模型尝试。",
+      toolDescription:
+        "工具执行在完成前中断。恢复后仅从服务端确认的安全检查点继续。",
+      readyDescription:
+        "应用重启前已受理此请求但尚未继续执行。恢复后仍使用原模型与地图快照。",
+      snapshot: (modelId: string, attempt: number) =>
+        `模型 ${modelId} · 已执行 ${attempt} 次尝试`,
       resume: "恢复运行",
       resuming: "正在恢复…",
       cancel: "停止运行",
-      cancelling: "正在停止…"
+      cancelling: "正在停止…",
     },
     stop: "停止",
     runActionFailed: "运行操作失败，请刷新后重试。",
@@ -271,8 +280,8 @@ export const zhCN = {
         RUN_CONFLICT: "运行状态已变化，状态已重新同步。",
         RUN_QUEUE_FULL: "运行队列已满，请稍后恢复。",
         SHUTTING_DOWN: "本地服务正在关闭，请重新打开应用后继续。",
-        NOT_FOUND: "运行或确认已不存在，请刷新会话。"
-      }
+        NOT_FOUND: "运行或确认已不存在，请刷新会话。",
+      },
     },
     send: "发送消息",
     sending: "正在发送",
@@ -290,7 +299,7 @@ export const zhCN = {
         pending: "等待确认",
         approved: "已批准",
         rejected: "已拒绝",
-        cancelled: "已取消"
+        cancelled: "已取消",
       },
       groupCompleted: (count: number) => `已完成 ${count} 次工具调用`,
       groupRunning: (count: number, name: string) =>
@@ -300,15 +309,15 @@ export const zhCN = {
       names: {
         workspace_get_context: "读取工作区上下文",
         memory_search: "搜索工作区记忆",
-        workspace_memory_save: "保存工作区记忆"
+        workspace_memory_save: "保存工作区记忆",
       },
       status: {
         pending: "等待执行",
         running: "正在执行",
         completed: "执行完成",
         failed: "执行失败",
-        cancelled: "已取消"
-      }
+        cancelled: "已取消",
+      },
     },
     errors: {
       network: "无法连接本地服务，草稿已保留。",
@@ -325,18 +334,40 @@ export const zhCN = {
         RUN_QUEUE_FULL: "运行队列已满，请稍后重新发送。",
         CREDENTIAL_STORE_UNAVAILABLE: "模型凭据当前不可用，请检查连接设置。",
         CREDENTIAL_RECOVERY_REQUIRED: "模型凭据需要重新配置后才能发送。",
-        SHUTTING_DOWN: "本地服务正在关闭，请重新打开应用后发送。"
-      }
+        SHUTTING_DOWN: "本地服务正在关闭，请重新打开应用后发送。",
+      },
     },
     status: {
       streaming: "正在生成",
       interrupted: "已中断",
       failed: "生成失败",
-      cancelled: "已取消"
-    }
+      cancelled: "已取消",
+    },
   },
   trajectory: {
     ledgerLabel: "轨迹记录",
+    step: (value: number) => `第 ${value} 步`,
+    initialPrompt: "初始系统提示词",
+    updatedPrompt: "系统提示词和工具已更新",
+    systemPrompt: "系统提示词",
+    toolDefinitions: "工具",
+    changes: "变更",
+    schema: "Schema",
+    timing: "计时",
+    result: "结果",
+    payload: "参数",
+    layer: "层级",
+    assistantLayer: "助手消息",
+    content: "内容",
+    copy: "复制",
+    copied: "已复制",
+    copyFailed: "复制失败",
+    noSchema: "此记录没有工具 Schema",
+    producers: {
+      workspace: "工作区上下文",
+      memory: "已确认记忆",
+      injected: "会话注入",
+    },
     details: "事件详情",
     resizeDetails: "调整事件详情宽度；双击恢复默认值",
     closeDetails: "关闭详情",
@@ -363,10 +394,7 @@ export const zhCN = {
     inputTokens: "输入 Token",
     outputTokens: "输出 Token",
     totalTokens: "总 Token",
-    toolCallResponse: "模型请求调用工具",
     emptyAssistant: "模型未返回可见文本",
-    requestPrompt: "模型请求提示词",
-    requestPromptFor: (modelId: string) => `${modelId} · 模型请求提示词`,
     injectedContext: "下一步注入上下文",
     unknownTool: "未知工具",
     statuses: {
@@ -379,7 +407,7 @@ export const zhCN = {
       cancelled: "已取消",
       approved: "已批准",
       rejected: "已拒绝",
-      unsupported: "不支持"
+      unsupported: "不支持",
     },
     unsupported: "不支持",
     unsupportedDescription: "暂不支持显示此类轨迹事件",
@@ -396,6 +424,6 @@ export const zhCN = {
     sequenceGap: (expected: number, received: number) =>
       `事件序号不连续：期望 ${expected}，收到 ${received}。`,
     streamEnded: "事件流意外结束。",
-    streamConnectionFailed: "会话事件流连接失败。"
+    streamConnectionFailed: "会话事件流连接失败。",
   },
 } as const;

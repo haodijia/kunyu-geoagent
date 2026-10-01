@@ -36,7 +36,7 @@ export function writeSidebarCollapsed(collapsed: boolean): void {
 
 export function readSidebarWidth(): number {
   const value = Number(localStorage.getItem(SIDEBAR_WIDTH_KEY));
-  return Number.isFinite(value) && value >= 200 && value <= 400 ? value : 260;
+  return Number.isFinite(value) && value >= 200 && value <= 400 ? value : 208;
 }
 
 export function writeSidebarWidth(width: number): void {
