@@ -1,6 +1,6 @@
-import { Bell, Monitor, Moon, Search, Sun } from "lucide-react";
+import { Bell, Monitor, Moon, Search, Sun, X } from "lucide-react";
 import { ArrowCircleLeft, SettingTwo } from "@icon-park/react";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { SettingsSidebar } from "@/features/settings/SettingsSidebar";
 import { Outlet, useLocation, useNavigate } from "react-router-dom";
 
@@ -30,6 +30,31 @@ export function AppShell() {
   const setThemeMode = useAppUiStore((state) => state.setThemeMode);
   const toggleSidebar = useAppUiStore((state) => state.toggleSidebar);
   const [mobile, setMobile] = useState(false);
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [search, setSearch] = useState("");
+  const searchInput = useRef<HTMLInputElement>(null);
+  const openSearch = useCallback(() => {
+    setSidebarCollapsed(false);
+    if (isSettings) void navigate(returnPath.current);
+    setSearchOpen(true);
+    requestAnimationFrame(() => searchInput.current?.focus());
+  }, [isSettings, navigate, setSidebarCollapsed]);
+
+  function closeSearch() {
+    setSearchOpen(false);
+    setSearch("");
+  }
+
+  useEffect(() => {
+    const handler = (event: KeyboardEvent) => {
+      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "k") {
+        event.preventDefault();
+        openSearch();
+      }
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [openSearch]);
 
   useEffect(() => {
     const media = window.matchMedia("(max-width: 720px)");
@@ -92,27 +117,51 @@ export function AppShell() {
               dangerouslySetInnerHTML={{ __html: kunyuLogo }}
               aria-hidden="true"
             />
-            {sidebarCollapsed ? null : (
+            {sidebarCollapsed ? null : searchOpen ? (
+              <input
+                id="sidebar-search"
+                ref={searchInput}
+                className="h-7 min-w-0 flex-1 rounded-md border-0 bg-accent px-2 text-xs outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
+                aria-label={content.search}
+                placeholder={zhCN.workspaceSidebar.searchPlaceholder}
+                value={search}
+                onChange={(event) => setSearch(event.target.value)}
+                onKeyDown={(event) => {
+                  if (event.key === "Escape") closeSearch();
+                }}
+              />
+            ) : (
               <span className="text-base font-semibold tracking-normal">
                 {content.productName}
               </span>
             )}
             {sidebarCollapsed ? null : (
               <div className="ml-auto flex items-center gap-1 text-muted-foreground">
-                <span
-                  className="flex size-8 items-center justify-center"
-                  role="img"
-                  aria-label={content.search}
+                <button
+                  type="button"
+                  className="flex size-8 items-center justify-center rounded-md hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
+                  aria-label={
+                    searchOpen ? zhCN.workspaceSidebar.close : content.search
+                  }
+                  aria-expanded={searchOpen}
+                  aria-controls={searchOpen ? "sidebar-search" : undefined}
+                  onClick={searchOpen ? closeSearch : openSearch}
                 >
-                  <Search size={16} strokeWidth={1.8} aria-hidden="true" />
-                </span>
-                <span
-                  className="flex size-8 items-center justify-center"
-                  role="img"
-                  aria-label={content.notifications}
-                >
-                  <Bell size={16} strokeWidth={1.8} aria-hidden="true" />
-                </span>
+                  {searchOpen ? (
+                    <X size={16} strokeWidth={1.8} aria-hidden="true" />
+                  ) : (
+                    <Search size={16} strokeWidth={1.8} aria-hidden="true" />
+                  )}
+                </button>
+                {searchOpen ? null : (
+                  <span
+                    className="flex size-8 items-center justify-center"
+                    role="img"
+                    aria-label={content.notifications}
+                  >
+                    <Bell size={16} strokeWidth={1.8} aria-hidden="true" />
+                  </span>
+                )}
               </div>
             )}
           </div>
@@ -122,6 +171,7 @@ export function AppShell() {
             <TaskSidebarContent
               collapsed={sidebarCollapsed}
               onRequestExpand={toggleSidebar}
+              search={search}
             />
           )}
 

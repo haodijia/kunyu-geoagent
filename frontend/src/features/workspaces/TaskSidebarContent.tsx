@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Archive, List, Plus, Search } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { List, Plus } from "lucide-react";
+import { useState } from "react";
 import { matchPath, useLocation, useNavigate } from "react-router-dom";
 
 import { SidebarItem } from "@/components/navigation/SidebarItem";
@@ -22,11 +22,13 @@ const content = zhCN.workspaceSidebar;
 interface TaskSidebarContentProps {
   readonly collapsed: boolean;
   readonly onRequestExpand: () => void;
+  readonly search: string;
 }
 
 export function TaskSidebarContent({
   collapsed,
   onRequestExpand,
+  search,
 }: TaskSidebarContentProps) {
   const navigate = useNavigate();
   const location = useLocation();
@@ -37,21 +39,6 @@ export function TaskSidebarContent({
   );
   const activeSessionId = sessionMatch?.params.sessionId ?? null;
   const [workspaceFormOpen, setWorkspaceFormOpen] = useState(false);
-  const [searchOpen, setSearchOpen] = useState(false);
-  const [search, setSearch] = useState("");
-  const searchInput = useRef<HTMLInputElement>(null);
-  useEffect(() => {
-    const handler = (event: KeyboardEvent) => {
-      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "k") {
-        event.preventDefault();
-        if (collapsed) onRequestExpand();
-        setSearchOpen(true);
-        requestAnimationFrame(() => searchInput.current?.focus());
-      }
-    };
-    window.addEventListener("keydown", handler);
-    return () => window.removeEventListener("keydown", handler);
-  }, [collapsed, onRequestExpand]);
   const workspacesQuery = useQuery({
     queryKey: workspaceQueryKeys.all,
     queryFn: listWorkspaces,
@@ -128,39 +115,6 @@ export function TaskSidebarContent({
             </Tooltip>
           )}
         </div>
-        <SidebarItem
-          collapsed={collapsed}
-          icon={<Search size={15} strokeWidth={1.8} />}
-          label={shellContent.search}
-          onClick={() => {
-            if (collapsed) onRequestExpand();
-            setSearchOpen((value) => !value);
-            setSearch("");
-            requestAnimationFrame(() => searchInput.current?.focus());
-          }}
-        />
-        <SidebarItem
-          collapsed={collapsed}
-          icon={<Archive size={15} strokeWidth={1.8} />}
-          label={zhCN.archivedSessions.title}
-          onClick={() => void navigate("/settings/archived")}
-        />
-        {searchOpen && !collapsed && (
-          <input
-            ref={searchInput}
-            className="mx-1 my-1 h-7 min-w-0 rounded-md border border-border bg-background px-2 text-xs outline-none focus:border-ring"
-            aria-label={shellContent.search}
-            placeholder={content.searchPlaceholder}
-            value={search}
-            onChange={(event) => setSearch(event.target.value)}
-            onKeyDown={(event) => {
-              if (event.key === "Escape") {
-                setSearchOpen(false);
-                setSearch("");
-              }
-            }}
-          />
-        )}
       </nav>
 
       {collapsed ? null : (
