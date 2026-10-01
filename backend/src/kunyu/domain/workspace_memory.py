@@ -19,7 +19,9 @@ class WorkspaceMemory:
         if not self.source_tool_call_id or len(self.source_tool_call_id) > 64:
             raise ValueError("Source tool call ID must contain at most 64 characters.")
         if self.content != self.content.strip() or not self.content:
-            raise ValueError("Workspace memory content must be normalized and non-empty.")
+            raise ValueError(
+                "Workspace memory content must be normalized and non-empty."
+            )
         if len(self.content) > 2_000:
             raise ValueError(
                 "Workspace memory content must not exceed 2,000 characters."
@@ -43,8 +45,6 @@ class WorkspaceMemoryWorkspaceNotFoundError(LookupError):
 
 
 class WorkspaceMemoryRepository(Protocol):
-    def list_recent(self, workspace_id: str, limit: int) -> WorkspaceMemoryPage: ...
-
-    def search(
+    def read(
         self, workspace_id: str, query: str, limit: int
     ) -> WorkspaceMemoryPage: ...

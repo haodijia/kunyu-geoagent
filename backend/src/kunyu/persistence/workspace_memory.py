@@ -15,32 +15,21 @@ class SQLAlchemyWorkspaceMemoryRepository:
     def __init__(self, database: Database) -> None:
         self._database = database
 
-    def list_recent(self, workspace_id: str, limit: int) -> WorkspaceMemoryPage:
+    def read(self, workspace_id: str, query: str, limit: int) -> WorkspaceMemoryPage:
         _require_positive_limit(limit)
-        with self._database.sessions() as database_session:
-            return list_recent_workspace_memories(database_session, workspace_id, limit)
-
-    def search(self, workspace_id: str, query: str, limit: int) -> WorkspaceMemoryPage:
-        _require_positive_limit(limit)
-        if not query:
-            raise ValueError("Memory search query must not be empty.")
         with self._database.sessions() as database_session:
             _require_workspace(database_session, workspace_id)
-            predicate = func.instr(WorkspaceMemoryRecord.content, query) > 0
+            predicates = [WorkspaceMemoryRecord.workspace_id == workspace_id]
+            if query:
+                predicates.append(func.instr(WorkspaceMemoryRecord.content, query) > 0)
             total_count = database_session.scalar(
                 select(func.count())
                 .select_from(WorkspaceMemoryRecord)
-                .where(
-                    WorkspaceMemoryRecord.workspace_id == workspace_id,
-                    predicate,
-                )
+                .where(*predicates)
             )
             records = database_session.scalars(
                 select(WorkspaceMemoryRecord)
-                .where(
-                    WorkspaceMemoryRecord.workspace_id == workspace_id,
-                    predicate,
-                )
+                .where(*predicates)
                 .order_by(
                     WorkspaceMemoryRecord.created_at.desc(),
                     WorkspaceMemoryRecord.id.desc(),
@@ -65,31 +54,6 @@ def add_workspace_memory(database_session: Session, memory: WorkspaceMemory) -> 
         )
     )
     database_session.flush()
-
-
-def list_recent_workspace_memories(
-    database_session: Session, workspace_id: str, limit: int
-) -> WorkspaceMemoryPage:
-    _require_positive_limit(limit)
-    _require_workspace(database_session, workspace_id)
-    total_count = database_session.scalar(
-        select(func.count())
-        .select_from(WorkspaceMemoryRecord)
-        .where(WorkspaceMemoryRecord.workspace_id == workspace_id)
-    )
-    records = database_session.scalars(
-        select(WorkspaceMemoryRecord)
-        .where(WorkspaceMemoryRecord.workspace_id == workspace_id)
-        .order_by(
-            WorkspaceMemoryRecord.created_at.desc(),
-            WorkspaceMemoryRecord.id.desc(),
-        )
-        .limit(limit)
-    ).all()
-    return WorkspaceMemoryPage(
-        items=tuple(_to_domain(record) for record in records),
-        total_count=total_count or 0,
-    )
 
 
 def _require_workspace(database_session: Session, workspace_id: str) -> None:

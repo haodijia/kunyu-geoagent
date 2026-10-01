@@ -2,8 +2,6 @@ import json
 from collections.abc import Mapping
 from typing import Annotated
 
-from pydantic import BaseModel, ConfigDict, Field, StringConstraints, ValidationError
-
 from dsh.tools import (
     PolicyDecision,
     ToolCall,
@@ -15,8 +13,9 @@ from dsh.tools import (
     ToolSpec,
     ToolValidationError,
 )
+from pydantic import BaseModel, ConfigDict, Field, StringConstraints, ValidationError
+
 from kunyu.application.agent_context import (
-    CONTEXT_MEMORY_LIMIT,
     RunContextIntegrityError,
     validate_run_context_source,
 )
@@ -33,73 +32,22 @@ class _ToolArguments(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True, strict=True)
 
 
-class _NoArguments(_ToolArguments):
-    pass
-
-
-class _MemorySearchArguments(_ToolArguments):
+class _MemoryReadArguments(_ToolArguments):
     query: Annotated[
         str,
-        StringConstraints(strip_whitespace=True, min_length=1, max_length=200),
-    ]
-    limit: Annotated[int, Field(ge=1, le=20)]
+        StringConstraints(strip_whitespace=True, max_length=200),
+    ] = ""
+    limit: Annotated[int, Field(ge=1, le=20)] = 20
 
 
-class _MemorySaveArguments(_ToolArguments):
+class _MemoryWriteArguments(_ToolArguments):
     content: Annotated[
         str,
         StringConstraints(strip_whitespace=True, min_length=1, max_length=2_000),
     ]
 
 
-class WorkspaceGetContextTool:
-    def __init__(self, run_id: str, contexts: RunContextRepository) -> None:
-        self._run_id = run_id
-        self._contexts = contexts
-        self._spec = ToolSpec(
-            name="workspace_get_context",
-            description=(
-                "Read the server-bound workspace, session, frozen map context, "
-                "and available local capabilities for this run."
-            ),
-            parameters=_NoArguments.model_json_schema(),
-            execution="parallel",
-            presentation="context",
-        )
-
-    @property
-    def spec(self) -> ToolSpec:
-        return self._spec
-
-    def validate(self, arguments: object) -> Mapping[str, object]:
-        return _validate_arguments(self.spec.name, _NoArguments, arguments)
-
-    async def execute(self, call: ToolCall) -> ToolResult:
-        _require_bound_call(call, self._run_id, self.spec.name)
-        self.validate(call.arguments)
-        source = _load_source(self._contexts, self._run_id)
-        return _tool_result(
-            {
-                "workspace": {
-                    "id": source.workspace.id,
-                    "name": source.workspace.name,
-                },
-                "session": {
-                    "id": source.session.id,
-                    "title": source.session.title,
-                },
-                "map_context": dict(source.run.map_snapshot),
-                "capabilities": {
-                    "workspace_context": True,
-                    "memory_search": True,
-                    "memory_save": {"requires_confirmation": True},
-                    "scene_get": False,
-                },
-            }
-        )
-
-
-class MemorySearchTool:
+class MemoryReadTool:
     def __init__(
         self,
         run_id: str,
@@ -110,12 +58,12 @@ class MemorySearchTool:
         self._contexts = contexts
         self._memories = memories
         self._spec = ToolSpec(
-            name="memory_search",
+            name="memory_read",
             description=(
                 "Search confirmed memories in the current server-bound workspace "
                 "using a literal substring."
             ),
-            parameters=_MemorySearchArguments.model_json_schema(),
+            parameters=_MemoryReadArguments.model_json_schema(),
             execution="parallel",
             presentation="search",
         )
@@ -125,33 +73,33 @@ class MemorySearchTool:
         return self._spec
 
     def validate(self, arguments: object) -> Mapping[str, object]:
-        return _validate_arguments(self.spec.name, _MemorySearchArguments, arguments)
+        return _validate_arguments(self.spec.name, _MemoryReadArguments, arguments)
 
     async def execute(self, call: ToolCall) -> ToolResult:
         _require_bound_call(call, self._run_id, self.spec.name)
         arguments = _validate_model(
-            self.spec.name, _MemorySearchArguments, call.arguments
+            self.spec.name, _MemoryReadArguments, call.arguments
         )
         source = _load_source(self._contexts, self._run_id)
-        page = self._memories.search(
+        page = self._memories.read(
             source.workspace.id,
             arguments.query,
             arguments.limit,
         )
-        return _memory_search_result(page)
+        return _memory_read_result(page, arguments.query)
 
 
-class WorkspaceMemorySaveTool:
+class MemoryWriteTool:
     def __init__(self, run_id: str, contexts: RunContextRepository) -> None:
         self._run_id = run_id
         self._contexts = contexts
         self._spec = ToolSpec(
-            name="workspace_memory_save",
+            name="memory_write",
             description=(
                 "Propose a workspace preference or concern for exact user "
                 "confirmation before it is saved."
             ),
-            parameters=_MemorySaveArguments.model_json_schema(),
+            parameters=_MemoryWriteArguments.model_json_schema(),
             execution="exclusive",
             presentation="write",
         )
@@ -161,22 +109,22 @@ class WorkspaceMemorySaveTool:
         return self._spec
 
     def validate(self, arguments: object) -> Mapping[str, object]:
-        return _validate_arguments(self.spec.name, _MemorySaveArguments, arguments)
+        return _validate_arguments(self.spec.name, _MemoryWriteArguments, arguments)
 
     async def execute(self, call: ToolCall) -> ToolResult:
         _require_bound_call(call, self._run_id, self.spec.name)
         self.validate(call.arguments)
         _load_source(self._contexts, self._run_id)
         raise ToolConfirmationRequiredError(
-            "workspace_memory_save requires an approved durable confirmation."
+            "memory_write requires an approved durable confirmation."
         )
 
 
 class LocalToolPolicyGate:
     def risk_level(self, call: ToolCall) -> ToolRiskLevel:
-        if call.name in {"workspace_get_context", "memory_search"}:
+        if call.name == "memory_read":
             return ToolRiskLevel.L0
-        if call.name == "workspace_memory_save":
+        if call.name == "memory_write":
             return ToolRiskLevel.L2
         raise ToolExecutionError(f"Tool '{call.name}' is not authorized.")
 
@@ -204,9 +152,8 @@ class LocalToolRegistryFactory:
     def for_run(self, run_id: str) -> ToolRegistry:
         return ToolRegistry(
             (
-                WorkspaceGetContextTool(run_id, self._contexts),
-                MemorySearchTool(run_id, self._contexts, self._memories),
-                WorkspaceMemorySaveTool(run_id, self._contexts),
+                MemoryReadTool(run_id, self._contexts, self._memories),
+                MemoryWriteTool(run_id, self._contexts),
             )
         )
 
@@ -240,7 +187,7 @@ def _require_bound_call(call: ToolCall, run_id: str, tool_name: str) -> None:
 
 
 def _load_source(contexts: RunContextRepository, run_id: str) -> RunContextSource:
-    source = contexts.get(run_id, CONTEXT_MEMORY_LIMIT)
+    source = contexts.get(run_id)
     if source is None:
         raise ToolExecutionError("The tool call references an unknown run.")
     try:
@@ -250,7 +197,7 @@ def _load_source(contexts: RunContextRepository, run_id: str) -> RunContextSourc
     return source
 
 
-def _memory_search_result(page: WorkspaceMemoryPage) -> ToolResult:
+def _memory_read_result(page: WorkspaceMemoryPage, query: str) -> ToolResult:
     items: list[dict[str, str]] = []
     for memory in page.items:
         candidate = [
@@ -261,15 +208,18 @@ def _memory_search_result(page: WorkspaceMemoryPage) -> ToolResult:
                 "created_at": memory.created_at.isoformat(),
             },
         ]
-        payload = _memory_payload(candidate, page.total_count)
+        payload = _memory_payload(candidate, page.total_count, query)
         if len(_encode_json(payload)) > MAX_TOOL_RESULT_BYTES:
             break
         items = candidate
-    return _tool_result(_memory_payload(items, page.total_count))
+    return _tool_result(_memory_payload(items, page.total_count, query))
 
 
-def _memory_payload(items: list[dict[str, str]], total_count: int) -> dict[str, object]:
+def _memory_payload(
+    items: list[dict[str, str]], total_count: int, query: str
+) -> dict[str, object]:
     return {
+        "query": query,
         "items": items,
         "returned_count": len(items),
         "total_count": total_count,
