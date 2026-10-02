@@ -22,6 +22,7 @@ from kunyu.agent.runtime.models import (
     ModelRequest,
     ModelRole,
     ModelToolCall,
+    ModelToolCallDelta,
     TextDelta,
 )
 from kunyu.persistence.models import SessionEventRecord
@@ -79,7 +80,7 @@ async def compact_history(invocation: CommandInvocation) -> CommandResult:
         async for output in agent.ctx.require(s.MODEL).stream(request):
             if isinstance(output, TextDelta):
                 parts.append(output.text)
-            elif isinstance(output, ModelToolCall):
+            elif isinstance(output, (ModelToolCall, ModelToolCallDelta)):
                 raise TypeError("A summary cannot execute tools.")
             elif isinstance(output, ModelFinish):
                 finished = output.reason is ModelFinishReason.STOP

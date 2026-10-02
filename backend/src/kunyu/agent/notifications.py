@@ -3,12 +3,11 @@
 import asyncio
 import inspect
 import logging
-from collections.abc import Callable, Mapping
+from collections.abc import Callable
 from dataclasses import dataclass, replace
-from datetime import datetime
-from types import MappingProxyType
 from typing import TYPE_CHECKING, Literal
 
+from kunyu.agent.runtime.assistant_stream import TimedModelOutput
 from kunyu.agent.runtime.events import (
     AgentEvent,
     AssistantStartedPayload,
@@ -17,7 +16,7 @@ from kunyu.agent.runtime.events import (
     ModelAttemptFinishedPayload,
     QueueReorderedPayload,
 )
-from kunyu.agent.runtime.models import ModelOutput, ModelToolCall
+from kunyu.agent.runtime.models import ModelOutput
 from kunyu.agent.runtime.run_state import ReducedRun
 from kunyu.agent.scope import Context, ScopedEntries
 from kunyu.persistence.event_publications import SessionEventPublication
@@ -173,14 +172,6 @@ class _AssistantAttempt:
     index: int = 0
 
 
-def _freeze(value: object) -> object:
-    if isinstance(value, Mapping):
-        return MappingProxyType({key: _freeze(item) for key, item in value.items()})
-    if isinstance(value, (list, tuple)):
-        return tuple(_freeze(item) for item in value)
-    return value
-
-
 class AgentNotifications:
     def __init__(self, agent: "SessionAgent", hooks: "AgentHookRegistry") -> None:
         self._agent, self._hooks = agent, hooks
@@ -211,18 +202,15 @@ class AgentNotifications:
             name="assistant-stream",
         )
 
-    def output(self, run: ReducedRun, output: ModelOutput, now: datetime) -> None:
+    def output(self, run: ReducedRun, timed: TimedModelOutput) -> None:
+        output = timed.output
         attempt = self._attempts[(run.run_id, run.step, run.attempt)]
-        if isinstance(output, ModelToolCall):
-            output = ModelToolCall(
-                output.call_id, output.name, _freeze(output.arguments)
-            )
         self._stream(
             AssistantChunkFrame(
                 attempt.attempt_id,
                 self._next_revision(),
                 attempt.index,
-                int(now.timestamp() * 1_000),
+                timed.time,
                 output,
             )
         )

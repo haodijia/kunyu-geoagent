@@ -60,6 +60,14 @@ class ModelToolCall:
 
 
 @dataclass(frozen=True, slots=True)
+class ModelToolCallDelta:
+    index: int
+    call_id: str
+    name: str | None
+    arguments_delta: str
+
+
+@dataclass(frozen=True, slots=True)
 class ModelMessage:
     role: ModelRole
     content: str
@@ -102,7 +110,14 @@ class ModelFinish:
     reason: ModelFinishReason
 
 
-type ModelOutput = TextDelta | ReasoningDelta | ModelToolCall | TokenUsage | ModelFinish
+type ModelOutput = (
+    TextDelta
+    | ReasoningDelta
+    | ModelToolCallDelta
+    | ModelToolCall
+    | TokenUsage
+    | ModelFinish
+)
 
 
 class ModelAdapter[AdapterConfigT](Protocol):

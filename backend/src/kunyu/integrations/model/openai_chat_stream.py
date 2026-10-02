@@ -9,6 +9,7 @@ from kunyu.agent.runtime.models import (
     ModelFinishReason,
     ModelOutput,
     ModelToolCall,
+    ModelToolCallDelta,
     ReasoningDelta,
     TextDelta,
     TokenUsage,
@@ -24,6 +25,7 @@ class _PartialToolCall:
     call_id_parts: list[str] = field(default_factory=list)
     name_parts: list[str] = field(default_factory=list)
     argument_parts: list[str] = field(default_factory=list)
+    argument_bytes: int = 0
 
 
 class OpenAIChatStreamParser:
@@ -59,6 +61,7 @@ class OpenAIChatStreamParser:
             if self._usage is not None:
                 raise _protocol_error("The provider reported usage more than once.")
             self._usage = _parse_usage(payload["usage"])
+            outputs.append(self._usage)
 
         choices = payload.get("choices")
         if not isinstance(choices, list):
@@ -66,7 +69,7 @@ class OpenAIChatStreamParser:
         if not choices:
             if "usage" not in payload or payload["usage"] is None:
                 raise _protocol_error("The provider stream event is empty.")
-            return ()
+            return tuple(outputs)
         if len(choices) != 1 or not isinstance(choices[0], dict):
             raise _protocol_error("The provider stream must contain one choice.")
         if self._finish_reason is not None:
@@ -93,7 +96,7 @@ class OpenAIChatStreamParser:
                 self._text_parts.append(content)
                 outputs.append(TextDelta(content))
         if "tool_calls" in delta:
-            self._append_tool_calls(delta["tool_calls"])
+            outputs.extend(self._append_tool_calls(delta["tool_calls"]))
 
         finish_reason = choice.get("finish_reason")
         if finish_reason is not None:
@@ -110,7 +113,8 @@ class OpenAIChatStreamParser:
             return ()
         return self._finish()
 
-    def _append_tool_calls(self, value: Any) -> None:
+    def _append_tool_calls(self, value: Any) -> tuple[ModelToolCallDelta, ...]:
+        outputs = []
         if not isinstance(value, list):
             raise _protocol_error("The provider tool-call delta is invalid.")
         for item in value:
@@ -127,11 +131,17 @@ class OpenAIChatStreamParser:
                 if not isinstance(call_id, str):
                     raise _protocol_error("The provider tool-call ID is invalid.")
                 call.call_id_parts.append(call_id)
+            identity = "".join(call.call_id_parts)
+            if len(identity) > MAX_TOOL_IDENTIFIER_LENGTH:
+                raise _protocol_error(
+                    "The provider tool-call identifier was too large."
+                )
             call_type = item.get("type")
             if call_type is not None and call_type != "function":
                 raise _protocol_error("The provider tool-call type is invalid.")
             function = item.get("function")
             if function is None:
+                outputs.append(ModelToolCallDelta(index, identity, None, ""))
                 continue
             if not isinstance(function, dict):
                 raise _protocol_error("The provider tool-call function is invalid.")
@@ -145,6 +155,23 @@ class OpenAIChatStreamParser:
                 if not isinstance(arguments, str):
                     raise _protocol_error("The provider tool arguments are invalid.")
                 call.argument_parts.append(arguments)
+                call.argument_bytes += len(arguments.encode("utf-8"))
+            if call.argument_bytes > MAX_TOOL_ARGUMENT_BYTES:
+                raise _protocol_error("The provider tool arguments were too large.")
+            full_name = "".join(call.name_parts)
+            if len(full_name) > MAX_TOOL_IDENTIFIER_LENGTH:
+                raise _protocol_error(
+                    "The provider tool-call identifier was too large."
+                )
+            outputs.append(
+                ModelToolCallDelta(
+                    index,
+                    identity,
+                    full_name if name is not None else None,
+                    arguments if arguments is not None else "",
+                )
+            )
+        return tuple(outputs)
 
     def _finish(self) -> tuple[ModelOutput, ...]:
         reason = self._finish_reason
@@ -153,13 +180,17 @@ class OpenAIChatStreamParser:
         outputs: list[ModelOutput] = []
         has_text = bool("".join(self._text_parts).strip())
         if reason is ModelFinishReason.STOP:
-            if not has_text or self._tool_calls:
+            if self._tool_calls:
                 raise _protocol_error(
                     "The provider returned content inconsistent with stop."
                 )
+            if not has_text:
+                raise ModelAdapterError(
+                    ModelErrorCode.EMPTY_RESPONSE,
+                    "The provider returned an empty response.",
+                )
         elif reason is ModelFinishReason.TOOL_CALLS:
             outputs.extend(self._assemble_tool_calls())
-        outputs.append(self._usage or TokenUsage())
         outputs.append(ModelFinish(reason))
         self._complete = True
         return tuple(outputs)
