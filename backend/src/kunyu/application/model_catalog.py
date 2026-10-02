@@ -478,6 +478,7 @@ class ModelCatalogService:
                 "The model connection credential is not configured."
             )
         return ProviderConfig(
+            provider_type=connection.provider_type,
             base_url=connection.base_url,
             auth_mode=connection.auth_mode,
             api_key=api_key,

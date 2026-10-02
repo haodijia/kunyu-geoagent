@@ -19,10 +19,14 @@
 ### 会话输入与 `/` 命令（2026-10-02）
 
 - 输入框与消息区域共用最大 800px 的居中宽度，窄列继续铺满可用空间；输入框从一行增长，最高 120px。地图坐标收至上下文提示，工具栏保留简短地图标签。
-- 模型与推理强度合并至同一个面板：按连接分组搜索模型、按当前模型目录的真实强度档位显示滑杆、恢复模型默认强度。运行期间继续禁止更换模型；模型选择与 `/model`、`/effort` 共用同一状态和入口。
-- 参考 harness 的 `ui-commands`、`ui-input-trigger` 与 `ui-model-selection`，在 `features/messages/composer/` 分离命令目录、解析、执行与视图。首批为 `/model`、`/effort`、`/stop`、`/map`、`/trace`、`/settings`、`/help`，支持名称／说明过滤、上下键、Enter 执行、Tab 补全、Escape 关闭。
-- 这些命令属于会话客户端控制：停止命令调用现有 Agent 取消接口，其他命令复用模型状态或页面路由，不创建用户消息或调用模型。未知命令、无参数命令收到参数、不可用命令与执行失败均显示明确错误，失败保留草稿，执行异常写入日志。尚未引入 harness 的后端插件命令注册与 `command/run`、`command/done` 持久事件。
-- 本次验证：前端类型检查与生产构建通过，未新增测试文件或数据库迁移。构建仍提示已有主包体积较大。
+- 模型与推理强度合并至同一个面板：按连接分组搜索模型、按供应商模型目录的真实档位显示滑杆、恢复供应商声明的默认档位。未声明默认值时显示“默认”，不把滑杆自动放在某个猜测档位。
+- DeepSeek 按官方 `/models` 的 `effort.supported_levels` / `default_level` 保存档位和默认值。当前官方原生档位为 `low / high / max`，默认 `high`；harness 的关闭标识 `off` 单独显示，适配器发送 `thinking.type=disabled`。其他显式档位发送 `thinking.type=enabled` 和 `reasoning_effort`。未显式选择则交给供应商默认。兼容别名不作为独立档位。来源：[模型列表](https://api-docs.deepseek.com/zh-cn/api/list-models/)、[思考模式](https://api-docs.deepseek.com/guides/thinking_mode/)。已有连接需刷新模型目录以取得这些元数据。
+- DeepSeek 流式 `reasoning_content` 独立持久化、计入输出预算；携带工具的后续请求回传历史助手思考内容，包括未调用工具的步骤。连接能力探测显式关闭思考，避免 128-token 探测被思考耗尽。
+- 命令参考 `interaction/commands` 的作用域注册、声明式描述和 `command/run`、`command/done` 执行日志；前端从会话接口读取已装配命令，并合并客户端 `/model` 和真实可供用户调用的 Skill。支持过滤、上下键、Enter、Tab 补全、Escape；失败保留草稿，网络重试复用请求身份。命令结果保存在会话和轨迹中，不混入模型历史。
+- 首批已实现 `/plan [off|计划需求]`、`/permission [read-only|workspace-write]`、`/compact`、`/feedback <内容>`、`/export`。计划模式通过提示词和工具策略生效；权限切换也在确认批准时重新校验。当前执行器只有只读工具和需确认的本地写入，不声明不存在的 shell 沙箱权限。
+- `/compact` 使用最近轮次的模型配置生成摘要，仅在 Agent 空闲且日志边界未变化时提交；后续模型上下文使用摘要，原始日志与可见消息保留。`/feedback` 写入当前会话日志，`/export` 下载完整 JSONL ZIP。
+- harness 的 `/goal` 依赖目标状态、预算和自主续跑服务，Kunyu 当前尚未装配这些能力，因此本批不注册该命令。计划退出使用 `/plan off`；尚未实现 harness 的计划审阅交互和模型退出工具。
+- 本次验证：前端类型检查与生产构建、后端 Ruff 与编译检查通过；临时数据库与模拟供应商验证命令目录（包含 Skill）、幂等调用、真实 Runner 推理与工具历史回传、计划／权限拦截、摘要续接和 ZIP 导出。未新增测试文件，未调用真实模型供应商。新增迁移仅保存供应商声明的默认推理档位。
 
 ### 既有对齐验证
 

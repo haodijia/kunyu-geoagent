@@ -18,6 +18,7 @@ from kunyu.agent.runtime.events import (
     AssistantCompletedPayload,
     AssistantDeltaEvent,
     AssistantDeltaPayload,
+    AssistantReasoningDeltaEvent,
     AssistantStartedEvent,
     AssistantStartedPayload,
     BudgetReservedEvent,
@@ -49,6 +50,7 @@ from kunyu.agent.runtime.models import (
     ModelRequest,
     ModelRole,
     ModelToolCall,
+    ReasoningDelta,
     TextDelta,
     TokenUsage,
 )
@@ -108,6 +110,8 @@ def _message_snapshot(message: ModelMessage) -> dict[str, JsonValue]:
         "role": message.role.value,
         "content": message.content,
     }
+    if message.reasoning_content is not None:
+        value["reasoning_content"] = message.reasoning_content
     if message.context_source is not None:
         value["source"] = {"kind": "context", "producer": message.context_source}
     if message.tool_call_id is not None:
@@ -141,6 +145,7 @@ class _ModelAttempt:
     reserved_milliseconds: int
     initial_active_milliseconds: int
     buffer: DeltaBuffer
+    reasoning_buffer: DeltaBuffer
     usage: TokenUsage | None = None
     finish: ModelFinishReason | None = None
     tool_calls: list[ModelToolCall] | None = None
@@ -389,6 +394,12 @@ class Runner[AdapterConfigT](AgentRuntime):
                 codepoint_limit=self._config.delta_flush_codepoints,
             ),
             tool_calls=[],
+            reasoning_buffer=DeltaBuffer(
+                0,
+                clock=self._monotonic_clock,
+                interval_seconds=self._config.delta_flush_interval_seconds,
+                codepoint_limit=self._config.delta_flush_codepoints,
+            ),
         )
         now = self._clock()
         await self._commit(
@@ -418,7 +429,9 @@ class Runner[AdapterConfigT](AgentRuntime):
                         reasoning_effort=run.model_snapshot.reasoning_effort,
                         max_output_tokens=run.model_snapshot.max_output_tokens,
                         system_prompt=_system_prompt(context.messages),
-                        messages=[_message_snapshot(message) for message in context.messages],
+                        messages=[
+                            _message_snapshot(message) for message in context.messages
+                        ],
                         tools=[
                             {
                                 "name": tool.name,
@@ -537,21 +550,33 @@ class Runner[AdapterConfigT](AgentRuntime):
                 due = attempt.buffer.flush_if_due()
                 if due is not None:
                     await self._commit_delta(run, attempt, due)
-                if isinstance(output, TextDelta):
+                reasoning_due = attempt.reasoning_buffer.flush_if_due()
+                if reasoning_due is not None:
+                    await self._commit_delta(
+                        run, attempt, reasoning_due, reasoning=True
+                    )
+                if isinstance(output, (TextDelta, ReasoningDelta)):
+                    reasoning = isinstance(output, ReasoningDelta)
+                    buffer = attempt.reasoning_buffer if reasoning else attempt.buffer
                     remaining = (
                         run.budget.max_output_codepoints
                         - run.budget.output_codepoints
                         - attempt.buffer.content_length
+                        - attempt.reasoning_buffer.content_length
                     )
                     if len(output.text) > remaining:
                         if remaining > 0:
-                            batch = attempt.buffer.add(output.text[:remaining])
+                            batch = buffer.add(output.text[:remaining])
                             if batch is not None:
-                                await self._commit_delta(run, attempt, batch)
+                                await self._commit_delta(
+                                    run, attempt, batch, reasoning=reasoning
+                                )
                         raise _OutputBudgetError
-                    batch = attempt.buffer.add(output.text)
+                    batch = buffer.add(output.text)
                     if batch is not None:
-                        await self._commit_delta(run, attempt, batch)
+                        await self._commit_delta(
+                            run, attempt, batch, reasoning=reasoning
+                        )
                 elif isinstance(output, ModelToolCall):
                     if any(
                         call.call_id == output.call_id
@@ -676,7 +701,8 @@ class Runner[AdapterConfigT](AgentRuntime):
                             run,
                             reserved_milliseconds=attempt.reserved_milliseconds,
                             elapsed_milliseconds=elapsed_milliseconds,
-                            content_length=attempt.buffer.content_length,
+                            content_length=attempt.buffer.content_length
+                            + attempt.reasoning_buffer.content_length,
                             usage=attempt.usage,
                         ),
                     ),
@@ -749,7 +775,8 @@ class Runner[AdapterConfigT](AgentRuntime):
                         run,
                         reserved_milliseconds=attempt.reserved_milliseconds,
                         elapsed_milliseconds=elapsed_milliseconds,
-                        content_length=attempt.buffer.content_length,
+                        content_length=attempt.buffer.content_length
+                        + attempt.reasoning_buffer.content_length,
                         usage=attempt.usage,
                     ),
                 ),
@@ -789,7 +816,8 @@ class Runner[AdapterConfigT](AgentRuntime):
                         run,
                         reserved_milliseconds=attempt.reserved_milliseconds,
                         elapsed_milliseconds=elapsed_milliseconds,
-                        content_length=attempt.buffer.content_length,
+                        content_length=attempt.buffer.content_length
+                        + attempt.reasoning_buffer.content_length,
                         usage=attempt.usage,
                     ),
                 ),
@@ -816,6 +844,11 @@ class Runner[AdapterConfigT](AgentRuntime):
         pending = attempt.buffer.flush()
         if pending is not None:
             events.append(self._delta_event(run, attempt, pending, now))
+        reasoning_pending = attempt.reasoning_buffer.flush()
+        if reasoning_pending is not None:
+            events.append(
+                self._delta_event(run, attempt, reasoning_pending, now, reasoning=True)
+            )
         events.append(
             BudgetSettledEvent(
                 session_id=run.session_id,
@@ -877,10 +910,16 @@ class Runner[AdapterConfigT](AgentRuntime):
         run: ReducedRun,
         attempt: _ModelAttempt,
         batch: tuple[int, str],
+        *,
+        reasoning: bool = False,
     ) -> None:
         await self._commit(
             run,
-            (self._delta_event(run, attempt, batch, self._clock()),),
+            (
+                self._delta_event(
+                    run, attempt, batch, self._clock(), reasoning=reasoning
+                ),
+            ),
         )
 
     @staticmethod
@@ -889,12 +928,17 @@ class Runner[AdapterConfigT](AgentRuntime):
         attempt: _ModelAttempt,
         batch: tuple[int, str],
         occurred_at: datetime,
-    ) -> AssistantDeltaEvent:
+        *,
+        reasoning: bool = False,
+    ) -> AssistantDeltaEvent | AssistantReasoningDeltaEvent:
         offset, text = batch
-        return AssistantDeltaEvent(
+        event_class = AssistantReasoningDeltaEvent if reasoning else AssistantDeltaEvent
+        return event_class(
             session_id=run.session_id,
             run_id=run.run_id,
-            event_type="message.assistant.delta",
+            event_type="message.assistant.reasoning.delta"
+            if reasoning
+            else "message.assistant.delta",
             payload=AssistantDeltaPayload(
                 message_id=attempt.message_id,
                 step=run.step,

@@ -20,6 +20,7 @@ interface ComposerModelPickerProps {
   readonly selectedModel: string;
   readonly reasoningOptions: readonly string[];
   readonly selectedReasoningEffort: string;
+  readonly defaultReasoningEffort: string | null;
   readonly pane: ModelPickerPane | null;
   readonly onPaneChange: (pane: ModelPickerPane | null) => void;
   readonly onModelChange: (value: string) => void;
@@ -29,6 +30,7 @@ interface ComposerModelPickerProps {
 
 export function ComposerModelPicker({
   disabled, groups, selectedModel, reasoningOptions, selectedReasoningEffort,
+  defaultReasoningEffort,
   pane, onPaneChange, onModelChange, onReasoningEffortChange, onClose,
 }: ComposerModelPickerProps) {
   const [query, setQuery] = useState("");
@@ -39,8 +41,9 @@ export function ComposerModelPicker({
   const content = zhCN.conversation;
   const model = groups.flatMap((group) => group.options).find((option) => option.value === selectedModel);
   const modelLabel = model === undefined ? content.selectModel : model.label;
-  const effortLabel = selectedReasoningEffort === "" ? content.reasoningNotSpecified : content.reasoningValue(selectedReasoningEffort);
-  const effortIndex = reasoningOptions.indexOf(selectedReasoningEffort);
+  const effectiveEffort = selectedReasoningEffort === "" ? defaultReasoningEffort : selectedReasoningEffort;
+  const effortLabel = effectiveEffort === null ? content.reasoningNotSpecified : content.reasoningValue(effectiveEffort);
+  const effortIndex = effectiveEffort === null ? -1 : reasoningOptions.indexOf(effectiveEffort);
   const progress = effortIndex < 0 || reasoningOptions.length < 2 ? 0 : effortIndex / (reasoningOptions.length - 1) * 100;
   const filteredGroups = groups.map((group) => ({
     ...group,
@@ -49,7 +52,7 @@ export function ComposerModelPicker({
 
   function focusPane() {
     if (pane === "model") searchRef.current?.focus();
-    else if (reasoningOptions.length > 1) sliderRef.current?.focus();
+    else if (reasoningOptions.length > 1 && effortIndex >= 0) sliderRef.current?.focus();
     else modelButtonRef.current?.focus();
   }
 
@@ -154,7 +157,7 @@ export function ComposerModelPicker({
             </Button>
             {reasoningOptions.length > 1 ? (
               <div className="mt-3 px-1">
-                <input
+                {effortIndex >= 0 && <input
                   ref={sliderRef}
                   type="range"
                   className="composer-effort-slider w-full"
@@ -162,7 +165,7 @@ export function ComposerModelPicker({
                   min={0}
                   max={reasoningOptions.length - 1}
                   step={1}
-                  value={Math.max(0, effortIndex)}
+                  value={effortIndex}
                   disabled={disabled}
                   aria-label={content.reasoningSelectorLabel}
                   aria-valuetext={effortLabel}
@@ -170,10 +173,10 @@ export function ComposerModelPicker({
                     const effort = reasoningOptions[Number(event.target.value)];
                     if (effort !== undefined) onReasoningEffortChange(effort);
                   }}
-                />
+                />}
                 <div className="mt-2 flex justify-between gap-1">
                   {reasoningOptions.map((effort, index) => (
-                    <button key={effort} type="button" disabled={disabled} aria-label={content.reasoningValue(effort)} aria-pressed={effort === selectedReasoningEffort} className="min-w-0 text-[10px] text-muted-foreground hover:text-foreground aria-pressed:font-medium aria-pressed:text-foreground" onClick={() => onReasoningEffortChange(effort)} title={content.reasoningValue(effort)}>
+                    <button key={effort} type="button" disabled={disabled} aria-label={content.reasoningValue(effort)} aria-pressed={effort === effectiveEffort} className="min-w-0 text-[10px] text-muted-foreground hover:text-foreground aria-pressed:font-medium aria-pressed:text-foreground" onClick={() => onReasoningEffortChange(effort)} title={content.reasoningValue(effort)}>
                       <span className="mx-auto mb-1 block size-1 rounded-full bg-current" />
                       {reasoningOptions.length > 5 && index !== 0 && index !== reasoningOptions.length - 1 ? "" : content.reasoningValue(effort)}
                     </button>

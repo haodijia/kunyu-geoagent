@@ -272,6 +272,7 @@ export const zhCN = {
     reasoningNotSpecified: "模型默认",
     reasoningValue: (value: string) => {
       switch (value) {
+        case "off": return "关闭";
         case "none": return "关闭";
         case "minimal": return "最低";
         case "low": return "低";
@@ -296,20 +297,13 @@ export const zhCN = {
       unknown: "未知命令，输入 / 查看可用命令。",
       noArguments: "此命令不接受参数，请直接执行命令。",
       modelLocked: "模型正在加载或当前运行未结束，暂不能更改。",
-      noEffort: "请先选择支持推理强度的模型。",
-      noActiveRun: "当前没有可停止的运行。",
+      modelDescription: "选择模型与模型实际支持的推理强度",
+      skillUnavailable: "请先选择已验证的模型并确认运行状态。",
+      agentBusy: "Agent 尚未空闲，暂不能压缩历史。",
+      loading: "正在读取当前会话的命令目录…",
+      loadFailed: "无法读取命令目录，请重新加载会话后重试。",
       failed: "命令执行失败，输入内容已保留，请重试。",
-      stopped: "已停止当前运行。",
-      help: "/model 选择模型 · /effort 推理强度 · /stop 停止运行 · /map 地图 · /trace 轨迹 · /settings 模型设置",
-      descriptions: {
-        model: "选择当前会话模型",
-        effort: "调整模型推理强度",
-        stop: "停止当前 Agent 运行",
-        map: "打开当前会话地图",
-        trace: "查看 Agent 运行轨迹",
-        settings: "打开模型连接设置",
-        help: "查看可用命令说明",
-      },
+      running: "命令正在执行…",
     },
     reasoningSelectionInvalid: "上次使用的推理强度已不可用，请重新选择。",
     mapViewport: (longitude: string, latitude: string, zoom: string) =>

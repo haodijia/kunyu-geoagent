@@ -5,6 +5,7 @@ from dataclasses import dataclass
 import httpx
 
 from kunyu.agent import services as s
+from kunyu.agent.commands.plugin import CommandsPlugin
 from kunyu.agent.kernel import Kernel, Plugin
 from kunyu.agent.plugins.core import (
     PromptPlugin,
@@ -76,6 +77,7 @@ async def create_agent_runtime(
         FilesystemSkillsPlugin(),
         SkillToolsPlugin(),
         TurnServicesPlugin(),
+        CommandsPlugin(),
         *plugins,
         loop_plugin,
     ):

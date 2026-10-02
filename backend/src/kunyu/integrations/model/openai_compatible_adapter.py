@@ -16,7 +16,11 @@ from kunyu.agent.runtime.models import (
     ModelToolCall,
 )
 from kunyu.agent.runtime.tools import ToolSpec
-from kunyu.domain.model_connections import MaxTokensField, ModelAuthMode
+from kunyu.domain.model_connections import (
+    MaxTokensField,
+    ModelAuthMode,
+    ModelProviderType,
+)
 from kunyu.integrations.model.openai_chat_stream import OpenAIChatStreamParser
 
 STREAM_IDLE_TIMEOUT_SECONDS = 30
@@ -35,6 +39,7 @@ class OpenAICompatibleModelConfig:
     auth_mode: ModelAuthMode
     max_tokens_field: MaxTokensField
     include_usage: bool
+    provider_type: ModelProviderType
     reasoning_efforts: tuple[str, ...] = ()
 
 
@@ -204,6 +209,15 @@ def _encode_request(
             "The selected reasoning effort is not supported by this model.",
         )
     messages = [_serialize_message(message) for message in request.messages]
+    if config.provider_type is ModelProviderType.DEEPSEEK and request.tools:
+        for message, serialized in zip(request.messages, messages, strict=True):
+            if message.role is ModelRole.ASSISTANT:
+                if message.reasoning_content is not None:
+                    serialized["reasoning_content"] = message.reasoning_content
+                elif message.tool_calls and request.reasoning_effort != "off":
+                    raise _invalid_request(
+                        "DeepSeek thinking tool history is missing its reasoning content."
+                    )
     tools = [_serialize_tool(tool) for tool in request.tools]
     _require_unique_tool_names(tools)
     payload: dict[str, object] = {
@@ -217,7 +231,19 @@ def _encode_request(
         payload["tool_choice"] = "auto"
     if config.include_usage:
         payload["stream_options"] = {"include_usage": True}
-    if request.reasoning_effort is not None:
+    if (
+        config.provider_type is ModelProviderType.DEEPSEEK
+        and request.reasoning_effort is not None
+    ):
+        effort = request.reasoning_effort
+        if effort not in {"off", "low", "high", "max"}:
+            raise _invalid_request(
+                "DeepSeek reasoning effort must be off, low, high or max."
+            )
+        payload["thinking"] = {"type": "disabled" if effort == "off" else "enabled"}
+        if effort != "off":
+            payload["reasoning_effort"] = effort
+    elif request.reasoning_effort is not None:
         payload["reasoning_effort"] = request.reasoning_effort
     try:
         return json.dumps(

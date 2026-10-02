@@ -7,12 +7,14 @@ interface ComposerCommandMenuProps {
   readonly id: string;
   readonly commands: readonly ComposerCommandDescriptor[];
   readonly activeIndex: number;
+  readonly pending: boolean;
+  readonly error: string | null;
   readonly onActiveIndexChange: (index: number) => void;
   readonly onSelect: (command: ComposerCommandDescriptor) => void;
 }
 
 export function ComposerCommandMenu({
-  id, commands, activeIndex, onActiveIndexChange, onSelect,
+  id, commands, activeIndex, pending, error, onActiveIndexChange, onSelect,
 }: ComposerCommandMenuProps) {
   const listRef = useRef<HTMLDivElement>(null);
   const content = zhCN.conversation.commands;
@@ -28,6 +30,8 @@ export function ComposerCommandMenu({
         <span>{content.keyboardHint}</span>
       </div>
       <div ref={listRef} id={id} role="listbox" aria-label={content.title} className="max-h-[min(16rem,50vh)] overflow-y-auto">
+        {pending && <p role="status" className="px-2 py-3 text-xs text-muted-foreground">{content.loading}</p>}
+        {error !== null && <p role="alert" className="px-2 py-3 text-xs text-destructive">{error}</p>}
         {commands.length === 0 && <p className="px-2 py-3 text-xs text-muted-foreground">{content.empty}</p>}
         {commands.map((command, index) => (
           <div
@@ -41,8 +45,8 @@ export function ComposerCommandMenu({
             onMouseDown={(event) => event.preventDefault()}
             onClick={() => onSelect(command)}
           >
-            <span className="w-20 shrink-0 font-medium">/{command.name}</span>
-            <span className="min-w-0 flex-1">{command.unavailableReason ?? command.description}</span>
+            <span className="w-24 shrink-0 break-words font-medium">/{command.name}</span>
+            <span className="min-w-0 flex-1">{command.unavailableReason ?? command.description}{command.input_hint !== null && <span className="mt-0.5 block break-words font-mono text-[10px] text-muted-foreground">{command.input_hint}</span>}</span>
           </div>
         ))}
       </div>

@@ -10,6 +10,7 @@ from kunyu.agent.runtime.events import (
     AgentEvent,
     AssistantCompletedEvent,
     AssistantDeltaEvent,
+    AssistantReasoningDeltaEvent,
     AssistantStartedEvent,
     BudgetReservedEvent,
     BudgetSettledEvent,
@@ -165,7 +166,7 @@ def _apply(state: _State, event: EventDraft, sequence: int) -> None:
         return
     elif isinstance(event, AssistantStartedEvent):
         _start_assistant(state, event, sequence)
-    elif isinstance(event, AssistantDeltaEvent):
+    elif isinstance(event, (AssistantDeltaEvent, AssistantReasoningDeltaEvent)):
         _append_delta(state, event, sequence)
     elif isinstance(event, AssistantCompletedEvent):
         _complete_assistant(state, event, sequence)
@@ -455,13 +456,19 @@ def _start_assistant(
     )
 
 
-def _append_delta(state: _State, event: AssistantDeltaEvent, sequence: int) -> None:
+def _append_delta(
+    state: _State,
+    event: AssistantDeltaEvent | AssistantReasoningDeltaEvent,
+    sequence: int,
+) -> None:
     assistant = _assistant(state, event.payload.message_id)
     payload = event.payload
     _require_attempt(assistant, payload.step, payload.attempt)
+    reasoning = isinstance(event, AssistantReasoningDeltaEvent)
+    content = assistant.reasoning_content if reasoning else assistant.content
     if (
         assistant.status != "streaming"
-        or payload.offset != len(assistant.content)
+        or payload.offset != len(content)
         or not payload.text
     ):
         raise RunReductionError(
@@ -472,7 +479,10 @@ def _append_delta(state: _State, event: AssistantDeltaEvent, sequence: int) -> N
         > state.budget.max_output_codepoints
     ):
         raise RunReductionError("Run output budget is exhausted.")
-    assistant.content += payload.text
+    if reasoning:
+        assistant.reasoning_content += payload.text
+    else:
+        assistant.content += payload.text
     assistant.updated_at = event.occurred_at
     assistant.updated_sequence = sequence
     state.budget.output_codepoints += len(payload.text)
@@ -974,6 +984,7 @@ def _freeze(state: _State) -> ReducedRun:
                 step=item.step,
                 attempt=item.attempt,
                 content=item.content,
+                reasoning_content=item.reasoning_content,
                 status=item.status,
                 finish_reason=item.finish_reason,
                 created_at=item.created_at,

@@ -52,6 +52,7 @@ class ReducedAssistant:
     updated_at: datetime
     created_sequence: int
     updated_sequence: int
+    reasoning_content: str = ""
 
 
 @dataclass(frozen=True, slots=True)
@@ -141,6 +142,7 @@ class _Assistant:
     created_at: datetime
     created_sequence: int
     content: str = ""
+    reasoning_content: str = ""
     status: AssistantStatus = "streaming"
     finish_reason: Literal["stop", "tool_calls"] | None = None
     model_outcome: str | None = None

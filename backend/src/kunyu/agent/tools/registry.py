@@ -18,6 +18,9 @@ from kunyu.agent.runtime.tools import (
     ToolRiskLevel,
 )
 from kunyu.agent.scope import Context, ScopedEntries
+from kunyu.domain.agent_context import RunContextRepository
+from kunyu.persistence.commands import read_session_controls
+from kunyu.persistence.database import Database
 
 
 class ConfirmedWriteHandler(Protocol):
@@ -81,8 +84,15 @@ class ToolRegistryFactory:
 
 
 class ToolPolicyGate:
-    def __init__(self, registries: ToolRegistryFactory) -> None:
+    def __init__(
+        self,
+        registries: ToolRegistryFactory,
+        database: Database,
+        contexts: RunContextRepository,
+    ) -> None:
         self._registries = registries
+        self._database = database
+        self._contexts = contexts
 
     def risk_level(self, call: ToolCall) -> ToolRiskLevel:
         try:
@@ -101,5 +111,11 @@ class ToolPolicyGate:
         if risk_level is ToolRiskLevel.L0:
             return PolicyDecision.ALLOW
         if risk_level is ToolRiskLevel.L2:
+            source = self._contexts.get(call.run_id)
+            if source is None:
+                raise ToolExecutionError("The tool run context is unavailable.")
+            controls = read_session_controls(self._database, source.session.id)
+            if controls.plan_active or controls.permission == "read-only":
+                return PolicyDecision.DENY
             return PolicyDecision.CONFIRM
         raise AssertionError("Unhandled tool risk level.")

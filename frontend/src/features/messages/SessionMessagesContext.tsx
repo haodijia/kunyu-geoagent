@@ -167,7 +167,7 @@ function useMessages(sessionId: string, workspaceId: string) {
       setModelSelection(sessionId, {
         connectionId: model.connection.id,
         modelId: model.entry.model_id,
-        reasoningEffort: null
+        reasoningEffort: model.entry.reasoning_default
       });
     }
   }, [
@@ -349,7 +349,7 @@ function useMessages(sessionId: string, workspaceId: string) {
       setModelSelection(sessionId, {
         connectionId: model.connection.id,
         modelId: model.entry.model_id,
-        reasoningEffort: null
+        reasoningEffort: model.entry.reasoning_default
       });
     },
     changeReasoningEffort: (value: string) => {

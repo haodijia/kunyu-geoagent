@@ -7,6 +7,7 @@ import type { MessageStatus, SessionMessage } from "@/features/messages/api";
 import type { AgentTurn, ToolCall } from "@/features/agent/api";
 import type { Confirmation } from "@/features/confirmations/api";
 import { conversationSlots } from "@/features/conversation/slots";
+import { useSessionEvents } from "@/features/events/SessionEventContext";
 import { SessionEmptyState } from "@/features/sessions/SessionEmptyState";
 import { zhCN } from "@/locales/zh-CN";
 
@@ -36,6 +37,20 @@ export function MessageList({
   messages,
   turns,
 }: MessageListProps) {
+  const { records } = useSessionEvents();
+  const timeline = useMemo(() => {
+    const sequenceByMessage = new Map<string, number>();
+    for (const record of records) {
+      if (record.messageId !== null && !sequenceByMessage.has(record.messageId)) {
+        sequenceByMessage.set(record.messageId, record.sequence);
+      }
+    }
+    const results = new Map(records.filter((record) => record.eventType === "command/done").map((record) => [record.entityId, record]));
+    return [
+      ...messages.map((message) => ({ kind: "message" as const, id: message.id, sequence: sequenceByMessage.get(message.id) ?? message.updated_sequence, message })),
+      ...records.filter((record) => record.eventType === "command/run").map((record) => ({ kind: "command" as const, id: record.entityId, sequence: record.sequence, record, result: results.get(record.entityId) })),
+    ].sort((left, right) => left.sequence - right.sequence);
+  }, [messages, records]);
   const endRef = useRef<HTMLDivElement>(null);
   const followStreamRef = useRef(true);
   const toolsByMessage = useMemo(() => {
@@ -69,9 +84,9 @@ export function MessageList({
     if (followStreamRef.current) {
       endRef.current?.scrollIntoView({ block: "end" });
     }
-  }, [messages, turns]);
+  }, [messages, turns, timeline]);
 
-  if (messages.length === 0) {
+  if (timeline.length === 0) {
     return (
       <SessionEmptyState
         description={content.emptyDescription}
@@ -83,7 +98,18 @@ export function MessageList({
 
   return (
     <div className="chat-surface-fluid flex flex-col gap-4 px-3 py-5">
-      {messages.map((message) => {
+      {timeline.map((item) => {
+        if (item.kind === "command") {
+          return (
+            <article key={item.id} className="rounded-lg border border-border/60 px-3 py-2 text-xs text-muted-foreground">
+              <div className="font-mono">/{String(item.record.payload.name)}{typeof item.record.payload.raw_input === "string" ? item.record.payload.raw_input : ""}</div>
+              <div role="status" className={`mt-1 whitespace-pre-wrap ${item.result?.payload.kind === "error" ? "text-destructive" : ""}`}>
+                {typeof item.result?.payload.text === "string" ? item.result.payload.text : zhCN.conversation.commands.running}
+              </div>
+            </article>
+          );
+        }
+        const message = item.message;
         const tools = toolsByMessage.get(message.id) ?? [];
         return (
           <article

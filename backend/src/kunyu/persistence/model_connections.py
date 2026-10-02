@@ -222,6 +222,7 @@ def _copy_catalog_entry(
     record.tool_capability = entry.tool_capability.value
     record.tool_capability_source = entry.tool_capability_source.value
     record.reasoning_efforts = list(entry.reasoning_efforts)
+    record.reasoning_default = entry.reasoning_default
     record.reasoning_source = entry.reasoning_source.value
     record.discovered_at = entry.discovered_at
 
@@ -338,6 +339,7 @@ def _catalog_to_domain(
         tool_capability=CapabilityStatus(record.tool_capability),
         tool_capability_source=CapabilitySource(record.tool_capability_source),
         reasoning_efforts=tuple(record.reasoning_efforts),
+        reasoning_default=record.reasoning_default,
         reasoning_source=CapabilitySource(record.reasoning_source),
         discovered_at=_optional_utc(record.discovered_at),
     )

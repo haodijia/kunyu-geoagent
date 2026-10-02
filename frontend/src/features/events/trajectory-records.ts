@@ -95,23 +95,33 @@ function contextRecord(
   context: RecordContext,
 ): TrajectoryRecord {
   const first = events[0]!;
-  const content = stringValue(first.payload.content) ?? "";
+  const done = events.find((event) => event.eventType === "command/done");
+  const isCommand = first.eventType === "command/run";
+  const content = isCommand
+    ? `/${String(first.payload.name)}${stringValue(first.payload.raw_input) ?? ""}`
+    : stringValue(first.payload.content) ?? stringValue(first.payload.summary) ?? stringValue(first.payload.text) ?? `${first.eventType} ${safeString(first.payload)}`;
+  const output = isCommand ? stringValue(done?.payload.text) : null;
   return baseRecord(events, {
     turn: turnFor(first, context),
     text: content,
-    searchText: content,
-    status: "completed",
-    completedAt: first.occurredAt,
+    searchText: `${content} ${output ?? ""}`,
+    status: isCommand && done === undefined ? "running" : done?.payload.kind === "error" ? "failed" : "completed",
+    completedAt: isCommand ? done?.occurredAt ?? null : first.occurredAt,
     startedAt: first.occurredAt,
-    isError: false,
-    source: {
+    isError: done?.payload.kind === "error",
+    source: isCommand ? {
+      kind: "command",
+      command_id: first.entityId,
+      definition_id: first.payload.definition_id,
+      source_event_sequence: done?.payload.source_event_sequence ?? null,
+    } : {
       kind: "context",
-      producer: first.payload.producer,
+      producer: first.payload.producer ?? first.eventType,
       metadata: first.payload.metadata,
       session_id: first.payload.session_id ?? null,
     },
-    input: content,
-    output: null,
+    input: isCommand || first.eventType === "context.injected" ? content : first.payload,
+    output,
   });
 }
 

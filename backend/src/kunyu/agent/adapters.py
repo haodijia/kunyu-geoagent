@@ -3,7 +3,12 @@
 from kunyu.agent.runtime.models import ModelAdapterError, ModelErrorCode
 from kunyu.agent.runtime.runner_types import ConfirmationRequester, RunExecution
 from kunyu.application.confirmations import ConfirmationService
-from kunyu.domain.model_connections import MaxTokensField, ModelAuthMode, ModelProtocol
+from kunyu.domain.model_connections import (
+    MaxTokensField,
+    ModelAuthMode,
+    ModelProtocol,
+    ModelProviderType,
+)
 from kunyu.integrations.model.openai_compatible_adapter import (
     OpenAICompatibleModelConfig,
 )
@@ -42,6 +47,7 @@ class StoredRunExecutionProvider:
                 max_tokens_field=MaxTokensField(snapshot.max_tokens_field),
                 include_usage=snapshot.include_usage,
                 reasoning_efforts=reasoning_efforts,
+                provider_type=ModelProviderType(snapshot.provider_type),
             ),
         )
 

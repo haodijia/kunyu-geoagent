@@ -50,6 +50,7 @@ export interface ModelCatalogEntry {
   readonly tool_capability: CapabilityStatus;
   readonly tool_capability_source: CapabilitySource;
   readonly reasoning_efforts: string[];
+  readonly reasoning_default: string | null;
   readonly reasoning_source: CapabilitySource;
   readonly discovered_at: string | null;
 }
