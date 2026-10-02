@@ -1,18 +1,19 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 
 import { messageQueryKeys } from "@/features/messages/api";
 import { cancelAgent, agentQueryKeys } from "@/features/agent/api";
 import { useSessionWorkspace } from "@/features/sessions/SessionWorkspaceContext";
 import { zhCN } from "@/locales/zh-CN";
-import {
-  ConversationComposer,
-  type ComposerModelGroup
-} from "./ConversationComposer";
+import { ConversationComposer } from "./ConversationComposer";
+import { type ComposerModelGroup, type ModelPickerPane } from "./composer/ComposerModelPicker";
+import { createComposerCommandDirectory } from "./composer/commands";
+import { useComposerCommands } from "./composer/useComposerCommands";
 import { useSessionMessages } from "./SessionMessagesContext";
 
 export function SessionComposer() {
   const queryClient = useQueryClient();
+  const [modelPickerPane, setModelPickerPane] = useState<ModelPickerPane | null>(null);
   const {
     draft,
     mapContext,
@@ -57,9 +58,8 @@ export function SessionComposer() {
     for (const { connection, entry } of usableModels) {
       const option = {
         value: `${connection.id}\n${entry.model_id}`,
-        label: entry.display_name === null
-          ? entry.model_id
-          : `${entry.display_name} · ${entry.model_id}`
+        label: entry.display_name === null ? entry.model_id : entry.display_name,
+        modelId: entry.model_id,
       };
       const current = groups.get(connection.id);
       groups.set(connection.id, {
@@ -70,6 +70,21 @@ export function SessionComposer() {
     }
     return [...groups.values()];
   }, [usableModels]);
+
+  const modelDisabled = mutation.isPending || requestFrozen || activeTurn !== undefined || connectionsQuery.isPending;
+  const commands = createComposerCommandDirectory(
+    modelDisabled,
+    selectedModel !== undefined && selectedModel.entry.reasoning_efforts.length > 0,
+    activeTurn !== undefined && !stopMutation.isPending,
+  );
+  const commandState = useComposerCommands({
+    commands,
+    draft,
+    locked: mutation.isPending || requestFrozen,
+    changeDraft,
+    openModelPicker: setModelPickerPane,
+    stop: () => stopMutation.mutateAsync(),
+  });
 
   if (session.archived) {
     return (
@@ -113,7 +128,16 @@ export function SessionComposer() {
         zoom.toFixed(1)
       )}
       draft={draft}
-      onDraftChange={changeDraft}
+      onDraftChange={(value) => {
+        commandState.resetFeedback();
+        changeDraft(value);
+      }}
+      commands={commands}
+      commandPending={commandState.pending}
+      commandFeedback={commandState.feedback}
+      onCommand={commandState.execute}
+      modelPickerPane={modelPickerPane}
+      onModelPickerPaneChange={setModelPickerPane}
       onSubmit={sendMessage}
       pending={mutation.isPending}
       running={
@@ -126,12 +150,7 @@ export function SessionComposer() {
       error={error}
       modelGroups={modelGroups}
       selectedModel={selectedValue}
-      modelDisabled={
-        mutation.isPending ||
-        requestFrozen ||
-        activeTurn !== undefined ||
-        connectionsQuery.isPending
-      }
+      modelDisabled={modelDisabled}
       reasoningOptions={selectedModel?.entry.reasoning_efforts ?? []}
       selectedReasoningEffort={modelSelection?.reasoningEffort ?? ""}
       sendDisabled={
