@@ -6,6 +6,8 @@ import { ModelConnectionCreatePage } from "@/features/settings/models/ModelConne
 import { ModelConnectionDetailPage } from "@/features/settings/models/ModelConnectionDetailPage";
 import { ModelConnectionsPage } from "@/features/settings/models/ModelConnectionsPage";
 import { ModelProviderCatalogPage } from "@/features/settings/models/ModelProviderCatalogPage";
+import { SkillsPage } from "@/features/settings/skills/SkillsPage";
+import { SkillEditorPage } from "@/features/settings/skills/SkillEditorPage";
 import { SessionWorkspace } from "@/features/sessions/SessionWorkspace";
 import { ConversationView } from "@/features/sessions/views/ConversationView";
 import { OverviewView } from "@/features/sessions/views/OverviewView";
@@ -29,6 +31,9 @@ export const router = createHashRouter([
     element: <AppShell />,
     children: [
       { path: "settings/archived", element: <ArchivedSessionsPage /> },
+      { path: "settings/skills", element: <SkillsPage /> },
+      { path: "settings/skills/new", element: <SkillEditorPage /> },
+      { path: "settings/skills/view/:skillName", element: <SkillEditorPage /> },
       { path: "settings/models", element: <ModelConnectionsPage /> },
       { path: "settings/models/new", element: <ModelProviderCatalogPage /> },
       { path: "settings/models/new/:providerId", element: <ModelConnectionCreatePage /> },

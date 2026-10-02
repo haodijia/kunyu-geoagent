@@ -94,6 +94,8 @@ class UserMessageAppendedPayload(EventPayload):
 
 class ContextInjectedPayload(EventPayload):
     content: str
+    producer: str = "injected"
+    metadata: dict[str, JsonValue] = Field(default_factory=dict)
 
 
 class BudgetLimitsPayload(EventPayload):

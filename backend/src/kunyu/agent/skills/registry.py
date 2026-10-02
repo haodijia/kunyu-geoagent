@@ -1,9 +1,17 @@
 """Scoped provider catalogs and explicit loading of one selected Skill."""
 
+import re
 from dataclasses import dataclass
 from typing import Literal, Protocol
 
 from kunyu.agent.scope import Context, ScopedEntries
+
+SKILL_NAME_PATTERN = r"^[a-z0-9]+(?:-[a-z0-9]+)*$"
+
+
+def validate_skill_name(name: str) -> None:
+    if re.fullmatch(SKILL_NAME_PATTERN, name) is None:
+        raise ValueError("Skill names must use lowercase letters, digits and hyphens.")
 
 
 @dataclass(frozen=True, slots=True)
@@ -49,16 +57,20 @@ class SkillRegistry:
         self, context: Context, workspace_id: str
     ) -> dict[str, _Candidate]:
         catalog: dict[str, _Candidate] = {}
-        for provider in self._providers.view(context).values():
-            for summary in await provider.list(workspace_id=workspace_id):
-                context.assert_active()
-                if not summary.name or not summary.description or not summary.locator:
-                    raise ValueError(
-                        "Skill metadata must contain name, description and locator."
-                    )
-                previous = catalog.get(summary.name)
-                if previous is None or summary.rank < previous.summary.rank:
-                    catalog[summary.name] = _Candidate(summary, provider)
+        for layer in self._providers.layers(context):
+            candidates: dict[str, _Candidate] = {}
+            for provider in layer.values():
+                for summary in await provider.list(workspace_id=workspace_id):
+                    context.assert_active()
+                    validate_skill_name(summary.name)
+                    if not summary.description or not summary.locator:
+                        raise ValueError(
+                            "Skill metadata must contain name, description and locator."
+                        )
+                    previous = candidates.get(summary.name)
+                    if previous is None or summary.rank < previous.summary.rank:
+                        candidates[summary.name] = _Candidate(summary, provider)
+            catalog.update(candidates)
         return catalog
 
     async def list(
@@ -66,13 +78,13 @@ class SkillRegistry:
         context: Context,
         *,
         workspace_id: str,
-        invocation: Literal["model", "user"],
+        invocation: Literal["model", "user"] | None = None,
     ) -> tuple[SkillSummary, ...]:
         catalog = await self._catalog(context, workspace_id)
         return tuple(
             candidate.summary
             for _, candidate in sorted(catalog.items())
-            if _invocable(candidate.summary, invocation)
+            if invocation is None or _invocable(candidate.summary, invocation)
         )
 
     async def get(
@@ -81,10 +93,13 @@ class SkillRegistry:
         name: str,
         *,
         workspace_id: str,
-        invocation: Literal["model", "user"],
+        invocation: Literal["model", "user"] | None = None,
     ) -> SkillDefinition:
+        validate_skill_name(name)
         candidate = (await self._catalog(context, workspace_id)).get(name)
-        if candidate is None or not _invocable(candidate.summary, invocation):
+        if candidate is None or (
+            invocation is not None and not _invocable(candidate.summary, invocation)
+        ):
             raise LookupError(
                 f"Skill '{name}' is unavailable for {invocation} invocation."
             )
@@ -92,7 +107,14 @@ class SkillRegistry:
             candidate.summary, workspace_id=workspace_id
         )
         context.assert_active()
-        if definition.summary != candidate.summary or not definition.content.strip():
+        if (
+            definition.summary != candidate.summary
+            or (
+                invocation is not None
+                and not _invocable(definition.summary, invocation)
+            )
+            or not definition.content.strip()
+        ):
             raise ValueError(f"Skill '{name}' body does not match its catalog entry.")
         return definition
 

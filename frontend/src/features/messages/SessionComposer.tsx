@@ -111,6 +111,7 @@ export function SessionComposer({ compact = false }: SessionComposerProps) {
 
   return (
     <ConversationComposer
+      sessionId={session.id}
       compact={compact}
       contextLabel={zhCN.conversation.mapViewport(
         longitude.toFixed(4),

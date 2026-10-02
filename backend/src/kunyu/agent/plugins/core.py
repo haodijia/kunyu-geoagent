@@ -2,7 +2,10 @@
 
 from kunyu.agent import services as s
 from kunyu.agent.context import RunContextNotFoundError, register_system_prompt
-from kunyu.agent.runtime.context import PromptSectionRegistry
+from kunyu.agent.runtime.context import (
+    ContextPreparationRegistry,
+    PromptSectionRegistry,
+)
 from kunyu.agent.scope import AgentScopes, Context
 from kunyu.agent.tools.registry import ToolPolicyGate, ToolRegistryFactory
 from kunyu.application.confirmations import ConfirmationService
@@ -23,12 +26,13 @@ class ScopePlugin:
 class PromptPlugin:
     name = "system-prompt"
     requires = ()
-    provides = (s.PROMPTS,)
+    provides = (s.PROMPTS, s.CONTEXT_PREPARERS)
 
     async def apply(self, context: Context) -> None:
         registry = PromptSectionRegistry()
         register_system_prompt(context, registry)
         context.provide(s.PROMPTS, registry)
+        context.provide(s.CONTEXT_PREPARERS, ContextPreparationRegistry())
 
 
 class ToolsPlugin:

@@ -1,6 +1,6 @@
 """Model context contracts and ordered system-prompt sections."""
 
-from collections.abc import Callable
+from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 from typing import Protocol
 
@@ -15,6 +15,28 @@ class AgentContext:
 
 class ContextProvider(Protocol):
     async def build(self, run_id: str) -> AgentContext: ...
+
+
+class ContextPreparationRegistry:
+    """Scoped pre-step contributors persist context before history is assembled."""
+
+    def __init__(self) -> None:
+        self._entries: ScopedEntries[Callable[[str, Context], Awaitable[None]]] = (
+            ScopedEntries()
+        )
+
+    def register(
+        self,
+        owner: Context,
+        name: str,
+        prepare: Callable[[str, Context], Awaitable[None]],
+    ) -> None:
+        self._entries.register(owner, name, prepare)
+
+    async def prepare(self, run_id: str, context: Context) -> None:
+        for prepare in self._entries.view(context).values():
+            await prepare(run_id, context)
+            context.assert_active()
 
 
 @dataclass(frozen=True, slots=True)

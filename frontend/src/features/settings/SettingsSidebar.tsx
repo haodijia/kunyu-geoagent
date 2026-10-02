@@ -1,5 +1,6 @@
 import { Tooltip } from "@/components/ui/tooltip";
 import { Cube, Inbox } from "@icon-park/react";
+import { Sparkles } from "lucide-react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { cn } from "@/lib/utils";
 import { zhCN } from "@/locales/zh-CN";
@@ -16,6 +17,11 @@ export function SettingsSidebar({
       path: "/settings/models",
       label: zhCN.modelConnections.title,
       icon: <Cube theme="outline" size="16" strokeWidth={3} />
+    },
+    {
+      path: "/settings/skills",
+      label: zhCN.skills.title,
+      icon: <Sparkles size={16} />
     },
     {
       path: "/settings/archived",

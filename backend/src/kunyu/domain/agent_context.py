@@ -1,6 +1,8 @@
 from dataclasses import dataclass
 from typing import Protocol
 
+from pydantic import JsonValue
+
 from kunyu.agent.runtime.run_state import ReducedRun
 from kunyu.agent.runtime.session_state import ReducedSession
 from kunyu.domain.sessions import Session
@@ -11,6 +13,8 @@ from kunyu.domain.workspaces import Workspace
 class InjectedContext:
     sequence: int
     content: str
+    producer: str
+    metadata: dict[str, JsonValue]
 
 
 @dataclass(frozen=True, slots=True)

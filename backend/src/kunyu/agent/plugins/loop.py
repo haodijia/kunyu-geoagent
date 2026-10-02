@@ -23,6 +23,7 @@ class RunnerPlugin:
         s.EVENTS,
         s.CONTEXTS,
         s.PROMPTS,
+        s.CONTEXT_PREPARERS,
         s.MODEL,
         s.TOOLS,
         s.POLICY,
@@ -37,7 +38,10 @@ class RunnerPlugin:
                 context.require(s.EXECUTIONS),
                 context.require(s.EVENTS),
                 ScopedAgentContextProvider(
-                    context.require(s.CONTEXTS), context.require(s.PROMPTS), context
+                    context.require(s.CONTEXTS),
+                    context.require(s.PROMPTS),
+                    context,
+                    context.require(s.CONTEXT_PREPARERS),
                 ),
                 context.require(s.MODEL),
                 context.require(s.TOOLS),
@@ -115,6 +119,7 @@ class AgentLoopPlugin:
         s.EVENTS,
         s.CONTEXTS,
         s.PROMPTS,
+        s.CONTEXT_PREPARERS,
         s.MODEL,
         s.TOOLS,
         s.POLICY,
