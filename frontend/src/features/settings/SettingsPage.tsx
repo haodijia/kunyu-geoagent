@@ -17,16 +17,19 @@ export function SettingsPageWrapper({
 export function SettingsPageHeader({
   title,
   description,
-  actions
+  actions,
+  navigation
 }: {
   readonly title: string;
   readonly description: string;
   readonly actions: ReactNode;
+  readonly navigation?: ReactNode;
 }) {
   return (
     <div className="sticky top-0 z-10 -mt-[16px] bg-[var(--bg-1)] pt-[16px] md:-mt-[24px] md:pt-[24px]">
+      {navigation ? <div className="mb-4">{navigation}</div> : null}
       <div className="flex min-h-[34px] flex-wrap items-center justify-between gap-[8px] sm:gap-[16px]">
-        <h1 className="m-0 min-w-0 flex-1 text-[18px] leading-[1.3] font-semibold text-t-primary md:text-[20px]">
+        <h1 className="m-0 min-w-0 flex-1 text-[18px] leading-[1.3] font-semibold text-t-primary [overflow-wrap:anywhere] md:text-[20px]">
           {title}
         </h1>
         {actions ? (

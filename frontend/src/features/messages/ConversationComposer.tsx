@@ -26,7 +26,6 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Textarea } from "@/components/ui/textarea";
-import { SkillPicker } from "@/features/skills/SkillPicker";
 import { zhCN } from "@/locales/zh-CN";
 
 const content = zhCN.conversation;
@@ -42,8 +41,6 @@ export interface ComposerModelGroup {
 }
 
 interface ConversationComposerProps {
-  readonly sessionId: string;
-  readonly compact?: boolean;
   readonly contextLabel: string;
   readonly draft: string;
   readonly error: string | null;
@@ -66,8 +63,6 @@ interface ConversationComposerProps {
 }
 
 export function ConversationComposer({
-  sessionId,
-  compact = false,
   contextLabel,
   draft,
   error,
@@ -128,20 +123,14 @@ export function ConversationComposer({
   }
 
   return (
-    <div
-      className={
-        compact
-          ? "composer-host shrink-0 px-3 pb-3"
-          : "composer-host shrink-0 px-3 pt-2 pb-3"
-      }
-    >
+    <div className="composer-host shrink-0 px-3 pt-2 pb-3">
       <form
-        className={`chat-surface-fluid composer-panel border border-[var(--mu-input-border)] bg-[var(--mu-composer-bg)] transition-[border-color,box-shadow] duration-200 ${compact ? "rounded-2xl p-3" : "rounded-[20px] px-3.5 py-3"}`}
+        className="chat-surface-fluid composer-panel rounded-[20px] border border-[var(--mu-input-border)] bg-[var(--mu-composer-bg)] px-3.5 py-3 transition-[border-color,box-shadow] duration-200"
         onSubmit={handleSubmit}
       >
         <Textarea
           ref={textareaRef}
-          className={`block w-full resize-none overflow-y-auto rounded-none border-0 bg-transparent px-0 py-0 text-[13px] leading-5 text-foreground shadow-none outline-none placeholder:text-muted-foreground focus-visible:border-transparent focus-visible:ring-0 disabled:cursor-wait ${compact ? "min-h-5" : "min-h-7"}`}
+          className="block min-h-7 w-full resize-none overflow-y-auto rounded-none border-0 bg-transparent px-0 py-0 text-[13px] leading-5 text-foreground shadow-none outline-none placeholder:text-muted-foreground focus-visible:border-transparent focus-visible:ring-0 disabled:cursor-wait"
           value={draft}
           placeholder={content.composerPlaceholder}
           disabled={pending || draftFrozen}
@@ -151,15 +140,13 @@ export function ConversationComposer({
           aria-label={content.composerLabel}
         />
         <div
-          className={`${compact ? "mt-2" : "mt-2.5"} flex min-h-8 flex-wrap items-center justify-between gap-x-4 gap-y-2`}
+          className="mt-2.5 flex min-h-8 flex-wrap items-center justify-between gap-x-4 gap-y-2"
         >
           <span className="inline-flex max-w-[45%] min-w-0 items-center gap-1.5 rounded-full border border-border px-2 py-1 text-[11px] text-muted-foreground">
             <MapPinned className="size-3.5 shrink-0" aria-hidden="true" />
             <span className="truncate">{contextLabel}</span>
           </span>
           <div className="flex min-w-0 flex-wrap items-center justify-end gap-1">
-            <SkillPicker sessionId={sessionId} draft={draft} disabled={pending || draftFrozen}
-              onDraftChange={onDraftChange} />
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <button
