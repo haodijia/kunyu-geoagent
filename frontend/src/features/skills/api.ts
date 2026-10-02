@@ -20,12 +20,10 @@ export const skillQueryKeys = {
   all: ["skills"] as const,
   catalog: ["skills", "catalog"] as const,
   detail: (name: string) => ["skills", "detail", name] as const,
-  session: (id: string) => ["skills", "session", id] as const,
 };
 
 export const skillsApi = {
   list: () => requestJson<{ directory: string; skills: Skill[] }>("/api/v1/skills"),
-  session: (id: string) => requestJson<Skill[]>(`/api/v1/sessions/${encodeURIComponent(id)}/skills`),
   detail: (name: string) => requestJson<SkillDetail>(`/api/v1/skills/${encodeURIComponent(name)}`),
   save: (name: string, content: string, create: boolean) => requestJson<Skill>(
     create ? "/api/v1/skills" : `/api/v1/skills/${encodeURIComponent(name)}`,

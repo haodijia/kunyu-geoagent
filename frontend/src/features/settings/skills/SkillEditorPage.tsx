@@ -66,10 +66,11 @@ function SkillEditor({ detail }: { readonly detail: SkillDetail | null }) {
 
   return (
     <SettingsPageWrapper>
-      <Link className="mb-4 inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground" to="/settings/skills">
-        <ArrowLeft className="size-3.5" />{content.back}
-      </Link>
-      <SettingsPageHeader title={create ? content.create : name} description={content.editorDescription} actions={
+      <SettingsPageHeader title={create ? content.create : name} description={content.editorDescription} navigation={
+        <Link className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground" to="/settings/skills">
+          <ArrowLeft className="size-3.5" />{content.back}
+        </Link>
+      } actions={
         detail?.editable ? <Button variant="ghost" className="text-destructive" disabled={busy} onClick={() => setDeleteOpen(true)}><Trash2 className="size-4" />{content.delete}</Button> : null
       } />
       <form className="mt-6 flex flex-col gap-4" onSubmit={submit}>

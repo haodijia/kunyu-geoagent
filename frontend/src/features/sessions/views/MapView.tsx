@@ -82,7 +82,7 @@ export function MapView() {
   }, [session.id, session.workspace_id, setMapViewport]);
 
   return (
-    <div className="relative h-full overflow-hidden bg-muted">
+    <div className="chat-surface-container relative h-full overflow-hidden bg-muted">
       <div ref={mapTargetRef} className="absolute inset-0" />
       <div className="pointer-events-none absolute inset-0 flex items-center justify-center px-8">
         <div className="max-w-sm rounded-2xl border border-border bg-background/95 px-7 py-6 text-center shadow-sm backdrop-blur">
@@ -99,7 +99,7 @@ export function MapView() {
       </div>
       <div className="pointer-events-none absolute right-0 bottom-0 left-0 z-10 [&>*]:pointer-events-auto">
         <AgentControls />
-        <SessionComposer compact />
+        <SessionComposer />
       </div>
     </div>
   );

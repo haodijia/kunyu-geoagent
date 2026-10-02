@@ -11,11 +11,7 @@ import {
 } from "./ConversationComposer";
 import { useSessionMessages } from "./SessionMessagesContext";
 
-interface SessionComposerProps {
-  readonly compact?: boolean;
-}
-
-export function SessionComposer({ compact = false }: SessionComposerProps) {
+export function SessionComposer() {
   const queryClient = useQueryClient();
   const {
     draft,
@@ -111,8 +107,6 @@ export function SessionComposer({ compact = false }: SessionComposerProps) {
 
   return (
     <ConversationComposer
-      sessionId={session.id}
-      compact={compact}
       contextLabel={zhCN.conversation.mapViewport(
         longitude.toFixed(4),
         latitude.toFixed(4),
