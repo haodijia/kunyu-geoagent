@@ -51,6 +51,7 @@ class ConfirmationRequester(Protocol):
 
 @dataclass(frozen=True, slots=True)
 class RunnerConfig:
+    max_parallel_tool_calls: int = 4
     model_active_time_slice_milliseconds: int = MODEL_ACTIVE_TIME_SLICE_MILLISECONDS
     tool_active_time_slice_milliseconds: int = TOOL_ACTIVE_TIME_SLICE_MILLISECONDS
     delta_flush_interval_seconds: float = DELTA_FLUSH_INTERVAL_SECONDS
@@ -58,7 +59,8 @@ class RunnerConfig:
 
     def __post_init__(self) -> None:
         if (
-            self.model_active_time_slice_milliseconds <= 0
+            self.max_parallel_tool_calls <= 0
+            or self.model_active_time_slice_milliseconds <= 0
             or self.tool_active_time_slice_milliseconds <= 0
             or self.delta_flush_interval_seconds <= 0
             or self.delta_flush_codepoints <= 0
@@ -136,7 +138,7 @@ def current_tool_batch_complete(run: ReducedRun) -> bool:
         bool(calls)
         and run.next_tool_index == len(calls)
         and all(
-            call.status == "completed" and call.batch_index == index
+            call.status in {"completed", "failed"} and call.batch_index == index
             for index, call in enumerate(calls)
         )
     )

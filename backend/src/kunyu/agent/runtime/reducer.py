@@ -254,6 +254,11 @@ def _progress(state: _State, event: RunProgressEvent, sequence: int) -> None:
             )
         _close_reservations(state)
         _settle_streaming_assistants(state, "interrupted", event.occurred_at, sequence)
+        for tool in state.tools.values():
+            if tool.status in {"pending", "running"}:
+                tool.status = "cancelled"
+                tool.updated_at = event.occurred_at
+                tool.updated_sequence = sequence
         _transition(state, RunState.INTERRUPTED)
     else:
         if state.state is not RunState.READY:
@@ -585,6 +590,7 @@ def _request_tool(state: _State, event: ToolRequestedEvent, sequence: int) -> No
         batch_index=payload.batch_index,
         name=payload.name,
         arguments=payload.arguments,
+        execution=payload.execution,
         created_at=event.occurred_at,
         created_sequence=sequence,
         updated_at=event.occurred_at,
@@ -607,9 +613,21 @@ def _progress_tool(state: _State, event: ToolProgressEvent, sequence: int) -> No
         ):
             raise RunReductionError("Only the current pending tool can start.")
         _require_reservation(state, "tool")
-        if (
-            tool.batch_index != state.next_tool_index
-            or event.payload.next_tool_index != tool.batch_index
+        reservation = next(iter(state.reservations.values()))
+        calls = _attempt_tools(state)
+        parallel_start = (
+            tool.execution == "parallel"
+            and reservation.operation_count > 1
+            and tool.batch_index >= state.next_tool_index
+            and all(
+                item.status == "running" and item.execution == "parallel"
+                for item in calls[state.next_tool_index : tool.batch_index]
+            )
+            and sum(item.status == "running" for item in calls)
+            < reservation.operation_count
+        )
+        if event.payload.next_tool_index != state.next_tool_index or (
+            tool.batch_index != state.next_tool_index and not parallel_start
         ):
             raise RunReductionError(
                 "Tool start does not match the durable batch cursor."
@@ -880,9 +898,9 @@ def _require_complete_tool_batch(state: _State) -> None:
     calls = _attempt_tools(state)
     if not calls or state.next_tool_index != len(calls):
         raise RunReductionError("The current tool batch is not fully consumed.")
-    if any(item.status != "completed" for item in calls):
+    if any(item.status not in {"completed", "failed"} for item in calls):
         raise RunReductionError(
-            "Only a fully successful tool batch can advance the model step."
+            "Only a fully settled tool batch can advance the model step."
         )
 
 
@@ -891,12 +909,12 @@ def _complete_attempt_tools(state: _State) -> bool:
     return (
         bool(calls)
         and state.next_tool_index == len(calls)
-        and all(item.status == "completed" for item in calls)
+        and all(item.status in {"completed", "failed"} for item in calls)
     )
 
 
 def _require_complete_tool_history(state: _State) -> None:
-    if any(item.status != "completed" for item in state.tools.values()):
+    if any(item.status not in {"completed", "failed"} for item in state.tools.values()):
         raise RunReductionError("A completed run cannot contain unfinished tool calls.")
 
 

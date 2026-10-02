@@ -162,6 +162,7 @@ class _ToolCall:
     arguments: Mapping[str, JsonValue]
     created_at: datetime
     created_sequence: int
+    execution: Literal["parallel", "exclusive"] = "exclusive"
     status: ToolStatus = "pending"
     result: JsonValue | None = None
     error_code: str | None = None
