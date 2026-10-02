@@ -51,6 +51,7 @@ ALLOWED_RUN_TRANSITIONS: Mapping[RunState, frozenset[RunState]] = {
     ),
     RunState.MODEL_RUNNING: frozenset(
         {
+            RunState.MODEL_RUNNING,
             RunState.TOOL_RUNNING,
             RunState.WAITING_CONFIRMATION,
             RunState.COMPLETED,
@@ -96,6 +97,21 @@ class ContextInjectedPayload(EventPayload):
     content: str
     producer: str = "injected"
     metadata: dict[str, JsonValue] = Field(default_factory=dict)
+
+
+class InboxMessagePayload(EventPayload):
+    message_id: str = Field(min_length=1, max_length=64)
+    content: str = Field(min_length=1, max_length=32_768)
+    map_context: dict[str, JsonValue]
+
+
+class InboxSplicedPayload(EventPayload):
+    target_run_id: str
+    start: NonNegativeInt
+    delete_count: NonNegativeInt
+    messages: list[InboxMessagePayload]
+    disposition: Literal["claim", "discard"] | None = None
+    step: PositiveInt | None = None
 
 
 class CommandRunPayload(EventPayload):
@@ -363,6 +379,11 @@ class CommandRunEvent(_SessionEventDraft):
     payload: CommandRunPayload
 
 
+class InboxSplicedEvent(_SessionEventDraft):
+    event_type: Literal["agent/inbox/spliced"]
+    payload: InboxSplicedPayload
+
+
 class CommandDoneEvent(_SessionEventDraft):
     event_type: Literal["command/done"]
     payload: CommandDonePayload
@@ -489,6 +510,7 @@ type EventDraft = Annotated[
     SessionCreatedEvent
     | UserMessageAppendedEvent
     | ContextInjectedEvent
+    | InboxSplicedEvent
     | CommandRunEvent
     | CommandDoneEvent
     | PlanChangedEvent

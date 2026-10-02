@@ -16,6 +16,8 @@ class AgentContext:
 class ContextProvider(Protocol):
     async def build(self, run_id: str) -> AgentContext: ...
 
+    async def has_pending(self, run_id: str) -> bool: ...
+
 
 class ContextPreparationRegistry:
     """Scoped pre-step contributors persist context before history is assembled."""

@@ -5,6 +5,7 @@ from builtins import BaseExceptionGroup
 from datetime import UTC, datetime
 
 from kunyu.agent import services as s
+from kunyu.agent.inbox import SessionInbox
 from kunyu.agent.runtime.events import (
     TERMINAL_RUN_STATES,
     ContextInjectedEvent,
@@ -34,6 +35,7 @@ class SessionAgent:
         self._lifecycle = lifecycle
         self._projections = projections
         self.ctx = context
+        self.inbox = SessionInbox(session_id, context.require(s.EVENTS))
 
     async def followup(self, request: RunAcceptanceRequest) -> RunAcceptanceResult:
         self._require_request(request)

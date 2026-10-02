@@ -321,6 +321,17 @@ def _validate_start(
         elif state.state is RunState.TOOL_RUNNING:
             _require_complete_tool_batch(state)
             expected = (state.step + 1, 1)
+        elif state.state is RunState.MODEL_RUNNING:
+            assistant = _attempt_assistant(state, state.step, state.attempt)
+            if (
+                assistant.status != "completed"
+                or assistant.model_outcome != "stop"
+                or _attempt_tools(state)
+            ):
+                raise RunReductionError(
+                    "Steering continuation requires a settled final response."
+                )
+            expected = (state.step + 1, 1)
         else:
             raise RunReductionError(
                 "Model execution cannot start from the current state."

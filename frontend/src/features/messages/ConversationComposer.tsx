@@ -183,7 +183,7 @@ export function ConversationComposer({
           aria-activedescendant={menuOpen && activeCommand !== undefined ? `${commandMenuId}-${activeCommand.name}` : undefined}
           className="block min-h-6 w-full resize-none overflow-y-auto rounded-none border-0 bg-transparent px-0 py-0 text-[13px] leading-5 text-foreground shadow-none outline-none placeholder:text-muted-foreground focus-visible:border-transparent focus-visible:ring-0 disabled:cursor-wait"
           value={draft}
-          placeholder={content.composerPlaceholder}
+          placeholder={running ? content.steeringPlaceholder : content.composerPlaceholder}
           disabled={inputLocked}
           rows={1}
           onChange={handleChange}
@@ -225,7 +225,7 @@ export function ConversationComposer({
             <Button
               type="submit" size="icon" className="composer-send ml-1 size-7 rounded-full shadow-none"
               disabled={!canSend}
-              aria-label={pending ? content.sending : draftFrozen ? content.retrySend : content.send}
+              aria-label={pending ? content.sending : draftFrozen ? content.retrySend : running ? content.steer : content.send}
             >
               {pending || commandPending ? <LoaderCircle className="size-3.5 animate-spin" strokeWidth={2.1} />
                 : draftFrozen ? <RotateCw className="size-3.5" strokeWidth={2.1} />

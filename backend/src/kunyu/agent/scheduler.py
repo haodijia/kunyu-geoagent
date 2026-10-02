@@ -133,17 +133,21 @@ class RunScheduler:
         existing = self._acceptance.find_idempotent(request)
         if existing is not None:
             return existing
-        turns = self._lifecycle.list_for_session(request.session_id)
-        active = next(
-            (
-                turn
-                for turn in reversed(turns)
-                if turn.run.state not in TERMINAL_RUN_STATES
-            ),
-            None,
-        )
-        if active is not None:
-            await self.cancel(active.run.id)
+        async with self._lock:
+            self._require_accepting()
+            existing = self._acceptance.find_idempotent(request)
+            if existing is not None:
+                return existing
+            active = next(
+                (
+                    turn
+                    for turn in self._lifecycle.list_for_session(request.session_id)
+                    if turn.run.state not in TERMINAL_RUN_STATES
+                ),
+                None,
+            )
+            if active is not None:
+                return self._acceptance.steer(request, active.run.id)
         return await self.accept(request)
 
     async def resume(self, run_id: str) -> RunDetails:
@@ -160,6 +164,7 @@ class RunScheduler:
         async with self._lock:
             self._require_accepting()
             task = self._active.get(run_id)
+            await self._lifecycle.discard_inputs(run_id)
             if task is not None and not task.done():
                 self._blocked.add(run_id)
                 task.cancel()
@@ -260,9 +265,14 @@ class RunScheduler:
                 )
         finally:
             async with self._lock:
-                if self._active.get(run_id) is asyncio.current_task():
-                    self._active.pop(run_id, None)
-                self._wake_dispatcher()
+                try:
+                    current = self._lifecycle.get_details(run_id)
+                    if current.run.state in TERMINAL_RUN_STATES:
+                        await self._lifecycle.discard_inputs(run_id)
+                finally:
+                    if self._active.get(run_id) is asyncio.current_task():
+                        self._active.pop(run_id, None)
+                    self._wake_dispatcher()
 
 
 def _consume_task_result(task: asyncio.Task[None]) -> None:

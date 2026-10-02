@@ -7,6 +7,9 @@ from kunyu.agent.runtime.events import (
     BudgetLimitsPayload,
     BudgetUsagePayload,
     EventBatch,
+    InboxMessagePayload,
+    InboxSplicedEvent,
+    InboxSplicedPayload,
     ModelSnapshotPayload,
     RunCreatedEvent,
     RunCreatedPayload,
@@ -17,6 +20,7 @@ from kunyu.agent.runtime.events import (
     UserMessageAppendedEvent,
     UserMessageAppendedPayload,
 )
+from kunyu.agent.runtime.session_reducer import reduce_session
 from kunyu.domain.messages import Message, MessageRole, MessageStatus
 from kunyu.domain.model_connections import ModelAuthMode
 from kunyu.domain.run_acceptance import (
@@ -44,6 +48,7 @@ from kunyu.persistence.models import (
     RunModelSnapshotRecord,
     RunRecord,
     SessionArchiveRecord,
+    SessionEventRecord,
     SessionPreferenceRecord,
     SessionRecord,
     ToolCallRecord,
@@ -289,6 +294,127 @@ class SQLAlchemyRunAcceptanceRepository:
             workspace_record.updated_at = occurred_at
             database_session.commit()
 
+        return self._load_result(message_id, run_id)
+
+    def steer(
+        self,
+        request: RunAcceptanceRequest,
+        *,
+        run_id: str,
+        message_id: str,
+        occurred_at: datetime,
+    ) -> RunAcceptanceResult:
+        with self._database.sessions() as database_session:
+            database_session.execute(text("BEGIN IMMEDIATE"))
+            existing = database_session.scalar(
+                select(MessageIdempotencyRecord).where(
+                    MessageIdempotencyRecord.session_id == request.session_id,
+                    MessageIdempotencyRecord.idempotency_key == request.idempotency_key,
+                )
+            )
+            if existing is not None:
+                if existing.normalized_body != request.normalized_body:
+                    raise IdempotencyConflictError(
+                        "The idempotency key belongs to another input."
+                    )
+                existing_message_id, existing_run_id = (
+                    existing.message_id,
+                    existing.run_id,
+                )
+                database_session.rollback()
+                return self._load_result(existing_message_id, existing_run_id)
+            run = database_session.get(RunRecord, run_id)
+            snapshot = database_session.get(RunModelSnapshotRecord, run_id)
+            if run is None or snapshot is None or run.session_id != request.session_id:
+                raise RunAcceptanceNotFoundError("The steering target is unavailable.")
+            if run.state not in NONTERMINAL_RUN_STATE_VALUES:
+                raise RunAcceptanceConflictError(
+                    "The steering target has already finished."
+                )
+            session = database_session.get(SessionRecord, request.session_id)
+            if session is None:
+                raise RunAcceptanceNotFoundError("The steering session is unavailable.")
+            if (
+                database_session.get(SessionArchiveRecord, request.session_id)
+                is not None
+            ):
+                raise SessionArchivedAcceptanceError(
+                    "Archived sessions cannot accept input."
+                )
+            if (
+                database_session.get(WorkspaceRemovalRecord, session.workspace_id)
+                is not None
+            ):
+                raise WorkspaceRemovedAcceptanceError(
+                    "Removed workspaces cannot accept input."
+                )
+            if request.map_context["workspace_id"] != session.workspace_id:
+                raise InvalidMapContextError(
+                    "The steering map belongs to another workspace."
+                )
+            selection = request.model_selection
+            if (
+                selection.connection_id,
+                selection.model_id,
+                selection.reasoning_effort,
+            ) != (
+                snapshot.connection_id,
+                snapshot.model_id,
+                snapshot.reasoning_effort,
+            ):
+                raise RunAcceptanceConflictError(
+                    "Steering must preserve the active run's model selection."
+                )
+            records = database_session.scalars(
+                select(SessionEventRecord)
+                .where(
+                    SessionEventRecord.session_id == request.session_id,
+                )
+                .order_by(SessionEventRecord.sequence)
+            ).all()
+            state = reduce_session(
+                run_records.event_to_domain(record) for record in records
+            )
+            if len(state.next_step) >= 32:
+                raise RunAcceptanceConflictError("The next-step inbox is full.")
+            self._projections.commit_in_transaction(
+                database_session,
+                EventBatch(
+                    session_id=request.session_id,
+                    run_id=None,
+                    events=(
+                        InboxSplicedEvent(
+                            session_id=request.session_id,
+                            event_type="agent/inbox/spliced",
+                            payload=InboxSplicedPayload(
+                                target_run_id=run_id,
+                                start=len(state.next_step),
+                                delete_count=0,
+                                messages=[
+                                    InboxMessagePayload(
+                                        message_id=message_id,
+                                        content=request.content,
+                                        map_context=request.map_context,
+                                    )
+                                ],
+                            ),
+                            occurred_at=occurred_at,
+                        ),
+                    ),
+                ),
+            )
+            database_session.add(
+                MessageIdempotencyRecord(
+                    session_id=request.session_id,
+                    idempotency_key=request.idempotency_key,
+                    normalized_body=request.normalized_body,
+                    message_id=message_id,
+                    run_id=run_id,
+                    created_at=occurred_at,
+                )
+            )
+            session.updated_at = occurred_at
+            database_session.commit()
         return self._load_result(message_id, run_id)
 
     @staticmethod

@@ -204,7 +204,7 @@ function useMessages(sessionId: string, workspaceId: string) {
       refreshConfirmations ||=
         event.event_type === "confirmation.requested" ||
         event.event_type === "confirmation.resolved";
-      needsMessageSnapshot ||= TERMINAL_RUN_EVENTS.has(event.event_type);
+      needsMessageSnapshot ||= TERMINAL_RUN_EVENTS.has(event.event_type) || event.event_type === "agent/inbox/spliced";
     }
 
     const cached = queryClient.getQueryData<SessionMessage[]>(queryKey);
