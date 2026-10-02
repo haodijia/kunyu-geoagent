@@ -6,6 +6,13 @@ import type {
   ModelProviderType
 } from "@/features/settings/models/api";
 
+export function discardAgentInput(sessionId: string, messageId: string): Promise<void> {
+  return requestJson<void>(
+    `/api/v1/sessions/${encodeURIComponent(sessionId)}/agent/inbox/${encodeURIComponent(messageId)}`,
+    { method: "DELETE" },
+  );
+}
+
 export type AgentTurnState =
   | "ready"
   | "model_running"

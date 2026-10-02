@@ -62,4 +62,4 @@ class RunAcceptanceRequest:
 @dataclass(frozen=True, slots=True)
 class RunAcceptanceResult:
     message: Message
-    run: RunDetails
+    run: RunDetails | None

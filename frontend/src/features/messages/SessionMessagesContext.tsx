@@ -270,10 +270,13 @@ function useMessages(sessionId: string, workspaceId: string) {
           (left, right) => left.sequence - right.sequence
         );
       });
-      queryClient.setQueryData<AgentTurn[]>(
-        agentQueryKeys.session(sessionId),
-        (current) => mergeAgentTurns(current, [accepted.turn])
-      );
+      const turn = accepted.turn;
+      if (turn !== null) {
+        queryClient.setQueryData<AgentTurn[]>(
+          agentQueryKeys.session(sessionId),
+          (current) => mergeAgentTurns(current, [turn])
+        );
+      }
       frozenSubmissionRef.current = null;
       setRequestFrozen(false);
       clearComposerDraft(sessionId);
@@ -293,7 +296,7 @@ function useMessages(sessionId: string, workspaceId: string) {
     }
   });
 
-  function sendMessage() {
+  function sendMessage(delivery?: "followup" | "steer") {
     if (mutation.isPending) return;
     const frozen = frozenSubmissionRef.current;
     if (frozen !== null) {
@@ -304,11 +307,11 @@ function useMessages(sessionId: string, workspaceId: string) {
     const submission: FrozenSubmission = {
       idempotencyKey: crypto.randomUUID(),
       content: draft,
-      delivery: agentTurnsQuery.data?.some(
+      delivery: delivery ?? (agentTurnsQuery.data?.some(
         (turn) => !["completed", "failed", "cancelled"].includes(turn.state)
       )
         ? "steer"
-        : "followup",
+        : "followup"),
       connectionId: selectedModel.connection.id,
       modelId: selectedModel.entry.model_id,
       reasoningEffort: modelSelection?.reasoningEffort ?? null,

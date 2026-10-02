@@ -1,4 +1,4 @@
-import { ArrowUp, LoaderCircle, MapPinned, RotateCw, Settings2, Slash, Square } from "lucide-react";
+import { ArrowUp, Inbox, LoaderCircle, MapPinned, RotateCw, Settings2, Slash, Square } from "lucide-react";
 import {
   useEffect, useId, useRef, useState,
   type ChangeEvent, type FormEvent, type KeyboardEvent,
@@ -43,6 +43,7 @@ interface ConversationComposerProps {
   readonly onModelChange: (value: string) => void;
   readonly onReasoningEffortChange: (value: string) => void;
   readonly onSubmit: () => void;
+  readonly onQueue: () => void;
   readonly onStop: () => void;
 }
 
@@ -53,7 +54,7 @@ export function ConversationComposer({
   selectedReasoningEffort, sendDisabled, showModelSettings, commands,
   commandPending, commandFeedback, modelPickerPane, onModelPickerPaneChange,
   commandCatalogPending, commandCatalogError,
-  onCommand, onDraftChange, onModelChange, onReasoningEffortChange, onSubmit, onStop,
+  onCommand, onDraftChange, onModelChange, onReasoningEffortChange, onSubmit, onQueue, onStop,
 }: ConversationComposerProps) {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const formRef = useRef<HTMLFormElement>(null);
@@ -209,6 +210,11 @@ export function ConversationComposer({
             </span>
           </div>
           <div className="flex min-w-0 items-center justify-end gap-1">
+            {running && (
+              <Button type="button" size="icon" variant="ghost" className="size-7 rounded-full text-muted-foreground"
+                disabled={!canSend || isCommand || draftFrozen} aria-label={content.queue.add} title={content.queue.add} onClick={onQueue}
+              ><Inbox className="size-3.5" /></Button>
+            )}
             <ComposerModelPicker
               disabled={modelDisabled}
               groups={modelGroups}

@@ -121,6 +121,7 @@ def build_model_history(source: RunContextSource) -> tuple[ModelMessage, ...]:
         and (
             (
                 message.delivery == "followup"
+                and message.run_id is not None
                 and message.created_sequence
                 <= current_user_messages[0].created_sequence
             )

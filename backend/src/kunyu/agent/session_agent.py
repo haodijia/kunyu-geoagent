@@ -68,6 +68,7 @@ class SessionAgent:
         return self._lifecycle.list_for_session(self.session_id)
 
     async def cancel(self) -> RunDetails:
+        await self.inbox.cancel()
         return await self._scheduler.cancel(self._active_turn().run.id)
 
     async def resume(self) -> RunDetails:
@@ -76,10 +77,14 @@ class SessionAgent:
     async def when_idle(self) -> None:
         while True:
             active = self._find_active_turn()
-            if active is None or active.run.state in {
-                RunState.INTERRUPTED,
-                RunState.WAITING_CONFIRMATION,
-            }:
+            if (active is None and not await self.inbox.next_turn()) or (
+                active is not None
+                and active.run.state
+                in {
+                    RunState.INTERRUPTED,
+                    RunState.WAITING_CONFIRMATION,
+                }
+            ):
                 return
             await asyncio.sleep(0.05)
 
@@ -147,6 +152,7 @@ class AgentDirectory:
             async def quiesce() -> None:
                 if scheduler.closing_event.is_set():
                     return
+                await agent.inbox.cancel()
                 for turn in lifecycle.list_for_session(session_id):
                     if turn.run.state not in TERMINAL_RUN_STATES:
                         await runtime.cancel(turn.run.id)

@@ -161,7 +161,7 @@ class MessageRecord(Base):
         ),
         CheckConstraint(
             "(role = 'user' AND step IS NULL AND attempt IS NULL AND "
-            "status = 'completed') OR "
+            "status IN ('completed', 'cancelled')) OR "
             "(role = 'assistant' AND run_id IS NOT NULL AND step > 0 AND attempt > 0)",
             name="ck_messages_role_shape",
         ),

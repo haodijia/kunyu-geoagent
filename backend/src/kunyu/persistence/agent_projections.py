@@ -206,9 +206,9 @@ def _user_message_record(message: ReducedUserMessage) -> MessageRecord:
         run_id=message.run_id,
         step=None,
         attempt=None,
-        status="completed",
+        status="cancelled" if message.discarded else "completed",
         content_length=len(message.content),
-        updated_sequence=message.created_sequence,
+        updated_sequence=message.updated_sequence,
         created_at=message.created_at,
         updated_at=message.created_at,
     )

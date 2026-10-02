@@ -2,9 +2,10 @@
 
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, Request
+from fastapi import APIRouter, Depends, Request, Response
 from pydantic import BaseModel, ConfigDict
 
+from kunyu.agent.inbox import InboxMessageNotFoundError
 from kunyu.agent.scheduler import (
     RunQueueFullError,
     RunScheduler,
@@ -36,6 +37,25 @@ def get_agent_directory(request: Request) -> AgentDirectory:
 
 
 AgentDirectoryDependency = Annotated[AgentDirectory, Depends(get_agent_directory)]
+
+
+@router.delete("/inbox/{message_id}", status_code=204)
+async def discard_input(
+    session_id: str,
+    message_id: str,
+    agents: AgentDirectoryDependency,
+) -> Response:
+    try:
+        agent = agents.for_session(session_id)
+        agent.turns()
+        await agent.inbox.remove(message_id)
+    except InboxMessageNotFoundError as error:
+        raise ApiError(
+            409, "INPUT_ALREADY_CLAIMED", "The input is no longer pending."
+        ) from error
+    except SessionNotFoundError as error:
+        raise ApiError(404, "NOT_FOUND", str(error)) from error
+    return Response(status_code=204)
 
 
 @router.get("", response_model=list[AgentTurnResponse])

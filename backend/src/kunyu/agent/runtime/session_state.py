@@ -4,6 +4,7 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Literal
 
+from kunyu.agent.runtime.events import InboxMessagePayload
 from kunyu.agent.runtime.run_state import ReducedRun
 
 
@@ -19,6 +20,7 @@ class ReducedUserMessage:
     content: str
     created_at: datetime
     created_sequence: int
+    updated_sequence: int
     delivery: Literal["followup", "steer"] = "followup"
     applied_step: int | None = None
     discarded: bool = False
@@ -31,3 +33,4 @@ class ReducedSession:
     user_messages: tuple[ReducedUserMessage, ...]
     runs: tuple[ReducedRun, ...]
     next_step: tuple[str, ...] = ()
+    next_turn: tuple[InboxMessagePayload, ...] = ()
