@@ -8,7 +8,7 @@ from datetime import datetime
 from time import monotonic_ns
 from typing import Literal
 
-from pydantic import JsonValue, TypeAdapter, ValidationError
+from pydantic import JsonValue, TypeAdapter
 
 from kunyu.agent.runtime.context import ContextProvider
 from kunyu.agent.runtime.driver import AgentRuntime
@@ -79,10 +79,7 @@ from kunyu.agent.runtime.runner_types import (
 )
 from kunyu.agent.runtime.tools import (
     PolicyGate,
-    ToolCall,
-    ToolNotFoundError,
     ToolRegistry,
-    ToolValidationError,
 )
 
 _JSON_OBJECT_ADAPTER = TypeAdapter(dict[str, JsonValue])
@@ -129,7 +126,7 @@ def _message_snapshot(message: ModelMessage) -> dict[str, JsonValue]:
 
 
 @dataclass(frozen=True, slots=True)
-class _ValidatedToolCall:
+class _PlannedToolCall:
     tool_call_id: str
     provider_call_id: str
     name: str
@@ -617,23 +614,11 @@ class Runner[AdapterConfigT](AgentRuntime):
         if finish is ModelFinishReason.STOP:
             if calls or attempt.buffer.content_length == 0:
                 raise _ModelOutputError("Stop output has invalid content.")
-            validated: tuple[_ValidatedToolCall, ...] = ()
+            validated: tuple[_PlannedToolCall, ...] = ()
         elif finish is ModelFinishReason.TOOL_CALLS:
             if not calls:
                 raise _ModelOutputError("Tool finish has no complete calls.")
-            try:
-                validated = self._validate_tool_batch(run.run_id, registry, calls)
-            except (ToolNotFoundError, ToolValidationError, ValidationError):
-                await self._finish_model_failure(
-                    run,
-                    attempt,
-                    elapsed_milliseconds,
-                    outcome="error",
-                    error_code="TOOL_CALL_INVALID",
-                    summary="The model requested an unavailable or invalid tool.",
-                    assistant_finish="tool_calls",
-                )
-                return "failed"
+            validated = self._plan_tool_batch(registry, calls)
         elif finish is ModelFinishReason.LENGTH:
             await self._finish_model_failure(
                 run,
@@ -712,34 +697,26 @@ class Runner[AdapterConfigT](AgentRuntime):
         await self._commit(run, tuple(events))
         return "tools" if finish is ModelFinishReason.TOOL_CALLS else "completed"
 
-    def _validate_tool_batch(
+    def _plan_tool_batch(
         self,
-        run_id: str,
         registry: ToolRegistry,
         calls: tuple[ModelToolCall, ...],
-    ) -> tuple[_ValidatedToolCall, ...]:
-        validated: list[_ValidatedToolCall] = []
+    ) -> tuple[_PlannedToolCall, ...]:
+        validated: list[_PlannedToolCall] = []
         for call in calls:
-            tool = registry.require(call.name)
-            arguments = _JSON_OBJECT_ADAPTER.validate_python(
-                dict(tool.validate(call.arguments))
-            )
+            tool = registry.get(call.name)
+            # Preserve model arguments verbatim. Validation is a tool result, so the
+            # next model step can correct the call without losing the assistant frame.
+            arguments = _JSON_OBJECT_ADAPTER.validate_python(dict(call.arguments))
             tool_call_id = self._tool_call_id_factory()
-            policy_call = ToolCall(
-                run_id=run_id,
-                call_id=tool_call_id,
-                name=call.name,
-                arguments=arguments,
-            )
-            self._policy.decide(policy_call)
             validated.append(
-                _ValidatedToolCall(
+                _PlannedToolCall(
                     tool_call_id=tool_call_id,
                     provider_call_id=call.call_id,
                     name=call.name,
                     arguments=arguments,
-                    execution=tool.spec.execution,
-                    presentation=tool.spec.presentation,
+                    execution="exclusive" if tool is None else tool.spec.execution,
+                    presentation="context" if tool is None else tool.spec.presentation,
                 )
             )
         return tuple(validated)
