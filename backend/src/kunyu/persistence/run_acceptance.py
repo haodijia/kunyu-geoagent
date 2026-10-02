@@ -11,7 +11,11 @@ from kunyu.agent.runtime.events import (
     InboxSplicedEvent,
     InboxSplicedPayload,
     ModelSnapshotPayload,
+    QueueDispatchedEvent,
+    QueueDispatchedPayload,
     QueuedTurnPayload,
+    QueueReorderedEvent,
+    QueueReorderedPayload,
 )
 from kunyu.agent.runtime.session_reducer import reduce_session
 from kunyu.agent.runtime.session_state import ReducedSession
@@ -100,6 +104,7 @@ class SQLAlchemyRunAcceptanceRepository:
         message_id: str,
         run_id: str,
         occurred_at: datetime,
+        queue_only: bool,
     ) -> RunAcceptanceResult:
         with self._database.sessions() as database_session:
             database_session.execute(text("BEGIN IMMEDIATE"))
@@ -207,6 +212,33 @@ class SQLAlchemyRunAcceptanceRepository:
                     occurred_at=occurred_at,
                 ),
             )
+            if (
+                not queue_only
+                and state.queue_mode == "manual"
+                and not any(
+                    run.state.value in NONTERMINAL_RUN_STATE_VALUES
+                    for run in state.runs
+                )
+            ):
+                events += (
+                    QueueReorderedEvent(
+                        session_id=request.session_id,
+                        event_type="agent/queue/reordered",
+                        payload=QueueReorderedPayload(
+                            message_ids=[
+                                message_id,
+                                *(item.message_id for item in state.next_turn),
+                            ]
+                        ),
+                        occurred_at=occurred_at,
+                    ),
+                    QueueDispatchedEvent(
+                        session_id=request.session_id,
+                        event_type="agent/queue/dispatched",
+                        payload=QueueDispatchedPayload(message_id=message_id),
+                        occurred_at=occurred_at,
+                    ),
+                )
             self._projections.commit_in_transaction(
                 database_session,
                 EventBatch(
@@ -389,6 +421,11 @@ class SQLAlchemyRunAcceptanceRepository:
             if not state.next_turn:
                 return None
             item = state.next_turn[0]
+            if (
+                state.queue_mode == "manual"
+                and state.dispatch_message_id != item.message_id
+            ):
+                return None
             turn = item.turn
             if turn is None:
                 raise RuntimeError("Queued input has no turn configuration.")

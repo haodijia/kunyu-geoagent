@@ -13,6 +13,24 @@ export function discardAgentInput(sessionId: string, messageId: string): Promise
   );
 }
 
+export function updateAgentQueue(sessionId: string, update: { readonly mode: "auto" | "manual" } | { readonly message_ids: readonly string[] }): Promise<void> {
+  return requestJson<void>(`/api/v1/sessions/${encodeURIComponent(sessionId)}/agent/queue`, {
+    method: "PATCH", body: JSON.stringify(update),
+  });
+}
+
+export function sendQueuedAgentInput(sessionId: string, messageId: string): Promise<void> {
+  return requestJson<void>(`/api/v1/sessions/${encodeURIComponent(sessionId)}/agent/inbox/${encodeURIComponent(messageId)}/send`, {
+    method: "POST", body: "{}",
+  });
+}
+
+export function clearAgentQueue(sessionId: string): Promise<void> {
+  return requestJson<void>(`/api/v1/sessions/${encodeURIComponent(sessionId)}/agent/queue/clear`, {
+    method: "POST", body: "{}",
+  });
+}
+
 export type AgentTurnState =
   | "ready"
   | "model_running"

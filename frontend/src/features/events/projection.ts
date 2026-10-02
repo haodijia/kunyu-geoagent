@@ -53,7 +53,7 @@ export function projectSessionEvent(
   if (["plan/changed", "permission/changed", "feedback/record", "history/compacted"].includes(event.event_type)) {
     return projection(event, "context", event.id);
   }
-  if (event.event_type === "context.injected" || event.event_type === "agent/inbox/spliced" || event.event_type === "agent/step/decision") {
+  if (event.event_type === "context.injected" || event.event_type === "agent/inbox/spliced" || event.event_type === "agent/step/decision" || event.event_type.startsWith("agent/queue/")) {
     return projection(event, "context", event.id);
   }
   if (event.event_type === "request.header") {

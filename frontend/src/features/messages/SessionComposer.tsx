@@ -14,6 +14,7 @@ import { useSessionMessages } from "./SessionMessagesContext";
 export function SessionComposer() {
   const queryClient = useQueryClient();
   const [modelPickerPane, setModelPickerPane] = useState<ModelPickerPane | null>(null);
+  const [queueEditing, setQueueEditing] = useState(false);
   const {
     draft,
     mapContext,
@@ -76,7 +77,7 @@ export function SessionComposer() {
   const sendDisabled = selectedModel === undefined || reasoningSelectionInvalid || agentTurnsQuery.data === undefined;
   const commandState = useComposerCommands({
     draft,
-    locked: mutation.isPending || requestFrozen,
+    locked: mutation.isPending || requestFrozen || queueEditing,
     modelDisabled,
     agentBusy: activeTurn !== undefined,
     sendDisabled,
@@ -124,7 +125,7 @@ export function SessionComposer() {
 
   return (
     <>
-    <QueuedMessages />
+    <QueuedMessages onDraftLockChange={setQueueEditing} />
     <ConversationComposer
       contextLabel={zhCN.conversation.mapViewport(
         longitude.toFixed(4),
@@ -145,8 +146,9 @@ export function SessionComposer() {
       modelPickerPane={modelPickerPane}
       onModelPickerPaneChange={setModelPickerPane}
       onSubmit={() => sendMessage()}
-      onQueue={() => sendMessage("followup")}
+      onQueue={() => sendMessage("queue")}
       pending={mutation.isPending}
+      interactionLocked={queueEditing}
       running={
         activeTurn !== undefined &&
         activeTurn.state !== "interrupted" &&

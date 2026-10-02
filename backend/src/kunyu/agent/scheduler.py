@@ -2,7 +2,9 @@
 
 import asyncio
 import logging
+from typing import Literal
 
+from kunyu.agent.inbox import SessionInbox
 from kunyu.agent.runtime.driver import AgentRuntime
 from kunyu.agent.runtime.events import TERMINAL_RUN_STATES, RunState
 from kunyu.application.confirmations import ConfirmationService
@@ -113,7 +115,9 @@ class RunScheduler:
             self._wake_dispatcher()
             return current
 
-    async def accept(self, request: RunAcceptanceRequest) -> RunAcceptanceResult:
+    async def accept(
+        self, request: RunAcceptanceRequest, *, queue_only: bool = False
+    ) -> RunAcceptanceResult:
         existing = self._acceptance.find_idempotent(request)
         if existing is not None:
             return existing
@@ -126,6 +130,7 @@ class RunScheduler:
             result = self._acceptance.accept(
                 request,
                 self._allocate_queue_sequence(),
+                queue_only=queue_only,
             )
             self._wake_dispatcher()
             return result
@@ -164,11 +169,60 @@ class RunScheduler:
     async def cancel(self, run_id: str) -> RunDetails:
         async with self._lock:
             self._require_accepting()
-            task = self._active.get(run_id)
-            await self._lifecycle.discard_inputs(run_id)
-            if task is not None and not task.done():
-                self._blocked.add(run_id)
-                task.cancel()
+            task = await self._request_cancel(run_id)
+        return await self._finish_cancel(run_id, task)
+
+    async def set_queue_mode(
+        self, inbox: SessionInbox, mode: Literal["auto", "manual"]
+    ) -> None:
+        async with self._lock:
+            self._require_accepting()
+            await inbox.set_mode(mode)
+            self._wake_dispatcher()
+
+    async def reorder_inputs(
+        self, inbox: SessionInbox, message_ids: tuple[str, ...]
+    ) -> None:
+        async with self._lock:
+            self._require_accepting()
+            await inbox.reorder(message_ids)
+
+    async def send_queued(self, inbox: SessionInbox, message_id: str) -> None:
+        async with self._lock:
+            self._require_accepting()
+            await inbox.dispatch(message_id)
+            await inbox.set_mode("auto")
+            active = next(
+                (
+                    turn
+                    for turn in self._lifecycle.list_for_session(inbox.session_id)
+                    if turn.run.state not in TERMINAL_RUN_STATES
+                ),
+                None,
+            )
+            if active is None:
+                self._wake_dispatcher()
+                return
+            run_id = active.run.id
+            task = await self._request_cancel(run_id)
+        await self._finish_cancel(run_id, task)
+
+    async def clear_queue(self, inbox: SessionInbox) -> None:
+        async with self._lock:
+            self._require_accepting()
+            await inbox.clear_next_turn()
+
+    async def _request_cancel(self, run_id: str) -> asyncio.Task[None] | None:
+        task = self._active.get(run_id)
+        await self._lifecycle.discard_inputs(run_id)
+        self._blocked.add(run_id)
+        if task is not None and not task.done():
+            task.cancel()
+        return task
+
+    async def _finish_cancel(
+        self, run_id: str, task: asyncio.Task[None] | None
+    ) -> RunDetails:
         if task is not None:
             await asyncio.gather(task, return_exceptions=True)
         async with self._lock:

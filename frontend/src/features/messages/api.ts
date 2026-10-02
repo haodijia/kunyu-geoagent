@@ -45,7 +45,7 @@ export function appendUserMessage(
   idempotencyKey: string,
   input: {
     readonly content: string;
-    readonly delivery: "followup" | "steer";
+    readonly delivery: "followup" | "steer" | "queue";
     readonly connectionId: string;
     readonly modelId: string;
     readonly reasoningEffort: string | null;

@@ -153,6 +153,7 @@
   --color-fill-2: var(--bg-active);
   --color-fill-3: var(--bg-3);
   --color-text-3: var(--bg-6);
+  --color-text-2: var(--text-secondary);
   --color-text-4: var(--text-disabled);
   --color-border-2: var(--border-base);
   --radius: 0.5rem;
