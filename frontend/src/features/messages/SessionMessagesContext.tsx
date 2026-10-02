@@ -23,9 +23,10 @@ import {
   listAgentTurns,
   mergeAgentTurns,
   agentQueryKeys,
-  type AgentTurn
+  type AgentTurn,
+  type QueuedAgentDraft
 } from "@/features/agent/api";
-import { createMapContext } from "@/features/sessions/map-context";
+import { createMapContext, mapContextFromSnapshot } from "@/features/sessions/map-context";
 import { modelConnectionsApi } from "@/features/settings/models/api";
 import type {
   ModelCatalogEntry,
@@ -70,6 +71,7 @@ interface FrozenSubmission {
 function useMessages(sessionId: string, workspaceId: string) {
   const queryClient = useQueryClient();
   const draft = useAppUiStore((state) => state.composerDraftBySession[sessionId] ?? "");
+  const queuedDraft = useAppUiStore((state) => state.composerQueuedBySession[sessionId] === true);
   const mapContext = useAppUiStore(
     (state) => state.mapContextBySession[sessionId] ?? createMapContext(workspaceId)
   );
@@ -78,6 +80,7 @@ function useMessages(sessionId: string, workspaceId: string) {
   );
   const clearComposerDraft = useAppUiStore((state) => state.clearComposerDraft);
   const setComposerDraft = useAppUiStore((state) => state.setComposerDraft);
+  const restoreComposerDraft = useAppUiStore((state) => state.restoreComposerDraft);
   const setModelSelection = useAppUiStore((state) => state.setModelSelection);
   const { events } = useSessionEvents();
   const queryKey = useMemo(() => messageQueryKeys.session(sessionId), [sessionId]);
@@ -307,7 +310,7 @@ function useMessages(sessionId: string, workspaceId: string) {
     const submission: FrozenSubmission = {
       idempotencyKey: crypto.randomUUID(),
       content: draft,
-      delivery: delivery ?? (agentTurnsQuery.data?.some(
+      delivery: delivery ?? (queuedDraft ? "followup" : agentTurnsQuery.data?.some(
         (turn) => !["completed", "failed", "cancelled"].includes(turn.state)
       )
         ? "steer"
@@ -324,6 +327,7 @@ function useMessages(sessionId: string, workspaceId: string) {
 
   return {
     draft,
+    queuedDraft,
     mapContext,
     messagesQuery,
     connectionsQuery,
@@ -341,6 +345,15 @@ function useMessages(sessionId: string, workspaceId: string) {
       if (requestFrozen) return;
       mutation.reset();
       setComposerDraft(sessionId, value);
+    },
+    restoreDraft: (queued: QueuedAgentDraft) => {
+      if (requestFrozen || mutation.isPending) throw new Error("The composer already has an unresolved submission.");
+      if (queued.turn === null || queued.map_context.workspace_id !== workspaceId) throw new Error("Queued draft context does not belong to this workspace.");
+      const model = queued.turn.model_snapshot;
+      mutation.reset();
+      restoreComposerDraft(sessionId, queued.content, mapContextFromSnapshot(queued.map_context), {
+        connectionId: model.connection_id, modelId: model.model_id, reasoningEffort: model.reasoning_effort,
+      });
     },
     changeModel: (value: string) => {
       if (requestFrozen) return;

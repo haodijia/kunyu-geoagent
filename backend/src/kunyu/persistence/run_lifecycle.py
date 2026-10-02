@@ -104,7 +104,9 @@ class SQLAlchemyRunLifecycleRepository:
             count = int(database_session.scalar(statement) or 0)
         return count + self.pending_turn_count()
 
-    def list_pending_turn_sessions(self, limit: int | None = None) -> tuple[str, ...]:
+    def list_pending_turn_sessions(
+        self, limit: int | None = None, *, excluded: frozenset[str] = frozenset()
+    ) -> tuple[str, ...]:
         if limit == 0:
             return ()
         active_session = (
@@ -126,6 +128,8 @@ class SQLAlchemyRunLifecycleRepository:
             .group_by(MessageRecord.session_id)
             .order_by(func.min(MessageRecord.created_at), MessageRecord.session_id)
         )
+        if excluded:
+            statement = statement.where(~MessageRecord.session_id.in_(excluded))
         with self._database.sessions() as database_session:
             candidates = tuple(database_session.scalars(statement).all())
             ready = []

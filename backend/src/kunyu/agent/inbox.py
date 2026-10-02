@@ -194,6 +194,16 @@ class SessionInbox:
                 return
         raise InboxMessageNotFoundError(message_id)
 
+    async def take_queued(self, message_id: str) -> InboxMessagePayload:
+        state = await self.state()
+        for index, item in enumerate(state.next_turn):
+            if item.message_id == message_id:
+                if item.turn is None:
+                    raise RuntimeError("Queued input has no turn configuration.")
+                await self._discard_item("next-turn", item.turn.run_id, index)
+                return item
+        raise InboxMessageNotFoundError(message_id)
+
     async def cancel(self) -> None:
         state = await self.state()
         for message_id in (
