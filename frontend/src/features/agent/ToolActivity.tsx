@@ -5,6 +5,7 @@ import {
   LoaderCircle,
   PenLine,
   Search,
+  Sparkles,
   Wrench,
   X,
 } from "lucide-react";
@@ -134,7 +135,7 @@ function ToolCallRow({
           className="min-w-0 max-w-[35%] shrink truncate font-medium text-foreground"
           title={toolLabel(tool.name)}
         >
-          {tool.name}
+          {toolLabel(tool.name)}
         </span>
         <code className="min-w-0 flex-1 truncate font-mono text-xs text-secondary-foreground" title={preview}>
           {preview}
@@ -160,8 +161,8 @@ function ToolCallRow({
             </ToolDetail>
           ) : null}
           {tool.result !== null ? (
-            <ToolDetail label={content.output}>
-              {formatDetail(tool.result)}
+            <ToolDetail label={tool.name === "skill" ? zhCN.skills.instructions : content.output}>
+              {formatToolResult(tool)}
             </ToolDetail>
           ) : null}
           {tool.error_summary !== null ? (
@@ -270,7 +271,8 @@ export function toolLabel(name: string): string {
 
 function ToolKindIcon({ name }: { readonly name: string }) {
   const Icon =
-    name === "memory_read" ? Search : name === "memory_write" ? PenLine : Wrench;
+    name === "memory_read" ? Search : name === "memory_write" ? PenLine
+      : name === "skill" || name === "skill_resource" ? Sparkles : Wrench;
   return (
     <Icon
       className="size-3 shrink-0 text-secondary-foreground opacity-70"
@@ -282,7 +284,7 @@ function ToolKindIcon({ name }: { readonly name: string }) {
 
 function toolPreview(arguments_: ToolCall["arguments"]): string | undefined {
   for (const key of [
-    "command", "file_path", "path", "query", "pattern", "url", "prompt", "content",
+    "name", "command", "file_path", "path", "query", "pattern", "url", "prompt", "content",
   ]) {
     const value = arguments_[key];
     if (typeof value === "string" && value.length > 0) return value;
@@ -292,4 +294,13 @@ function toolPreview(arguments_: ToolCall["arguments"]): string | undefined {
 
 function formatDetail(value: unknown): string {
   return typeof value === "string" ? value : JSON.stringify(value, null, 2);
+}
+
+function formatToolResult(tool: ToolCall): string {
+  const result = tool.result;
+  if ((tool.name === "skill" || tool.name === "skill_resource") && result !== null
+    && typeof result === "object" && !Array.isArray(result) && "content" in result && typeof result.content === "string") {
+    return result.content;
+  }
+  return formatDetail(result);
 }

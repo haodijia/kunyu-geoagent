@@ -138,16 +138,22 @@ class ScopedEntries[T]:
         owner.effect(remove)
 
     def view(self, context: Context) -> dict[str, T]:
+        values: dict[str, T] = {}
+        for layer in self.layers(context):
+            values.update(layer)
+        return values
+
+    def layers(self, context: Context) -> tuple[dict[str, T], ...]:
+        """Global-to-nearest registration layers without collapsing ownership."""
         context.assert_active()
         chain: list[ScopeKey] = []
         cursor: ScopeKey | None = context.scope
         while cursor is not None:
             chain.append(cursor)
             cursor = cursor.parent
-        values: dict[str, T] = {}
-        for key in reversed(chain):
-            values.update(self._layers.get(key, {}))
-        return values
+        return tuple(
+            dict(self._layers[key]) for key in reversed(chain) if key in self._layers
+        )
 
 
 class AgentScopes:

@@ -26,6 +26,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Textarea } from "@/components/ui/textarea";
+import { SkillPicker } from "@/features/skills/SkillPicker";
 import { zhCN } from "@/locales/zh-CN";
 
 const content = zhCN.conversation;
@@ -41,6 +42,7 @@ export interface ComposerModelGroup {
 }
 
 interface ConversationComposerProps {
+  readonly sessionId: string;
   readonly compact?: boolean;
   readonly contextLabel: string;
   readonly draft: string;
@@ -64,6 +66,7 @@ interface ConversationComposerProps {
 }
 
 export function ConversationComposer({
+  sessionId,
   compact = false,
   contextLabel,
   draft,
@@ -155,6 +158,8 @@ export function ConversationComposer({
             <span className="truncate">{contextLabel}</span>
           </span>
           <div className="flex min-w-0 flex-wrap items-center justify-end gap-1">
+            <SkillPicker sessionId={sessionId} draft={draft} disabled={pending || draftFrozen}
+              onDraftChange={onDraftChange} />
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <button

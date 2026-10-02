@@ -17,6 +17,11 @@ from kunyu.agent.plugins.loop import AgentLoopPlugin
 from kunyu.agent.plugins.memory import MemoryToolsPlugin
 from kunyu.agent.scheduler import RunScheduler
 from kunyu.agent.session_agent import AgentDirectory
+from kunyu.agent.skills.plugin import (
+    FilesystemSkillsPlugin,
+    SkillPlugin,
+    SkillToolsPlugin,
+)
 from kunyu.application.confirmations import ConfirmationService
 from kunyu.application.connection_locks import ConnectionOperationLocks
 from kunyu.application.run_lifecycle import RunLifecycleService
@@ -67,6 +72,9 @@ async def create_agent_runtime(
         PromptPlugin(),
         ToolsPlugin(),
         MemoryToolsPlugin(),
+        SkillPlugin(),
+        FilesystemSkillsPlugin(),
+        SkillToolsPlugin(),
         TurnServicesPlugin(),
         *plugins,
         loop_plugin,

@@ -4,6 +4,7 @@ from pathlib import Path
 
 from kunyu.agent.runtime.context import (
     AgentContext,
+    ContextPreparationRegistry,
     PromptSection,
     PromptSectionRegistry,
 )
@@ -37,12 +38,15 @@ class ScopedAgentContextProvider:
         repository: RunContextRepository,
         prompts: PromptSectionRegistry,
         scope: Context,
+        preparers: ContextPreparationRegistry,
     ) -> None:
         self._repository = repository
         self._prompts = prompts
         self._scope = scope
+        self._preparers = preparers
 
     async def build(self, run_id: str) -> AgentContext:
+        await self._preparers.prepare(run_id, self._scope)
         source = self._repository.get(run_id)
         if source is None:
             raise RunContextNotFoundError(run_id)
@@ -89,7 +93,9 @@ def build_model_history(source: RunContextSource) -> tuple[ModelMessage, ...]:
             sequence=item.sequence,
             messages=(
                 ModelMessage(
-                    role=ModelRole.USER, content=item.content, context_source="injected"
+                    role=ModelRole.USER,
+                    content=item.content,
+                    context_source=item.producer,
                 ),
             ),
         )

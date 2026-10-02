@@ -106,7 +106,8 @@ function contextRecord(
     isError: false,
     source: {
       kind: "context",
-      producer: "injected",
+      producer: first.payload.producer,
+      metadata: first.payload.metadata,
       session_id: first.payload.session_id ?? null,
     },
     input: content,

@@ -1,5 +1,6 @@
 from sqlalchemy import select
 
+from kunyu.agent.runtime.events import ContextInjectedPayload
 from kunyu.agent.runtime.session_reducer import reduce_session
 from kunyu.domain.agent_context import InjectedContext, RunContextSource
 from kunyu.domain.sessions import Session
@@ -65,10 +66,14 @@ class SQLAlchemyRunContextRepository:
                 default=len(event_records) + 1,
             )
             injected_context = tuple(
-                InjectedContext(record.sequence, str(record.payload["content"]))
+                InjectedContext(
+                    record.sequence, payload.content, payload.producer, payload.metadata
+                )
                 for record in event_records
                 if record.event_type == "context.injected"
-                and record.sequence < next_turn_sequence
+                for payload in (ContextInjectedPayload.model_validate(record.payload),)
+                if record.sequence < next_turn_sequence
+                or payload.metadata.get("run_id") == run_id
             )
             return RunContextSource(
                 workspace=Workspace(

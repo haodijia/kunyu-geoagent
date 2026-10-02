@@ -62,7 +62,7 @@ export function attachRequestDetails(
         !isObject(message) ||
         !isObject(message.source) ||
         message.source.kind !== "context" ||
-        message.source.producer === "injected"
+        ["injected", "skill-catalog", "skill-invocation"].includes(String(message.source.producer))
       )
         return;
       const producer = String(message.source.producer);
