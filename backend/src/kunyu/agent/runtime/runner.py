@@ -141,7 +141,7 @@ class Runner[AdapterConfigT](AgentRuntime):
                     await self._fail_run(
                         run, "AGENT_EXTENSION_ERROR", "An Agent extension failed."
                     )
-                except Exception as settlement_error:
+                except Exception as settlement_error:  # noqa: BLE001 -- report extension and storage failures together
                     raise ExceptionGroup(
                         "Agent extension and durable settlement both failed.",
                         [error, settlement_error],

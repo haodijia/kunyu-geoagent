@@ -21,6 +21,9 @@ class QueueInteractionConfig:
             raise ValueError("Queue interaction limits must be positive.")
 
 
+DEFAULT_QUEUE_INTERACTION_CONFIG = QueueInteractionConfig()
+
+
 @dataclass(slots=True)
 class _Interaction:
     owner: Context

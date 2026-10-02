@@ -16,6 +16,8 @@ from pydantic import (
 )
 
 type NonNegativeInt = Annotated[int, Field(ge=0)]
+from kunyu.agent.runtime.retry_policy import RetryPolicy
+
 type PositiveInt = Annotated[int, Field(gt=0)]
 
 
@@ -172,6 +174,45 @@ class ModelSnapshotPayload(EventPayload):
     max_tokens_field: Literal["max_tokens", "max_completion_tokens"]
     include_usage: bool
     max_output_tokens: PositiveInt
+    retry_policy: RetryPolicy
+
+
+class RequestFailurePayload(EventPayload):
+    code: str
+    message: str
+    provider_retry_after_ms: float | None = Field(
+        default=None, gt=0, allow_inf_nan=False
+    )
+
+
+class RetryScheduledPayload(EventPayload):
+    retry_id: str
+    step: PositiveInt
+    attempt: PositiveInt
+    provider: str
+    mode: Literal["normal", "always"]
+    policy_key: str
+    retry: PositiveInt
+    max_retries: NonNegativeInt | None
+    delay_ms: float = Field(ge=0, allow_inf_nan=False)
+    failure: RequestFailurePayload
+
+    @model_validator(mode="after")
+    def validate_mode(self) -> Self:
+        if self.mode == "normal" and (
+            self.max_retries is None or self.retry > self.max_retries
+        ):
+            raise ValueError("Normal retry must remain within its policy budget.")
+        if self.mode == "always" and self.max_retries is not None:
+            raise ValueError("Always retry cannot contain a retry-count limit.")
+        return self
+
+
+class RetryStartedPayload(EventPayload):
+    retry_id: str
+    step: PositiveInt
+    attempt: PositiveInt
+    retry: PositiveInt
 
 
 class QueuedTurnPayload(EventPayload):
@@ -483,6 +524,16 @@ class BudgetReservedEvent(_RunEventDraft):
     payload: BudgetReservedPayload
 
 
+class RetryScheduledEvent(_RunEventDraft):
+    event_type: Literal["llm/retry"]
+    payload: RetryScheduledPayload
+
+
+class RetryStartedEvent(_RunEventDraft):
+    event_type: Literal["llm/retry-started"]
+    payload: RetryStartedPayload
+
+
 class BudgetSettledEvent(_RunEventDraft):
     event_type: Literal["run.budget_settled"]
     payload: BudgetSettledPayload
@@ -582,6 +633,8 @@ type EventDraft = Annotated[
     | RunModelSelectedEvent
     | RunProgressEvent
     | BudgetReservedEvent
+    | RetryScheduledEvent
+    | RetryStartedEvent
     | BudgetSettledEvent
     | RequestHeaderEvent
     | StepDecisionEvent

@@ -6,6 +6,7 @@ from typing import Literal, Protocol
 
 from kunyu.agent.runtime.events import ModelSnapshotPayload, StepMessagePayload
 from kunyu.agent.runtime.models import ModelOutput
+from kunyu.agent.runtime.retry_policy import RetryPolicy
 from kunyu.agent.runtime.run_state import ReducedRun
 
 
@@ -46,6 +47,9 @@ type StepDecision = EnterStep | RejectStep
 class RequestFailure:
     code: str
     message: str
+    provider: str | None = None
+    retry_policy: RetryPolicy | None = None
+    provider_retry_after_ms: float | None = None
 
 
 type RequestErrorAction = Literal["retry"] | None

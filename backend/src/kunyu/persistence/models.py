@@ -18,6 +18,8 @@ from sqlalchemy import (
 from sqlalchemy import text as sql_text
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
+from kunyu.agent.runtime.retry_policy import NormalRetryPolicy
+
 
 class Base(DeclarativeBase):
     pass
@@ -556,6 +558,11 @@ class ModelConnectionRecord(Base):
     max_tokens_field: Mapped[str] = mapped_column(String(32), nullable=False)
     include_usage: Mapped[bool] = mapped_column(Boolean, nullable=False)
     credential_status: Mapped[str] = mapped_column(String(32), nullable=False)
+    retry_policy: Mapped[dict[str, Any]] = mapped_column(
+        JSON,
+        nullable=False,
+        default=lambda: NormalRetryPolicy().model_dump(mode="json"),
+    )
     credential_configured: Mapped[bool] = mapped_column(Boolean, nullable=False)
     credential_updated_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True)

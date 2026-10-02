@@ -1,7 +1,10 @@
 import asyncio
 import json
+import math
 from collections.abc import AsyncIterator, Awaitable, Callable, Mapping
 from dataclasses import dataclass
+from datetime import UTC, datetime
+from email.utils import parsedate_to_datetime
 from urllib.parse import urlsplit
 
 import httpx
@@ -401,9 +404,17 @@ def _validate_response(response: httpx.Response) -> None:
             "The provider rejected the configured credential.",
         )
     if not 200 <= response.status_code < 300:
+        code = (
+            ModelErrorCode.PROVIDER_RATE_LIMIT
+            if response.status_code == 429
+            else ModelErrorCode.PROVIDER_SERVER
+            if response.status_code >= 500
+            else ModelErrorCode.INVALID_REQUEST
+        )
         raise ModelAdapterError(
-            ModelErrorCode.PROVIDER_PROTOCOL,
+            code,
             "The provider rejected the model request.",
+            provider_retry_after_ms=_retry_after(response.headers.get("retry-after")),
         )
     content_type = response.headers.get("content-type", "")
     if content_type.partition(";")[0].strip().lower() != "text/event-stream":
@@ -415,3 +426,19 @@ def _validate_response(response: httpx.Response) -> None:
 
 def _invalid_request(message: str) -> ModelAdapterError:
     return ModelAdapterError(ModelErrorCode.INVALID_REQUEST, message)
+
+
+def _retry_after(value: str | None) -> float | None:
+    if value is None:
+        return None
+    try:
+        milliseconds = float(value) * 1_000
+    except ValueError:
+        try:
+            date = parsedate_to_datetime(value)
+            if date.tzinfo is None:
+                return None
+            milliseconds = (date - datetime.now(UTC)).total_seconds() * 1_000
+        except (TypeError, ValueError, OverflowError):
+            return None
+    return milliseconds if math.isfinite(milliseconds) and milliseconds > 0 else None

@@ -16,6 +16,7 @@ from kunyu.agent.runtime.events import (
     BudgetReservedEvent,
     BudgetReservedPayload,
     EventDraft,
+    ModelSnapshotPayload,
     RequestHeaderEvent,
     RequestHeaderPayload,
     RunProgressEvent,
@@ -40,6 +41,7 @@ from kunyu.agent.runtime.model_attempt import (
 from kunyu.agent.runtime.models import (
     ModelAdapter,
     ModelAdapterError,
+    ModelErrorCode,
     ModelFinish,
     ModelFinishReason,
     ModelMessage,
@@ -324,6 +326,7 @@ class ModelStepExecutor[AdapterConfigT]:
                 reserved_milliseconds,
                 "PROVIDER_TIMEOUT",
                 "The model call exceeded its active-time slice.",
+                call_config,
             )
         except ModelAdapterError as error:
             return await self._handle_request_failure(
@@ -332,6 +335,8 @@ class ModelStepExecutor[AdapterConfigT]:
                 elapsed_milliseconds(started_ns, self._monotonic_ns()),
                 error.code.value,
                 str(error),
+                call_config,
+                error.provider_retry_after_ms,
             )
         except _ModelOutputError as error:
             return await self._handle_request_failure(
@@ -340,6 +345,7 @@ class ModelStepExecutor[AdapterConfigT]:
                 elapsed_milliseconds(started_ns, self._monotonic_ns()),
                 "PROVIDER_PROTOCOL",
                 str(error),
+                call_config,
             )
         except EventCommitError:
             raise
@@ -351,6 +357,7 @@ class ModelStepExecutor[AdapterConfigT]:
                 elapsed_milliseconds(started_ns, self._monotonic_ns()),
                 "MODEL_RUNTIME_ERROR",
                 "The model request failed unexpectedly.",
+                call_config,
             )
         finally:
             self._hooks.assistant_abandoned(run)
@@ -362,6 +369,8 @@ class ModelStepExecutor[AdapterConfigT]:
         elapsed: int,
         code: str,
         message: str,
+        call_config: ModelSnapshotPayload,
+        provider_retry_after_ms: float | None = None,
     ) -> str:
         await self._commit(
             run,
@@ -379,7 +388,15 @@ class ModelStepExecutor[AdapterConfigT]:
         )
         run = (await self._require_execution(run.run_id)).run
         action = await self._hooks.request_error(
-            run, RequestFailure(code, message), self._signal()
+            run,
+            RequestFailure(
+                code,
+                message,
+                call_config.connection_id,
+                call_config.retry_policy,
+                provider_retry_after_ms,
+            ),
+            self._signal(),
         )
         if action != "retry":
             self._hooks.error(run, RuntimeError(f"{code}: {message}"))
@@ -489,8 +506,13 @@ class ModelStepExecutor[AdapterConfigT]:
         finish = attempt.finish
         calls = tuple(attempt.tool_calls or ())
         if finish is ModelFinishReason.STOP:
-            if calls or attempt.buffer.content_length == 0:
+            if calls:
                 raise _ModelOutputError("Stop output has invalid content.")
+            if attempt.buffer.content_length == 0:
+                raise ModelAdapterError(
+                    ModelErrorCode.EMPTY_RESPONSE,
+                    "The provider returned an empty response.",
+                )
             validated: tuple[_PlannedToolCall, ...] = ()
         elif finish is ModelFinishReason.TOOL_CALLS:
             if not calls:

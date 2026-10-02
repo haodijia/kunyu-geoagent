@@ -98,6 +98,13 @@ export const zhCN = {
     back: "返回会话",
   },
   modelConnections: {
+    retryPolicy: {
+      title: "请求重试", help: "在同一对话步骤中重新连接模型。每次重试都是新的模型请求，仍受本次运行预算约束。",
+      label: "重试策略", mode: "重试方式", normal: "按错误类型重试", always: "持续重试",
+      normalSummary: (count: number) => `最多重试 ${count} 次`, limit: "最多重试次数", codes: "可重试错误（以逗号分隔）",
+      initial: "初始等待（毫秒）", maximum: "最长等待（毫秒）", jitter: "抖动比例（0–1）",
+      invalid: "请填写有效的等待时间、次数和错误类型；初始等待不能超过最长等待。",
+    },
     title: "模型",
     description: "管理模型供应商、访问凭据与可用模型。",
     connections: "模型连接",
@@ -255,6 +262,11 @@ export const zhCN = {
     mapEmptyDescription: "会话产生空间数据后，相关图层将在这里显示。",
   },
   conversation: {
+    modelRetry: {
+      waiting: (retry: number, maximum: number | null, seconds: number) => `连接暂时中断，${seconds} 秒后重试 · ${retry}${maximum === null ? "" : `/${maximum}`}`,
+      connecting: (retry: number, maximum: number | null) => `正在重新连接 · ${retry}${maximum === null ? "" : `/${maximum}`}`,
+      scheduled: (retry: number, delay: number) => `请求重试 ${retry} · 等待 ${Math.round(delay)} 毫秒`,
+    },
     copy: "复制",
     copied: "已复制",
     copyFailed: "复制失败，请重试。",

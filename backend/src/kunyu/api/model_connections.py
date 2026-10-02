@@ -4,6 +4,7 @@ from typing import Annotated, Literal, Self
 from fastapi import APIRouter, Depends, Query, Request, Response, status
 from pydantic import BaseModel, ConfigDict, Field
 
+from kunyu.agent.runtime.retry_policy import NormalRetryPolicy, RetryPolicy
 from kunyu.api.dependencies import (
     get_connection_operation_locks,
     get_database,
@@ -74,6 +75,7 @@ class CreateModelConnectionRequest(BaseModel):
     auth_mode: ModelAuthMode
     max_tokens_field: MaxTokensField
     include_usage: bool
+    retry_policy: RetryPolicy = NormalRetryPolicy()
 
 
 class UpdateModelConnectionRequest(BaseModel):
@@ -87,6 +89,7 @@ class UpdateModelConnectionRequest(BaseModel):
     default_model_id: str | None = Field(default=None, max_length=256)
     max_tokens_field: MaxTokensField | None = None
     include_usage: bool | None = None
+    retry_policy: RetryPolicy | None = None
     is_default: Literal[False] | None = None
 
 
@@ -191,6 +194,7 @@ class ModelConnectionResponse(BaseModel):
     enabled_model_ids: list[str]
     max_tokens_field: MaxTokensField
     include_usage: bool
+    retry_policy: RetryPolicy
     credential: CredentialResponse
     management_status: ManagementStatus
     discovery: DiscoveryResponse
@@ -214,6 +218,7 @@ class ModelConnectionResponse(BaseModel):
             enabled_model_ids=list(connection.enabled_model_ids),
             max_tokens_field=connection.max_tokens_field,
             include_usage=connection.include_usage,
+            retry_policy=connection.retry_policy,
             credential=CredentialResponse(
                 status=connection.credential.status,
                 configured=connection.credential.configured,
@@ -353,6 +358,7 @@ async def create_model_connection(
             auth_mode=request.auth_mode,
             max_tokens_field=request.max_tokens_field,
             include_usage=request.include_usage,
+            retry_policy=request.retry_policy,
         )
     except InvalidModelConnectionError as error:
         raise _invalid_input(error) from error

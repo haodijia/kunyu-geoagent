@@ -4,6 +4,11 @@ from datetime import UTC, datetime
 from urllib.parse import SplitResult, urlsplit, urlunsplit
 from uuid import uuid4
 
+from kunyu.agent.runtime.retry_policy import (
+    DEFAULT_RETRY_POLICY,
+    RETRY_POLICY,
+    RetryPolicy,
+)
 from kunyu.application.connection_locks import ConnectionOperationLocks
 from kunyu.application.run_lifecycle import RunLifecycleService
 from kunyu.domain.model_connections import (
@@ -37,6 +42,7 @@ EXECUTION_FIELDS = {
     "include_usage",
 }
 PATCH_FIELDS = EXECUTION_FIELDS | {
+    "retry_policy",
     "display_name",
     "enabled",
     "enabled_model_ids",
@@ -89,6 +95,7 @@ class ModelConnectionService:
         auth_mode: ModelAuthMode,
         max_tokens_field: MaxTokensField,
         include_usage: bool,
+        retry_policy: RetryPolicy = DEFAULT_RETRY_POLICY,
     ) -> ModelConnection:
         if protocol is not ModelProtocol.OPENAI_COMPATIBLE:
             raise InvalidModelConnectionError("Unsupported model protocol.")
@@ -134,6 +141,7 @@ class ModelConnectionService:
             catalog=(),
             created_at=now,
             updated_at=now,
+            retry_policy=RETRY_POLICY.validate_python(retry_policy),
         )
         return self._repository.add(connection)
 
@@ -176,11 +184,16 @@ class ModelConnectionService:
             "max_tokens_field",
             "include_usage",
             "is_default",
+            "retry_policy",
         ):
             if field in values and values[field] is None:
                 raise InvalidModelConnectionError(f"'{field}' must not be null.")
         if "display_name" in values:
             values["display_name"] = _normalize_display_name(values["display_name"])
+        if "retry_policy" in values:
+            values["retry_policy"] = RETRY_POLICY.validate_python(
+                values["retry_policy"]
+            )
         if "base_url" in values:
             values["base_url"] = _normalize_base_url(values["base_url"])
         if "auth_mode" in values and not isinstance(values["auth_mode"], ModelAuthMode):

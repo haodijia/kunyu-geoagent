@@ -21,6 +21,8 @@ from kunyu.agent.runtime.events import (
     ModelAttemptFinishedEvent,
     RequestHeaderEvent,
     ResumePhase,
+    RetryScheduledEvent,
+    RetryStartedEvent,
     RunCreatedEvent,
     RunModelSelectedEvent,
     RunProgressEvent,
@@ -34,6 +36,7 @@ from kunyu.agent.runtime.events import (
     UserMessageAppendedEvent,
     validate_event_draft,
 )
+from kunyu.agent.runtime.retry_policy import NormalRetryPolicy, retry_policy_key
 from kunyu.agent.runtime.run_state import (
     AssistantStatus,
     ReducedAssistant,
@@ -204,6 +207,8 @@ def _apply(state: _State, event: EventDraft, sequence: int) -> None:
         _complete_assistant(state, event, sequence)
     elif isinstance(event, ModelAttemptFinishedEvent):
         _finish_model_attempt(state, event, sequence)
+    elif isinstance(event, (RetryScheduledEvent, RetryStartedEvent)):
+        _retry_boundary(state, event)
     elif isinstance(event, ToolRequestedEvent):
         _request_tool(state, event, sequence)
     elif isinstance(event, ToolProgressEvent):
@@ -841,6 +846,70 @@ def _resolve_confirmation(
     confirmation.updated_at = event.occurred_at
     confirmation.updated_sequence = sequence
     state.requires_resume = False
+
+
+def _retry_boundary(
+    state: _State, event: RetryScheduledEvent | RetryStartedEvent
+) -> None:
+    payload = event.payload
+    if state.state is not RunState.MODEL_RUNNING or (payload.step, payload.attempt) != (
+        state.step,
+        state.attempt,
+    ):
+        raise RunReductionError(
+            "Retry must belong to the current failed model attempt."
+        )
+    assistant = _attempt_assistant(state, state.step, state.attempt)
+    if assistant.status != "failed" or assistant.model_outcome != "error":
+        raise RunReductionError("Retry requires a durably settled request failure.")
+    key = (payload.retry_id, payload.retry)
+    if isinstance(event, RetryScheduledEvent):
+        config = state.request_snapshot
+        if config is None:
+            raise RunReductionError("Retry requires the actual request configuration.")
+        policy = config.retry_policy
+        if (
+            payload.provider != config.connection_id
+            or payload.policy_key != retry_policy_key(policy)
+            or payload.mode != policy.mode
+            or payload.max_retries
+            != (policy.max_retries if isinstance(policy, NormalRetryPolicy) else None)
+            or payload.delay_ms > policy.max_delay_ms
+        ):
+            raise RunReductionError(
+                "Retry must match the failed request's provider policy."
+            )
+        previous = [
+            plan
+            for plan in state.retry_plans
+            if (plan.step, plan.provider, plan.policy_key)
+            == (payload.step, payload.provider, payload.policy_key)
+        ]
+        expected = previous[-1].retry + 1 if previous else 1
+        if payload.retry != expected or (
+            previous and payload.retry_id != previous[-1].retry_id
+        ):
+            raise RunReductionError(
+                "Retry numbering and identity must continue the current provider policy."
+            )
+        if any(
+            (plan.step, plan.attempt) == (payload.step, payload.attempt)
+            for plan in state.retry_plans
+        ):
+            raise RunReductionError("A failed attempt may schedule only one retry.")
+        state.retry_plans.append(payload)
+    else:
+        plan = next(
+            (plan for plan in state.retry_plans if (plan.retry_id, plan.retry) == key),
+            None,
+        )
+        if (
+            plan is None
+            or (plan.step, plan.attempt) != (payload.step, payload.attempt)
+            or key in state.started_retries
+        ):
+            raise RunReductionError("Retry start must identify one unstarted plan.")
+        state.started_retries.add(key)
 
 
 def _finish_run(state: _State, event: RunTerminalEvent, sequence: int) -> None:

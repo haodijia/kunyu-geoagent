@@ -15,6 +15,7 @@ import { CopyButton } from "./CopyButton";
 import { MessageMarkdown } from "./MessageMarkdown";
 import { MessageReasoning } from "./MessageReasoning";
 import { collectMessageReasoning } from "./reasoning";
+import { ModelRetryStatus } from "./ModelRetryStatus";
 
 const content = zhCN.conversation;
 const timeFormatter = new Intl.DateTimeFormat("zh-CN", {
@@ -184,6 +185,7 @@ export function MessageList({
           </article>
         );
       })}
+      <ModelRetryStatus turns={turns} />
       {footer}
       <div ref={endRef} />
       {awayFromEnd && (
