@@ -7,7 +7,7 @@ import type { MessageStatus, SessionMessage } from "@/features/messages/api";
 import type { AgentTurn, ToolCall } from "@/features/agent/api";
 import type { Confirmation } from "@/features/confirmations/api";
 import { conversationSlots } from "@/features/conversation/slots";
-import { pendingSteeringMessages } from "@/features/conversation/inbox";
+import { pendingInboxMessages } from "@/features/conversation/inbox";
 import { useSessionEvents } from "@/features/events/SessionEventContext";
 import { SessionEmptyState } from "@/features/sessions/SessionEmptyState";
 import { zhCN } from "@/locales/zh-CN";
@@ -44,7 +44,7 @@ export function MessageList({
 }: MessageListProps) {
   const { records } = useSessionEvents();
   const reasoningByMessage = useMemo(() => collectMessageReasoning(records), [records]);
-  const pendingSteering = useMemo(() => pendingSteeringMessages(records), [records]);
+  const pendingSteering = useMemo(() => pendingInboxMessages(records, "next-step"), [records]);
   const timeline = useMemo(() => {
     const sequenceByMessage = new Map<string, number>();
     for (const record of records) {
@@ -54,7 +54,7 @@ export function MessageList({
     }
     const results = new Map(records.filter((record) => record.eventType === "command/done").map((record) => [record.entityId, record]));
     return [
-      ...messages.map((message) => ({ kind: "message" as const, id: message.id, sequence: sequenceByMessage.get(message.id) ?? message.updated_sequence, message })),
+      ...messages.filter((message) => message.role !== "user" || message.run_id !== null).map((message) => ({ kind: "message" as const, id: message.id, sequence: sequenceByMessage.get(message.id) ?? message.updated_sequence, message })),
       ...records.filter((record) => record.eventType === "command/run").map((record) => ({ kind: "command" as const, id: record.entityId, sequence: record.sequence, record, result: results.get(record.entityId) })),
     ].sort((left, right) => left.sequence - right.sequence);
   }, [messages, records]);

@@ -7,6 +7,7 @@ from kunyu.domain.runs import NONTERMINAL_RUN_STATE_VALUES, UnfinishedRunConflic
 from kunyu.domain.workspaces import Workspace
 from kunyu.persistence.database import Database
 from kunyu.persistence.models import (
+    MessageRecord,
     RunRecord,
     SessionArchiveRecord,
     SessionRecord,
@@ -50,7 +51,21 @@ class SQLAlchemyWorkspaceRepository:
                 )
                 .limit(1)
             )
-            if unfinished is not None:
+            pending = session.scalar(
+                select(MessageRecord.id)
+                .join(
+                    SessionRecord,
+                    SessionRecord.id == MessageRecord.session_id,
+                )
+                .where(
+                    SessionRecord.workspace_id == workspace_id,
+                    MessageRecord.role == "user",
+                    MessageRecord.run_id.is_(None),
+                    MessageRecord.status == "completed",
+                )
+                .limit(1)
+            )
+            if unfinished is not None or pending is not None:
                 raise UnfinishedRunConflictError(
                     "Cancel unfinished runs before removing this workspace."
                 )

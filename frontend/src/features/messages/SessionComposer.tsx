@@ -6,6 +6,7 @@ import { cancelAgent, agentQueryKeys } from "@/features/agent/api";
 import { useSessionWorkspace } from "@/features/sessions/SessionWorkspaceContext";
 import { zhCN } from "@/locales/zh-CN";
 import { ConversationComposer } from "./ConversationComposer";
+import { QueuedMessages } from "./QueuedMessages";
 import { type ComposerModelGroup, type ModelPickerPane } from "./composer/ComposerModelPicker";
 import { useComposerCommands } from "./composer/useComposerCommands";
 import { useSessionMessages } from "./SessionMessagesContext";
@@ -122,6 +123,8 @@ export function SessionComposer() {
   const { latitude, longitude, zoom } = mapContext.viewport;
 
   return (
+    <>
+    <QueuedMessages />
     <ConversationComposer
       contextLabel={zhCN.conversation.mapViewport(
         longitude.toFixed(4),
@@ -141,7 +144,8 @@ export function SessionComposer() {
       onCommand={commandState.execute}
       modelPickerPane={modelPickerPane}
       onModelPickerPaneChange={setModelPickerPane}
-      onSubmit={sendMessage}
+      onSubmit={() => sendMessage()}
+      onQueue={() => sendMessage("followup")}
       pending={mutation.isPending}
       running={
         activeTurn !== undefined &&
@@ -174,5 +178,6 @@ export function SessionComposer() {
       onReasoningEffortChange={changeReasoningEffort}
       onStop={() => stopMutation.mutate()}
     />
+    </>
   );
 }

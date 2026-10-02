@@ -94,7 +94,7 @@ class MapContextRequest(BaseModel):
 
 class AcceptedMessageResponse(BaseModel):
     message: "MessageResponse"
-    turn: AgentTurnResponse
+    turn: AgentTurnResponse | None
 
 
 class MessageResponse(BaseModel):
@@ -249,7 +249,7 @@ async def append_message(
         raise ApiError(503, "SHUTTING_DOWN", str(error)) from error
     return AcceptedMessageResponse(
         message=MessageResponse.from_domain(result.message),
-        turn=AgentTurnResponse.from_details(result.run),
+        turn=None if result.run is None else AgentTurnResponse.from_details(result.run),
     )
 
 

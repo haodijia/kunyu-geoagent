@@ -69,6 +69,7 @@ class RunScheduler:
             await self._lifecycle.recover_startup()
             self._next_queue_sequence = self._repository.next_queue_sequence()
             self._started = True
+            self._wake_dispatcher()
 
     async def shutdown(self) -> None:
         self.begin_shutdown()
@@ -240,6 +241,14 @@ class RunScheduler:
                 available,
                 frozenset((*self._active, *self._blocked)),
             )
+            for session_id in self._repository.list_pending_turn_sessions(
+                available - len(run_ids)
+            ):
+                claimed = self._acceptance.claim_next_turn(session_id)
+                if claimed is not None:
+                    if claimed.run is None:
+                        raise RuntimeError("Claimed input must create a turn.")
+                    run_ids += (claimed.run.run.id,)
             for run_id in run_ids:
                 task = asyncio.create_task(self._execute(run_id))
                 self._active[run_id] = task

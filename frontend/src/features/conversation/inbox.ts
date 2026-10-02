@@ -1,9 +1,10 @@
 import type { TrajectoryEventProjection } from "@/features/events/projection";
 
-export function pendingSteeringMessages(records: readonly TrajectoryEventProjection[]): ReadonlySet<string> {
+export function pendingInboxMessages(records: readonly TrajectoryEventProjection[], target: "next-step" | "next-turn"): ReadonlySet<string> {
   const pending: string[] = [];
   for (const record of records) {
     if (record.eventType !== "agent/inbox/spliced") continue;
+    if (record.payload.target !== target) continue;
     const { start, delete_count: count, messages } = record.payload;
     if (!Number.isSafeInteger(start) || !Number.isSafeInteger(count) || !Array.isArray(messages)) {
       throw new Error("Invalid inbox splice.");
@@ -14,7 +15,10 @@ export function pendingSteeringMessages(records: readonly TrajectoryEventProject
       }
       return message.message_id;
     });
-    pending.splice(start as number, count as number, ...inserted);
+    const offset = start as number;
+    const deleted = count as number;
+    if (offset < 0 || deleted < 0 || offset + deleted > pending.length) throw new Error("Invalid inbox splice boundary.");
+    pending.splice(offset, deleted, ...inserted);
   }
   return new Set(pending);
 }

@@ -104,5 +104,5 @@ export function injectSessionContext(
 
 export interface AcceptedMessage {
   readonly message: SessionMessage;
-  readonly turn: AgentTurn;
+  readonly turn: AgentTurn | null;
 }

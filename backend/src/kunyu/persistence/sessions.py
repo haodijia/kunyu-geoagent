@@ -12,6 +12,7 @@ from kunyu.domain.sessions import (
 )
 from kunyu.persistence.database import Database
 from kunyu.persistence.models import (
+    MessageRecord,
     RunRecord,
     SessionArchiveRecord,
     SessionEventRecord,
@@ -217,7 +218,23 @@ def _require_no_unfinished_run(
         )
     else:
         raise ValueError("A session or workspace scope is required.")
-    if session.scalar(statement.limit(1)) is not None:
+    pending = select(MessageRecord.id).where(
+        MessageRecord.role == "user",
+        MessageRecord.run_id.is_(None),
+        MessageRecord.status == "completed",
+    )
+    if session_id is not None:
+        pending = pending.where(MessageRecord.session_id == session_id)
+    else:
+        pending = pending.join(
+            SessionRecord, SessionRecord.id == MessageRecord.session_id
+        ).where(
+            SessionRecord.workspace_id == workspace_id,
+        )
+    if (
+        session.scalar(statement.limit(1)) is not None
+        or session.scalar(pending.limit(1)) is not None
+    ):
         raise UnfinishedRunConflictError(
             "Cancel the unfinished run before changing this session."
         )

@@ -7,6 +7,7 @@ from dataclasses import replace
 from kunyu.agent.runtime.events import (
     TERMINAL_RUN_STATES,
     AgentEvent,
+    InboxMessagePayload,
     InboxSplicedEvent,
     RunState,
     SessionCreatedEvent,
@@ -30,6 +31,7 @@ def reduce_session(events: Iterable[AgentEvent]) -> ReducedSession:
     expected_sequence = 1
     user_messages: dict[str, ReducedUserMessage] = {}
     next_step: list[str] = []
+    next_turn: list[InboxMessagePayload] = []
     run_events: dict[str, list[AgentEvent]] = defaultdict(list)
 
     for envelope in events:
@@ -75,7 +77,13 @@ def reduce_session(events: Iterable[AgentEvent]) -> ReducedSession:
 
         if isinstance(event, UserMessageAppendedEvent):
             message_id = event.payload.message_id
-            if message_id in user_messages:
+            previous = user_messages.get(message_id)
+            if previous is not None and not (
+                previous.applied_step == 0
+                and previous.run_id == event.run_id
+                and previous.content == event.payload.content
+                and not previous.discarded
+            ):
                 raise SessionReductionError(
                     f"User message '{message_id}' was appended more than once."
                 )
@@ -86,10 +94,20 @@ def reduce_session(events: Iterable[AgentEvent]) -> ReducedSession:
                 content=event.payload.content,
                 created_at=event.occurred_at,
                 created_sequence=envelope.sequence,
+                updated_sequence=envelope.sequence,
             )
 
-        if isinstance(event, InboxSplicedEvent):
+        if isinstance(event, InboxSplicedEvent) and event.payload.target == "next-turn":
+            _splice_next_turn(
+                event, envelope.sequence, next_turn, user_messages, run_events
+            )
+
+        if isinstance(event, InboxSplicedEvent) and event.payload.target == "next-step":
             payload = event.payload
+            if any(item.turn is not None for item in payload.messages):
+                raise SessionReductionError(
+                    "Steering input cannot create future turns."
+                )
             if payload.target_run_id not in run_events:
                 raise SessionReductionError(
                     "Inbox input must belong to an existing run."
@@ -129,6 +147,7 @@ def reduce_session(events: Iterable[AgentEvent]) -> ReducedSession:
                         message,
                         applied_step=payload.step,
                         discarded=payload.disposition == "discard",
+                        updated_sequence=envelope.sequence,
                     )
             elif (
                 not payload.messages
@@ -151,6 +170,7 @@ def reduce_session(events: Iterable[AgentEvent]) -> ReducedSession:
                     content=message.content,
                     created_at=event.occurred_at,
                     created_sequence=envelope.sequence,
+                    updated_sequence=envelope.sequence,
                     delivery="steer",
                     map_context=message.map_context,
                 )
@@ -221,4 +241,76 @@ def reduce_session(events: Iterable[AgentEvent]) -> ReducedSession:
         ),
         runs=tuple(sorted(runs, key=lambda item: item.created_sequence)),
         next_step=tuple(next_step),
+        next_turn=tuple(next_turn),
     )
+
+
+def _splice_next_turn(
+    event: InboxSplicedEvent,
+    sequence: int,
+    pending: list[InboxMessagePayload],
+    messages: dict[str, ReducedUserMessage],
+    runs: dict[str, list[AgentEvent]],
+) -> None:
+    payload = event.payload
+    stop = payload.start + payload.delete_count
+    if payload.start > len(pending) or stop > len(pending) or payload.step is not None:
+        raise SessionReductionError("Invalid next-turn splice boundary.")
+    removed = pending[payload.start : stop]
+    if removed:
+        if payload.messages or payload.disposition is None:
+            raise SessionReductionError("Queued input removal requires a disposition.")
+        for item in removed:
+            if item.turn is None or item.turn.run_id != payload.target_run_id:
+                raise SessionReductionError(
+                    "Queued input removal crosses turn identity."
+                )
+            if payload.disposition == "claim" and (
+                payload.start != 0
+                or len(removed) != 1
+                or any(
+                    reduce_run(events).state not in TERMINAL_RUN_STATES
+                    for events in runs.values()
+                )
+            ):
+                raise SessionReductionError(
+                    "Only an idle session can claim its first queued input."
+                )
+            messages[item.message_id] = replace(
+                messages[item.message_id],
+                run_id=payload.target_run_id
+                if payload.disposition == "claim"
+                else None,
+                applied_step=0 if payload.disposition == "claim" else None,
+                discarded=payload.disposition == "discard",
+                updated_sequence=sequence,
+            )
+    elif len(payload.messages) != 1 or payload.disposition is not None:
+        raise SessionReductionError(
+            "Queued input insertion must contain one unclaimed message."
+        )
+    for item in payload.messages:
+        if (
+            item.turn is None
+            or item.turn.run_id != payload.target_run_id
+            or item.turn.run_id in runs
+            or item.message_id in messages
+            or any(
+                existing.turn.run_id == item.turn.run_id
+                for existing in pending
+                if existing.turn is not None
+            )
+        ):
+            raise SessionReductionError(
+                "Queued input requires unique message and future turn identities."
+            )
+        messages[item.message_id] = ReducedUserMessage(
+            message_id=item.message_id,
+            session_id=event.session_id,
+            run_id=None,
+            content=item.content,
+            created_at=event.occurred_at,
+            created_sequence=sequence,
+            updated_sequence=sequence,
+        )
+    pending[payload.start : stop] = payload.messages

@@ -2,25 +2,19 @@ from datetime import datetime
 from typing import cast
 
 from sqlalchemy import select, text
+from sqlalchemy.orm import Session
 
 from kunyu.agent.runtime.events import (
     BudgetLimitsPayload,
-    BudgetUsagePayload,
     EventBatch,
     InboxMessagePayload,
     InboxSplicedEvent,
     InboxSplicedPayload,
     ModelSnapshotPayload,
-    RunCreatedEvent,
-    RunCreatedPayload,
-    RunModelSelectedEvent,
-    RunModelSelectedPayload,
-    RunProgressEvent,
-    RunProgressPayload,
-    UserMessageAppendedEvent,
-    UserMessageAppendedPayload,
+    QueuedTurnPayload,
 )
 from kunyu.agent.runtime.session_reducer import reduce_session
+from kunyu.agent.runtime.session_state import ReducedSession
 from kunyu.domain.messages import Message, MessageRole, MessageStatus
 from kunyu.domain.model_connections import ModelAuthMode
 from kunyu.domain.run_acceptance import (
@@ -55,6 +49,7 @@ from kunyu.persistence.models import (
     WorkspaceRecord,
     WorkspaceRemovalRecord,
 )
+from kunyu.persistence.run_admission import turn_events
 from kunyu.persistence.time import as_utc
 
 MAX_MODEL_CALLS = 8
@@ -147,17 +142,6 @@ class SQLAlchemyRunAcceptanceRepository:
                 raise InvalidMapContextError(
                     "The map context does not belong to the current workspace."
                 )
-            active_run = database_session.scalar(
-                select(RunRecord.id).where(
-                    RunRecord.session_id == request.session_id,
-                    RunRecord.state.in_(NONTERMINAL_RUN_STATE_VALUES),
-                )
-            )
-            if active_run is not None:
-                raise RunAcceptanceConflictError(
-                    "The session already has an unfinished run."
-                )
-
             selection = request.model_selection
             connection = database_session.get(
                 ModelConnectionRecord, selection.connection_id
@@ -196,61 +180,29 @@ class SQLAlchemyRunAcceptanceRepository:
                 active_milliseconds=MAX_ACTIVE_MILLISECONDS,
                 output_codepoints=MAX_OUTPUT_CODEPOINTS,
             )
+            state = _session_state(database_session, request.session_id)
             events = (
-                UserMessageAppendedEvent(
+                InboxSplicedEvent(
                     session_id=request.session_id,
-                    run_id=run_id,
-                    event_type="message.user.appended",
-                    payload=UserMessageAppendedPayload(
-                        message_id=message_id,
-                        role="user",
-                        content=request.content,
-                        run_id=run_id,
-                    ),
-                    occurred_at=occurred_at,
-                ),
-                RunCreatedEvent(
-                    session_id=request.session_id,
-                    run_id=run_id,
-                    event_type="run.created",
-                    payload=RunCreatedPayload(
-                        user_message_id=message_id,
-                        model_snapshot=model_snapshot,
-                        map_snapshot=request.map_context,
-                        scene_snapshot=None,
-                        budget_limits=budget_limits,
-                    ),
-                    occurred_at=occurred_at,
-                ),
-                RunModelSelectedEvent(
-                    session_id=request.session_id,
-                    run_id=run_id,
-                    event_type="run.model_selected",
-                    payload=RunModelSelectedPayload(
-                        user_message_id=message_id,
-                        model_snapshot=model_snapshot,
-                        budget_limits=budget_limits,
-                    ),
-                    occurred_at=occurred_at,
-                ),
-                RunProgressEvent(
-                    session_id=request.session_id,
-                    run_id=run_id,
-                    event_type="run.queued",
-                    payload=RunProgressPayload(
-                        step=0,
-                        attempt=0,
-                        resume_phase="model",
-                        next_tool_index=0,
-                        requires_resume=False,
-                        queue_sequence=queue_sequence,
-                        reason=None,
-                        budget=BudgetUsagePayload(
-                            model_calls=0,
-                            tool_calls=0,
-                            active_milliseconds=0,
-                            output_codepoints=0,
-                        ),
+                    event_type="agent/inbox/spliced",
+                    payload=InboxSplicedPayload(
+                        target="next-turn",
+                        target_run_id=run_id,
+                        start=len(state.next_turn),
+                        delete_count=0,
+                        messages=[
+                            InboxMessagePayload(
+                                message_id=message_id,
+                                content=request.content,
+                                map_context=request.map_context,
+                                turn=QueuedTurnPayload(
+                                    run_id=run_id,
+                                    queue_sequence=queue_sequence,
+                                    model_snapshot=model_snapshot,
+                                    budget_limits=budget_limits,
+                                ),
+                            )
+                        ],
                     ),
                     occurred_at=occurred_at,
                 ),
@@ -259,7 +211,7 @@ class SQLAlchemyRunAcceptanceRepository:
                 database_session,
                 EventBatch(
                     session_id=request.session_id,
-                    run_id=run_id,
+                    run_id=None,
                     events=events,
                 ),
             )
@@ -387,6 +339,7 @@ class SQLAlchemyRunAcceptanceRepository:
                             session_id=request.session_id,
                             event_type="agent/inbox/spliced",
                             payload=InboxSplicedPayload(
+                                target="next-step",
                                 target_run_id=run_id,
                                 start=len(state.next_step),
                                 delete_count=0,
@@ -416,6 +369,54 @@ class SQLAlchemyRunAcceptanceRepository:
             session.updated_at = occurred_at
             database_session.commit()
         return self._load_result(message_id, run_id)
+
+    def claim_next_turn(
+        self, session_id: str, occurred_at: datetime
+    ) -> RunAcceptanceResult | None:
+        with self._database.sessions() as database_session:
+            database_session.execute(text("BEGIN IMMEDIATE"))
+            if (
+                database_session.scalar(
+                    select(RunRecord.id).where(
+                        RunRecord.session_id == session_id,
+                        RunRecord.state.in_(NONTERMINAL_RUN_STATE_VALUES),
+                    )
+                )
+                is not None
+            ):
+                return None
+            state = _session_state(database_session, session_id)
+            if not state.next_turn:
+                return None
+            item = state.next_turn[0]
+            turn = item.turn
+            if turn is None:
+                raise RuntimeError("Queued input has no turn configuration.")
+            self._projections.commit_in_transaction(
+                database_session,
+                EventBatch(
+                    session_id=session_id,
+                    run_id=None,
+                    events=(
+                        InboxSplicedEvent(
+                            session_id=session_id,
+                            event_type="agent/inbox/spliced",
+                            payload=InboxSplicedPayload(
+                                target="next-turn",
+                                target_run_id=turn.run_id,
+                                start=0,
+                                delete_count=1,
+                                messages=[],
+                                disposition="claim",
+                            ),
+                            occurred_at=occurred_at,
+                        ),
+                        *turn_events(session_id, item, occurred_at),
+                    ),
+                ),
+            )
+            database_session.commit()
+        return self._load_result(item.message_id, turn.run_id)
 
     @staticmethod
     def _validate_model(
@@ -461,9 +462,15 @@ class SQLAlchemyRunAcceptanceRepository:
             message_record = database_session.get(MessageRecord, message_id)
             run_record = database_session.get(RunRecord, run_id)
             snapshot_record = database_session.get(RunModelSnapshotRecord, run_id)
-            if message_record is None or run_record is None or snapshot_record is None:
-                raise RuntimeError("Accepted message projections are incomplete.")
+            if message_record is None:
+                raise RuntimeError("Accepted message projection is missing.")
             message = _message_to_domain(message_record)
+            if run_record is None:
+                if message_record.run_id is not None:
+                    raise RuntimeError("Accepted turn projection is missing.")
+                return RunAcceptanceResult(message=message, run=None)
+            if snapshot_record is None:
+                raise RuntimeError("Accepted model snapshot is missing.")
             run = run_records.run_to_domain(run_record)
             snapshot = run_records.snapshot_to_domain(snapshot_record)
             tool_records = database_session.scalars(
@@ -504,3 +511,12 @@ def _message_to_domain(record: MessageRecord) -> Message:
         created_at=as_utc(record.created_at),
         updated_at=as_utc(record.updated_at),
     )
+
+
+def _session_state(database_session: Session, session_id: str) -> ReducedSession:
+    records = database_session.scalars(
+        select(SessionEventRecord)
+        .where(SessionEventRecord.session_id == session_id)
+        .order_by(SessionEventRecord.sequence)
+    ).all()
+    return reduce_session(run_records.event_to_domain(record) for record in records)

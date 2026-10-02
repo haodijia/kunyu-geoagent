@@ -60,6 +60,9 @@ class RunAcceptanceService:
             occurred_at=self._clock(),
         )
 
+    def claim_next_turn(self, session_id: str) -> RunAcceptanceResult | None:
+        return self._repository.claim_next_turn(session_id, self._clock())
+
 
 def _new_message_id() -> str:
     return f"msg_{uuid4().hex}"

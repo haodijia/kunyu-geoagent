@@ -99,21 +99,6 @@ class ContextInjectedPayload(EventPayload):
     metadata: dict[str, JsonValue] = Field(default_factory=dict)
 
 
-class InboxMessagePayload(EventPayload):
-    message_id: str = Field(min_length=1, max_length=64)
-    content: str = Field(min_length=1, max_length=32_768)
-    map_context: dict[str, JsonValue]
-
-
-class InboxSplicedPayload(EventPayload):
-    target_run_id: str
-    start: NonNegativeInt
-    delete_count: NonNegativeInt
-    messages: list[InboxMessagePayload]
-    disposition: Literal["claim", "discard"] | None = None
-    step: PositiveInt | None = None
-
-
 class CommandRunPayload(EventPayload):
     command_id: str
     definition_id: str
@@ -174,6 +159,30 @@ class ModelSnapshotPayload(EventPayload):
     max_tokens_field: Literal["max_tokens", "max_completion_tokens"]
     include_usage: bool
     max_output_tokens: PositiveInt
+
+
+class QueuedTurnPayload(EventPayload):
+    run_id: str
+    queue_sequence: PositiveInt
+    model_snapshot: ModelSnapshotPayload
+    budget_limits: BudgetLimitsPayload
+
+
+class InboxMessagePayload(EventPayload):
+    message_id: str = Field(min_length=1, max_length=64)
+    content: str = Field(min_length=1, max_length=32_768)
+    map_context: dict[str, JsonValue]
+    turn: QueuedTurnPayload | None = None
+
+
+class InboxSplicedPayload(EventPayload):
+    target: Literal["next-step", "next-turn"]
+    target_run_id: str
+    start: NonNegativeInt
+    delete_count: NonNegativeInt
+    messages: list[InboxMessagePayload]
+    disposition: Literal["claim", "discard"] | None = None
+    step: PositiveInt | None = None
 
 
 class RunCreatedPayload(EventPayload):
@@ -568,9 +577,11 @@ class EventBatch:
         if not self.events:
             raise ValueError("An event batch must contain at least one event.")
         for event in self.events:
-            if event.session_id != self.session_id or event.run_id != self.run_id:
+            if event.session_id != self.session_id or (
+                self.run_id is not None and event.run_id != self.run_id
+            ):
                 raise ValueError(
-                    "Every event must belong to the batch session and run."
+                    "Every event must belong to its session and optional run boundary."
                 )
 
 
