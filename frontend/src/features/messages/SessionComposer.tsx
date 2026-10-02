@@ -7,7 +7,6 @@ import { useSessionWorkspace } from "@/features/sessions/SessionWorkspaceContext
 import { zhCN } from "@/locales/zh-CN";
 import { ConversationComposer } from "./ConversationComposer";
 import { type ComposerModelGroup, type ModelPickerPane } from "./composer/ComposerModelPicker";
-import { createComposerCommandDirectory } from "./composer/commands";
 import { useComposerCommands } from "./composer/useComposerCommands";
 import { useSessionMessages } from "./SessionMessagesContext";
 
@@ -72,18 +71,25 @@ export function SessionComposer() {
   }, [usableModels]);
 
   const modelDisabled = mutation.isPending || requestFrozen || activeTurn !== undefined || connectionsQuery.isPending;
-  const commands = createComposerCommandDirectory(
-    modelDisabled,
-    selectedModel !== undefined && selectedModel.entry.reasoning_efforts.length > 0,
-    activeTurn !== undefined && !stopMutation.isPending,
-  );
+  const reasoningSelectionInvalid = selectedModel !== undefined && modelSelection?.reasoningEffort !== null && modelSelection?.reasoningEffort !== undefined && !selectedModel.entry.reasoning_efforts.includes(modelSelection.reasoningEffort);
+  const sendDisabled = selectedModel === undefined || reasoningSelectionInvalid || agentTurnsQuery.data === undefined;
   const commandState = useComposerCommands({
-    commands,
     draft,
     locked: mutation.isPending || requestFrozen,
+    modelDisabled,
+    agentBusy: activeTurn !== undefined,
+    sendDisabled,
+    sendSkill: sendMessage,
+    message: selectedModel === undefined ? null : {
+      content: draft,
+      delivery: activeTurn === undefined ? "followup" : "steer",
+      connectionId: selectedModel.connection.id,
+      modelId: selectedModel.entry.model_id,
+      reasoningEffort: modelSelection?.reasoningEffort ?? null,
+      mapContext,
+    },
     changeDraft,
     openModelPicker: setModelPickerPane,
-    stop: () => stopMutation.mutateAsync(),
   });
 
   if (session.archived) {
@@ -95,11 +101,6 @@ export function SessionComposer() {
   }
   if (messagesQuery.data === undefined) return null;
 
-  const reasoningSelectionInvalid =
-    selectedModel !== undefined &&
-    modelSelection?.reasoningEffort !== null &&
-    modelSelection?.reasoningEffort !== undefined &&
-    !selectedModel.entry.reasoning_efforts.includes(modelSelection.reasoningEffort);
   const selectedValue = selectedModel === undefined
     ? ""
     : `${selectedModel.connection.id}\n${selectedModel.entry.model_id}`;
@@ -132,7 +133,9 @@ export function SessionComposer() {
         commandState.resetFeedback();
         changeDraft(value);
       }}
-      commands={commands}
+      commands={commandState.commands}
+      commandCatalogPending={commandState.catalogPending}
+      commandCatalogError={commandState.catalogError}
       commandPending={commandState.pending}
       commandFeedback={commandState.feedback}
       onCommand={commandState.execute}
@@ -152,6 +155,7 @@ export function SessionComposer() {
       selectedModel={selectedValue}
       modelDisabled={modelDisabled}
       reasoningOptions={selectedModel?.entry.reasoning_efforts ?? []}
+      defaultReasoningEffort={selectedModel?.entry.reasoning_default ?? null}
       selectedReasoningEffort={modelSelection?.reasoningEffort ?? ""}
       sendDisabled={
         requestFrozen

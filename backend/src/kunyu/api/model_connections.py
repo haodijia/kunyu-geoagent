@@ -151,6 +151,7 @@ class ModelCatalogEntryResponse(BaseModel):
     tool_capability: CapabilityStatus
     tool_capability_source: CapabilitySource
     reasoning_efforts: list[str]
+    reasoning_default: str | None
     reasoning_source: CapabilitySource
     discovered_at: datetime | None
 
@@ -170,6 +171,7 @@ class ModelCatalogEntryResponse(BaseModel):
             tool_capability=entry.tool_capability,
             tool_capability_source=entry.tool_capability_source,
             reasoning_efforts=list(entry.reasoning_efforts),
+            reasoning_default=entry.reasoning_default,
             reasoning_source=entry.reasoning_source,
             discovered_at=entry.discovered_at,
         )

@@ -7,7 +7,11 @@ from typing import Any
 
 import httpx
 
-from kunyu.domain.model_connections import MaxTokensField, ModelAuthMode
+from kunyu.domain.model_connections import (
+    MaxTokensField,
+    ModelAuthMode,
+    ModelProviderType,
+)
 
 MODEL_OPERATION_TIMEOUT_SECONDS = 30
 MAX_PROVIDER_RESPONSE_BYTES = 2 * 1024 * 1024
@@ -33,6 +37,7 @@ class ProviderRequestError(RuntimeError):
 
 @dataclass(frozen=True, slots=True)
 class ProviderConfig:
+    provider_type: ModelProviderType
     base_url: str
     auth_mode: ModelAuthMode
     api_key: str | None
@@ -43,6 +48,8 @@ class ProviderConfig:
 class DiscoveredModel:
     model_id: str
     display_name: str | None
+    reasoning_efforts: tuple[str, ...] = ()
+    reasoning_default: str | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -84,10 +91,13 @@ class OpenAICompatibleClient:
             if model_id in seen:
                 continue
             seen.add(model_id)
+            efforts, default = _reasoning_metadata(item)
             models.append(
                 DiscoveredModel(
                     model_id=model_id,
                     display_name=_optional_display_name(item),
+                    reasoning_efforts=efforts,
+                    reasoning_default=default,
                 )
             )
         if not models:
@@ -261,6 +271,8 @@ class OpenAICompatibleClient:
         config: ProviderConfig,
         json_body: dict[str, Any] | None = None,
     ) -> Any:
+        if json_body is not None and config.provider_type is ModelProviderType.DEEPSEEK:
+            json_body["thinking"] = {"type": "disabled"}
         headers = {"Accept": "application/json"}
         if json_body is not None:
             headers["Content-Type"] = "application/json"
@@ -336,6 +348,28 @@ def _optional_display_name(item: dict[str, Any]) -> str | None:
     if not normalized or len(normalized) > MAX_MODEL_ID_LENGTH:
         return None
     return normalized
+
+
+def _reasoning_metadata(item: dict[str, Any]) -> tuple[tuple[str, ...], str | None]:
+    if "effort" not in item:
+        return (), None
+    metadata = item["effort"]
+    if not isinstance(metadata, dict):
+        raise _protocol_error("The provider reasoning metadata is invalid.")
+    levels = metadata.get("supported_levels")
+    default = metadata.get("default_level")
+    if (
+        not isinstance(levels, list)
+        or not levels
+        or any(
+            not isinstance(level, str) or not level.strip() or level != level.strip()
+            for level in levels
+        )
+        or len(set(levels)) != len(levels)
+        or (default is not None and default not in levels)
+    ):
+        raise _protocol_error("The provider reasoning metadata is invalid.")
+    return tuple(levels), default
 
 
 def _protocol_error(message: str) -> ProviderRequestError:

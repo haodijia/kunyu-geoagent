@@ -9,6 +9,7 @@ from kunyu.agent.runtime.models import (
     ModelFinishReason,
     ModelOutput,
     ModelToolCall,
+    ReasoningDelta,
     TextDelta,
     TokenUsage,
 )
@@ -79,6 +80,12 @@ class OpenAIChatStreamParser:
         if not isinstance(delta, dict):
             raise _protocol_error("The provider stream delta is invalid.")
         content = delta.get("content")
+        reasoning = delta.get("reasoning_content")
+        if reasoning is not None:
+            if not isinstance(reasoning, str):
+                raise _protocol_error("The provider reasoning delta is invalid.")
+            if reasoning:
+                outputs.append(ReasoningDelta(reasoning))
         if content is not None:
             if not isinstance(content, str):
                 raise _protocol_error("The provider text delta is invalid.")

@@ -634,6 +634,7 @@ class ModelCatalogEntryRecord(Base):
     tool_capability: Mapped[str] = mapped_column(String(32), nullable=False)
     tool_capability_source: Mapped[str] = mapped_column(String(32), nullable=False)
     reasoning_efforts: Mapped[list[str]] = mapped_column(JSON, nullable=False)
+    reasoning_default: Mapped[str | None] = mapped_column(String(64))
     reasoning_source: Mapped[str] = mapped_column(String(32), nullable=False)
     discovered_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 

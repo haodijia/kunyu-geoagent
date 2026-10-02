@@ -56,6 +56,7 @@ class ModelMessage:
     tool_call_id: str | None = None
     tool_calls: tuple[ModelToolCall, ...] = ()
     context_source: str | None = None
+    reasoning_content: str | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -75,6 +76,11 @@ class TextDelta:
 
 
 @dataclass(frozen=True, slots=True)
+class ReasoningDelta:
+    text: str
+
+
+@dataclass(frozen=True, slots=True)
 class TokenUsage:
     input_tokens: int | None = None
     output_tokens: int | None = None
@@ -86,7 +92,7 @@ class ModelFinish:
     reason: ModelFinishReason
 
 
-type ModelOutput = TextDelta | ModelToolCall | TokenUsage | ModelFinish
+type ModelOutput = TextDelta | ReasoningDelta | ModelToolCall | TokenUsage | ModelFinish
 
 
 class ModelAdapter[AdapterConfigT](Protocol):

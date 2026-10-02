@@ -37,7 +37,7 @@ class PromptPlugin:
 
 class ToolsPlugin:
     name = "tools"
-    requires = (s.CONTEXTS, s.SCOPES)
+    requires = (s.CONTEXTS, s.SCOPES, s.DATABASE)
     provides = (s.TOOLS, s.POLICY)
 
     async def apply(self, context: Context) -> None:
@@ -51,7 +51,9 @@ class ToolsPlugin:
 
         registry = ToolRegistryFactory(resolve_scope)
         context.provide(s.TOOLS, registry)
-        context.provide(s.POLICY, ToolPolicyGate(registry))
+        context.provide(
+            s.POLICY, ToolPolicyGate(registry, context.require(s.DATABASE), repository)
+        )
 
 
 class TurnServicesPlugin:

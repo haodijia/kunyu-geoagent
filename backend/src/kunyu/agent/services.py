@@ -10,6 +10,7 @@ if TYPE_CHECKING:
     import httpx
 
     from kunyu.agent.adapters import StoredRunExecutionProvider
+    from kunyu.agent.commands.registry import CommandRegistry
     from kunyu.agent.runtime.context import (
         ContextPreparationRegistry,
         PromptSectionRegistry,
@@ -54,7 +55,9 @@ LIFECYCLE_REPOSITORY: ServiceKey[SQLAlchemyRunLifecycleRepository] = ServiceKey(
 )
 MODEL: ServiceKey[ModelAdapter] = ServiceKey("model")
 PROMPTS: ServiceKey[PromptSectionRegistry] = ServiceKey("system_prompt")
-CONTEXT_PREPARERS: ServiceKey[ContextPreparationRegistry] = ServiceKey("context.preparers")
+CONTEXT_PREPARERS: ServiceKey[ContextPreparationRegistry] = ServiceKey(
+    "context.preparers"
+)
 TOOLS: ServiceKey[ToolRegistryFactory] = ServiceKey("tools")
 POLICY: ServiceKey[ToolPolicyGate] = ServiceKey("tools.policy")
 CONFIRMATIONS: ServiceKey[ConfirmationService] = ServiceKey("approval")
@@ -68,3 +71,4 @@ SESSION_ID: ServiceKey[str] = ServiceKey("session_id")
 RUN_ID: ServiceKey[str] = ServiceKey("run_id")
 RUNNER: ServiceKey[Runner] = ServiceKey("runner")
 SKILLS: ServiceKey[SkillRegistry] = ServiceKey("skills")
+COMMANDS: ServiceKey[CommandRegistry] = ServiceKey("commands")

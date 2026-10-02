@@ -6,6 +6,7 @@ from kunyu.domain.agent_context import InjectedContext, RunContextSource
 from kunyu.domain.sessions import Session
 from kunyu.domain.workspaces import Workspace
 from kunyu.persistence import run_records
+from kunyu.persistence.commands import read_session_controls
 from kunyu.persistence.database import Database
 from kunyu.persistence.models import (
     SessionEventRecord,
@@ -93,4 +94,5 @@ class SQLAlchemyRunContextRepository:
                 run=run,
                 reduced_session=reduced_session,
                 injected_context=injected_context,
+                controls=read_session_controls(self._database, session_id),
             )

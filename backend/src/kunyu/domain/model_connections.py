@@ -121,6 +121,7 @@ class ModelCatalogEntry:
     reasoning_efforts: tuple[str, ...]
     reasoning_source: CapabilitySource
     discovered_at: datetime | None
+    reasoning_default: str | None = None
 
     @property
     def agent_verified(self) -> bool:

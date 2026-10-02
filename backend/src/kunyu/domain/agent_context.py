@@ -5,6 +5,7 @@ from pydantic import JsonValue
 
 from kunyu.agent.runtime.run_state import ReducedRun
 from kunyu.agent.runtime.session_state import ReducedSession
+from kunyu.domain.commands import SessionControls
 from kunyu.domain.sessions import Session
 from kunyu.domain.workspaces import Workspace
 
@@ -24,6 +25,7 @@ class RunContextSource:
     run: ReducedRun
     reduced_session: ReducedSession
     injected_context: tuple[InjectedContext, ...]
+    controls: SessionControls
 
 
 class RunContextRepository(Protocol):

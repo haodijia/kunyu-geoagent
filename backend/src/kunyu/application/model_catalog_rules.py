@@ -11,6 +11,7 @@ from kunyu.domain.model_connections import (
     ModelCatalogEntry,
     ModelCheck,
     ModelConnection,
+    ModelProviderType,
 )
 from kunyu.integrations.model.openai_compatible import DiscoveredModel
 
@@ -24,15 +25,26 @@ def merge_discovery(
     existing = {entry.model_id: entry for entry in connection.catalog}
     merged: list[ModelCatalogEntry] = []
     for model in models:
+        efforts = model.reasoning_efforts
+        if connection.provider_type is ModelProviderType.DEEPSEEK and efforts:
+            # Harness uses off as its UI identity; the adapter owns wire encoding.
+            efforts = ("off", *efforts)
         current = existing.get(model.model_id)
         if current is None:
             merged.append(
-                new_catalog_entry(
-                    model.model_id,
-                    model.display_name,
-                    (CatalogSource.FETCHED,),
-                    connection.revision,
-                    discovered_at,
+                replace(
+                    new_catalog_entry(
+                        model.model_id,
+                        model.display_name,
+                        (CatalogSource.FETCHED,),
+                        connection.revision,
+                        discovered_at,
+                    ),
+                    reasoning_efforts=efforts,
+                    reasoning_default=model.reasoning_default,
+                    reasoning_source=CapabilitySource.PROVIDER_METADATA
+                    if efforts
+                    else CapabilitySource.UNKNOWN,
                 )
             )
             continue
@@ -64,6 +76,11 @@ def merge_discovery(
                     else CapabilitySource.UNKNOWN
                 ),
                 discovered_at=discovered_at,
+                reasoning_efforts=efforts,
+                reasoning_default=model.reasoning_default,
+                reasoning_source=CapabilitySource.PROVIDER_METADATA
+                if efforts
+                else CapabilitySource.UNKNOWN,
             )
         )
     for current in connection.catalog:

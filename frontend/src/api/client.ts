@@ -23,6 +23,11 @@ export interface ServerSentEvent {
   readonly data: string;
 }
 
+export async function requestBlob(path: string): Promise<Blob> {
+  const response = await request(path, { method: "GET" }, "application/zip");
+  return response.blob();
+}
+
 export async function requestJson<ResponseBody>(
   path: string,
   init: RequestInit = {}

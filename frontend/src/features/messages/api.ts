@@ -52,37 +52,41 @@ export function appendUserMessage(
     readonly mapContext: MapContext;
   }
 ): Promise<AcceptedMessage> {
-  const map = input.mapContext;
   return requestJson<AcceptedMessage>(
     `/api/v1/sessions/${encodeURIComponent(sessionId)}/messages`,
     {
       method: "POST",
       headers: { "Idempotency-Key": idempotencyKey },
-      body: JSON.stringify({
-        content: input.content,
-        delivery: input.delivery,
-        model_selection: {
-          connection_id: input.connectionId,
-          model_id: input.modelId,
-          reasoning_effort: input.reasoningEffort
-        },
-        map_context: {
-          workspace_id: map.workspaceId,
-          viewport: map.viewport,
-          event_id: map.eventId,
-          selected_aoi_id: map.selectedAoiId,
-          selected_feature: map.selectedFeature === null ? null : {
-            feature_id: map.selectedFeature.featureId,
-            layer_id: map.selectedFeature.layerId
-          },
-          visible_layer_ids: map.visibleLayerIds,
-          active_result_layer_id: map.activeResultLayerId,
-          active_observation_id: map.activeObservationId,
-          comparison_observation_ids: map.comparisonObservationIds
-        }
-      })
+      body: JSON.stringify(serializeMessageInput(input))
     }
   );
+}
+
+export function serializeMessageInput(input: Parameters<typeof appendUserMessage>[2]) {
+  const map = input.mapContext;
+  return {
+    content: input.content,
+    delivery: input.delivery,
+    model_selection: {
+      connection_id: input.connectionId,
+      model_id: input.modelId,
+      reasoning_effort: input.reasoningEffort
+    },
+    map_context: {
+      workspace_id: map.workspaceId,
+      viewport: map.viewport,
+      event_id: map.eventId,
+      selected_aoi_id: map.selectedAoiId,
+      selected_feature: map.selectedFeature === null ? null : {
+        feature_id: map.selectedFeature.featureId,
+        layer_id: map.selectedFeature.layerId
+      },
+      visible_layer_ids: map.visibleLayerIds,
+      active_result_layer_id: map.activeResultLayerId,
+      active_observation_id: map.activeObservationId,
+      comparison_observation_ids: map.comparisonObservationIds
+    }
+  };
 }
 
 export function injectSessionContext(

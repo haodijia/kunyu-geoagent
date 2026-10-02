@@ -98,6 +98,37 @@ class ContextInjectedPayload(EventPayload):
     metadata: dict[str, JsonValue] = Field(default_factory=dict)
 
 
+class CommandRunPayload(EventPayload):
+    command_id: str
+    definition_id: str
+    name: str
+    raw_input: str | None
+
+
+class CommandDonePayload(EventPayload):
+    command_id: str
+    kind: Literal["success", "error"]
+    text: str
+    source_event_sequence: int | None = None
+
+
+class PlanChangedPayload(EventPayload):
+    active: bool
+
+
+class PermissionChangedPayload(EventPayload):
+    preset: Literal["read-only", "workspace-write"]
+
+
+class FeedbackRecordedPayload(EventPayload):
+    text: str
+
+
+class HistoryCompactedPayload(EventPayload):
+    summary: str
+    through_sequence: PositiveInt
+
+
 class BudgetLimitsPayload(EventPayload):
     model_calls: PositiveInt
     tool_calls: PositiveInt
@@ -323,6 +354,40 @@ class RunCreatedEvent(_RunEventDraft):
     payload: RunCreatedPayload
 
 
+class _SessionEventDraft(_EventBase):
+    run_id: None = None
+
+
+class CommandRunEvent(_SessionEventDraft):
+    event_type: Literal["command/run"]
+    payload: CommandRunPayload
+
+
+class CommandDoneEvent(_SessionEventDraft):
+    event_type: Literal["command/done"]
+    payload: CommandDonePayload
+
+
+class PlanChangedEvent(_SessionEventDraft):
+    event_type: Literal["plan/changed"]
+    payload: PlanChangedPayload
+
+
+class PermissionChangedEvent(_SessionEventDraft):
+    event_type: Literal["permission/changed"]
+    payload: PermissionChangedPayload
+
+
+class FeedbackRecordedEvent(_SessionEventDraft):
+    event_type: Literal["feedback/record"]
+    payload: FeedbackRecordedPayload
+
+
+class HistoryCompactedEvent(_SessionEventDraft):
+    event_type: Literal["history/compacted"]
+    payload: HistoryCompactedPayload
+
+
 class RunModelSelectedEvent(_RunEventDraft):
     event_type: Literal["run.model_selected"]
     payload: RunModelSelectedPayload
@@ -361,6 +426,11 @@ class RequestHeaderEvent(_RunEventDraft):
 
 class AssistantDeltaEvent(_RunEventDraft):
     event_type: Literal["message.assistant.delta"]
+    payload: AssistantDeltaPayload
+
+
+class AssistantReasoningDeltaEvent(_RunEventDraft):
+    event_type: Literal["message.assistant.reasoning.delta"]
     payload: AssistantDeltaPayload
 
 
@@ -419,6 +489,12 @@ type EventDraft = Annotated[
     SessionCreatedEvent
     | UserMessageAppendedEvent
     | ContextInjectedEvent
+    | CommandRunEvent
+    | CommandDoneEvent
+    | PlanChangedEvent
+    | PermissionChangedEvent
+    | FeedbackRecordedEvent
+    | HistoryCompactedEvent
     | RunCreatedEvent
     | RunModelSelectedEvent
     | RunProgressEvent
@@ -427,6 +503,7 @@ type EventDraft = Annotated[
     | RequestHeaderEvent
     | AssistantStartedEvent
     | AssistantDeltaEvent
+    | AssistantReasoningDeltaEvent
     | AssistantCompletedEvent
     | ModelAttemptFinishedEvent
     | ToolRequestedEvent

@@ -46,6 +46,12 @@ export function projectSessionEvent(
   if (event.event_type === "message.user.appended") {
     return projection(event, "user", requiredString(event, "message_id"));
   }
+  if (event.event_type === "command/run" || event.event_type === "command/done") {
+    return projection(event, "context", requiredString(event, "command_id"));
+  }
+  if (["plan/changed", "permission/changed", "feedback/record", "history/compacted"].includes(event.event_type)) {
+    return projection(event, "context", event.id);
+  }
   if (event.event_type === "context.injected") {
     return projection(event, "context", event.id);
   }
@@ -58,6 +64,7 @@ export function projectSessionEvent(
   if (
     event.event_type === "message.assistant.started" ||
     event.event_type === "message.assistant.delta" ||
+    event.event_type === "message.assistant.reasoning.delta" ||
     event.event_type === "message.assistant.completed" ||
     event.event_type === "model.attempt.finished"
   ) {

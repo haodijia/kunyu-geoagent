@@ -26,12 +26,15 @@ interface ConversationComposerProps {
   readonly running: boolean;
   readonly stopPending: boolean;
   readonly reasoningOptions: readonly string[];
+  readonly defaultReasoningEffort: string | null;
   readonly selectedModel: string;
   readonly selectedReasoningEffort: string;
   readonly sendDisabled: boolean;
   readonly showModelSettings: boolean;
   readonly commands: readonly ComposerCommandDescriptor[];
   readonly commandPending: boolean;
+  readonly commandCatalogPending: boolean;
+  readonly commandCatalogError: string | null;
   readonly commandFeedback: { readonly kind: "success" | "error"; readonly text: string } | null;
   readonly modelPickerPane: ModelPickerPane | null;
   readonly onModelPickerPaneChange: (pane: ModelPickerPane | null) => void;
@@ -46,8 +49,10 @@ interface ConversationComposerProps {
 export function ConversationComposer({
   contextLabel, draft, error, draftFrozen, modelDisabled, modelGroups,
   pending, running, stopPending, reasoningOptions, selectedModel,
+  defaultReasoningEffort,
   selectedReasoningEffort, sendDisabled, showModelSettings, commands,
   commandPending, commandFeedback, modelPickerPane, onModelPickerPaneChange,
+  commandCatalogPending, commandCatalogError,
   onCommand, onDraftChange, onModelChange, onReasoningEffortChange, onSubmit, onStop,
 }: ConversationComposerProps) {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -92,6 +97,11 @@ export function ConversationComposer({
   }
 
   function selectCommand(command: ComposerCommandDescriptor) {
+    if (command.input_hint !== null) {
+      onDraftChange(`/${command.name} `);
+      textareaRef.current?.focus();
+      return;
+    }
     setDismissedDraft(draft);
     void onCommand(`/${command.name}`);
     textareaRef.current?.focus();
@@ -156,6 +166,8 @@ export function ConversationComposer({
             id={commandMenuId}
             commands={matchingCommands}
             activeIndex={activeIndex}
+            pending={commandCatalogPending}
+            error={commandCatalogError}
             onActiveIndexChange={setActiveIndex}
             onSelect={selectCommand}
           />
@@ -201,6 +213,7 @@ export function ConversationComposer({
               groups={modelGroups}
               selectedModel={selectedModel}
               reasoningOptions={reasoningOptions}
+              defaultReasoningEffort={defaultReasoningEffort}
               selectedReasoningEffort={selectedReasoningEffort}
               pane={modelPickerPane}
               onPaneChange={onModelPickerPaneChange}

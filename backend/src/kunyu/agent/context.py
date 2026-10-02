@@ -114,7 +114,20 @@ def build_model_history(source: RunContextSource) -> tuple[ModelMessage, ...]:
                     )
                 )
     steps.sort(key=lambda item: item.sequence)
-    return tuple(message for step in steps for message in step.messages)
+    visible = tuple(
+        message
+        for step in steps
+        if step.sequence > source.controls.compacted_through
+        for message in step.messages
+    )
+    if source.controls.summary is None:
+        return visible
+    return (
+        ModelMessage(
+            ModelRole.USER, source.controls.summary, context_source="compaction"
+        ),
+        *visible,
+    )
 
 
 def validate_run_context_source(source: RunContextSource, run_id: str) -> None:
@@ -139,7 +152,13 @@ def _visible_assistant_step(
 ) -> tuple[ModelMessage, ...] | None:
     if assistant.status in {"interrupted", "failed", "cancelled"}:
         if assistant.content:
-            return (ModelMessage(role=ModelRole.ASSISTANT, content=assistant.content),)
+            return (
+                ModelMessage(
+                    role=ModelRole.ASSISTANT,
+                    content=assistant.content,
+                    reasoning_content=assistant.reasoning_content,
+                ),
+            )
         return None
     if assistant.status != "completed" or assistant.finish_reason is None:
         return None
@@ -160,7 +179,13 @@ def _visible_assistant_step(
             raise RunContextIntegrityError(
                 "A stop completion cannot own committed tool calls."
             )
-        return (ModelMessage(role=ModelRole.ASSISTANT, content=assistant.content),)
+        return (
+            ModelMessage(
+                role=ModelRole.ASSISTANT,
+                content=assistant.content,
+                reasoning_content=assistant.reasoning_content,
+            ),
+        )
     if not _complete_tool_batch(calls):
         return None
     model_calls = tuple(
@@ -175,6 +200,7 @@ def _visible_assistant_step(
         role=ModelRole.ASSISTANT,
         content=assistant.content,
         tool_calls=model_calls,
+        reasoning_content=assistant.reasoning_content,
     )
     results = tuple(
         ModelMessage(
