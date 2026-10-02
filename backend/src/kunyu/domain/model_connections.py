@@ -3,6 +3,8 @@ from datetime import datetime
 from enum import StrEnum
 from typing import Protocol
 
+from kunyu.agent.runtime.retry_policy import RetryPolicy
+
 
 class ModelProtocol(StrEnum):
     OPENAI_COMPATIBLE = "openai_compatible"
@@ -153,6 +155,7 @@ class ModelConnection:
     catalog: tuple[ModelCatalogEntry, ...]
     created_at: datetime
     updated_at: datetime
+    retry_policy: RetryPolicy
 
 
 class ModelConnectionRepository(Protocol):

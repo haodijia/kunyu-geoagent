@@ -30,13 +30,23 @@ class ModelErrorCode(StrEnum):
     PROVIDER_PROTOCOL = "PROVIDER_PROTOCOL"
     PROVIDER_NETWORK = "PROVIDER_NETWORK"
     PROVIDER_TIMEOUT = "PROVIDER_TIMEOUT"
+    EMPTY_RESPONSE = "MODEL_EMPTY_RESPONSE"
+    PROVIDER_RATE_LIMIT = "PROVIDER_RATE_LIMIT"
+    PROVIDER_SERVER = "PROVIDER_SERVER"
 
 
 class ModelAdapterError(RuntimeError):
     """Stable, redacted failure raised by a model adapter."""
 
-    def __init__(self, code: ModelErrorCode, message: str) -> None:
+    def __init__(
+        self,
+        code: ModelErrorCode,
+        message: str,
+        *,
+        provider_retry_after_ms: float | None = None,
+    ) -> None:
         self.code = code
+        self.provider_retry_after_ms = provider_retry_after_ms
         super().__init__(message)
 
 

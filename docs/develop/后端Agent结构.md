@@ -12,13 +12,14 @@ Agent 架构必须对齐本地 `deepseek-harness` 源码的服务、插件、作
 | `core/scope/src/index.ts`、`store.ts` | `agent/scope.py` | 作用域向下继承；同名注册由近层覆盖；注册与 effect 归属提供者；关闭等待清理，汇总清理错误 |
 | `core/agent/src/index.ts`、`core/agent-loop/src/index.ts` | `session_agent.py`、`plugins/loop.py`、`scheduler.py`、`runtime/driver.py` | Agent 注册表与具体驱动分开；每个会话有独立 Context；每次执行有子作用域；卸载先取消、等待执行退出，再释放资源 |
 | `core/agent/src/dispatch.ts`、`runtime-types.ts`、`core/agent-loop/src/agent.ts` | `hooks.py`、`notifications.py`、`runtime/hooks.py`、`runner.py`、`runner_model.py` | 带作用域的控制边界、状态/输入/助手流/错误通知与同一步重试 |
+| `llm/llm/src/retry-policy.ts`、`llm/llm-retry/src/index.ts` | `runtime/retry_policy.py`、`agent/retry.py` | Provider 持有策略，配置为空的插件执行持久退避，按步骤／路由／完整策略续接计数 |
 | `core/session` | `runtime/events.py`、`session_reducer.py`、`persistence/` | 追加日志为事实源，确定性重放得到查询投影 |
 | `core/system-prompt` | `runtime/context.py`、`plugins/core.py`、`prompts/system.md` | 有序、带作用域的提示词段注册；指令正文由用户维护 |
 | `core/tools` | `runtime/tools.py`、`runner_tools.py`、`tools/registry.py` | 工具注册与实现分开；模型 Schema 来自实际注册；有界并行/独占调度；风险策略与确认接缝 |
 | `packages/context` | `agent/context.py`、`persistence/agent_context.py` | 注入正文成为有顺序的持久会话内容，后续步骤及轮次按原位置重放 |
 | `skill/skill`、`skill/skill-filesystem`、`skill/tool-skill` | `skills/registry.py`、`filesystem.py`、`context.py`、`tools/skills.py` | 注册表、来源、调用工具分开；目录仅注入名称和简介；选择后加载正文；区分模型/用户调用权限；持久目录替换与显式用户调用 |
 
-这是 Python 的对应实现，没有引入 Cordis 的 TypeScript 运行时。尚未实现参考项目的重试策略插件与持久退避计划、完整助手流记录、surface 替换/压缩、PTC、多 Agent 委派、profile 配置装载及插件市场，不能宣称完整功能等价。中断恢复仍采用本项目的显式恢复与持久确认契约。
+这是 Python 的对应实现，没有引入 Cordis 的 TypeScript 运行时。尚未实现参考项目的完整助手流记录、surface 替换/压缩、PTC、多 Agent 委派、profile 配置装载及插件市场，不能宣称完整功能等价。中断恢复仍采用本项目的显式恢复与持久确认契约。
 
 ## 目录与运行链路
 
@@ -40,6 +41,7 @@ backend/src/kunyu/agent/
 ├── context.py            # 模型可见历史与上下文组装
 ├── hooks.py              # 会话 Agent 融合调用、作用域中间件与通知注册
 ├── notifications.py      # 非否决状态、输入及助手流通知
+├── retry.py              # Provider 策略执行、持久退避与取消排空
 ├── commands/             # 作用域命令注册、计划/权限、压缩和执行日志
 ├── prompts/system.md     # 用户维护的系统指令
 ├── runtime/              # 模型/工具契约、循环、类型事件、Reducer
@@ -68,7 +70,13 @@ backend/src/kunyu/agent/
 
 `pre_step`、`request` 和 `request_error` 是串联中间件，`next()` 最多调用一次。`pre_step` 可以替换本步输入、拒绝步骤或移除初始输入；决定作为 `agent/step/decision` 保存。拒绝或空初始步骤不消耗模型调用。输入从首次 `request.header` 提交起进入已接纳历史，取消于请求之前的输入及技能正文不会进入后续模型请求。
 
-`request` 在每次尝试前选择完整调用配置；日志保存实际配置，Run 受理时的初始模型选择保持独立。`request_error` 在失败尝试和助手消息结算后选择同一步重试，或交给默认终止行为。重试追加 `run.retried`，递增 attempt，保留 step 和本步已组装上下文，不重新领取输入或重复加载技能；仍受总调用、输出和活动时间预算约束。尚未配置自动重试策略、退避定时或永久重试模式。
+`request` 在每次尝试前选择完整调用配置；日志保存实际配置，Run 受理时的初始模型选择保持独立。`request_error` 在失败尝试和助手消息结算后选择同一步重试，或交给默认终止行为。重试追加 `run.retried`，递增 attempt，保留 step 和本步已组装上下文，不重新领取输入或重复加载技能；仍受总调用、输出和活动时间预算约束。
+
+`RetryPlugin` 是无配置的 `request_error` 扩展，策略属于模型连接并冻结在受理、队列与实际请求事件快照中。normal 默认重试 5 次，初始 500ms、上限 10s、抖动 0.1；只处理空回复、限流、服务器故障、超时和网络错误。不可重试错误、次数耗尽或供应商建议等待超过策略上限时交给后续处理器。always 先等待后续恢复，后续选择重试时直接采用；后续报错会记录并继续按本策略恢复。always 没有策略次数上限，但 Run 的总调用预算仍生效。
+
+退避按步骤、实际连接路由和完整规范化策略键计数，策略键为有序 JSON，不添加 hash；同一组复用 retry_id，新步骤及不同路由／策略另起计数。`llm/retry` 先提交计划，再可取消等待，等待完成后提交 `llm/retry-started` 才返回重试决定。停止或插件释放不会补写 start 或继续请求；释放等待已进入的后续处理器结算，取消优先于其恢复决定。中断后显式恢复保留已提交计数，未完成的等待不会在后台自动重放。Reducer 拒绝尚未结算的失败、伪造路由／策略、重复计划和无计划的 start。
+
+适配器仍只发单次 HTTP 请求，429、5xx、超时与网络失败提供稳定错误类别；正数秒或 HTTP-date 的 `Retry-After` 转成等待建议，无效值不参与策略计算。设置页复用 Mu 的详情行编辑策略，修改不会撤销模型目录验证，活动 Run 或待发送输入占用连接时拒绝修改。对话显示真实计划的倒计时，轨迹保存计划／启动事件，不把退避日志混入模型历史。
 
 `turn_stopping` 在助手结算后按序执行同步或异步处理器，随后重新读取下一步队列；处理器通过实际 Agent 追加引导时继续当前 Run。控制处理器的异常会记录并结束 Run；即使处理器吞掉取消异常，取消信号也会阻止继续调用模型。`errors` 是不影响控制决定的通知，单个同步/异步观察者报错独立记录；异步通知由注册 owner 持有，关闭时取消并等待退出。
 
@@ -141,7 +149,7 @@ GeoSkill 的版本化地理场景逻辑放 `kunyu/scenes/`，场景数据放 `ba
 
 `POST /agent/inbox/{message_id}/edit` 在调度锁内原子移出等待输入，返回原内容、完整地图上下文与未来轮次模型快照；前端一次恢复三个状态并聚焦。编辑中的普通消息及显式技能保留后续轮次语义，运行中再次发送不会改为当前轮引导；已有草稿与未决提交禁止覆盖。队列路由集中在 `api/agent_queue.py`，共享作用域依赖集中在 `api/agent_dependencies.py`。
 
-附件/跨会话引用、完整助手流持久记录、重试策略插件、PTC 与多 Agent 委派仍是后续对齐项。
+附件/跨会话引用、完整助手流持久记录、PTC 与多 Agent 委派仍是后续对齐项。
 
 系统指令和两个工具的描述未在本次架构改动中修改；维护入口见[记忆工具与上下文](记忆工具与上下文.md)。
 
@@ -160,6 +168,8 @@ GeoSkill 的版本化地理场景逻辑放 `kunyu/scenes/`，场景数据放 `ba
 交互探针验证拖动暂停自动领取、其他会话继续运行、排序提交后释放、续租、超时恢复、作用域释放以及重复编辑冲突。离屏 Electron 通过真实键盘拖动验证请求顺序为暂停、排序、释放；编辑后原模型、高推理参数、地图视口、输入框焦点与后续发送标记全部还原，重新入队的请求携带完整原快照。浅色桌面和深色窄窗口无横向溢出、无渲染错误。
 
 通知探针验证同步/异步观察者失败不否决、会话隔离、幂等输入不重复、输入快照隔离、连续助手帧、已提交结束序号、取消结算和 owner 释放排空。关闭活动会话与卸载循环插件仍发布实际已提交的最后结算；新生命周期重置 revision。保存点/外层回滚和重入顺序探针通过，结算写入失败明确发布 abandoned，所有模型输出类型及不可变工具参数通过验证。原引导/后续轮次、重启恢复、队列交互及控制取消探针继续通过，同步 turn-stopping 处理器通过。
+
+Provider 重试探针通过 normal 次数/错误筛选、指数退避、空回复恢复、Retry-After、always 后续决定/异常、总调用预算、同一步 Skill 仅加载一次、停止等待、重启计数、路由/策略隔离、伪造与重复事件拒绝、释放等待及后续处理器排空。实际 ASGI 接口验证策略保存、无效参数、草稿占用锁及目录验证不变，修复连接占用查询的错误 join。0004 预览库升级至 0005 并重建投影，原运行/消息/队列数量不变，嵌套队列策略快照完整。离屏 Electron 使用本地真实 HTTP 429 供应商验证倒计时递减、轨迹计划、停止清除、策略保存、无效参数禁用保存、浅色桌面及深色窄窗口，无横向溢出和渲染错误。
 
 `ruff check`、`compileall`、后端模块导入及 `uv build` 通过；全新临时数据库的 FastAPI lifespan 启动和关闭通过。
 

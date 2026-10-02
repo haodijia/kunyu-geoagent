@@ -17,6 +17,7 @@ from kunyu.agent.plugins.core import (
 from kunyu.agent.plugins.infrastructure import ModelPlugin, PersistencePlugin
 from kunyu.agent.plugins.loop import AgentLoopPlugin
 from kunyu.agent.plugins.memory import MemoryToolsPlugin
+from kunyu.agent.retry import RetryPlugin
 from kunyu.agent.scheduler import RunScheduler
 from kunyu.agent.session_agent import AgentDirectory
 from kunyu.agent.skills.plugin import (
@@ -72,6 +73,7 @@ async def create_agent_runtime(
         ScopePlugin(),
         model_plugin,
         AgentHooksPlugin(),
+        RetryPlugin(),
         PromptPlugin(),
         ToolsPlugin(),
         MemoryToolsPlugin(),

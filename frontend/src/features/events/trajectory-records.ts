@@ -95,6 +95,18 @@ function contextRecord(
   context: RecordContext,
 ): TrajectoryRecord {
   const first = events[0]!;
+  if (first.eventType === "llm/retry") {
+    const started = events.find((event) => event.eventType === "llm/retry-started");
+    const run = first.runId === null ? undefined : context.runs.get(first.runId);
+    const active = run?.state === "model_running" && run.step === first.payload.step && run.attempt === first.payload.attempt;
+    const text = zhCN.conversation.modelRetry.scheduled(Number(first.payload.retry), Number(first.payload.delay_ms));
+    return baseRecord(events, {
+      turn: turnFor(first, context), text, searchText: `${text} ${safeString(first.payload.failure)} ${String(first.payload.provider)}`,
+      status: started === undefined ? active ? "pending" : "cancelled" : "completed", completedAt: started?.occurredAt ?? null, startedAt: first.occurredAt, isError: false,
+      source: { kind: "model-retry", retry_id: first.payload.retry_id, provider: first.payload.provider, policy_key: first.payload.policy_key, step: first.payload.step, attempt: first.payload.attempt },
+      input: first.payload, output: started?.payload ?? null,
+    });
+  }
   const done = events.find((event) => event.eventType === "command/done");
   const isCommand = first.eventType === "command/run";
   const content = isCommand

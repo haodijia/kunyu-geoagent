@@ -24,6 +24,7 @@ import {
 import { connectionErrorMessage, connectionStatus, providerErrorLabel } from "./model";
 import { providerName } from "./provider-copy";
 import { ProviderLogo } from "./ProviderLogo";
+import { ModelRetryPolicySettings } from "./ModelRetryPolicySettings";
 
 const content = zhCN.modelConnections;
 
@@ -62,7 +63,7 @@ export function ModelConnectionDetailPage() {
     operation: () => Promise<ModelConnection | void>,
     successMessage?: string
   ) {
-    if (actionRunning.current) return;
+    if (actionRunning.current) return false;
     actionRunning.current = true;
     setBusyAction(name);
     setActionError(null);
@@ -70,8 +71,11 @@ export function ModelConnectionDetailPage() {
       const next = await operation();
       if (next !== undefined) publish(next);
       if (successMessage !== undefined) toast.success(successMessage);
+      return true;
     } catch (error) {
       setActionError(connectionErrorMessage(error));
+      console.error("[models] Connection update failed.", { connectionId: resolvedConnectionId, action: name, error });
+      return false;
     } finally {
       actionRunning.current = false;
       setBusyAction(null);
@@ -273,6 +277,8 @@ export function ModelConnectionDetailPage() {
           </div>
         </ModelDetailSection>
 
+        <ModelRetryPolicySettings connection={connection} disabled={busyAction !== null}
+          onSave={(policy) => perform("retry", () => modelConnectionsApi.update(connection.id, { retry_policy: policy }), content.saved)} />
         <ModelDetailSection title={content.detail.danger} description={content.detail.dangerHelp}>
           <div><Button variant="destructive" size="sm" disabled={busyAction !== null} onClick={() => setConfirmDelete(true)}>{content.detail.delete}</Button></div>
         </ModelDetailSection>

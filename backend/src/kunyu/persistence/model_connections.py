@@ -2,6 +2,7 @@ from datetime import datetime
 
 from sqlalchemy import delete, select, text, update
 
+from kunyu.agent.runtime.retry_policy import RETRY_POLICY
 from kunyu.domain.model_connections import (
     CapabilitySource,
     CapabilityStatus,
@@ -174,6 +175,7 @@ def _copy_connection(
     record.enabled_model_ids = list(connection.enabled_model_ids)
     record.max_tokens_field = connection.max_tokens_field.value
     record.include_usage = connection.include_usage
+    record.retry_policy = connection.retry_policy.model_dump(mode="json")
     record.credential_status = connection.credential.status.value
     record.credential_configured = connection.credential.configured
     record.credential_updated_at = connection.credential.updated_at
@@ -294,6 +296,7 @@ def _to_domain(record: ModelConnectionRecord) -> ModelConnection:
         enabled_model_ids=enabled_model_ids,
         max_tokens_field=MaxTokensField(record.max_tokens_field),
         include_usage=record.include_usage,
+        retry_policy=RETRY_POLICY.validate_python(record.retry_policy),
         credential=CredentialState(
             status=CredentialStatus(record.credential_status),
             configured=record.credential_configured,

@@ -30,6 +30,16 @@ export type CapabilitySource = "unknown" | "provider_metadata" | "validation";
 export type DiscoveryStatus = "idle" | "pending" | "succeeded" | "failed" | "interrupted";
 export type ManagementStatus = "ready";
 
+interface RetryBackoff {
+  readonly initial_delay_ms: number;
+  readonly max_delay_ms: number;
+  readonly jitter_ratio: number;
+}
+export type RetryPolicy = RetryBackoff & (
+  | { readonly mode: "normal"; readonly max_retries: number; readonly retryable_codes: readonly string[] }
+  | { readonly mode: "always" }
+);
+
 export interface ModelCheck {
   readonly status: ModelCheckStatus;
   readonly checked_at: string | null;
@@ -69,6 +79,7 @@ export interface ModelConnection {
   readonly enabled_model_ids: string[];
   readonly max_tokens_field: MaxTokensField;
   readonly include_usage: boolean;
+  readonly retry_policy: RetryPolicy;
   readonly credential: {
     readonly status: "missing" | "ready";
     readonly configured: boolean;
@@ -87,6 +98,7 @@ export interface ModelConnection {
 }
 
 export interface CreateModelConnectionInput {
+  readonly retry_policy?: RetryPolicy;
   readonly display_name: string;
   readonly provider_type: ModelProviderType;
   readonly protocol: ModelProtocol;
@@ -107,6 +119,7 @@ export type UpdateModelConnectionInput = Partial<
     | "default_model_id"
     | "max_tokens_field"
     | "include_usage"
+    | "retry_policy"
   >
 > & { readonly is_default?: false };
 

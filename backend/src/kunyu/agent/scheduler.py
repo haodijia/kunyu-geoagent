@@ -5,7 +5,11 @@ import logging
 from typing import Literal
 
 from kunyu.agent.inbox import InboxQueueConflictError, SessionInbox
-from kunyu.agent.queue_interactions import QueueInteractionConfig, QueueInteractions
+from kunyu.agent.queue_interactions import (
+    DEFAULT_QUEUE_INTERACTION_CONFIG,
+    QueueInteractionConfig,
+    QueueInteractions,
+)
 from kunyu.agent.runtime.driver import AgentRuntime
 from kunyu.agent.runtime.events import (
     TERMINAL_RUN_STATES,
@@ -48,7 +52,7 @@ class RunScheduler:
         confirmations: ConfirmationService,
         acceptance: RunAcceptanceService,
         *,
-        interaction_config: QueueInteractionConfig = QueueInteractionConfig(),
+        interaction_config: QueueInteractionConfig = DEFAULT_QUEUE_INTERACTION_CONFIG,
     ) -> None:
         self._runtime = runtime
         self._lifecycle = lifecycle

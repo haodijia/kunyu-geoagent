@@ -185,7 +185,6 @@ class SQLAlchemyRunLifecycleRepository:
         statement = (
             select(RunRecord.id)
             .join(
-                MessageRecord,
                 RunModelSnapshotRecord,
                 RunModelSnapshotRecord.run_id == RunRecord.id,
             )

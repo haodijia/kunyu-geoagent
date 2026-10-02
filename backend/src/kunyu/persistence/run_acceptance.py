@@ -178,6 +178,7 @@ class SQLAlchemyRunAcceptanceRepository:
                 max_tokens_field=connection.max_tokens_field,
                 include_usage=connection.include_usage,
                 max_output_tokens=MAX_MODEL_OUTPUT_TOKENS,
+                retry_policy=connection.retry_policy,
             )
             budget_limits = BudgetLimitsPayload(
                 model_calls=MAX_MODEL_CALLS,

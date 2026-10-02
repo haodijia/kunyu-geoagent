@@ -11,6 +11,7 @@ from kunyu.agent.runtime.events import (
     BudgetLimitsPayload,
     ModelSnapshotPayload,
     ResumePhase,
+    RetryScheduledPayload,
     RunState,
     StepDecisionPayload,
 )
@@ -239,3 +240,5 @@ class _State:
     confirmations: dict[str, _Confirmation] = field(default_factory=dict)
     operation_ids: set[str] = field(default_factory=set)
     reservations: dict[str, _Reservation] = field(default_factory=dict)
+    retry_plans: list[RetryScheduledPayload] = field(default_factory=list)
+    started_retries: set[tuple[str, int]] = field(default_factory=set)
