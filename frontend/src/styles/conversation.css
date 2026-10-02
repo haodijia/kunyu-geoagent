@@ -4,13 +4,12 @@
 }
 .chat-surface-fluid {
   width: 100%;
-  max-width: 100%;
+  max-width: 800px;
   margin-inline: auto;
 }
 @container (min-width: 720px) {
   .chat-surface-fluid {
     width: calc(100% - clamp(80px, 10cqw, 240px));
-    max-width: none;
   }
 }
 .message-list-scroller {
@@ -39,18 +38,18 @@
   justify-content: center;
   gap: 5px;
   height: 27px;
-  max-width: 280px;
+  max-width: min(280px, 50cqw);
   min-width: 0;
   padding: 0 9px;
-  border: 1px solid var(--border-base);
+  border: 0;
   border-radius: 999px;
-  background: transparent;
+  background: var(--bg-2);
   color: var(--text-secondary);
   font-size: 12px;
   cursor: pointer;
 }
 .composer-chip:hover {
-  border-color: var(--bg-4);
+  background: var(--bg-3);
   color: var(--text-primary);
 }
 .composer-chip:disabled {
@@ -61,6 +60,39 @@
   background: var(--bg-3);
   color: var(--text-disabled);
   opacity: 1;
+}
+.composer-effort-slider {
+  appearance: none;
+  height: 28px;
+  border: 1px solid var(--border-base);
+  border-radius: 999px;
+  background: linear-gradient(to right, var(--mu-accent-fill) var(--effort-progress), var(--bg-3) var(--effort-progress));
+  cursor: pointer;
+}
+.composer-effort-slider::-webkit-slider-thumb {
+  appearance: none;
+  width: 30px;
+  height: 30px;
+  border: 1px solid var(--border-base);
+  border-radius: 50%;
+  background: var(--mu-composer-bg);
+  box-shadow: var(--mu-shadow-1);
+}
+.composer-effort-slider::-moz-range-thumb {
+  width: 28px;
+  height: 28px;
+  border: 1px solid var(--border-base);
+  border-radius: 50%;
+  background: var(--mu-composer-bg);
+  box-shadow: var(--mu-shadow-1);
+}
+.composer-effort-slider:focus-visible {
+  outline: 2px solid var(--mu-accent-border);
+  outline-offset: 3px;
+}
+.composer-effort-slider:disabled {
+  opacity: 0.5;
+  cursor: default;
 }
 #task-sidebar {
   scrollbar-width: none;

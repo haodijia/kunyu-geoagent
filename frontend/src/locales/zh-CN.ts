@@ -261,7 +261,7 @@ export const zhCN = {
     emptyTitle: "开始一段对话",
     emptyDescription: "描述你想完成的空间任务，消息将保存在当前会话中。",
     composerLabel: "消息输入框",
-    composerPlaceholder: "描述你想完成的空间任务…",
+    composerPlaceholder: "描述空间任务，或输入 / 使用命令…",
     modelSelectorLabel: "本次运行模型",
     reasoningSelectorLabel: "本次运行推理强度",
     selectModel: "选择模型",
@@ -269,8 +269,48 @@ export const zhCN = {
     noVerifiedModels: "没有可用且已验证的模型，请先前往设置配置。",
     configureModels: "配置模型",
     modelsLoadFailed: "无法读取模型连接，请稍后重试。",
-    reasoningNotSpecified: "不指定推理强度",
-    reasoningValue: (value: string) => `推理 ${value}`,
+    reasoningNotSpecified: "模型默认",
+    reasoningValue: (value: string) => {
+      switch (value) {
+        case "none": return "关闭";
+        case "minimal": return "最低";
+        case "low": return "低";
+        case "medium": return "中";
+        case "high": return "高";
+        case "xhigh": return "超高";
+        case "max": return "最高";
+        case "ultra": return "极高";
+        default: return value;
+      }
+    },
+    modelSearch: "搜索模型或连接…",
+    noModelMatches: "没有匹配的模型",
+    noReasoningOptions: "此模型未提供可选推理强度。",
+    resetReasoning: "恢复模型默认推理强度",
+    mapContextLabel: "当前地图",
+    commands: {
+      title: "会话命令",
+      keyboardHint: "↑↓ 选择 · Enter 执行 · Tab 补全",
+      triggerLabel: "打开命令菜单",
+      empty: "没有匹配的命令",
+      unknown: "未知命令，输入 / 查看可用命令。",
+      noArguments: "此命令不接受参数，请直接执行命令。",
+      modelLocked: "模型正在加载或当前运行未结束，暂不能更改。",
+      noEffort: "请先选择支持推理强度的模型。",
+      noActiveRun: "当前没有可停止的运行。",
+      failed: "命令执行失败，输入内容已保留，请重试。",
+      stopped: "已停止当前运行。",
+      help: "/model 选择模型 · /effort 推理强度 · /stop 停止运行 · /map 地图 · /trace 轨迹 · /settings 模型设置",
+      descriptions: {
+        model: "选择当前会话模型",
+        effort: "调整模型推理强度",
+        stop: "停止当前 Agent 运行",
+        map: "打开当前会话地图",
+        trace: "查看 Agent 运行轨迹",
+        settings: "打开模型连接设置",
+        help: "查看可用命令说明",
+      },
+    },
     reasoningSelectionInvalid: "上次使用的推理强度已不可用，请重新选择。",
     mapViewport: (longitude: string, latitude: string, zoom: string) =>
       `当前地图 ${longitude}, ${latitude} · z${zoom}`,
