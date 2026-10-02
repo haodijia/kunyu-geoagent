@@ -13,7 +13,7 @@ from kunyu.agent.scheduler import (
     RunQueueFullError,
     RunSchedulerClosingError,
 )
-from kunyu.api.agent import AgentDirectoryDependency
+from kunyu.api.agent_dependencies import AgentDirectoryDependency
 from kunyu.api.dependencies import get_database
 from kunyu.api.errors import ApiError
 from kunyu.api.run_models import AgentTurnResponse

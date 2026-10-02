@@ -8,6 +8,7 @@ from kunyu.agent import services as s
 from kunyu.agent.adapters import ServiceConfirmationRequester
 from kunyu.agent.context import ScopedAgentContextProvider
 from kunyu.agent.kernel import install_plugin
+from kunyu.agent.queue_interactions import QueueInteractionConfig
 from kunyu.agent.runtime.runner import Runner
 from kunyu.agent.runtime.runner_types import RunnerConflictError, RunnerNotFoundError
 from kunyu.agent.scheduler import RunScheduler
@@ -138,6 +139,11 @@ class AgentLoopPlugin:
     )
     provides = (s.RUNTIME, s.SCHEDULER, s.AGENTS)
 
+    def __init__(
+        self, *, queue_interactions: QueueInteractionConfig = QueueInteractionConfig()
+    ) -> None:
+        self._queue_interactions = queue_interactions
+
     async def apply(self, context: Context) -> None:
         runtime = ScopedRuntime(context)
         scheduler = RunScheduler(
@@ -146,6 +152,7 @@ class AgentLoopPlugin:
             context.require(s.LIFECYCLE_REPOSITORY),
             context.require(s.CONFIRMATIONS),
             context.require(s.ACCEPTANCE),
+            interaction_config=self._queue_interactions,
         )
         context.provide(s.RUNTIME, runtime)
         context.provide(s.SCHEDULER, scheduler)

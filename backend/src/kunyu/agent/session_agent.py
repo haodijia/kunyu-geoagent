@@ -12,6 +12,7 @@ from kunyu.agent.runtime.events import (
     ContextInjectedEvent,
     ContextInjectedPayload,
     EventBatch,
+    InboxMessagePayload,
     RunState,
 )
 from kunyu.agent.scheduler import RunScheduler
@@ -62,6 +63,28 @@ class SessionAgent:
         self.turns()
         await self._scheduler.clear_queue(self.inbox)
 
+    async def hold_queue(
+        self, interaction_id: str, message_ids: tuple[str, ...]
+    ) -> int:
+        self.turns()
+        return await self._scheduler.hold_queue(
+            self.inbox, self.ctx, interaction_id, message_ids
+        )
+
+    async def renew_queue_hold(self, interaction_id: str) -> int:
+        self.turns()
+        return await self._scheduler.renew_queue_hold(
+            self.session_id, self.ctx, interaction_id
+        )
+
+    async def release_queue_hold(self, interaction_id: str) -> None:
+        self.turns()
+        await self._scheduler.release_queue_hold(self.session_id, interaction_id)
+
+    async def take_queued(self, message_id: str) -> InboxMessagePayload:
+        self.turns()
+        return await self._scheduler.take_queued(self.inbox, message_id)
+
     async def steer(self, request: RunAcceptanceRequest) -> RunAcceptanceResult:
         self._require_request(request)
         return await self._scheduler.steer(request)
@@ -99,8 +122,12 @@ class SessionAgent:
         while True:
             active = self._find_active_turn()
             state = await self.inbox.state()
-            runnable_input = bool(state.next_turn) and (
-                state.queue_mode == "auto" or state.dispatch_message_id is not None
+            runnable_input = (
+                bool(state.next_turn)
+                and (
+                    state.queue_mode == "auto" or state.dispatch_message_id is not None
+                )
+                and not self._scheduler.queue_held(self.session_id)
             )
             if (active is None and not runnable_input) or (
                 active is not None

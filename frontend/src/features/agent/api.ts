@@ -31,6 +31,39 @@ export function clearAgentQueue(sessionId: string): Promise<void> {
   });
 }
 
+export interface QueuedAgentDraft {
+  readonly message_id: string;
+  readonly content: string;
+  readonly map_context: TurnMapContext;
+  readonly turn: { readonly model_snapshot: StepModelSnapshot } | null;
+}
+
+export function takeQueuedAgentDraft(sessionId: string, messageId: string): Promise<QueuedAgentDraft> {
+  return requestJson<QueuedAgentDraft>(`/api/v1/sessions/${encodeURIComponent(sessionId)}/agent/inbox/${encodeURIComponent(messageId)}/edit`, {
+    method: "POST", body: "{}",
+  });
+}
+
+export interface QueueInteractionLease { readonly lease_milliseconds: number; }
+
+export function acquireQueueInteraction(sessionId: string, interactionId: string, messageIds: readonly string[]): Promise<QueueInteractionLease> {
+  return requestJson<QueueInteractionLease>(`/api/v1/sessions/${encodeURIComponent(sessionId)}/agent/queue/interactions/${encodeURIComponent(interactionId)}`, {
+    method: "POST", body: JSON.stringify({ message_ids: messageIds }),
+  });
+}
+
+export function renewQueueInteraction(sessionId: string, interactionId: string): Promise<QueueInteractionLease> {
+  return requestJson<QueueInteractionLease>(`/api/v1/sessions/${encodeURIComponent(sessionId)}/agent/queue/interactions/${encodeURIComponent(interactionId)}`, {
+    method: "PATCH", body: "{}",
+  });
+}
+
+export function releaseQueueInteraction(sessionId: string, interactionId: string): Promise<void> {
+  return requestJson<void>(`/api/v1/sessions/${encodeURIComponent(sessionId)}/agent/queue/interactions/${encodeURIComponent(interactionId)}`, {
+    method: "DELETE", keepalive: true,
+  });
+}
+
 export type AgentTurnState =
   | "ready"
   | "model_running"

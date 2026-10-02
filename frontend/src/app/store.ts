@@ -26,6 +26,7 @@ export interface SessionModelSelection {
 interface AppUiState {
   readonly analysisModeBySession: Readonly<Record<string, AnalysisMode>>;
   readonly composerDraftBySession: Readonly<Record<string, string>>;
+  readonly composerQueuedBySession: Readonly<Record<string, boolean>>;
   readonly mapContextBySession: Readonly<Record<string, MapContext>>;
   readonly modelSelectionBySession: Readonly<Record<string, SessionModelSelection>>;
   readonly sidebarCollapsed: boolean;
@@ -35,6 +36,7 @@ interface AppUiState {
   readonly initializeMapContext: (sessionId: string, workspaceId: string) => void;
   readonly setAnalysisMode: (sessionId: string, mode: AnalysisMode) => void;
   readonly setComposerDraft: (sessionId: string, draft: string) => void;
+  readonly restoreComposerDraft: (sessionId: string, draft: string, map: MapContext, model: SessionModelSelection) => void;
   readonly setMapViewport: (
     sessionId: string,
     workspaceId: string,
@@ -53,6 +55,7 @@ interface AppUiState {
 export const useAppUiStore = create<AppUiState>((set) => ({
   analysisModeBySession: {},
   composerDraftBySession: {},
+  composerQueuedBySession: {},
   mapContextBySession: {},
   modelSelectionBySession: {},
   sidebarCollapsed: readSidebarCollapsed(),
@@ -63,7 +66,8 @@ export const useAppUiStore = create<AppUiState>((set) => ({
       composerDraftBySession: {
         ...state.composerDraftBySession,
         [sessionId]: ""
-      }
+      },
+      composerQueuedBySession: { ...state.composerQueuedBySession, [sessionId]: false },
     })),
   initializeMapContext: (sessionId, workspaceId) =>
     set((state) => {
@@ -89,8 +93,21 @@ export const useAppUiStore = create<AppUiState>((set) => ({
       composerDraftBySession: {
         ...state.composerDraftBySession,
         [sessionId]: draft
-      }
+      },
+      composerQueuedBySession: { ...state.composerQueuedBySession, [sessionId]: draft.trim().length > 0 && state.composerQueuedBySession[sessionId] === true },
     })),
+  restoreComposerDraft: (sessionId, draft, map, model) => set((state) => {
+    const existing = state.composerDraftBySession[sessionId];
+    if (existing !== undefined && existing.trim().length > 0) {
+      throw new Error("A queued draft cannot replace existing composer input.");
+    }
+    return {
+      composerDraftBySession: { ...state.composerDraftBySession, [sessionId]: draft },
+      composerQueuedBySession: { ...state.composerQueuedBySession, [sessionId]: true },
+      mapContextBySession: { ...state.mapContextBySession, [sessionId]: map },
+      modelSelectionBySession: { ...state.modelSelectionBySession, [sessionId]: model },
+    };
+  }),
   setMapViewport: (sessionId, workspaceId, viewport) =>
     set((state) => {
       const current = state.mapContextBySession[sessionId] ?? createMapContext(workspaceId);

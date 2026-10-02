@@ -19,6 +19,7 @@ const MAX_TEXTAREA_HEIGHT = 120;
 interface ConversationComposerProps {
   readonly contextLabel: string;
   readonly draft: string;
+  readonly queuedDraft: boolean;
   readonly error: string | null;
   readonly draftFrozen: boolean;
   readonly modelDisabled: boolean;
@@ -50,7 +51,7 @@ interface ConversationComposerProps {
 }
 
 export function ConversationComposer({
-  contextLabel, draft, error, draftFrozen, modelDisabled, modelGroups,
+  contextLabel, draft, queuedDraft, error, draftFrozen, modelDisabled, modelGroups,
   pending, interactionLocked, running, stopPending, reasoningOptions, selectedModel,
   defaultReasoningEffort,
   selectedReasoningEffort, sendDisabled, showModelSettings, commands,
@@ -187,7 +188,7 @@ export function ConversationComposer({
           aria-activedescendant={menuOpen && activeCommand !== undefined ? `${commandMenuId}-${activeCommand.name}` : undefined}
           className="block min-h-6 w-full resize-none overflow-y-auto rounded-none border-0 bg-transparent px-0 py-0 text-[13px] leading-5 text-foreground shadow-none outline-none placeholder:text-muted-foreground focus-visible:border-transparent focus-visible:ring-0 disabled:cursor-wait"
           value={draft}
-          placeholder={running ? content.steeringPlaceholder : content.composerPlaceholder}
+          placeholder={queuedDraft ? content.queue.editPlaceholder : running ? content.steeringPlaceholder : content.composerPlaceholder}
           disabled={inputLocked}
           rows={1}
           onChange={handleChange}
@@ -232,7 +233,7 @@ export function ConversationComposer({
             <Button
               type="submit" size="icon" className="composer-send ml-1 size-7 rounded-full shadow-none"
               disabled={!canSend}
-              aria-label={pending ? content.sending : draftFrozen ? content.retrySend : running ? content.steer : content.send}
+              aria-label={pending ? content.sending : draftFrozen ? content.retrySend : queuedDraft ? content.queue.sendEdited : running ? content.steer : content.send}
             >
               {pending || commandPending ? <LoaderCircle className="size-3.5 animate-spin" strokeWidth={2.1} />
                 : draftFrozen ? <RotateCw className="size-3.5" strokeWidth={2.1} />

@@ -8,7 +8,7 @@ from kunyu.agent.scheduler import (
     RunQueueFullError,
     RunSchedulerClosingError,
 )
-from kunyu.api.agent import RunSchedulerDependency
+from kunyu.api.agent_dependencies import RunSchedulerDependency
 from kunyu.api.errors import ApiError
 from kunyu.api.run_models import AgentTurnResponse, ToolCallResponse
 from kunyu.application.confirmations import ConfirmationService

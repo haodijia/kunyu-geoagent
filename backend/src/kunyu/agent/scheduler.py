@@ -4,9 +4,15 @@ import asyncio
 import logging
 from typing import Literal
 
-from kunyu.agent.inbox import SessionInbox
+from kunyu.agent.inbox import InboxQueueConflictError, SessionInbox
+from kunyu.agent.queue_interactions import QueueInteractionConfig, QueueInteractions
 from kunyu.agent.runtime.driver import AgentRuntime
-from kunyu.agent.runtime.events import TERMINAL_RUN_STATES, RunState
+from kunyu.agent.runtime.events import (
+    TERMINAL_RUN_STATES,
+    InboxMessagePayload,
+    RunState,
+)
+from kunyu.agent.scope import Context
 from kunyu.application.confirmations import ConfirmationService
 from kunyu.application.run_acceptance import RunAcceptanceService
 from kunyu.application.run_lifecycle import (
@@ -41,6 +47,8 @@ class RunScheduler:
         repository: SQLAlchemyRunLifecycleRepository,
         confirmations: ConfirmationService,
         acceptance: RunAcceptanceService,
+        *,
+        interaction_config: QueueInteractionConfig = QueueInteractionConfig(),
     ) -> None:
         self._runtime = runtime
         self._lifecycle = lifecycle
@@ -55,6 +63,9 @@ class RunScheduler:
         self._started = False
         self._closing = False
         self._closing_event = asyncio.Event()
+        self._interactions = QueueInteractions(
+            interaction_config, self._wake_dispatcher
+        )
 
     @property
     def closing_event(self) -> asyncio.Event:
@@ -63,6 +74,44 @@ class RunScheduler:
     def begin_shutdown(self) -> None:
         self._closing = True
         self._closing_event.set()
+        self._interactions.close()
+
+    def queue_held(self, session_id: str) -> bool:
+        return session_id in self._interactions.held_sessions
+
+    async def hold_queue(
+        self,
+        inbox: SessionInbox,
+        owner: Context,
+        interaction_id: str,
+        message_ids: tuple[str, ...],
+    ) -> int:
+        async with self._lock:
+            self._require_accepting()
+            state = await inbox.state()
+            if tuple(item.message_id for item in state.next_turn) != message_ids:
+                raise InboxQueueConflictError(
+                    "The pending queue changed before interaction began."
+                )
+            return self._interactions.acquire(owner, inbox.session_id, interaction_id)
+
+    async def renew_queue_hold(
+        self, session_id: str, owner: Context, interaction_id: str
+    ) -> int:
+        async with self._lock:
+            self._require_accepting()
+            return self._interactions.renew(owner, session_id, interaction_id)
+
+    async def release_queue_hold(self, session_id: str, interaction_id: str) -> None:
+        async with self._lock:
+            self._interactions.release(session_id, interaction_id)
+
+    async def take_queued(
+        self, inbox: SessionInbox, message_id: str
+    ) -> InboxMessagePayload:
+        async with self._lock:
+            self._require_accepting()
+            return await inbox.take_queued(message_id)
 
     async def start(self) -> None:
         async with self._lock:
@@ -296,7 +345,8 @@ class RunScheduler:
                 frozenset((*self._active, *self._blocked)),
             )
             for session_id in self._repository.list_pending_turn_sessions(
-                available - len(run_ids)
+                available - len(run_ids),
+                excluded=self._interactions.held_sessions,
             ):
                 claimed = self._acceptance.claim_next_turn(session_id)
                 if claimed is not None:

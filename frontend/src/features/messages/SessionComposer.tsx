@@ -17,6 +17,7 @@ export function SessionComposer() {
   const [queueEditing, setQueueEditing] = useState(false);
   const {
     draft,
+    queuedDraft,
     mapContext,
     changeDraft,
     changeModel,
@@ -72,7 +73,7 @@ export function SessionComposer() {
     return [...groups.values()];
   }, [usableModels]);
 
-  const modelDisabled = mutation.isPending || requestFrozen || activeTurn !== undefined || connectionsQuery.isPending;
+  const modelDisabled = mutation.isPending || requestFrozen || queueEditing || activeTurn !== undefined || connectionsQuery.isPending;
   const reasoningSelectionInvalid = selectedModel !== undefined && modelSelection?.reasoningEffort !== null && modelSelection?.reasoningEffort !== undefined && !selectedModel.entry.reasoning_efforts.includes(modelSelection.reasoningEffort);
   const sendDisabled = selectedModel === undefined || reasoningSelectionInvalid || agentTurnsQuery.data === undefined;
   const commandState = useComposerCommands({
@@ -84,7 +85,7 @@ export function SessionComposer() {
     sendSkill: sendMessage,
     message: selectedModel === undefined ? null : {
       content: draft,
-      delivery: activeTurn === undefined ? "followup" : "steer",
+      delivery: activeTurn === undefined || queuedDraft ? "followup" : "steer",
       connectionId: selectedModel.connection.id,
       modelId: selectedModel.entry.model_id,
       reasoningEffort: modelSelection?.reasoningEffort ?? null,
@@ -133,6 +134,7 @@ export function SessionComposer() {
         zoom.toFixed(1)
       )}
       draft={draft}
+      queuedDraft={queuedDraft}
       onDraftChange={(value) => {
         commandState.resetFeedback();
         changeDraft(value);

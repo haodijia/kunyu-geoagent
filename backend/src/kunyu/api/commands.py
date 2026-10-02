@@ -11,7 +11,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from kunyu.agent import services as s
 from kunyu.agent.session_agent import SessionAgent
-from kunyu.api.agent import AgentDirectoryDependency
+from kunyu.api.agent_dependencies import AgentDirectoryDependency
 from kunyu.api.errors import ApiError
 from kunyu.api.messages import AppendMessageRequest, EventResponse
 from kunyu.domain.run_acceptance import ModelSelection, RunAcceptanceRequest
