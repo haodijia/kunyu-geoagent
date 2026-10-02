@@ -1,7 +1,7 @@
-import { LoaderCircle, MessageCircle } from "lucide-react";
-import { useEffect, useMemo, useRef, type ReactNode } from "react";
-import Markdown from "react-markdown";
-import remarkGfm from "remark-gfm";
+import { ArrowDown, LoaderCircle, MessageCircle } from "lucide-react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+
+import { Button } from "@/components/ui/button";
 
 import type { MessageStatus, SessionMessage } from "@/features/messages/api";
 import type { AgentTurn, ToolCall } from "@/features/agent/api";
@@ -10,6 +10,10 @@ import { conversationSlots } from "@/features/conversation/slots";
 import { useSessionEvents } from "@/features/events/SessionEventContext";
 import { SessionEmptyState } from "@/features/sessions/SessionEmptyState";
 import { zhCN } from "@/locales/zh-CN";
+import { CopyButton } from "./CopyButton";
+import { MessageMarkdown } from "./MessageMarkdown";
+import { MessageReasoning } from "./MessageReasoning";
+import { collectMessageReasoning } from "./reasoning";
 
 const content = zhCN.conversation;
 const timeFormatter = new Intl.DateTimeFormat("zh-CN", {
@@ -38,6 +42,7 @@ export function MessageList({
   turns,
 }: MessageListProps) {
   const { records } = useSessionEvents();
+  const reasoningByMessage = useMemo(() => collectMessageReasoning(records), [records]);
   const timeline = useMemo(() => {
     const sequenceByMessage = new Map<string, number>();
     for (const record of records) {
@@ -53,6 +58,7 @@ export function MessageList({
   }, [messages, records]);
   const endRef = useRef<HTMLDivElement>(null);
   const followStreamRef = useRef(true);
+  const [awayFromEnd, setAwayFromEnd] = useState(false);
   const toolsByMessage = useMemo(() => {
     const grouped = new Map<string, ToolCall[]>();
     for (const tool of turns.flatMap((turn) => turn.tool_calls)) {
@@ -75,16 +81,17 @@ export function MessageList({
       const distanceFromEnd =
         scroller.scrollHeight - scroller.scrollTop - scroller.clientHeight;
       followStreamRef.current = distanceFromEnd < 80;
+      setAwayFromEnd(!followStreamRef.current);
     };
     scroller.addEventListener("scroll", trackPosition, { passive: true });
     return () => scroller.removeEventListener("scroll", trackPosition);
-  }, [messages.length]);
+  }, [timeline.length === 0]);
 
   useEffect(() => {
     if (followStreamRef.current) {
       endRef.current?.scrollIntoView({ block: "end" });
     }
-  }, [messages, turns, timeline]);
+  }, [messages, turns, timeline, reasoningByMessage]);
 
   if (timeline.length === 0) {
     return (
@@ -111,6 +118,10 @@ export function MessageList({
         }
         const message = item.message;
         const tools = toolsByMessage.get(message.id) ?? [];
+        const reasoning = reasoningByMessage.get(message.id);
+        const activeTurn = turns.find((turn) => turn.id === message.run_id);
+        const active = activeTurn?.state === "model_running" && message.status === "streaming" &&
+          activeTurn.step === message.step && activeTurn.attempt === message.attempt;
         return (
           <article
             key={message.id}
@@ -120,12 +131,24 @@ export function MessageList({
                 : "group mr-auto flex w-full flex-col items-start"
             }
           >
+            {message.role === "assistant" && reasoning !== undefined && (
+              <MessageReasoning id={message.id} reasoning={reasoning} active={active && message.content.length === 0} updatedAt={message.updated_at} />
+            )}
             {message.role === "user" ? (
               <div className="max-w-full rounded-[8px] bg-[var(--message-user-bg)] px-2.5 py-2 text-[13px] leading-5 whitespace-pre-wrap text-foreground [overflow-wrap:anywhere]">
                 {message.content}
               </div>
             ) : (
-              <AssistantContent message={message} />
+              message.content.length > 0 ? (
+                <>
+                  <MessageMarkdown text={message.content} />
+                  {active && <span className="ml-0.5 inline-block h-4 w-0.5 animate-pulse rounded-full bg-muted-foreground align-text-bottom" />}
+                </>
+              ) : active && reasoning === undefined ? (
+                <div className="flex items-center gap-2 py-1 text-[13px] text-muted-foreground" role="status">
+                  <LoaderCircle className="size-3.5 animate-spin" aria-hidden="true" />{content.status.streaming}
+                </div>
+              ) : null
             )}
             {tools.length > 0
               ? conversationSlots.render("message.tools", {
@@ -136,6 +159,7 @@ export function MessageList({
             <div
               className={`mt-1 flex h-6 items-center gap-2 px-1 text-xs text-muted-foreground transition-opacity ${message.status === "completed" ? "opacity-0 group-hover:opacity-100 group-focus-within:opacity-100" : "opacity-100"}`}
             >
+              {message.content.length > 0 && <CopyButton text={message.content} />}
               {message.status !== "completed" ? (
                 <span className="inline-flex items-center gap-1" role="status">
                   {message.status === "streaming" ? (
@@ -159,89 +183,14 @@ export function MessageList({
       })}
       {footer}
       <div ref={endRef} />
+      {awayFromEnd && (
+        <div className="sticky bottom-2 z-10 flex h-0 justify-center">
+          <Button type="button" variant="outline" size="icon" className="-translate-y-full rounded-full bg-background shadow-sm" aria-label={content.scrollToBottom} onClick={() => {
+            followStreamRef.current = true;
+            endRef.current?.scrollIntoView({ block: "end", behavior: "smooth" });
+          }}><ArrowDown className="size-4" /></Button>
+        </div>
+      )}
     </div>
-  );
-}
-
-function AssistantContent({ message }: { readonly message: SessionMessage }) {
-  if (message.content.length === 0) {
-    return message.status === "completed" ? null : (
-      <div className="flex items-center gap-2 py-1 text-sm text-muted-foreground">
-        {message.status === "streaming" ? (
-          <LoaderCircle className="size-3.5 animate-spin" aria-hidden="true" />
-        ) : null}
-        <span>{statusLabels[message.status]}</span>
-      </div>
-    );
-  }
-  return (
-    <div className="w-full text-[13px] leading-[1.65] text-foreground [overflow-wrap:anywhere]">
-      <Markdown
-        remarkPlugins={[remarkGfm]}
-        components={{
-          a: ({ children, href }) => (
-            <a
-              className="text-foreground underline underline-offset-4"
-              href={href}
-            >
-              {children}
-            </a>
-          ),
-          blockquote: ({ children }) => (
-            <blockquote className="my-3 border-l-2 border-border pl-4 text-muted-foreground">
-              {children}
-            </blockquote>
-          ),
-          code: ({ children }) => (
-            <code className="rounded bg-muted px-1.5 py-0.5 font-mono text-[0.9em]">
-              {children}
-            </code>
-          ),
-          h1: ({ children }) => <Heading>{children}</Heading>,
-          h2: ({ children }) => <Heading>{children}</Heading>,
-          h3: ({ children }) => <Heading>{children}</Heading>,
-          ol: ({ children }) => (
-            <ol className="my-3 list-decimal space-y-1 pl-6">{children}</ol>
-          ),
-          p: ({ children }) => (
-            <p className="my-0 mb-3 last:mb-0">{children}</p>
-          ),
-          pre: ({ children }) => (
-            <pre className="my-3 overflow-x-auto rounded-lg bg-muted p-3 text-xs leading-5">
-              {children}
-            </pre>
-          ),
-          table: ({ children }) => (
-            <table className="my-3 w-full border-collapse text-left text-xs">
-              {children}
-            </table>
-          ),
-          td: ({ children }) => (
-            <td className="border border-border px-2 py-1.5">{children}</td>
-          ),
-          th: ({ children }) => (
-            <th className="border border-border bg-muted px-2 py-1.5">
-              {children}
-            </th>
-          ),
-          ul: ({ children }) => (
-            <ul className="my-3 list-disc space-y-1 pl-6">{children}</ul>
-          ),
-        }}
-      >
-        {message.content}
-      </Markdown>
-      {message.status === "streaming" ? (
-        <span className="ml-0.5 inline-block h-4 w-0.5 animate-pulse rounded-full bg-muted-foreground align-text-bottom" />
-      ) : null}
-    </div>
-  );
-}
-
-function Heading({ children }: { readonly children: ReactNode }) {
-  return (
-    <h3 className="mt-4 mb-2 text-[13px] font-semibold first:mt-0">
-      {children}
-    </h3>
   );
 }

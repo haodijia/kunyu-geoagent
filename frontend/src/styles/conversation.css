@@ -41,16 +41,95 @@
   max-width: min(280px, 50cqw);
   min-width: 0;
   padding: 0 9px;
-  border: 0;
+  border: 1px solid var(--border-base);
   border-radius: 999px;
-  background: var(--bg-2);
+  background: transparent;
   color: var(--text-secondary);
   font-size: 12px;
   cursor: pointer;
 }
 .composer-chip:hover {
-  background: var(--bg-3);
+  border-color: var(--bg-4);
   color: var(--text-primary);
+}
+
+/* Adapted from mu's MessageThinking and markdown styles (Apache-2.0). */
+.message-thinking {
+  width: 100%;
+  margin: 4px 0;
+}
+.message-thinking-header {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0;
+  font-size: 13px;
+  line-height: 1;
+  color: var(--aou-6);
+  cursor: pointer;
+}
+.message-thinking-header:hover { color: var(--aou-7); }
+.message-thinking-header:focus-visible { outline: 2px solid var(--ring); outline-offset: 4px; }
+.message-thinking-header > svg:first-child { color: var(--aou-5); }
+.message-thinking-header > svg:last-child { color: var(--aou-4); }
+.message-thinking-stream {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  height: 2.8em;
+  margin-top: 2px;
+  margin-inline-start: 20px;
+  overflow: hidden;
+  color: var(--color-text-3);
+  font-size: 12px;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+}
+.message-thinking-body {
+  color: var(--color-text-3);
+  font-size: 13px;
+  line-height: 1.7;
+  padding: 2px 0;
+  margin-top: 4px;
+  margin-inline-start: 20px;
+  max-height: 420px;
+  overflow-y: auto;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.message-markdown {
+  color: var(--text-primary);
+  font-size: 15px;
+  line-height: 1.7;
+  overflow-wrap: anywhere;
+}
+.message-markdown p { margin-block: 16px; }
+.message-markdown > :first-child { margin-top: 0; }
+.message-markdown > :last-child { margin-bottom: 0; }
+.message-markdown :where(h1, h2, h3, h4, h5, h6) { font-weight: 600; }
+.message-markdown h1 { font-size: 24px; line-height: 32px; margin: 24px 0 16px; }
+.message-markdown :where(h2, h3, h4, h5, h6) { font-size: 16px; line-height: 24px; margin: 20px 0 12px; }
+.message-markdown a { color: var(--mu-primary-fill); overflow-wrap: anywhere; }
+.message-markdown a:hover { text-decoration: underline; }
+.message-markdown strong { font-weight: 600; }
+.message-markdown :where(ol, ul) { padding-inline-start: 24px; }
+.message-markdown ol { list-style: decimal; }
+.message-markdown ul { list-style: disc; }
+.message-markdown li { margin-block: 6px; }
+.message-markdown hr { border: 0; border-top: 1px solid var(--bg-3); margin-block: 28px; }
+.message-markdown blockquote { border-inline-start: 3px solid var(--bg-3); padding-inline-start: 12px; margin-block: 16px; }
+.message-markdown code:not(pre code) { background: var(--bg-3); padding: 2px 6px; border-radius: 4px; font-size: .875em; }
+.message-code-block { margin-block: 12px; border: 1px solid var(--bg-3); border-radius: 8px; overflow: hidden; background: var(--bg-2); }
+.message-code-toolbar { display: flex; justify-content: end; padding: 4px 8px; border-bottom: 1px solid var(--bg-3); }
+.message-code-block pre { margin: 0; max-width: 100%; overflow-x: auto; padding: 12px; font-size: 13px; line-height: 1.5; }
+.message-markdown img { max-width: 100%; height: auto; border-radius: 8px; }
+.message-table-scroll { max-width: 100%; overflow-x: auto; margin-block: 16px; }
+.message-markdown table { border-collapse: collapse; max-width: 100%; }
+.message-markdown :where(th, td) { padding: 8px; border: 1px solid var(--bg-3); }
+.message-markdown th { background: var(--bg-1); font-weight: 600; text-align: start; }
+.message-markdown td { min-width: 120px; }
+@media (prefers-reduced-motion: reduce) {
+  .message-thinking-header svg { animation: none; transition: none; }
 }
 .composer-chip:disabled {
   opacity: 0.5;

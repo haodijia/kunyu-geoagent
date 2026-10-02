@@ -255,6 +255,16 @@ export const zhCN = {
     mapEmptyDescription: "会话产生空间数据后，相关图层将在这里显示。",
   },
   conversation: {
+    copy: "复制",
+    copied: "已复制",
+    copyFailed: "复制失败，请重试。",
+    scrollToBottom: "回到最新消息",
+    thinking: {
+      seconds: (seconds: number) => `${seconds}秒`,
+      minutes: (minutes: number, seconds: number) => `${minutes}分${seconds}秒`,
+      running: (duration: string) => `思考中 · ${duration}`,
+      completed: (duration: string) => `已思考 ${duration}`,
+    },
     loading: "正在加载对话…",
     loadFailed: "无法加载对话，请确认本地服务正在运行。",
     retry: "重新加载",
@@ -377,6 +387,8 @@ export const zhCN = {
         cancelled: "已取消",
       },
       groupCompleted: (count: number) => `已完成 ${count} 次工具调用`,
+      groupPending: (count: number) => `${count} 次工具调用等待执行`,
+      groupCancelled: (count: number, cancelled: number) => `${count} 次工具调用，${cancelled} 次已取消`,
       groupRunning: (count: number, name: string) =>
         `正在执行 ${count} 次工具调用 · ${name}`,
       groupFailed: (count: number, failed: number) =>
