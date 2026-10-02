@@ -39,6 +39,7 @@ export function TraceView() {
     () =>
       conversationAssembler.assemble("trajectory", {
         events: eventStream.records,
+        activeAssistant: eventStream.activeAssistant,
         messages: messagesQuery.data ?? [],
         turns: agentTurnsQuery.data ?? [],
         confirmations: confirmationsQuery.data ?? [],
@@ -46,6 +47,7 @@ export function TraceView() {
     [
       confirmationsQuery.data,
       eventStream.records,
+      eventStream.activeAssistant,
       messagesQuery.data,
       agentTurnsQuery.data,
     ],

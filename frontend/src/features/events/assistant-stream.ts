@@ -250,6 +250,11 @@ function integer(value: unknown): value is number {
 function index(value: unknown): boolean {
   return integer(value) && value >= 0;
 }
+export function parseStreamChunk(value: unknown): StreamChunk {
+  if (!validChunk(value)) throw new Error("Invalid assistant stream chunk.");
+  return value as StreamChunk;
+}
+
 function validChunk(value: unknown): boolean {
   if (!isObject(value)) return false;
   switch (value.type) {

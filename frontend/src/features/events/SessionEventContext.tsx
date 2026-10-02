@@ -4,33 +4,30 @@ import {
   useEffect,
   useRef,
   useState,
-  type ReactNode
+  type ReactNode,
 } from "react";
 
 import { ApiError } from "@/api/client";
-import {
-  listSessionEventHistory,
-  streamSessionEvents
-} from "@/features/events/api";
+import { streamSessionFollow } from "@/features/events/api";
 import type { SessionEvent } from "@/features/events/api";
 import {
   projectSessionEvent,
-  type TrajectoryEventProjection
+  type TrajectoryEventProjection,
 } from "@/features/events/projection";
 import { zhCN } from "@/locales/zh-CN";
+
+import { LiveAssistantStream, type ActiveAssistant } from "./live-assistant";
 
 const INITIAL_RECONNECT_DELAY_MS = 500;
 const MAX_RECONNECT_DELAY_MS = 8_000;
 
 export type EventStreamStatus =
-  | "connecting"
-  | "connected"
-  | "reconnecting"
-  | "failed";
+  "connecting" | "connected" | "reconnecting" | "failed";
 
 interface SessionEventState {
   readonly events: readonly SessionEvent[];
   readonly records: readonly TrajectoryEventProjection[];
+  readonly activeAssistant: ActiveAssistant | null;
   readonly error: string | null;
   readonly status: EventStreamStatus;
 }
@@ -44,68 +41,77 @@ interface SessionEventProviderProps {
 
 export function SessionEventProvider({
   children,
-  sessionId
+  sessionId,
 }: SessionEventProviderProps) {
   const [records, setRecords] = useState<TrajectoryEventProjection[]>([]);
   const [events, setEvents] = useState<SessionEvent[]>([]);
   const [status, setStatus] = useState<EventStreamStatus>("connecting");
   const [error, setError] = useState<string | null>(null);
   const lastSequenceRef = useRef(0);
+  const [activeAssistant, setActiveAssistant] =
+    useState<ActiveAssistant | null>(null);
 
   useEffect(() => {
     const controller = new AbortController();
+    const assistant = new LiveAssistantStream();
+    lastSequenceRef.current = 0;
+    setActiveAssistant(null);
+    setEvents([]);
+    setRecords([]);
 
     async function connect() {
       let reconnectDelay = INITIAL_RECONNECT_DELAY_MS;
 
-      try {
-        const history = await listSessionEventHistory(sessionId, controller.signal);
-        if (controller.signal.aborted) return;
-        setEvents(history.slice(-256));
-        setRecords(
-          history.flatMap((event) => {
-            const projection = projectSessionEvent(event);
-            return projection === null ? [] : [projection];
-          })
-        );
-        lastSequenceRef.current = history.at(-1)?.sequence ?? 0;
-      } catch (historyError) {
-        if (controller.signal.aborted) return;
-        setError(
-          historyError instanceof Error
-            ? historyError.message
-            : zhCN.trajectory.streamConnectionFailed
-        );
-        setStatus("failed");
-        return;
-      }
-
       while (!controller.signal.aborted) {
         try {
-          setStatus(lastSequenceRef.current === 0 ? "connecting" : "reconnecting");
+          setStatus(
+            lastSequenceRef.current === 0 ? "connecting" : "reconnecting",
+          );
           setError(null);
 
-          for await (const event of streamSessionEvents(
+          for await (const publication of streamSessionFollow(
             sessionId,
             lastSequenceRef.current,
             controller.signal,
-            () => { if (!controller.signal.aborted) { setStatus("connected"); setError(null); } }
+            () => {
+              if (!controller.signal.aborted) {
+                setStatus("connected");
+                setError(null);
+              }
+            },
           )) {
             if (controller.signal.aborted) return;
-            if (event.sequence <= lastSequenceRef.current) {
-              continue;
-            }
-            if (event.sequence !== lastSequenceRef.current + 1) {
-              throw new Error(
-                zhCN.trajectory.sequenceGap(lastSequenceRef.current + 1, event.sequence)
+            if (publication.type === "assistant") {
+              setActiveAssistant(
+                assistant.accept(publication.frame, lastSequenceRef.current),
               );
-            }
-
-            const projection = projectSessionEvent(event);
-            lastSequenceRef.current = event.sequence;
-            setEvents((current) => [...current, event].slice(-256));
-            if (projection !== null) {
-              setRecords((current) => [...current, projection]);
+            } else {
+              const incoming =
+                publication.type === "opened"
+                  ? publication.events
+                  : [publication.event];
+              const projected: TrajectoryEventProjection[] = [];
+              for (const event of incoming) {
+                if (event.sequence !== lastSequenceRef.current + 1)
+                  throw new Error(
+                    zhCN.trajectory.sequenceGap(
+                      lastSequenceRef.current + 1,
+                      event.sequence,
+                    ),
+                  );
+                assistant.durable(event);
+                const projection = projectSessionEvent(event);
+                if (projection !== null) projected.push(projection);
+                lastSequenceRef.current = event.sequence;
+              }
+              if (incoming.length > 0) {
+                setEvents((current) => [...current, ...incoming].slice(-256));
+                setRecords((current) => [...current, ...projected]);
+              }
+              if (publication.type === "opened")
+                setActiveAssistant(
+                  assistant.replace(publication.assistant, publication.cursor),
+                );
             }
             setStatus("connected");
             reconnectDelay = INITIAL_RECONNECT_DELAY_MS;
@@ -122,7 +128,7 @@ export function SessionEventProvider({
           console.error("[events] Session event stream disconnected.", {
             error: streamError,
             sessionId,
-            afterSequence: lastSequenceRef.current
+            afterSequence: lastSequenceRef.current,
           });
 
           if (isTerminalError(streamError)) {
@@ -133,15 +139,12 @@ export function SessionEventProvider({
 
           setStatus("reconnecting");
           setError(
-            streamError instanceof Error
+            streamError instanceof ApiError
               ? streamError.message
-              : zhCN.trajectory.streamConnectionFailed
+              : zhCN.trajectory.streamConnectionFailed,
           );
           await waitForReconnect(reconnectDelay, controller.signal);
-          reconnectDelay = Math.min(
-            reconnectDelay * 2,
-            MAX_RECONNECT_DELAY_MS
-          );
+          reconnectDelay = Math.min(reconnectDelay * 2, MAX_RECONNECT_DELAY_MS);
         }
       }
     }
@@ -151,7 +154,9 @@ export function SessionEventProvider({
   }, [sessionId]);
 
   return (
-    <SessionEventContext value={{ events, records, error, status }}>
+    <SessionEventContext
+      value={{ events, records, activeAssistant, error, status }}
+    >
       {children}
     </SessionEventContext>
   );
@@ -160,7 +165,9 @@ export function SessionEventProvider({
 export function useSessionEvents(): SessionEventState {
   const state = useContext(SessionEventContext);
   if (state === null) {
-    throw new Error("useSessionEvents must be used inside SessionEventProvider.");
+    throw new Error(
+      "useSessionEvents must be used inside SessionEventProvider.",
+    );
   }
   return state;
 }
@@ -171,7 +178,10 @@ function isTerminalError(error: unknown): error is ApiError {
 
 function waitForReconnect(delay: number, signal: AbortSignal): Promise<void> {
   return new Promise((resolve) => {
-    if (signal.aborted) { resolve(); return; }
+    if (signal.aborted) {
+      resolve();
+      return;
+    }
     const finish = () => {
       window.clearTimeout(timeout);
       signal.removeEventListener("abort", finish);

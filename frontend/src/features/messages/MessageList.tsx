@@ -16,6 +16,10 @@ import { MessageMarkdown } from "./MessageMarkdown";
 import { MessageReasoning } from "./MessageReasoning";
 import { collectMessageReasoning } from "./reasoning";
 import { ModelRetryStatus } from "./ModelRetryStatus";
+import {
+  assistantOutputLimit,
+  assistantPresentation,
+} from "@/features/events/live-assistant";
 
 const content = zhCN.conversation;
 const timeFormatter = new Intl.DateTimeFormat("zh-CN", {
@@ -43,22 +47,75 @@ export function MessageList({
   messages,
   turns,
 }: MessageListProps) {
-  const { records } = useSessionEvents();
-  const reasoningByMessage = useMemo(() => collectMessageReasoning(records), [records]);
-  const pendingSteering = useMemo(() => pendingInboxMessages(records, "next-step"), [records]);
+  const { records, activeAssistant } = useSessionEvents();
+  const live = useMemo(() => {
+    if (activeAssistant === null) return null;
+    const turn = turns.find((turn) => turn.id === activeAssistant.run_id);
+    if (turn === undefined) return null;
+    return assistantPresentation(
+      activeAssistant,
+      assistantOutputLimit(
+        activeAssistant,
+        turn.budget.max_output_codepoints,
+        records,
+      ),
+    );
+  }, [activeAssistant, turns, records]);
+  const visibleMessages = useMemo(
+    () =>
+      live === null || activeAssistant === null
+        ? messages
+        : messages.map((message) =>
+            message.id === activeAssistant.attempt_id
+              ? { ...message, content: live.text }
+              : message,
+          ),
+    [messages, live, activeAssistant],
+  );
+  const reasoningByMessage = useMemo(
+    () => collectMessageReasoning(records),
+    [records],
+  );
+  const pendingSteering = useMemo(
+    () => pendingInboxMessages(records, "next-step"),
+    [records],
+  );
   const timeline = useMemo(() => {
     const sequenceByMessage = new Map<string, number>();
     for (const record of records) {
-      if (record.messageId !== null && !sequenceByMessage.has(record.messageId)) {
+      if (
+        record.messageId !== null &&
+        !sequenceByMessage.has(record.messageId)
+      ) {
         sequenceByMessage.set(record.messageId, record.sequence);
       }
     }
-    const results = new Map(records.filter((record) => record.eventType === "command/done").map((record) => [record.entityId, record]));
+    const results = new Map(
+      records
+        .filter((record) => record.eventType === "command/done")
+        .map((record) => [record.entityId, record]),
+    );
     return [
-      ...messages.filter((message) => message.role !== "user" || message.run_id !== null).map((message) => ({ kind: "message" as const, id: message.id, sequence: sequenceByMessage.get(message.id) ?? message.updated_sequence, message })),
-      ...records.filter((record) => record.eventType === "command/run").map((record) => ({ kind: "command" as const, id: record.entityId, sequence: record.sequence, record, result: results.get(record.entityId) })),
+      ...visibleMessages
+        .filter((message) => message.role !== "user" || message.run_id !== null)
+        .map((message) => ({
+          kind: "message" as const,
+          id: message.id,
+          sequence:
+            sequenceByMessage.get(message.id) ?? message.updated_sequence,
+          message,
+        })),
+      ...records
+        .filter((record) => record.eventType === "command/run")
+        .map((record) => ({
+          kind: "command" as const,
+          id: record.entityId,
+          sequence: record.sequence,
+          record,
+          result: results.get(record.entityId),
+        })),
     ].sort((left, right) => left.sequence - right.sequence);
-  }, [messages, records]);
+  }, [visibleMessages, records]);
   const endRef = useRef<HTMLDivElement>(null);
   const followStreamRef = useRef(true);
   const [awayFromEnd, setAwayFromEnd] = useState(false);
@@ -111,20 +168,41 @@ export function MessageList({
       {timeline.map((item) => {
         if (item.kind === "command") {
           return (
-            <article key={item.id} className="rounded-lg border border-border/60 px-3 py-2 text-xs text-muted-foreground">
-              <div className="font-mono">/{String(item.record.payload.name)}{typeof item.record.payload.raw_input === "string" ? item.record.payload.raw_input : ""}</div>
-              <div role="status" className={`mt-1 whitespace-pre-wrap ${item.result?.payload.kind === "error" ? "text-destructive" : ""}`}>
-                {typeof item.result?.payload.text === "string" ? item.result.payload.text : zhCN.conversation.commands.running}
+            <article
+              key={item.id}
+              className="rounded-lg border border-border/60 px-3 py-2 text-xs text-muted-foreground"
+            >
+              <div className="font-mono">
+                /{String(item.record.payload.name)}
+                {typeof item.record.payload.raw_input === "string"
+                  ? item.record.payload.raw_input
+                  : ""}
+              </div>
+              <div
+                role="status"
+                className={`mt-1 whitespace-pre-wrap ${item.result?.payload.kind === "error" ? "text-destructive" : ""}`}
+              >
+                {typeof item.result?.payload.text === "string"
+                  ? item.result.payload.text
+                  : zhCN.conversation.commands.running}
               </div>
             </article>
           );
         }
         const message = item.message;
         const tools = toolsByMessage.get(message.id) ?? [];
-        const reasoning = reasoningByMessage.get(message.id);
+        const generating =
+          activeAssistant?.attempt_id === message.id && live !== null;
+        const reasoning = generating
+          ? (live.reasoning ?? undefined)
+          : reasoningByMessage.get(message.id);
         const activeTurn = turns.find((turn) => turn.id === message.run_id);
-        const active = activeTurn?.state === "model_running" && message.status === "streaming" &&
-          activeTurn.step === message.step && activeTurn.attempt === message.attempt;
+        const active =
+          generating ||
+          (activeTurn?.state === "model_running" &&
+            message.status === "streaming" &&
+            activeTurn.step === message.step &&
+            activeTurn.attempt === message.attempt);
         return (
           <article
             key={message.id}
@@ -135,35 +213,56 @@ export function MessageList({
             }
           >
             {message.role === "assistant" && reasoning !== undefined && (
-              <MessageReasoning id={message.id} reasoning={reasoning} active={active && message.content.length === 0} updatedAt={message.updated_at} />
+              <MessageReasoning
+                id={message.id}
+                reasoning={reasoning}
+                active={active && reasoning.finishedAt === null}
+                updatedAt={message.updated_at}
+              />
             )}
             {message.role === "user" ? (
               <div className="max-w-full rounded-[8px] bg-[var(--message-user-bg)] px-2.5 py-2 text-[13px] leading-5 whitespace-pre-wrap text-foreground [overflow-wrap:anywhere]">
                 {message.content}
               </div>
-            ) : (
-              message.content.length > 0 ? (
-                <>
-                  <MessageMarkdown text={message.content} />
-                  {active && <span className="ml-0.5 inline-block h-4 w-0.5 animate-pulse rounded-full bg-muted-foreground align-text-bottom" />}
-                </>
-              ) : active && reasoning === undefined ? (
-                <div className="flex items-center gap-2 py-1 text-[13px] text-muted-foreground" role="status">
-                  <LoaderCircle className="size-3.5 animate-spin" aria-hidden="true" />{content.status.streaming}
-                </div>
-              ) : null
-            )}
+            ) : message.content.length > 0 ? (
+              <>
+                <MessageMarkdown text={message.content} />
+                {active && (
+                  <span className="ml-0.5 inline-block h-4 w-0.5 animate-pulse rounded-full bg-muted-foreground align-text-bottom" />
+                )}
+              </>
+            ) : active && reasoning === undefined ? (
+              <div
+                className="flex items-center gap-2 py-1 text-[13px] text-muted-foreground"
+                role="status"
+              >
+                <LoaderCircle
+                  className="size-3.5 animate-spin"
+                  aria-hidden="true"
+                />
+                {content.status.streaming}
+              </div>
+            ) : null}
             {tools.length > 0
               ? conversationSlots.render("message.tools", {
                   confirmations,
                   tools,
                 })
               : null}
+            {generating &&
+              live.tools.length > 0 &&
+              conversationSlots.render("message.generating-tools", {
+                tools: live.tools,
+              })}
             <div
               className={`mt-1 flex h-6 items-center gap-2 px-1 text-xs text-muted-foreground transition-opacity ${message.status === "completed" && !pendingSteering.has(message.id) ? "opacity-0 group-hover:opacity-100 group-focus-within:opacity-100" : "opacity-100"}`}
             >
-              {pendingSteering.has(message.id) && <span role="status">{content.steeringQueued}</span>}
-              {message.content.length > 0 && <CopyButton text={message.content} />}
+              {pendingSteering.has(message.id) && (
+                <span role="status">{content.steeringQueued}</span>
+              )}
+              {message.content.length > 0 && (
+                <CopyButton text={message.content} />
+              )}
               {message.status !== "completed" ? (
                 <span className="inline-flex items-center gap-1" role="status">
                   {message.status === "streaming" ? (
@@ -190,10 +289,22 @@ export function MessageList({
       <div ref={endRef} />
       {awayFromEnd && (
         <div className="sticky bottom-2 z-10 flex h-0 justify-center">
-          <Button type="button" variant="outline" size="icon" className="-translate-y-full rounded-full bg-background shadow-sm" aria-label={content.scrollToBottom} onClick={() => {
-            followStreamRef.current = true;
-            endRef.current?.scrollIntoView({ block: "end", behavior: "smooth" });
-          }}><ArrowDown className="size-4" /></Button>
+          <Button
+            type="button"
+            variant="outline"
+            size="icon"
+            className="-translate-y-full rounded-full bg-background shadow-sm"
+            aria-label={content.scrollToBottom}
+            onClick={() => {
+              followStreamRef.current = true;
+              endRef.current?.scrollIntoView({
+                block: "end",
+                behavior: "smooth",
+              });
+            }}
+          >
+            <ArrowDown className="size-4" />
+          </Button>
         </div>
       )}
     </div>

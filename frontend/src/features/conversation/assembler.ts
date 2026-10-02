@@ -5,7 +5,10 @@ import { buildTrajectoryRecords } from "@/features/events/trajectory-records";
 import type { TrajectoryRecord } from "@/features/events/trajectory-model";
 import type { SessionMessage } from "@/features/messages/api";
 
+import type { ActiveAssistant } from "@/features/events/live-assistant";
+
 export interface ConversationSource {
+  readonly activeAssistant: ActiveAssistant | null;
   readonly confirmations: readonly Confirmation[];
   readonly events: readonly TrajectoryEventProjection[];
   readonly messages: readonly SessionMessage[];
@@ -26,17 +29,20 @@ export interface TrajectorySnapshot {
 
 class ConversationAssembler {
   assemble(target: "chat", source: ConversationSource): ChatSnapshot;
-  assemble(target: "trajectory", source: ConversationSource): TrajectorySnapshot;
+  assemble(
+    target: "trajectory",
+    source: ConversationSource,
+  ): TrajectorySnapshot;
   assemble(
     target: "chat" | "trajectory",
-    source: ConversationSource
+    source: ConversationSource,
   ): ChatSnapshot | TrajectorySnapshot {
     if (target === "chat") {
       return {
         target,
         confirmations: source.confirmations,
         messages: source.messages,
-        turns: source.turns
+        turns: source.turns,
       };
     }
     return {
@@ -45,8 +51,9 @@ class ConversationAssembler {
         source.events,
         source.messages,
         source.turns,
-        source.confirmations
-      )
+        source.confirmations,
+        source.activeAssistant,
+      ),
     };
   }
 }

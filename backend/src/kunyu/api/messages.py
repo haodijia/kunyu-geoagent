@@ -1,6 +1,4 @@
-import asyncio
 import json
-from collections.abc import AsyncIterator
 from datetime import datetime
 from typing import Annotated, Any, Literal
 from uuid import UUID
@@ -17,6 +15,7 @@ from kunyu.api.agent_dependencies import AgentDirectoryDependency
 from kunyu.api.dependencies import get_database
 from kunyu.api.errors import ApiError
 from kunyu.api.run_models import AgentTurnResponse
+from kunyu.api.session_follow import follow_session
 from kunyu.application.messages import (
     InvalidEventSequenceError,
     MessageService,
@@ -42,7 +41,6 @@ from kunyu.persistence.database import Database
 from kunyu.persistence.messages import SQLAlchemyMessageRepository
 
 router = APIRouter(prefix="/api/v1/sessions/{session_id}", tags=["messages"])
-EVENT_POLL_INTERVAL_SECONDS = 0.25
 
 
 class AppendMessageRequest(BaseModel):
@@ -292,10 +290,11 @@ def event_history(
 
 
 @router.get("/events/stream", response_class=StreamingResponse)
-def stream_events(
+async def stream_events(
     session_id: str,
     request: Request,
     service: MessageServiceDependency,
+    agents: AgentDirectoryDependency,
     after_sequence: Annotated[int, Query(ge=0)] = 0,
 ) -> StreamingResponse:
     try:
@@ -312,35 +311,20 @@ def stream_events(
         ) from error
 
     return StreamingResponse(
-        _event_stream(request, service, session_id, after_sequence),
+        follow_session(
+            request,
+            service,
+            agents.for_session(session_id),
+            after_sequence,
+            _format_event,
+            lambda event: EventResponse.from_domain(event).model_dump(mode="json"),
+        ),
         media_type="text/event-stream",
         headers={
             "Cache-Control": "no-cache",
             "X-Accel-Buffering": "no",
         },
     )
-
-
-async def _event_stream(
-    request: Request,
-    service: MessageService,
-    session_id: str,
-    after_sequence: int,
-) -> AsyncIterator[str]:
-    current_sequence = after_sequence
-    closing_event: asyncio.Event = request.app.state.closing_event
-    while not closing_event.is_set() and not await request.is_disconnected():
-        events = service.list_events_after(session_id, current_sequence)
-        for event in events:
-            yield _format_event(event)
-            current_sequence = event.sequence
-        try:
-            await asyncio.wait_for(
-                closing_event.wait(),
-                timeout=EVENT_POLL_INTERVAL_SECONDS,
-            )
-        except TimeoutError:
-            pass
 
 
 def _format_event(event: AgentEvent) -> str:
