@@ -25,6 +25,16 @@ export function createWorkspace(name: string): Promise<Workspace> {
   });
 }
 
+export function renameWorkspace(
+  workspaceId: string,
+  name: string
+): Promise<Workspace> {
+  return requestJson<Workspace>(`/api/v1/workspaces/${encodeURIComponent(workspaceId)}`, {
+    method: "PATCH",
+    body: JSON.stringify({ name })
+  });
+}
+
 export function listSessions(workspaceId: string): Promise<SessionSummary[]> {
   return requestJson<SessionSummary[]>(
     `/api/v1/workspaces/${encodeURIComponent(workspaceId)}/sessions`

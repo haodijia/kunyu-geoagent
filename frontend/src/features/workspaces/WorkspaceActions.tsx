@@ -5,7 +5,7 @@ import {
   DropdownMenuContent,
   DropdownMenuItem
 } from "@/components/ui/dropdown-menu";
-import { Ellipsis, X } from "lucide-react";
+import { Ellipsis, Pencil, X } from "lucide-react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useLocation, useNavigate } from "react-router-dom";
 import { ApiError } from "@/api/client";
@@ -17,9 +17,13 @@ import { removeWorkspace, workspaceQueryKeys, type Workspace } from "./api";
 const content = zhCN.workspaceSidebar;
 
 export function WorkspaceActions({
-  workspace
+  workspace,
+  disabled,
+  onRename
 }: {
   readonly workspace: Workspace;
+  readonly disabled: boolean;
+  readonly onRename: () => void;
 }) {
   const navigate = useNavigate();
   const location = useLocation();
@@ -56,7 +60,7 @@ export function WorkspaceActions({
         <button
           type="button"
           aria-label={content.workspaceActions}
-          disabled={removal.isPending}
+          disabled={disabled || removal.isPending}
           className="sider-action-btn hidden size-[20px] cursor-pointer items-center justify-center rounded-[4px] border-0 p-0 text-t-secondary transition-colors group-hover:flex group-focus-within:flex hover:text-t-primary data-[state=open]:flex"
           onClick={(event) => event.stopPropagation()}
         >
@@ -64,6 +68,10 @@ export function WorkspaceActions({
         </button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="start" alignOffset={-8}>
+        <DropdownMenuItem onSelect={onRename}>
+          <Pencil strokeWidth={1.75} aria-hidden="true" />
+          {content.renameWorkspace}
+        </DropdownMenuItem>
         <DropdownMenuItem
           disabled={removal.isPending}
           onSelect={() => removal.mutate()}

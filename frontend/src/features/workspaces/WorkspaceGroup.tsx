@@ -4,12 +4,14 @@ import { Tooltip } from "@/components/ui/tooltip";
 import WorkspaceCollapse from "./WorkspaceCollapse";
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { toast } from "sonner";
 
-import { SidebarCreateForm } from "@/features/workspaces/SidebarCreateForm";
+import { SidebarNameForm } from "@/features/workspaces/SidebarNameForm";
 import { sessionOverviewPath } from "@/features/sessions/routes";
 import {
   createSession,
   listSessions,
+  renameWorkspace,
   type Workspace,
   workspaceQueryKeys,
 } from "@/features/workspaces/api";
@@ -32,7 +34,7 @@ export function WorkspaceGroup({
 }: WorkspaceGroupProps) {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const [formOpen, setFormOpen] = useState(false);
+  const [form, setForm] = useState<"session" | "rename" | null>(null);
   const [expanded, setExpanded] = useState(true);
   const sessionsQuery = useQuery({
     queryKey: workspaceQueryKeys.sessions(workspace.id),
@@ -47,10 +49,29 @@ export function WorkspaceGroup({
         }),
         queryClient.invalidateQueries({ queryKey: workspaceQueryKeys.all }),
       ]);
-      setFormOpen(false);
+      setForm(null);
       void navigate(sessionOverviewPath(session.workspace_id, session.id));
     },
   });
+  const renameMutation = useMutation({
+    mutationFn: (name: string) => renameWorkspace(workspace.id, name),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: workspaceQueryKeys.all });
+      setForm(null);
+      toast.success(content.renameSuccess);
+    },
+    onError: (error) => {
+      console.error("[workspaces] Rename failed", error);
+      toast.error(content.renameFailed);
+    },
+  });
+
+  function openForm(next: "session" | "rename") {
+    createMutation.reset();
+    renameMutation.reset();
+    setExpanded(true);
+    setForm(next);
+  }
 
   return (
     <WorkspaceCollapse
@@ -69,10 +90,8 @@ export function WorkspaceGroup({
             <button
               type="button"
               className="sider-action-btn hidden size-[20px] cursor-pointer items-center justify-center rounded-[4px] border-0 p-0 text-t-secondary transition-colors group-hover:flex group-focus-within:flex hover:text-t-primary"
-              onClick={() => {
-                setExpanded(true);
-                setFormOpen(true);
-              }}
+              disabled={createMutation.isPending || renameMutation.isPending}
+              onClick={() => openForm("session")}
               aria-label={`${content.createSessionIn}${workspace.name}`}
             >
               <Plus
@@ -83,21 +102,41 @@ export function WorkspaceGroup({
               />
             </button>
           </Tooltip>
-          <WorkspaceActions workspace={workspace} />
+          <WorkspaceActions
+            workspace={workspace}
+            disabled={createMutation.isPending || renameMutation.isPending}
+            onRename={() => openForm("rename")}
+          />
         </span>
       }
     >
-      {formOpen ? (
-        <SidebarCreateForm
+      {form === "session" ? (
+        <SidebarNameForm
+          key="session"
           error={createMutation.error?.message ?? null}
           label={content.createSession}
           pending={createMutation.isPending}
           placeholder={content.sessionTitlePlaceholder}
           onCancel={() => {
             createMutation.reset();
-            setFormOpen(false);
+            setForm(null);
           }}
           onSubmit={(title) => createMutation.mutate(title)}
+        />
+      ) : null}
+      {form === "rename" ? (
+        <SidebarNameForm
+          key="rename"
+          initialValue={workspace.name}
+          error={renameMutation.error === null ? null : content.renameFailed}
+          label={content.saveWorkspaceName}
+          pending={renameMutation.isPending}
+          placeholder={content.workspaceNamePlaceholder}
+          onCancel={() => {
+            renameMutation.reset();
+            setForm(null);
+          }}
+          onSubmit={(name) => renameMutation.mutate(name)}
         />
       ) : null}
 

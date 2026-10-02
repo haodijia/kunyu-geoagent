@@ -3,10 +3,12 @@ import {
   ChevronRight,
   Circle,
   LoaderCircle,
+  PenLine,
+  Search,
   Wrench,
   X,
 } from "lucide-react";
-import { useState, type ReactNode } from "react";
+import { useState } from "react";
 
 import type { ToolCall } from "@/features/agent/api";
 import type { Confirmation } from "@/features/confirmations/api";
@@ -51,7 +53,7 @@ export function ToolActivity({
     >
       <button
         type="button"
-        className="flex w-full min-w-0 items-center gap-2 rounded-md px-1.5 py-1 text-left text-xs text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+        className="flex w-full min-w-0 items-center gap-2 rounded-lg px-2 py-1 text-left text-[13px] text-secondary-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
         aria-expanded={expanded}
         onClick={() => setExpanded((value) => !value)}
       >
@@ -115,27 +117,27 @@ function ToolCallRow({
     0,
     Date.parse(tool.updated_at) - Date.parse(tool.created_at),
   );
+  const preview = toolPreview(tool.arguments);
 
   return (
     <div className="w-full min-w-0 py-0.5">
       <button
         type="button"
-        className="flex w-full min-w-0 items-center gap-2 rounded-md px-1.5 py-1 text-left text-xs transition-colors hover:bg-muted disabled:cursor-default disabled:hover:bg-transparent"
+        className="flex w-full min-w-0 items-center gap-2 rounded-lg px-2 py-1 text-left text-[13px] transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50 disabled:cursor-default disabled:hover:bg-transparent"
         disabled={!hasDetails}
         aria-expanded={hasDetails ? expanded : undefined}
         onClick={() => setExpanded((value) => !value)}
       >
         <ToolStatusIcon status={tool.status} />
-        <Wrench
-          className="size-3 shrink-0 text-muted-foreground"
-          strokeWidth={1.5}
-          aria-hidden="true"
-        />
-        <span className="min-w-0 flex-1 truncate text-muted-foreground">
-          {toolLabel(tool.name)}
+        <ToolKindIcon name={tool.name} />
+        <span
+          className="min-w-0 max-w-[35%] shrink truncate font-medium text-foreground"
+          title={toolLabel(tool.name)}
+        >
+          {tool.name}
         </span>
-        <code className="hidden min-w-0 max-w-[60%] flex-1 truncate font-mono text-[11px] text-muted-foreground sm:block">
-          {tool.name} {JSON.stringify(tool.arguments)}
+        <code className="min-w-0 flex-1 truncate font-mono text-xs text-secondary-foreground" title={preview}>
+          {preview}
         </code>
         {hasDetails ? (
           expanded ? (
@@ -151,7 +153,7 @@ function ToolCallRow({
         </p>
       ) : null}
       {expanded ? (
-        <div className="ml-5 border-l-2 border-border py-1 pl-3">
+        <div className="mt-0.5 mb-1.5 ml-4 border-l-2 border-border pt-1.5 pb-0.5 pl-3">
           {Object.keys(tool.arguments).length > 0 ? (
             <ToolDetail label={content.input}>
               {formatDetail(tool.arguments)}
@@ -167,14 +169,14 @@ function ToolCallRow({
               {tool.error_summary}
             </ToolDetail>
           ) : null}
-          {confirmation !== undefined ? (
-            <ToolDetail label={content.confirmation}>
-              {content.confirmationStatus[confirmation.status]}
-            </ToolDetail>
-          ) : null}
-          <ToolDetail label={content.duration}>
-            {formatDuration(duration)}
-          </ToolDetail>
+          <div className="flex flex-wrap gap-x-4 gap-y-1 py-1 text-[11px] text-secondary-foreground">
+            {confirmation !== undefined ? (
+              <span>
+                {content.confirmation} · {content.confirmationStatus[confirmation.status]}
+              </span>
+            ) : null}
+            <span>{content.duration} · {formatDuration(duration)}</span>
+          </div>
         </div>
       ) : null}
     </div>
@@ -199,18 +201,31 @@ function ToolDetail({
   danger = false,
   label,
 }: {
-  readonly children: ReactNode;
+  readonly children: string;
   readonly danger?: boolean;
   readonly label: string;
 }) {
+  const [full, setFull] = useState(false);
+  const head = children.split("\n").slice(0, 14).join("\n").slice(0, 1_400);
+  const clipped = head.length < children.length;
   return (
     <div className="mb-2 last:mb-0">
-      <div className="mb-1 text-[11px] text-muted-foreground">{label}</div>
+      <div className="mb-1 text-[11px] text-secondary-foreground">{label}</div>
       <pre
-        className={`m-0 max-h-72 overflow-auto rounded-md bg-muted px-2.5 py-2 font-mono text-xs leading-5 whitespace-pre-wrap [overflow-wrap:anywhere] ${danger ? "text-destructive" : "text-muted-foreground"}`}
+        className={`m-0 max-h-80 overflow-auto rounded-md bg-muted px-2.5 py-2 font-mono text-xs leading-relaxed whitespace-pre-wrap [overflow-wrap:anywhere] ${danger ? "text-destructive" : "text-secondary-foreground"}`}
       >
-        {children}
+        {full || !clipped ? children : `${head}\n…`}
       </pre>
+      {clipped ? (
+        <button
+          type="button"
+          className="mt-0.5 rounded px-1.5 py-0.5 text-xs text-secondary-foreground hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
+          aria-expanded={full}
+          onClick={() => setFull((value) => !value)}
+        >
+          {full ? content.showLess : content.showMore}
+        </button>
+      ) : null}
     </div>
   );
 }
@@ -253,6 +268,28 @@ export function toolLabel(name: string): string {
   return content.names[name as keyof typeof content.names] ?? name;
 }
 
-function formatDetail(value: unknown): ReactNode {
+function ToolKindIcon({ name }: { readonly name: string }) {
+  const Icon =
+    name === "memory_read" ? Search : name === "memory_write" ? PenLine : Wrench;
+  return (
+    <Icon
+      className="size-3 shrink-0 text-secondary-foreground opacity-70"
+      strokeWidth={1.5}
+      aria-hidden="true"
+    />
+  );
+}
+
+function toolPreview(arguments_: ToolCall["arguments"]): string | undefined {
+  for (const key of [
+    "command", "file_path", "path", "query", "pattern", "url", "prompt", "content",
+  ]) {
+    const value = arguments_[key];
+    if (typeof value === "string" && value.length > 0) return value;
+  }
+  return undefined;
+}
+
+function formatDetail(value: unknown): string {
   return typeof value === "string" ? value : JSON.stringify(value, null, 2);
 }
