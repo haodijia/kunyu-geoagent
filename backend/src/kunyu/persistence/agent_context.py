@@ -63,6 +63,7 @@ class SQLAlchemyRunContextRepository:
                     message.created_sequence
                     for message in reduced_session.user_messages
                     if message.created_sequence > current_user_sequence
+                    and message.delivery == "followup"
                 ),
                 default=len(event_records) + 1,
             )

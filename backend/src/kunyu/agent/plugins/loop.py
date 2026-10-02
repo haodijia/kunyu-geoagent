@@ -42,6 +42,7 @@ class RunnerPlugin:
                     context.require(s.PROMPTS),
                     context,
                     context.require(s.CONTEXT_PREPARERS),
+                    context.require(s.EVENTS),
                 ),
                 context.require(s.MODEL),
                 context.require(s.TOOLS),

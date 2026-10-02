@@ -52,6 +52,14 @@ class RunAcceptanceService:
                 occurred_at=self._clock(),
             )
 
+    def steer(self, request: RunAcceptanceRequest, run_id: str) -> RunAcceptanceResult:
+        return self._repository.steer(
+            request,
+            run_id=run_id,
+            message_id=self._message_id_factory(),
+            occurred_at=self._clock(),
+        )
+
 
 def _new_message_id() -> str:
     return f"msg_{uuid4().hex}"

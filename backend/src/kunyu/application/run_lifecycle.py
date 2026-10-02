@@ -1,6 +1,7 @@
 from collections.abc import Callable
 from datetime import UTC, datetime
 
+from kunyu.agent.inbox import SessionInbox
 from kunyu.agent.runtime.events import (
     TERMINAL_RUN_STATES,
     BudgetSettledEvent,
@@ -57,6 +58,10 @@ class RunLifecycleService:
         if details is None:
             raise RunLifecycleNotFoundError(run_id)
         return details
+
+    async def discard_inputs(self, run_id: str) -> None:
+        run = self._require_reduced(run_id)
+        await SessionInbox(run.session_id, self._events).discard(run_id)
 
     def list_for_session(self, session_id: str) -> tuple[RunDetails, ...]:
         details = self._repository.list_details_for_session(session_id)

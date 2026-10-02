@@ -2,9 +2,13 @@
 
 from collections import defaultdict
 from collections.abc import Iterable
+from dataclasses import replace
 
 from kunyu.agent.runtime.events import (
+    TERMINAL_RUN_STATES,
     AgentEvent,
+    InboxSplicedEvent,
+    RunState,
     SessionCreatedEvent,
     UserMessageAppendedEvent,
     validate_event_draft,
@@ -25,6 +29,7 @@ def reduce_session(events: Iterable[AgentEvent]) -> ReducedSession:
     session_created = False
     expected_sequence = 1
     user_messages: dict[str, ReducedUserMessage] = {}
+    next_step: list[str] = []
     run_events: dict[str, list[AgentEvent]] = defaultdict(list)
 
     for envelope in events:
@@ -82,6 +87,75 @@ def reduce_session(events: Iterable[AgentEvent]) -> ReducedSession:
                 created_at=event.occurred_at,
                 created_sequence=envelope.sequence,
             )
+
+        if isinstance(event, InboxSplicedEvent):
+            payload = event.payload
+            if payload.target_run_id not in run_events:
+                raise SessionReductionError(
+                    "Inbox input must belong to an existing run."
+                )
+            target = reduce_run(run_events[payload.target_run_id])
+            if payload.messages and target.state in TERMINAL_RUN_STATES:
+                raise SessionReductionError("Finished runs cannot accept inbox input.")
+            if payload.disposition == "claim" and (
+                target.state is not RunState.MODEL_RUNNING
+                or payload.step != target.step
+            ):
+                raise SessionReductionError(
+                    "Inbox claims must match the entering model step."
+                )
+            stop = payload.start + payload.delete_count
+            if payload.start > len(next_step) or stop > len(next_step):
+                raise SessionReductionError(
+                    "Inbox splice exceeds the pending input list."
+                )
+            removed = next_step[payload.start : stop]
+            if payload.delete_count:
+                if (
+                    payload.messages
+                    or payload.disposition is None
+                    or ((payload.disposition == "claim") != (payload.step is not None))
+                ):
+                    raise SessionReductionError(
+                        "Inbox deletion must explicitly claim or discard input."
+                    )
+                for message_id in removed:
+                    message = user_messages[message_id]
+                    if message.run_id != payload.target_run_id:
+                        raise SessionReductionError(
+                            "Inbox splice crosses run ownership."
+                        )
+                    user_messages[message_id] = replace(
+                        message,
+                        applied_step=payload.step,
+                        discarded=payload.disposition == "discard",
+                    )
+            elif (
+                not payload.messages
+                or payload.disposition is not None
+                or payload.step is not None
+            ):
+                raise SessionReductionError(
+                    "Inbox insertion must contain unclaimed input."
+                )
+            inserted = []
+            for message in payload.messages:
+                if message.message_id in user_messages:
+                    raise SessionReductionError(
+                        "Inbox message identities must be unique."
+                    )
+                user_messages[message.message_id] = ReducedUserMessage(
+                    message_id=message.message_id,
+                    session_id=event.session_id,
+                    run_id=payload.target_run_id,
+                    content=message.content,
+                    created_at=event.occurred_at,
+                    created_sequence=envelope.sequence,
+                    delivery="steer",
+                    map_context=message.map_context,
+                )
+                inserted.append(message.message_id)
+            next_step[payload.start : stop] = inserted
 
         if envelope.run_id is not None:
             run_events[envelope.run_id].append(envelope)
@@ -146,4 +220,5 @@ def reduce_session(events: Iterable[AgentEvent]) -> ReducedSession:
             sorted(user_messages.values(), key=lambda item: item.created_sequence)
         ),
         runs=tuple(sorted(runs, key=lambda item: item.created_sequence)),
+        next_step=tuple(next_step),
     )

@@ -7,6 +7,7 @@ import type { MessageStatus, SessionMessage } from "@/features/messages/api";
 import type { AgentTurn, ToolCall } from "@/features/agent/api";
 import type { Confirmation } from "@/features/confirmations/api";
 import { conversationSlots } from "@/features/conversation/slots";
+import { pendingSteeringMessages } from "@/features/conversation/inbox";
 import { useSessionEvents } from "@/features/events/SessionEventContext";
 import { SessionEmptyState } from "@/features/sessions/SessionEmptyState";
 import { zhCN } from "@/locales/zh-CN";
@@ -43,6 +44,7 @@ export function MessageList({
 }: MessageListProps) {
   const { records } = useSessionEvents();
   const reasoningByMessage = useMemo(() => collectMessageReasoning(records), [records]);
+  const pendingSteering = useMemo(() => pendingSteeringMessages(records), [records]);
   const timeline = useMemo(() => {
     const sequenceByMessage = new Map<string, number>();
     for (const record of records) {
@@ -157,8 +159,9 @@ export function MessageList({
                 })
               : null}
             <div
-              className={`mt-1 flex h-6 items-center gap-2 px-1 text-xs text-muted-foreground transition-opacity ${message.status === "completed" ? "opacity-0 group-hover:opacity-100 group-focus-within:opacity-100" : "opacity-100"}`}
+              className={`mt-1 flex h-6 items-center gap-2 px-1 text-xs text-muted-foreground transition-opacity ${message.status === "completed" && !pendingSteering.has(message.id) ? "opacity-0 group-hover:opacity-100 group-focus-within:opacity-100" : "opacity-100"}`}
             >
+              {pendingSteering.has(message.id) && <span role="status">{content.steeringQueued}</span>}
               {message.content.length > 0 && <CopyButton text={message.content} />}
               {message.status !== "completed" ? (
                 <span className="inline-flex items-center gap-1" role="status">

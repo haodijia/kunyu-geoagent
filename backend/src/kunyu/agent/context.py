@@ -2,12 +2,14 @@ import json
 from dataclasses import dataclass
 from pathlib import Path
 
+from kunyu.agent.inbox import SessionInbox
 from kunyu.agent.runtime.context import (
     AgentContext,
     ContextPreparationRegistry,
     PromptSection,
     PromptSectionRegistry,
 )
+from kunyu.agent.runtime.events import EventStore
 from kunyu.agent.runtime.models import ModelMessage, ModelRole, ModelToolCall
 from kunyu.agent.runtime.run_state import ReducedAssistant, ReducedRun, ReducedToolCall
 from kunyu.agent.scope import Context
@@ -39,18 +41,21 @@ class ScopedAgentContextProvider:
         prompts: PromptSectionRegistry,
         scope: Context,
         preparers: ContextPreparationRegistry,
+        events: EventStore,
     ) -> None:
         self._repository = repository
         self._prompts = prompts
         self._scope = scope
         self._preparers = preparers
+        self._events = events
 
     async def build(self, run_id: str) -> AgentContext:
+        source = self._require_source(run_id)
+        await SessionInbox(source.session.id, self._events).claim(
+            run_id, source.run.step
+        )
         await self._preparers.prepare(run_id, self._scope)
-        source = self._repository.get(run_id)
-        if source is None:
-            raise RunContextNotFoundError(run_id)
-        validate_run_context_source(source, run_id)
+        source = self._require_source(run_id)
         return AgentContext(
             messages=(
                 ModelMessage(
@@ -64,6 +69,21 @@ class ScopedAgentContextProvider:
                 ),
                 *build_model_history(source),
             )
+        )
+
+    def _require_source(self, run_id: str) -> RunContextSource:
+        source = self._repository.get(run_id)
+        if source is None:
+            raise RunContextNotFoundError(run_id)
+        validate_run_context_source(source, run_id)
+        return source
+
+    async def has_pending(self, run_id: str) -> bool:
+        source = self._require_source(run_id)
+        pending = set(source.reduced_session.next_step)
+        return any(
+            message.run_id == run_id and message.message_id in pending
+            for message in source.reduced_session.user_messages
         )
 
 
@@ -83,10 +103,36 @@ def build_model_history(source: RunContextSource) -> tuple[ModelMessage, ...]:
     steps = [
         _HistoryStep(
             sequence=message.created_sequence,
-            messages=(ModelMessage(role=ModelRole.USER, content=message.content),),
+            messages=(ModelMessage(role=ModelRole.USER, content=message.content),)
+            + (
+                (
+                    ModelMessage(
+                        role=ModelRole.USER,
+                        content=_json_text(message.map_context),
+                        context_source="steering-map",
+                    ),
+                )
+                if message.delivery == "steer"
+                else ()
+            ),
         )
         for message in source.reduced_session.user_messages
-        if message.created_sequence <= current_user_messages[0].created_sequence
+        if not message.discarded
+        and (
+            (
+                message.delivery == "followup"
+                and message.created_sequence
+                <= current_user_messages[0].created_sequence
+            )
+            or (
+                message.delivery == "steer"
+                and message.applied_step is not None
+                and (
+                    message.run_id == source.run.run_id
+                    or message.created_sequence <= source.run.created_sequence
+                )
+            )
+        )
     ]
     steps.extend(
         _HistoryStep(

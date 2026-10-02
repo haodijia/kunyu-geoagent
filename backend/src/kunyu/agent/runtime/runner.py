@@ -257,6 +257,10 @@ class Runner[AdapterConfigT](AgentRuntime):
             run = execution.run
             if run.state is RunState.MODEL_RUNNING:
                 outcome = await self._execute_model(execution)
+                if outcome == "next-step":
+                    run = (await self._require_execution(run_id)).run
+                    await self._start_model_phase(run)
+                    continue
                 if outcome != "tools":
                     return
                 run = (await self._require_execution(run_id)).run
@@ -291,6 +295,8 @@ class Runner[AdapterConfigT](AgentRuntime):
                 raise RunnerConflictError(
                     "A model step requires the complete current tool batch."
                 )
+            step, attempt = run.step + 1, 1
+        elif run.state is RunState.MODEL_RUNNING:
             step, attempt = run.step + 1, 1
         else:
             raise RunnerConflictError("The model phase cannot start from this state.")
@@ -673,7 +679,7 @@ class Runner[AdapterConfigT](AgentRuntime):
                 )
                 for index, call in enumerate(validated)
             )
-        else:
+        elif not await self._context.has_pending(run.run_id):
             events.append(
                 RunTerminalEvent(
                     session_id=run.session_id,
@@ -695,7 +701,15 @@ class Runner[AdapterConfigT](AgentRuntime):
                 )
             )
         await self._commit(run, tuple(events))
-        return "tools" if finish is ModelFinishReason.TOOL_CALLS else "completed"
+        return (
+            "tools"
+            if finish is ModelFinishReason.TOOL_CALLS
+            else (
+                "completed"
+                if any(isinstance(event, RunTerminalEvent) for event in events)
+                else "next-step"
+            )
+        )
 
     def _plan_tool_batch(
         self,

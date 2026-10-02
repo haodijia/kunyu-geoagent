@@ -33,35 +33,41 @@ async def prepare_skill_context(run_id: str, scope: Context) -> None:
                 metadata={"entries": entries, "run_id": run_id},
             )
         )
-    already_invoked = any(
-        item.producer == "skill-invocation" and item.metadata["run_id"] == run_id
-        for item in source.injected_context
-    )
-    user_message = next(
-        item
-        for item in source.reduced_session.user_messages
-        if item.message_id == source.run.user_message_id
-    )
-    command = re.match(r"^/([a-z0-9]+(?:-[a-z0-9]+)*)(?:\s|$)", user_message.content)
-    if (
-        command
-        and not already_invoked
-        and any(skill.name == command[1] and skill.user_invocable for skill in skills)
-    ):
-        definition = await registry.get(
-            scope, command[1], workspace_id=source.workspace.id, invocation="user"
+    for message in source.reduced_session.user_messages:
+        if (
+            message.run_id != run_id
+            or message.discarded
+            or (message.delivery == "steer" and message.applied_step is None)
+        ):
+            continue
+        command = re.match(r"^/([a-z0-9]+(?:-[a-z0-9]+)*)(?:\s|$)", message.content)
+        already_invoked = any(
+            item.producer == "skill-invocation"
+            and item.metadata.get("message_id") == message.message_id
+            for item in source.injected_context
         )
-        payloads.append(
-            ContextInjectedPayload(
-                content=render_skill(definition),
-                producer="skill-invocation",
-                metadata={
-                    "name": definition.summary.name,
-                    "source": definition.summary.source,
-                    "run_id": run_id,
-                },
+        if (
+            command
+            and not already_invoked
+            and any(
+                skill.name == command[1] and skill.user_invocable for skill in skills
             )
-        )
+        ):
+            definition = await registry.get(
+                scope, command[1], workspace_id=source.workspace.id, invocation="user"
+            )
+            payloads.append(
+                ContextInjectedPayload(
+                    content=render_skill(definition),
+                    producer="skill-invocation",
+                    metadata={
+                        "name": definition.summary.name,
+                        "source": definition.summary.source,
+                        "run_id": run_id,
+                        "message_id": message.message_id,
+                    },
+                )
+            )
     if payloads:
         scope.assert_active()
         scope.require(s.PROJECTIONS).commit(
