@@ -416,6 +416,7 @@ export const zhCN = {
     attempt: (attempt: number) => `第 ${attempt} 次尝试`,
     tools: {
       title: "工具调用",
+      generating: "正在生成参数",
       input: "输入",
       output: "输出",
       error: "错误",

@@ -16,8 +16,62 @@ import type { Confirmation } from "@/features/confirmations/api";
 import { zhCN } from "@/locales/zh-CN";
 import { useSessionEvents } from "@/features/events/SessionEventContext";
 import { CopyButton } from "@/features/messages/CopyButton";
+import type { GeneratingTool } from "@/features/events/live-assistant";
 
 const content = zhCN.conversation.tools;
+
+export function GeneratingToolActivity({
+  tools,
+}: {
+  readonly tools: readonly GeneratingTool[];
+}) {
+  return (
+    <div
+      className="my-1 w-full min-w-0"
+      role="group"
+      aria-label={content.generating}
+    >
+      {tools.map((tool) => (
+        <GeneratingToolRow key={tool.index} tool={tool} />
+      ))}
+    </div>
+  );
+}
+function GeneratingToolRow({ tool }: { readonly tool: GeneratingTool }) {
+  const [expanded, setExpanded] = useState(false);
+  return (
+    <div className="w-full min-w-0 py-0.5">
+      <button
+        type="button"
+        className="flex w-full min-w-0 items-center gap-2 rounded-lg px-2 py-1 text-left text-[13px] transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
+        aria-expanded={expanded}
+        onClick={() => setExpanded((value) => !value)}
+      >
+        <LoaderCircle
+          className="size-3.5 shrink-0 animate-spin text-muted-foreground"
+          aria-label={content.generating}
+        />
+        {tool.name !== null && <ToolKindIcon name={tool.name} />}
+        <span className="min-w-0 max-w-[35%] shrink truncate font-medium text-foreground">
+          {tool.name === null ? content.title : toolLabel(tool.name)}
+        </span>
+        <code className="min-w-0 flex-1 truncate font-mono text-xs text-secondary-foreground">
+          {tool.arguments}
+        </code>
+        {expanded ? (
+          <ChevronDown className="size-3.5 shrink-0 text-muted-foreground" />
+        ) : (
+          <ChevronRight className="size-3.5 shrink-0 text-muted-foreground" />
+        )}
+      </button>
+      {expanded && (
+        <div className="mt-0.5 mb-1.5 ml-4 border-l-2 border-border pt-1.5 pb-0.5 pl-3">
+          <ToolDetail label={content.generating}>{tool.arguments}</ToolDetail>
+        </div>
+      )}
+    </div>
+  );
+}
 
 export function ToolActivity({
   confirmations,
@@ -37,18 +91,20 @@ export function ToolActivity({
     );
   }
 
-  const runningTool = tools.find(
-    (tool) => tool.status === "running",
-  );
+  const runningTool = tools.find((tool) => tool.status === "running");
   const pendingTool = tools.find((tool) => tool.status === "pending");
-  const cancelledCount = tools.filter((tool) => tool.status === "cancelled").length;
+  const cancelledCount = tools.filter(
+    (tool) => tool.status === "cancelled",
+  ).length;
   const failedCount = tools.filter((tool) => tool.status === "failed").length;
   const summary =
     runningTool === undefined
       ? failedCount > 0
         ? content.groupFailed(tools.length, failedCount)
-        : pendingTool !== undefined ? content.groupPending(tools.length)
-          : cancelledCount > 0 ? content.groupCancelled(tools.length, cancelledCount)
+        : pendingTool !== undefined
+          ? content.groupPending(tools.length)
+          : cancelledCount > 0
+            ? content.groupCancelled(tools.length, cancelledCount)
             : content.groupCompleted(tools.length)
       : content.groupRunning(tools.length, toolLabel(runningTool.name));
 
@@ -69,7 +125,11 @@ export function ToolActivity({
             runningTool === undefined
               ? failedCount > 0
                 ? "failed"
-                : pendingTool !== undefined ? "pending" : cancelledCount > 0 ? "cancelled" : "completed"
+                : pendingTool !== undefined
+                  ? "pending"
+                  : cancelledCount > 0
+                    ? "cancelled"
+                    : "completed"
               : runningTool.status
           }
         />
@@ -116,14 +176,26 @@ function ToolCallRow({
 }) {
   const [expanded, setExpanded] = useState(false);
   const { records } = useSessionEvents();
-  const started = records.filter((record) => record.entityId === tool.id && record.eventType === "tool.started").at(-1);
+  const started = records
+    .filter(
+      (record) =>
+        record.entityId === tool.id && record.eventType === "tool.started",
+    )
+    .at(-1);
   const hasDetails =
     Object.keys(tool.arguments).length > 0 ||
     tool.result !== null ||
     tool.error_summary !== null ||
     confirmation !== undefined;
-  const duration = started === undefined || tool.status === "pending" || tool.status === "running"
-    ? null : Math.max(0, Date.parse(tool.updated_at) - Date.parse(started.occurredAt));
+  const duration =
+    started === undefined ||
+    tool.status === "pending" ||
+    tool.status === "running"
+      ? null
+      : Math.max(
+          0,
+          Date.parse(tool.updated_at) - Date.parse(started.occurredAt),
+        );
   const preview = toolPreview(tool.arguments);
 
   return (
@@ -143,7 +215,10 @@ function ToolCallRow({
         >
           {toolLabel(tool.name)}
         </span>
-        <code className="min-w-0 flex-1 truncate font-mono text-xs text-secondary-foreground" title={preview}>
+        <code
+          className="min-w-0 flex-1 truncate font-mono text-xs text-secondary-foreground"
+          title={preview}
+        >
           {preview}
         </code>
         {hasDetails ? (
@@ -167,7 +242,13 @@ function ToolCallRow({
             </ToolDetail>
           ) : null}
           {tool.result !== null ? (
-            <ToolDetail label={tool.name === "skill" ? zhCN.skills.instructions : content.output}>
+            <ToolDetail
+              label={
+                tool.name === "skill"
+                  ? zhCN.skills.instructions
+                  : content.output
+              }
+            >
               {formatToolResult(tool)}
             </ToolDetail>
           ) : null}
@@ -179,10 +260,15 @@ function ToolCallRow({
           <div className="flex flex-wrap gap-x-4 gap-y-1 py-1 text-[11px] text-secondary-foreground">
             {confirmation !== undefined ? (
               <span>
-                {content.confirmation} · {content.confirmationStatus[confirmation.status]}
+                {content.confirmation} ·{" "}
+                {content.confirmationStatus[confirmation.status]}
               </span>
             ) : null}
-            {duration !== null && <span>{content.duration} · {formatDuration(duration)}</span>}
+            {duration !== null && (
+              <span>
+                {content.duration} · {formatDuration(duration)}
+              </span>
+            )}
           </div>
         </div>
       ) : null}
@@ -217,7 +303,10 @@ function ToolDetail({
   const clipped = head.length < children.length;
   return (
     <div className="mb-2 last:mb-0">
-      <div className="mb-1 flex items-center justify-between text-[11px] text-secondary-foreground"><span>{label}</span><CopyButton text={children} /></div>
+      <div className="mb-1 flex items-center justify-between text-[11px] text-secondary-foreground">
+        <span>{label}</span>
+        <CopyButton text={children} />
+      </div>
       <pre
         className={`m-0 max-h-80 overflow-auto rounded-md bg-muted px-2.5 py-2 font-mono text-xs leading-relaxed whitespace-pre-wrap [overflow-wrap:anywhere] ${danger ? "text-destructive" : "text-secondary-foreground"}`}
       >
@@ -277,8 +366,13 @@ export function toolLabel(name: string): string {
 
 function ToolKindIcon({ name }: { readonly name: string }) {
   const Icon =
-    name === "memory_read" ? Search : name === "memory_write" ? PenLine
-      : name === "skill" || name === "skill_resource" ? Sparkles : Wrench;
+    name === "memory_read"
+      ? Search
+      : name === "memory_write"
+        ? PenLine
+        : name === "skill" || name === "skill_resource"
+          ? Sparkles
+          : Wrench;
   return (
     <Icon
       className="size-3 shrink-0 text-secondary-foreground opacity-70"
@@ -290,7 +384,15 @@ function ToolKindIcon({ name }: { readonly name: string }) {
 
 function toolPreview(arguments_: ToolCall["arguments"]): string | undefined {
   for (const key of [
-    "name", "command", "file_path", "path", "query", "pattern", "url", "prompt", "content",
+    "name",
+    "command",
+    "file_path",
+    "path",
+    "query",
+    "pattern",
+    "url",
+    "prompt",
+    "content",
   ]) {
     const value = arguments_[key];
     if (typeof value === "string" && value.length > 0) return value;
@@ -304,8 +406,14 @@ function formatDetail(value: unknown): string {
 
 function formatToolResult(tool: ToolCall): string {
   const result = tool.result;
-  if ((tool.name === "skill" || tool.name === "skill_resource") && result !== null
-    && typeof result === "object" && !Array.isArray(result) && "content" in result && typeof result.content === "string") {
+  if (
+    (tool.name === "skill" || tool.name === "skill_resource") &&
+    result !== null &&
+    typeof result === "object" &&
+    !Array.isArray(result) &&
+    "content" in result &&
+    typeof result.content === "string"
+  ) {
     return result.content;
   }
   return formatDetail(result);

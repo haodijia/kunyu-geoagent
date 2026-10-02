@@ -4,10 +4,13 @@ import asyncio
 import inspect
 import logging
 from collections.abc import Callable
-from dataclasses import dataclass, replace
+from dataclasses import dataclass, field, replace
 from typing import TYPE_CHECKING, Literal
 
-from kunyu.agent.runtime.assistant_stream import TimedModelOutput
+from kunyu.agent.runtime.assistant_stream import (
+    AssistantStreamAccumulator,
+    TimedModelOutput,
+)
 from kunyu.agent.runtime.events import (
     AgentEvent,
     AssistantStartedPayload,
@@ -169,6 +172,13 @@ def invoke_observer(owner: Context, invoke: Callable[[], object], name: str) -> 
 @dataclass(slots=True)
 class _AssistantAttempt:
     attempt_id: str
+    run_id: str
+    step: int
+    attempt: int
+    started_after_sequence: int
+    stream: AssistantStreamAccumulator = field(
+        default_factory=AssistantStreamAccumulator
+    )
     index: int = 0
 
 
@@ -177,11 +187,34 @@ class AgentNotifications:
         self._agent, self._hooks = agent, hooks
         self._status: AgentStatus = "idle"
         self._revision = 0
+        self.durable_sequence = 0
         self._attempts: dict[tuple[str, int, int], _AssistantAttempt] = {}
 
     @property
     def status(self) -> AgentStatus:
         return self._status
+
+    def stream_baseline(self) -> dict:
+        if len(self._attempts) > 1:
+            raise RuntimeError("A session cannot stream multiple assistant attempts.")
+        active = next(iter(self._attempts.values()), None)
+        return {
+            "revision": self._revision,
+            "active_attempt": None
+            if active is None
+            else {
+                "attempt_id": active.attempt_id,
+                "run_id": active.run_id,
+                "step": active.step,
+                "attempt": active.attempt,
+                "started_after_sequence": active.started_after_sequence,
+                "next_index": active.index,
+                "stream": [
+                    record.model_dump(mode="json")
+                    for record in active.stream.snapshot()
+                ],
+            },
+        }
 
     def set_status(self, status: AgentStatus) -> None:
         if status == self._status:
@@ -205,16 +238,18 @@ class AgentNotifications:
     def output(self, run: ReducedRun, timed: TimedModelOutput) -> None:
         output = timed.output
         attempt = self._attempts[(run.run_id, run.step, run.attempt)]
+        index = attempt.index
+        attempt.stream.push(output, timed.time)
+        attempt.index += 1
         self._stream(
             AssistantChunkFrame(
                 attempt.attempt_id,
                 self._next_revision(),
-                attempt.index,
+                index,
                 timed.time,
                 output,
             )
         )
-        attempt.index += 1
 
     def abandon(self, run: ReducedRun) -> None:
         attempt = self._attempts.pop((run.run_id, run.step, run.attempt), None)
@@ -229,6 +264,7 @@ class AgentNotifications:
             )
 
     def committed(self, publication: SessionEventPublication) -> None:
+        self.durable_sequence = publication.events[-1].sequence
         if any(
             event.event_type == "agent/inbox/spliced" for event in publication.events
         ):
@@ -239,7 +275,13 @@ class AgentNotifications:
                 key = (event.run_id, payload.step, payload.attempt)
                 if key in self._attempts:
                     raise RuntimeError("An assistant attempt was started twice.")
-                self._attempts[key] = _AssistantAttempt(payload.message_id)
+                self._attempts[key] = _AssistantAttempt(
+                    payload.message_id,
+                    event.run_id,
+                    payload.step,
+                    payload.attempt,
+                    event.sequence,
+                )
                 self._stream(
                     AssistantStartFrame(
                         payload.message_id,

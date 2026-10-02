@@ -1,4 +1,10 @@
-import { requestJson, streamEvents } from "@/api/client";
+import { streamEvents } from "@/api/client";
+import {
+  parseAssistantBaseline,
+  parseAssistantFrame,
+  type AssistantBaseline,
+  type AssistantFrame,
+} from "./live-assistant";
 import { zhCN } from "@/locales/zh-CN";
 
 export interface SessionEvent {
@@ -11,44 +17,73 @@ export interface SessionEvent {
   readonly run_id: string | null;
 }
 
-interface EventHistoryPage {
-  readonly items: readonly SessionEvent[];
-  readonly next_after_sequence: number;
-  readonly has_more: boolean;
-}
+export type SessionFollow =
+  | {
+      readonly type: "opened";
+      readonly cursor: number;
+      readonly events: readonly SessionEvent[];
+      readonly assistant: AssistantBaseline;
+    }
+  | { readonly type: "event"; readonly event: SessionEvent }
+  | { readonly type: "assistant"; readonly frame: AssistantFrame };
 
-export async function listSessionEventHistory(
-  sessionId: string,
-  signal: AbortSignal
-): Promise<SessionEvent[]> {
-  const events: SessionEvent[] = [];
-  let afterSequence = 0;
-  let hasMore = true;
-  while (hasMore) {
-    const page = await requestJson<EventHistoryPage>(
-      `/api/v1/sessions/${encodeURIComponent(sessionId)}/events/history` +
-        `?after_sequence=${afterSequence}&limit=500`,
-      { signal }
-    );
-    events.push(...page.items);
-    afterSequence = page.next_after_sequence;
-    hasMore = page.has_more;
-  }
-  return events;
-}
-
-export async function* streamSessionEvents(
+export async function* streamSessionFollow(
   sessionId: string,
   afterSequence: number,
   signal: AbortSignal,
-  onOpen: () => void
-): AsyncGenerator<SessionEvent> {
+  onOpen: () => void,
+): AsyncGenerator<SessionFollow> {
   const path =
     `/api/v1/sessions/${encodeURIComponent(sessionId)}/events/stream` +
     `?after_sequence=${afterSequence}`;
 
-  for await (const frame of streamEvents(path, signal, onOpen)) {
-    const event = parseSessionEvent(frame.data);
+  let opened = false;
+  for await (const frame of streamEvents(path, signal)) {
+    if (frame.event === "session.opened") {
+      const value = JSON.parse(frame.data) as unknown;
+      if (
+        opened ||
+        frame.id !== null ||
+        !isRecord(value) ||
+        !Number.isSafeInteger(value.cursor) ||
+        (value.cursor as number) < afterSequence ||
+        !Array.isArray(value.events)
+      )
+        throw new Error("Invalid session opening snapshot.");
+      const events = value.events.map(parseSessionEvent);
+      let cursor = afterSequence;
+      for (const event of events) {
+        if (event.session_id !== sessionId || event.sequence !== cursor + 1)
+          throw new Error("Session opening event gap.");
+        cursor = event.sequence;
+      }
+      if (cursor !== value.cursor)
+        throw new Error("Session opening cursor differs from its events.");
+      const baseline = parseAssistantBaseline(value.assistant_stream);
+      opened = true;
+      onOpen();
+      yield {
+        type: "opened",
+        cursor,
+        events,
+        assistant: baseline,
+      };
+      continue;
+    }
+    if (!opened)
+      throw new Error("Session follow omitted its opening snapshot.");
+    if (frame.event === "assistant.stream") {
+      if (frame.id !== null)
+        throw new Error(
+          "Transient assistant frames cannot advance the durable cursor.",
+        );
+      yield {
+        type: "assistant",
+        frame: parseAssistantFrame(JSON.parse(frame.data)),
+      };
+      continue;
+    }
+    const event = parseSessionEvent(JSON.parse(frame.data));
     if (event.session_id !== sessionId) {
       throw new Error(zhCN.trajectory.eventFromOtherSession);
     }
@@ -58,12 +93,11 @@ export async function* streamSessionEvents(
     if (frame.event !== event.event_type) {
       throw new Error(zhCN.trajectory.eventTypeMismatch);
     }
-    yield event;
+    yield { type: "event", event };
   }
 }
 
-function parseSessionEvent(data: string): SessionEvent {
-  const value = JSON.parse(data) as unknown;
+function parseSessionEvent(value: unknown): SessionEvent {
   if (
     !isRecord(value) ||
     typeof value.id !== "string" ||

@@ -14,13 +14,14 @@ Agent 架构必须对齐本地 `deepseek-harness` 源码的服务、插件、作
 | `core/agent/src/dispatch.ts`、`runtime-types.ts`、`core/agent-loop/src/agent.ts` | `hooks.py`、`notifications.py`、`runtime/hooks.py`、`runner.py`、`runner_model.py` | 带作用域的控制边界、状态/输入/助手流/错误通知与同一步重试 |
 | `llm/llm/src/retry-policy.ts`、`llm/llm-retry/src/index.ts` | `runtime/retry_policy.py`、`agent/retry.py` | Provider 持有策略，配置为空的插件执行持久退避，按步骤／路由／完整策略续接计数 |
 | `llm/llm/src/assistant-stream.ts`、`core/agent-loop/src/assistant-stream.ts` | `runtime/assistant_stream.py`、`model_attempt.py` | 一次捕获模型分块与时间，紧凑保存文本／思考／工具碎片，结算后发布已提交结束帧 |
+| `api/session-controller/src/history.ts`、`assistant-stream.ts`、`client/sessions/assistant-stream.ts` | `api/session_follow.py`、`notifications.py`、前端 `events/live-assistant.ts` | 统一 opening、连续持久事件、cursorless 原始帧与精确重连前缀；结算替换暂态 |
 | `core/session` | `runtime/events.py`、`session_reducer.py`、`persistence/` | 追加日志为事实源，确定性重放得到查询投影 |
 | `core/system-prompt` | `runtime/context.py`、`plugins/core.py`、`prompts/system.md` | 有序、带作用域的提示词段注册；指令正文由用户维护 |
 | `core/tools` | `runtime/tools.py`、`runner_tools.py`、`tools/registry.py` | 工具注册与实现分开；模型 Schema 来自实际注册；有界并行/独占调度；风险策略与确认接缝 |
 | `packages/context` | `agent/context.py`、`persistence/agent_context.py` | 注入正文成为有顺序的持久会话内容，后续步骤及轮次按原位置重放 |
 | `skill/skill`、`skill/skill-filesystem`、`skill/tool-skill` | `skills/registry.py`、`filesystem.py`、`context.py`、`tools/skills.py` | 注册表、来源、调用工具分开；目录仅注入名称和简介；选择后加载正文；区分模型/用户调用权限；持久目录替换与显式用户调用 |
 
-这是 Python 的对应实现，没有引入 Cordis 的 TypeScript 运行时。尚未实现参考项目的完整 block/replay 协议、原始助手帧对外传输、surface 替换/压缩、PTC、多 Agent 委派、profile 配置装载及插件市场，不能宣称完整功能等价。中断恢复仍采用本项目的显式恢复与持久确认契约。
+这是 Python 的对应实现，没有引入 Cordis 的 TypeScript 运行时。尚未实现参考项目的完整 block/replay 协议、surface 替换/压缩、PTC、多 Agent 委派、profile 配置装载及插件市场，不能宣称完整功能等价。中断恢复仍采用本项目的显式恢复与持久确认契约。
 
 ## 目录与运行链路
 
@@ -94,7 +95,11 @@ backend/src/kunyu/agent/
 
 `model.attempt.finished` 必须携带实际 `message_id`、紧凑 `stream` 和 `stream_origin`。正常、失败及取消尝试都保存已收到的完整输出；超出输出预算的原始块仍记录，用户可见前缀保持预算限制。Reducer 校验消息身份、文本／思考前缀、真实用量和结束原因；失败尝试也先持久结算，再发布结束帧。
 
-实时对话仍读取既有持久 delta，原始 start/chunk/end 帧目前用于进程内扩展。结算后前端从嵌入流取得精确思考时间和首 token 时间（包括思考或工具碎片），并立即应用最终消息状态；轨迹详情复用已有详情样式增加“输出流”。参考项目的完整 block/replay 与原始帧外部传输继续对齐。
+`GET /events/stream` 提供一个完整 opening 后的统一订阅。`session.opened` 返回游标之后的持久事件及当前 revision、活动尝试、连续 next_index 和紧凑前缀；`assistant.stream` 的 start/chunk/end 不携带 SSE id，不推进持久游标。订阅、日志读取和前缀切点之间不 await。后续帧按其实际已提交边界补齐日志后发送，避免提前发出未来结算；结束帧的具名结算始终先到达。监听由请求子资源持有，与 Agent 使用同一作用域载体，断开／关闭后释放；慢读取超过 2048 条等待通知时明确断开并记录，重连重新取得快照，不影响 Agent 运行。
+
+前端从同一 opening 加载历史与活动前缀，不再先分页读取历史再开启另一条流。`LiveAssistantStream` 校验连续 revision、块 index、消息身份与具名结算；缺口触发重新连接和完整前缀替换，不继续追加失去边界的碎片。暂态前缀保留到已匹配的 end，committed 后回到持久投影，abandoned 则撤销暂态内容。重连包括全部精确时间，不用合并 delta 猜测运行中内容。
+
+对话和轨迹使用同一实时前缀显示文字、思考和首 token 时间；思考与正文按字符码点共同遵守剩余输出预算。工具生成行复用 Mu 工具行、图标与详情组件，明确标记“正在生成参数”，不会创建或执行占位工具调用。完整模型调用结算后才显示真实工具生命周期。运行中的轨迹“输出流”也可打开，结算后读取嵌入流；完整 block/replay 仍待对齐。
 
 迁移 `0006` 只将旧事件中已知的合并正文／思考块写入流，标记 `stream_origin=buffered`，不编造原始工具碎片、用量块或 token 时间。历史消息正文与状态保持原值，旧流不用于精确首 token 延迟。
 
@@ -157,7 +162,7 @@ GeoSkill 的版本化地理场景逻辑放 `kunyu/scenes/`，场景数据放 `ba
 
 `POST /agent/inbox/{message_id}/edit` 在调度锁内原子移出等待输入，返回原内容、完整地图上下文与未来轮次模型快照；前端一次恢复三个状态并聚焦。编辑中的普通消息及显式技能保留后续轮次语义，运行中再次发送不会改为当前轮引导；已有草稿与未决提交禁止覆盖。队列路由集中在 `api/agent_queue.py`，共享作用域依赖集中在 `api/agent_dependencies.py`。
 
-附件/跨会话引用、完整 block/replay 与原始助手帧外部传输、PTC 与多 Agent 委派仍是后续对齐项。
+附件/跨会话引用、完整 block/replay、PTC 与多 Agent 委派仍是后续对齐项。
 
 系统指令和两个工具的描述未在本次架构改动中修改；维护入口见[记忆工具与上下文](记忆工具与上下文.md)。
 
@@ -180,6 +185,8 @@ GeoSkill 的版本化地理场景逻辑放 `kunyu/scenes/`，场景数据放 `ba
 Provider 重试探针通过 normal 次数/错误筛选、指数退避、空回复恢复、Retry-After、always 后续决定/异常、总调用预算、同一步 Skill 仅加载一次、停止等待、重启计数、路由/策略隔离、伪造与重复事件拒绝、释放等待及后续处理器排空。实际 ASGI 接口验证策略保存、无效参数、草稿占用锁及目录验证不变，修复连接占用查询的错误 join。0004 预览库升级至 0005 并重建投影，原运行/消息/队列数量不变，嵌套队列策略快照完整。离屏 Electron 使用本地真实 HTTP 429 供应商验证倒计时递减、轨迹计划、停止清除、策略保存、无效参数禁用保存、浅色桌面及深色窄窗口，无横向溢出和渲染错误。
 
 助手流探针验证逐块内容／时间无损展开、负时间差、快照不可变、实际工具仅执行一次、观察帧与已结算记录一致，以及结束帧晚于事务提交。超预算前缀、重复用量、伪造结算和参数未完成时取消均通过；取消碎片从不执行工具。0004／0005 临时库升级至 0006 后重建投影，消息正文、状态和记录数量不变。离屏 Electron 使用本地 HTTP SSE 供应商完成思考、工具碎片、真实记忆读取和最终回复，验证轨迹输出流、精确计时、窄窗口布局，无横向溢出或渲染错误。
+
+统一订阅探针通过真实 HTTP 的持久序号连续、原始帧无游标、工具参数中途重连、精确前缀与结算前 end 禁止。实际 wire 在前端折叠器完整重放，逐块时间与持久流一致；取消未完成参数不执行工具。慢读取溢出明确报错，重连取回完整结算；请求释放后子作用域与数据库监听均移除，Agent 继续正常结束。离屏 Electron 验证生成参数展开、刷新恢复、实时轨迹流、结算撤销暂态及深色 600px 布局，无溢出和页面错误。
 
 `ruff check`、`compileall`、后端模块导入及 `uv build` 通过；全新临时数据库的 FastAPI lifespan 启动和关闭通过。
 

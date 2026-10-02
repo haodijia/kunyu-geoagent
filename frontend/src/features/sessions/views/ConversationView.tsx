@@ -17,6 +17,7 @@ export function ConversationView() {
       conversationAssembler.assemble("chat", {
         confirmations: confirmationsQuery.data ?? [],
         events: eventStream.records,
+        activeAssistant: eventStream.activeAssistant,
         messages: messagesQuery.data ?? [],
         turns: agentTurnsQuery.data ?? [],
       }),
@@ -24,6 +25,7 @@ export function ConversationView() {
       agentTurnsQuery.data,
       confirmationsQuery.data,
       eventStream.records,
+      eventStream.activeAssistant,
       messagesQuery.data,
     ],
   );

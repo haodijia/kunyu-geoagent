@@ -1,3 +1,8 @@
+import {
+  assistantOutputLimit,
+  assistantPresentation,
+  type ActiveAssistant,
+} from "./live-assistant";
 import { attachRequestDetails } from "./trajectory-requests";
 import {
   assistantStreamFirstTokenTime,
@@ -17,6 +22,8 @@ import type {
 } from "./trajectory-model";
 
 interface RecordContext {
+  readonly activeAssistant: ActiveAssistant | null;
+  readonly allEvents: readonly TrajectoryEventProjection[];
   readonly messages: ReadonlyMap<string, SessionMessage>;
   readonly runs: ReadonlyMap<string, AgentTurn>;
   readonly tools: ReadonlyMap<string, ToolCall>;
@@ -30,6 +37,7 @@ export function buildTrajectoryRecords(
   messages: readonly SessionMessage[],
   runs: readonly AgentTurn[] = [],
   confirmations: readonly Confirmation[] = [],
+  activeAssistant: ActiveAssistant | null = null,
 ): TrajectoryRecord[] {
   const ordered = [...events].sort(
     (left, right) => left.sequence - right.sequence,
@@ -54,6 +62,8 @@ export function buildTrajectoryRecords(
 
   const runMap = new Map(runs.map((run) => [run.id, run]));
   const context: RecordContext = {
+    activeAssistant,
+    allEvents: events,
     messages: new Map(messages.map((message) => [message.id, message])),
     runs: runMap,
     tools: new Map(
@@ -265,10 +275,27 @@ function assistantRecord(
   const message =
     messageId === null ? undefined : context.messages.get(messageId);
   const run = first.runId === null ? undefined : context.runs.get(first.runId);
+  const live =
+    context.activeAssistant?.attempt_id === messageId
+      ? context.activeAssistant
+      : null;
+  const prefix =
+    live !== null && run !== undefined
+      ? assistantPresentation(
+          live,
+          assistantOutputLimit(
+            live,
+            run.budget.max_output_codepoints,
+            context.allEvents,
+          ),
+        )
+      : null;
   const content =
-    message?.role === "assistant"
-      ? message.content
-      : reconstructAssistantText(events);
+    prefix !== null
+      ? prefix.text
+      : message?.role === "assistant"
+        ? message.content
+        : reconstructAssistantText(events);
   const finishReason = events.find(
     (event) => event.eventType === "message.assistant.completed",
   )?.payload.finish_reason;
@@ -288,11 +315,13 @@ function assistantRecord(
   const startTime = timestamp(started?.occurredAt);
   const stream =
     attemptFinished === undefined
-      ? null
+      ? (live?.stream ?? null)
       : parseAssistantStream(attemptFinished.payload.stream);
   const origin =
     attemptFinished === undefined
-      ? null
+      ? live === null
+        ? null
+        : "model"
       : parseStreamOrigin(attemptFinished.payload.stream_origin);
   const firstTokenTime =
     stream !== null && origin === "model"
