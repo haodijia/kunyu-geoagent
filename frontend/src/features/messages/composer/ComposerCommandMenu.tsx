@@ -43,7 +43,7 @@ export function ComposerCommandMenu({
             className="flex cursor-pointer items-center gap-3 rounded-lg px-2.5 py-2 text-xs aria-selected:bg-muted aria-disabled:cursor-default aria-disabled:text-muted-foreground"
             onMouseEnter={() => onActiveIndexChange(index)}
             onMouseDown={(event) => event.preventDefault()}
-            onClick={() => onSelect(command)}
+            onClick={() => { if (command.unavailableReason === null) onSelect(command); }}
           >
             <span className="w-24 shrink-0 break-words font-medium">/{command.name}</span>
             <span className="min-w-0 flex-1">{command.unavailableReason ?? command.description}{command.input_hint !== null && <span className="mt-0.5 block break-words font-mono text-[10px] text-muted-foreground">{command.input_hint}</span>}</span>

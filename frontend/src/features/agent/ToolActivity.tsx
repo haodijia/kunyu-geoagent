@@ -14,6 +14,8 @@ import { useState } from "react";
 import type { ToolCall } from "@/features/agent/api";
 import type { Confirmation } from "@/features/confirmations/api";
 import { zhCN } from "@/locales/zh-CN";
+import { useSessionEvents } from "@/features/events/SessionEventContext";
+import { CopyButton } from "@/features/messages/CopyButton";
 
 const content = zhCN.conversation.tools;
 
@@ -36,14 +38,18 @@ export function ToolActivity({
   }
 
   const runningTool = tools.find(
-    (tool) => tool.status === "pending" || tool.status === "running",
+    (tool) => tool.status === "running",
   );
+  const pendingTool = tools.find((tool) => tool.status === "pending");
+  const cancelledCount = tools.filter((tool) => tool.status === "cancelled").length;
   const failedCount = tools.filter((tool) => tool.status === "failed").length;
   const summary =
     runningTool === undefined
       ? failedCount > 0
         ? content.groupFailed(tools.length, failedCount)
-        : content.groupCompleted(tools.length)
+        : pendingTool !== undefined ? content.groupPending(tools.length)
+          : cancelledCount > 0 ? content.groupCancelled(tools.length, cancelledCount)
+            : content.groupCompleted(tools.length)
       : content.groupRunning(tools.length, toolLabel(runningTool.name));
 
   return (
@@ -63,7 +69,7 @@ export function ToolActivity({
             runningTool === undefined
               ? failedCount > 0
                 ? "failed"
-                : "completed"
+                : pendingTool !== undefined ? "pending" : cancelledCount > 0 ? "cancelled" : "completed"
               : runningTool.status
           }
         />
@@ -109,15 +115,15 @@ function ToolCallRow({
   readonly tool: ToolCall;
 }) {
   const [expanded, setExpanded] = useState(false);
+  const { records } = useSessionEvents();
+  const started = records.filter((record) => record.entityId === tool.id && record.eventType === "tool.started").at(-1);
   const hasDetails =
     Object.keys(tool.arguments).length > 0 ||
     tool.result !== null ||
     tool.error_summary !== null ||
     confirmation !== undefined;
-  const duration = Math.max(
-    0,
-    Date.parse(tool.updated_at) - Date.parse(tool.created_at),
-  );
+  const duration = started === undefined || tool.status === "pending" || tool.status === "running"
+    ? null : Math.max(0, Date.parse(tool.updated_at) - Date.parse(started.occurredAt));
   const preview = toolPreview(tool.arguments);
 
   return (
@@ -176,7 +182,7 @@ function ToolCallRow({
                 {content.confirmation} · {content.confirmationStatus[confirmation.status]}
               </span>
             ) : null}
-            <span>{content.duration} · {formatDuration(duration)}</span>
+            {duration !== null && <span>{content.duration} · {formatDuration(duration)}</span>}
           </div>
         </div>
       ) : null}
@@ -211,7 +217,7 @@ function ToolDetail({
   const clipped = head.length < children.length;
   return (
     <div className="mb-2 last:mb-0">
-      <div className="mb-1 text-[11px] text-secondary-foreground">{label}</div>
+      <div className="mb-1 flex items-center justify-between text-[11px] text-secondary-foreground"><span>{label}</span><CopyButton text={children} /></div>
       <pre
         className={`m-0 max-h-80 overflow-auto rounded-md bg-muted px-2.5 py-2 font-mono text-xs leading-relaxed whitespace-pre-wrap [overflow-wrap:anywhere] ${danger ? "text-destructive" : "text-secondary-foreground"}`}
       >
@@ -232,7 +238,7 @@ function ToolDetail({
 }
 
 function ToolStatusIcon({ status }: { readonly status: ToolCall["status"] }) {
-  if (status === "pending" || status === "running") {
+  if (status === "running") {
     return (
       <LoaderCircle
         className="size-3.5 shrink-0 animate-spin text-muted-foreground"
@@ -260,7 +266,7 @@ function ToolStatusIcon({ status }: { readonly status: ToolCall["status"] }) {
   return (
     <Circle
       className="size-3.5 shrink-0 text-muted-foreground"
-      aria-label={content.status.cancelled}
+      aria-label={content.status[status]}
     />
   );
 }

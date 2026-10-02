@@ -97,6 +97,7 @@ export function ConversationComposer({
   }
 
   function selectCommand(command: ComposerCommandDescriptor) {
+    if (command.unavailableReason !== null) return;
     if (command.input_hint !== null) {
       onDraftChange(`/${command.name} `);
       textareaRef.current?.focus();
@@ -113,7 +114,7 @@ export function ConversationComposer({
   }
 
   function handleKeyDown(event: KeyboardEvent<HTMLTextAreaElement>) {
-    if (event.nativeEvent.isComposing) return;
+    if (event.nativeEvent.isComposing || event.nativeEvent.keyCode === 229) return;
     if (menuOpen && matchingCommands !== null) {
       if (event.key === "Escape") {
         event.preventDefault();
