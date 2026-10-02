@@ -12,6 +12,10 @@ class Workspace:
 
 
 class WorkspaceRepository(Protocol):
+    def rename(
+        self, workspace_id: str, name: str, updated_at: datetime
+    ) -> Workspace | None: ...
+
     def remove(self, workspace_id: str) -> bool: ...
 
     def add(self, workspace: Workspace) -> Workspace: ...

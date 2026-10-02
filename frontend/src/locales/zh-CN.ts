@@ -31,6 +31,10 @@ export const zhCN = {
     searchPlaceholder: "搜索项目或会话…",
     close: "关闭",
     workspaceActions: "工作空间操作",
+    renameWorkspace: "重命名工作空间",
+    saveWorkspaceName: "保存工作空间名称",
+    renameSuccess: "工作空间名称已更新",
+    renameFailed: "重命名失败，请重试。",
     removeWorkspace: "移除工作空间",
     removeSuccess: "工作空间已移除",
     removeFailed: "移除失败，请刷新列表后重试。",
@@ -295,6 +299,8 @@ export const zhCN = {
       error: "错误",
       confirmation: "确认",
       duration: "耗时",
+      showMore: "显示全部",
+      showLess: "收起内容",
       confirmationStatus: {
         pending: "等待确认",
         approved: "已批准",
@@ -307,9 +313,8 @@ export const zhCN = {
       groupFailed: (count: number, failed: number) =>
         `${count} 次工具调用，${failed} 次失败`,
       names: {
-        workspace_get_context: "读取工作区上下文",
-        memory_search: "搜索工作区记忆",
-        workspace_memory_save: "保存工作区记忆",
+        memory_read: "搜索工作区记忆",
+        memory_write: "保存工作区记忆",
       },
       status: {
         pending: "等待执行",

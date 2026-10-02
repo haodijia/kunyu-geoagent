@@ -19,7 +19,7 @@ from kunyu.persistence.workspaces import SQLAlchemyWorkspaceRepository
 router = APIRouter(prefix="/api/v1/workspaces", tags=["workspaces"])
 
 
-class CreateWorkspaceRequest(BaseModel):
+class WorkspaceNameRequest(BaseModel):
     model_config = ConfigDict(str_strip_whitespace=True)
 
     name: str = Field(min_length=1, max_length=200)
@@ -56,7 +56,7 @@ WorkspaceServiceDependency = Annotated[WorkspaceService, Depends(get_workspace_s
     status_code=status.HTTP_201_CREATED,
 )
 def create_workspace(
-    request: CreateWorkspaceRequest,
+    request: WorkspaceNameRequest,
     service: WorkspaceServiceDependency,
 ) -> WorkspaceResponse:
     try:
@@ -86,6 +86,21 @@ def get_workspace(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=str(error),
         ) from error
+    return WorkspaceResponse.from_domain(workspace)
+
+
+@router.patch("/{workspace_id}", response_model=WorkspaceResponse)
+def rename_workspace(
+    workspace_id: str,
+    request: WorkspaceNameRequest,
+    service: WorkspaceServiceDependency,
+) -> WorkspaceResponse:
+    try:
+        workspace = service.rename(workspace_id, request.name)
+    except WorkspaceNotFoundError as error:
+        raise HTTPException(status_code=404, detail=str(error)) from error
+    except InvalidWorkspaceNameError as error:
+        raise HTTPException(status_code=422, detail=str(error)) from error
     return WorkspaceResponse.from_domain(workspace)
 
 

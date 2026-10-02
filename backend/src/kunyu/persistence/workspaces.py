@@ -1,4 +1,6 @@
-from sqlalchemy import select, text
+from datetime import datetime
+
+from sqlalchemy import select, text, update
 from sqlalchemy.dialects.sqlite import insert
 
 from kunyu.domain.runs import NONTERMINAL_RUN_STATE_VALUES, UnfinishedRunConflictError
@@ -17,6 +19,22 @@ from kunyu.persistence.time import as_utc
 class SQLAlchemyWorkspaceRepository:
     def __init__(self, database: Database) -> None:
         self._database = database
+
+    def rename(
+        self, workspace_id: str, name: str, updated_at: datetime
+    ) -> Workspace | None:
+        statement = (
+            update(WorkspaceRecord)
+            .where(
+                WorkspaceRecord.id == workspace_id,
+                ~WorkspaceRecord.id.in_(select(WorkspaceRemovalRecord.workspace_id)),
+            )
+            .values(name=name, updated_at=updated_at)
+            .returning(WorkspaceRecord)
+        )
+        with self._database.sessions.begin() as session:
+            record = session.scalar(statement)
+            return _to_domain(record) if record is not None else None
 
     def remove(self, workspace_id: str) -> bool:
         with self._database.sessions.begin() as session:

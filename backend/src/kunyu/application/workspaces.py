@@ -31,15 +31,7 @@ class WorkspaceService:
         self._clock = clock or _utc_now
 
     def create(self, name: str) -> Workspace:
-        normalized_name = name.strip()
-        if not normalized_name:
-            raise InvalidWorkspaceNameError("Workspace name must not be empty.")
-        if len(normalized_name) > MAX_WORKSPACE_NAME_LENGTH:
-            raise InvalidWorkspaceNameError(
-                "Workspace name must not exceed "
-                f"{MAX_WORKSPACE_NAME_LENGTH} characters."
-            )
-
+        normalized_name = _normalize_name(name)
         now = self._clock()
         workspace = Workspace(
             id=self._id_factory(),
@@ -48,6 +40,15 @@ class WorkspaceService:
             updated_at=now,
         )
         return self._repository.add(workspace)
+
+    def rename(self, workspace_id: str, name: str) -> Workspace:
+        workspace = self._repository.rename(
+            workspace_id, _normalize_name(name), self._clock()
+        )
+        if workspace is None:
+            raise WorkspaceNotFoundError(workspace_id)
+        logging.getLogger(__name__).info("Renamed workspace %s", workspace_id)
+        return workspace
 
     def remove(self, workspace_id: str) -> None:
         if not self._repository.remove(workspace_id):
@@ -64,6 +65,18 @@ class WorkspaceService:
 
     def list(self) -> list[Workspace]:
         return self._repository.list_recent()
+
+
+def _normalize_name(name: str) -> str:
+    normalized_name = name.strip()
+    if not normalized_name:
+        raise InvalidWorkspaceNameError("Workspace name must not be empty.")
+    if len(normalized_name) > MAX_WORKSPACE_NAME_LENGTH:
+        raise InvalidWorkspaceNameError(
+            "Workspace name must not exceed "
+            f"{MAX_WORKSPACE_NAME_LENGTH} characters."
+        )
+    return normalized_name
 
 
 def _new_workspace_id() -> str:

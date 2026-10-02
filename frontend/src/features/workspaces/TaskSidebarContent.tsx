@@ -7,7 +7,7 @@ import { matchPath, useLocation, useNavigate } from "react-router-dom";
 import { SidebarItem } from "@/components/navigation/SidebarItem";
 import { Tooltip } from "@/components/ui/tooltip";
 import { sessionOverviewPath } from "@/features/sessions/routes";
-import { SidebarCreateForm } from "@/features/workspaces/SidebarCreateForm";
+import { SidebarNameForm } from "@/features/workspaces/SidebarNameForm";
 import { WorkspaceGroup } from "@/features/workspaces/WorkspaceGroup";
 import {
   createSession,
@@ -147,7 +147,7 @@ export function TaskSidebarContent({
           </div>
 
           {workspaceFormOpen ? (
-            <SidebarCreateForm
+            <SidebarNameForm
               error={createWorkspaceMutation.error?.message ?? null}
               label={content.createWorkspace}
               pending={createWorkspaceMutation.isPending}

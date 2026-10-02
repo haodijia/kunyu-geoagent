@@ -97,10 +97,10 @@ const WorkspaceCollapse: React.FC<WorkspaceCollapseProps> = ({
               {header}
             </div>
 
-            {/* 尾部操作槽 — 固定宽度让文本提前截断；按钮 hover 才出现时允许左溢出到文本区覆盖最后 1-2 字 */}
+            {/* 尾部操作保持自身宽度，让标题先截断。 */}
             {trailing && (
               <div
-                className="shrink-0 flex items-center justify-end w-[22px]"
+                className="shrink-0 flex items-center justify-end"
                 onClick={(e) => e.stopPropagation()}
               >
                 {trailing}
