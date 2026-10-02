@@ -4,6 +4,8 @@ import asyncio
 import json
 from datetime import UTC, datetime
 
+from sqlalchemy import func, select, text
+
 from kunyu.agent import services as s
 from kunyu.agent.commands.registry import CommandInvocation, CommandResult
 from kunyu.agent.context import build_model_history
@@ -23,7 +25,6 @@ from kunyu.agent.runtime.models import (
     TextDelta,
 )
 from kunyu.persistence.models import SessionEventRecord
-from sqlalchemy import func, select, text
 
 
 async def compact_history(invocation: CommandInvocation) -> CommandResult:

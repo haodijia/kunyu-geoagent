@@ -33,13 +33,13 @@ async def prepare_skill_context(run_id: str, scope: Context) -> None:
                 metadata={"entries": entries, "run_id": run_id},
             )
         )
-    for message in source.reduced_session.user_messages:
-        if (
-            message.run_id != run_id
-            or message.discarded
-            or (message.delivery == "steer" and message.applied_step is None)
-        ):
-            continue
+    messages = tuple(
+        message
+        for decision in source.run.decisions
+        if decision.payload.kind == "enter"
+        for message in decision.payload.messages
+    )
+    for message in messages:
         command = re.match(r"^/([a-z0-9]+(?:-[a-z0-9]+)*)(?:\s|$)", message.content)
         already_invoked = any(
             item.producer == "skill-invocation"
@@ -65,6 +65,7 @@ async def prepare_skill_context(run_id: str, scope: Context) -> None:
                         "source": definition.summary.source,
                         "run_id": run_id,
                         "message_id": message.message_id,
+                        "step": source.run.step,
                     },
                 )
             )

@@ -12,6 +12,7 @@ from kunyu.agent.runtime.events import (
     ModelSnapshotPayload,
     ResumePhase,
     RunState,
+    StepDecisionPayload,
 )
 
 type AssistantStatus = Literal[
@@ -93,6 +94,12 @@ class ReducedConfirmation:
 
 
 @dataclass(frozen=True, slots=True)
+class ReducedStepDecision:
+    sequence: int
+    payload: StepDecisionPayload
+
+
+@dataclass(frozen=True, slots=True)
 class ReducedRun:
     run_id: str
     session_id: str
@@ -117,6 +124,10 @@ class ReducedRun:
     updated_at: datetime
     created_sequence: int
     updated_sequence: int
+
+    decisions: tuple[ReducedStepDecision, ...] = ()
+    request_snapshot: ModelSnapshotPayload | None = None
+    admitted_steps: frozenset[int] = frozenset()
 
 
 @dataclass(slots=True)
@@ -219,6 +230,9 @@ class _State:
     pending_confirmation_id: str | None = None
     pending_confirmation_tool_id: str | None = None
     pause_reason: str | None = None
+    decisions: list[ReducedStepDecision] = field(default_factory=list)
+    request_snapshot: ModelSnapshotPayload | None = None
+    admitted_steps: set[int] = field(default_factory=set)
     selected: bool = False
     assistants: dict[str, _Assistant] = field(default_factory=dict)
     tools: dict[str, _ToolCall] = field(default_factory=dict)

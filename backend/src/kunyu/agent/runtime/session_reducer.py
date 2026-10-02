@@ -9,13 +9,14 @@ from kunyu.agent.runtime.events import (
     AgentEvent,
     InboxMessagePayload,
     InboxSplicedEvent,
-    RunState,
     SessionCreatedEvent,
+    StepDecisionEvent,
     UserMessageAppendedEvent,
     validate_event_draft,
 )
 from kunyu.agent.runtime.reducer import reduce_run
 from kunyu.agent.runtime.run_state import RunReductionError
+from kunyu.agent.runtime.runner_types import model_step_position
 from kunyu.agent.runtime.session_state import (
     ReducedSession,
     ReducedUserMessage,
@@ -116,8 +117,7 @@ def reduce_session(events: Iterable[AgentEvent]) -> ReducedSession:
             if payload.messages and target.state in TERMINAL_RUN_STATES:
                 raise SessionReductionError("Finished runs cannot accept inbox input.")
             if payload.disposition == "claim" and (
-                target.state is not RunState.MODEL_RUNNING
-                or payload.step != target.step
+                payload.step != model_step_position(target)[0]
             ):
                 raise SessionReductionError(
                     "Inbox claims must match the entering model step."
@@ -176,6 +176,29 @@ def reduce_session(events: Iterable[AgentEvent]) -> ReducedSession:
                 )
                 inserted.append(message.message_id)
             next_step[payload.start : stop] = inserted
+
+        if isinstance(event, StepDecisionEvent):
+            target = reduce_run(run_events[envelope.run_id])
+            prior_ids = {
+                message_id
+                for decision in target.decisions
+                for message_id in decision.payload.input_ids
+            }
+            expected = {
+                message.message_id
+                for message in user_messages.values()
+                if message.run_id == envelope.run_id
+                and not message.discarded
+                and message.message_id not in prior_ids
+                and (
+                    message.message_id == target.user_message_id
+                    or message.applied_step == event.payload.step
+                )
+            }
+            if set(event.payload.input_ids) != expected:
+                raise SessionReductionError(
+                    "Step admission must account for all claimed input."
+                )
 
         if envelope.run_id is not None:
             run_events[envelope.run_id].append(envelope)

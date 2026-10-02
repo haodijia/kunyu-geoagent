@@ -6,15 +6,23 @@ from datetime import UTC, datetime
 from time import monotonic_ns
 from typing import Protocol
 
-from kunyu.agent.runtime.events import BudgetUsagePayload
+from kunyu.agent.runtime.events import (
+    BudgetUsagePayload,
+    ModelSnapshotPayload,
+    RunState,
+)
 from kunyu.agent.runtime.models import TokenUsage
-from kunyu.agent.runtime.run_state import ReducedRun, ReducedToolCall
+from kunyu.agent.runtime.run_state import ReducedRun, ReducedToolCall, RunReductionError
 from kunyu.agent.runtime.tools import ToolRegistry
 
 MODEL_ACTIVE_TIME_SLICE_MILLISECONDS = 60_000
 TOOL_ACTIVE_TIME_SLICE_MILLISECONDS = 5_000
 DELTA_FLUSH_INTERVAL_SECONDS = 0.05
 DELTA_FLUSH_CODEPOINTS = 1_024
+
+
+class EventCommitError(RuntimeError):
+    """Persistence failures cannot be handled as retryable provider failures."""
 
 
 class RunnerError(RuntimeError):
@@ -38,6 +46,8 @@ class RunExecution[AdapterConfigT]:
 
 
 class RunExecutionProvider[AdapterConfigT](Protocol):
+    def prepare(self, snapshot: ModelSnapshotPayload) -> AdapterConfigT: ...
+
     async def get(self, run_id: str) -> RunExecution[AdapterConfigT] | None: ...
 
 
@@ -216,3 +226,33 @@ def utc_now() -> datetime:
 
 def monotonic_seconds() -> float:
     return monotonic_ns() / 1_000_000_000
+
+
+def model_step_position(run: ReducedRun) -> tuple[int, int]:
+    """Locate input admission before dispatch or after a settled step."""
+    if run.state is RunState.READY:
+        if run.step == 0:
+            return 1, 1
+        if current_tool_batch_complete(run):
+            return run.step + 1, 1
+        return run.step, run.attempt
+    if run.state is RunState.TOOL_RUNNING and current_tool_batch_complete(run):
+        return run.step + 1, 1
+    if run.state is RunState.MODEL_RUNNING:
+        assistant = next(
+            (
+                item
+                for item in run.assistants
+                if item.step == run.step and item.attempt == run.attempt
+            ),
+            None,
+        )
+        if assistant is None:
+            return run.step, run.attempt
+        if (
+            assistant is not None
+            and assistant.status == "completed"
+            and assistant.finish_reason == "stop"
+        ):
+            return run.step + 1, 1
+    raise RunReductionError("A new model step requires a settled execution boundary.")

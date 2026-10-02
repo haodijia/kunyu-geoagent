@@ -4,6 +4,7 @@ from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 from typing import Protocol
 
+from kunyu.agent.runtime.events import StepMessagePayload
 from kunyu.agent.runtime.models import ModelMessage
 from kunyu.agent.scope import Context, ScopedEntries
 
@@ -14,6 +15,10 @@ class AgentContext:
 
 
 class ContextProvider(Protocol):
+    async def propose(
+        self, run_id: str, step: int
+    ) -> tuple[StepMessagePayload, ...]: ...
+
     async def build(self, run_id: str) -> AgentContext: ...
 
     async def has_pending(self, run_id: str) -> bool: ...

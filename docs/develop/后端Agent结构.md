@@ -11,13 +11,14 @@ Agent 架构必须对齐本地 `deepseek-harness` 源码的服务、插件、作
 | Cordis 服务定义与插件组合、`packages/bundle/base` | `agent/kernel.py`、`services.py`、`bootstrap.py`、`plugins/` | 服务定义与实现分离，依赖顺序安装，重复提供者和缺失依赖报错，失败回滚，提供者卸载释放依赖者 |
 | `core/scope/src/index.ts`、`store.ts` | `agent/scope.py` | 作用域向下继承；同名注册由近层覆盖；注册与 effect 归属提供者；关闭等待清理，汇总清理错误 |
 | `core/agent/src/index.ts`、`core/agent-loop/src/index.ts` | `session_agent.py`、`plugins/loop.py`、`scheduler.py`、`runtime/driver.py` | Agent 注册表与具体驱动分开；每个会话有独立 Context；每次执行有子作用域；卸载先取消、等待执行退出，再释放资源 |
+| `core/agent/src/dispatch.ts`、`runtime-types.ts`、`core/agent-loop/src/agent.ts` | `hooks.py`、`runtime/hooks.py`、`runner.py`、`runner_model.py` | 带作用域的 pre-step、request、request-error、turn-stopping 控制边界；独立错误通知；同一步重试 |
 | `core/session` | `runtime/events.py`、`session_reducer.py`、`persistence/` | 追加日志为事实源，确定性重放得到查询投影 |
 | `core/system-prompt` | `runtime/context.py`、`plugins/core.py`、`prompts/system.md` | 有序、带作用域的提示词段注册；指令正文由用户维护 |
 | `core/tools` | `runtime/tools.py`、`runner_tools.py`、`tools/registry.py` | 工具注册与实现分开；模型 Schema 来自实际注册；有界并行/独占调度；风险策略与确认接缝 |
 | `packages/context` | `agent/context.py`、`persistence/agent_context.py` | 注入正文成为有顺序的持久会话内容，后续步骤及轮次按原位置重放 |
 | `skill/skill`、`skill/skill-filesystem`、`skill/tool-skill` | `skills/registry.py`、`filesystem.py`、`context.py`、`tools/skills.py` | 注册表、来源、调用工具分开；目录仅注入名称和简介；选择后加载正文；区分模型/用户调用权限；持久目录替换与显式用户调用 |
 
-这是 Python 的对应实现，没有引入 Cordis 的 TypeScript 运行时。尚未实现参考项目的完整事件 hook 流水线、作用域事件路由、surface 替换/压缩、PTC、多 Agent 委派、profile 配置装载及插件市场，不能宣称完整功能等价。中断恢复仍采用本项目的显式恢复与持久确认契约。
+这是 Python 的对应实现，没有引入 Cordis 的 TypeScript 运行时。尚未实现参考项目的完整事件 hook 流水线、重试策略插件与持久退避计划、作用域事件路由、surface 替换/压缩、PTC、多 Agent 委派、profile 配置装载及插件市场，不能宣称完整功能等价。中断恢复仍采用本项目的显式恢复与持久确认契约。
 
 ## 目录与运行链路
 
@@ -37,6 +38,7 @@ backend/src/kunyu/agent/
 ├── scheduler.py          # 队列、并发、取消、恢复
 ├── adapters.py           # 已提交 Run、凭据和确认适配
 ├── context.py            # 模型可见历史与上下文组装
+├── hooks.py              # 会话 Agent 融合调用、作用域中间件与错误通知
 ├── commands/             # 作用域命令注册、计划/权限、压缩和执行日志
 ├── prompts/system.md     # 用户维护的系统指令
 ├── runtime/              # 模型/工具契约、循环、类型事件、Reducer
@@ -58,6 +60,18 @@ backend/src/kunyu/agent/
 内核安装前校验依赖图。安装失败时撤销已经贡献的服务、工具与 effect；卸载提供者时先释放依赖它的插件/执行作用域。关闭进程先阻止受理，再停止后台发现和取消执行，等待退出后释放 Agent 作用域、HTTP client 与数据库。异步清理失败会报告，其他资源仍执行清理。
 
 `runtime/` 不依赖 FastAPI、SQLAlchemy、业务工具或模型网络实现。业务仍按 api/application/domain/persistence/integrations 分层。
+
+## 循环控制与重试
+
+`AgentHooksPlugin` 提供 `HOOKS` 服务。插件用 `hooks.pre_step/request/request_error/turn_stopping/errors.register(owner, name, handler)` 注册贡献，最近作用域的同名处理器覆盖祖先处理器，兄弟会话互不影响，owner 释放时移除。每次调用携带实际 `SessionAgent`、已提交 Run 和取消信号，不创建另一份 Agent 代理。
+
+`pre_step`、`request` 和 `request_error` 是串联中间件，`next()` 最多调用一次。`pre_step` 可以替换本步输入、拒绝步骤或移除初始输入；决定作为 `agent/step/decision` 保存。拒绝或空初始步骤不消耗模型调用。输入从首次 `request.header` 提交起进入已接纳历史，取消于请求之前的输入及技能正文不会进入后续模型请求。
+
+`request` 在每次尝试前选择完整调用配置；日志保存实际配置，Run 受理时的初始模型选择保持独立。`request_error` 在失败尝试和助手消息结算后选择同一步重试，或交给默认终止行为。重试追加 `run.retried`，递增 attempt，保留 step 和本步已组装上下文，不重新领取输入或重复加载技能；仍受总调用、输出和活动时间预算约束。尚未配置自动重试策略、退避定时或永久重试模式。
+
+`turn_stopping` 在助手结算后串行等待处理器，随后重新读取下一步队列；处理器通过实际 Agent 追加引导时继续当前 Run。控制处理器的异常会记录并结束 Run；即使处理器吞掉取消异常，取消信号也会阻止继续调用模型。`errors` 是不影响控制决定的通知，单个同步/异步观察者报错独立记录；异步通知由注册 owner 持有，关闭时取消并等待退出。
+
+主循环、模型执行和模型尝试结算分别放在 `runtime/runner.py`、`runner_model.py` 和 `model_attempt.py`，工具执行继续由 `runner_tools.py` 负责。
 
 ## 扩展 Tool
 
@@ -82,7 +96,7 @@ L0 工具可直接执行；L2 本地写入必须注册同名事务处理器。�
 
 来源实现放 `agent/skills/`，模型调用工具放 `agent/tools/skills.py`，内置指令放 `agent/skills/bundled/<name>/SKILL.md` 与相邻资源。用户技能保存在应用数据目录的 `skills/`，工作区技能保存在 `workspaces/<workspace_id>/skills/`，也会发现 `~/.agents/skills`。
 
-`ContextPreparationRegistry` 在每次模型步骤组装历史前运行带作用域的异步贡献。技能消费者重新发现目录，比较实际名称和简介列表；变化时追加 `context.injected` 完整替换，全部移除时记录空目录，不计算文件 hash。目录事件携带 `producer=skill-catalog` 和实际条目。`/技能名` 解析当前 Run 的初始用户消息及已领取的引导消息，每条消息按用户权限加载一次；正文、来源和消息身份以 `producer=skill-invocation` 持久保存。恢复同一 Run 时重放原文，不随文件编辑重写历史。
+`ContextPreparationRegistry` 在每次模型步骤组装历史前运行带作用域的异步贡献。技能消费者重新发现目录，比较实际名称和简介列表；变化时追加 `context.injected` 完整替换，全部移除时记录空目录，不计算文件 hash。目录事件携带 `producer=skill-catalog` 和实际条目。`/技能名` 解析 pre-step 接纳的消息，支持处理器改写后的输入，每条消息按用户权限加载一次；正文、来源、消息身份、Run 和 step 以 `producer=skill-invocation` 持久保存。正文只在所属步骤实际发送后进入后续历史。恢复同一 Run 时重放原文，不随文件编辑重写历史。
 
 模型使用 `skill({name})` 加载正文，实际结果进入已有工具完成事件；`skill_resource({name,path})` 按需读取技能目录内的 UTF-8 资源。用户专用技能的资源仅在当前 Run 显式调用后开放。资源不允许绝对路径或越界符号链接，不执行脚本、不安装依赖。详细使用、格式、来源和接口见[Agent 技能](Agent技能.md)。远程来源、文件 watcher、插件市场和脚本执行尚未实现。
 
@@ -92,7 +106,7 @@ GeoSkill 的版本化地理场景逻辑放 `kunyu/scenes/`，场景数据放 `ba
 
 当前请求顺序：系统指令 → 当前 Run 冻结的工作空间/地图信息 → 按事件序号排列的会话历史（用户消息、注入内容、助手消息、工具调用及结果）。记忆不自动注入。
 
-注入内容不会在一次请求后消失。已完成工具结果保留原值；失败/取消结果保留提交状态与错误字段。助手被中断、失败或取消时保留已经提交的文本和推理内容。尚未闭合的工具批次不构造缺失的结果，不发送不配对的 tool 消息；显式恢复后再重放已闭合批次。`/compact` 在 Agent 空闲时生成并持久化模型摘要，后续请求使用摘要与边界之后的历史。
+已接纳的注入内容不会在一次请求后消失。已完成工具结果保留原值；失败/取消结果保留提交状态与错误字段。助手被中断或取消时保留已经提交的文本和推理内容；失败尝试的输出保留在日志和界面，但不回传给模型。尚未闭合的工具批次不构造缺失的结果，不发送不配对的 tool 消息；显式恢复后再重放已闭合批次。`/compact` 在 Agent 空闲时生成并持久化模型摘要，后续请求使用摘要与边界之后的历史。
 
 对话页面与轨迹页面读取同一事件日志。对话的思考正文、开始/结束时间、工具运行时间均从实际事件派生；刷新后可还原。只有当前模型尝试的推理显示实时状态，已中断或取消的历史不会继续计时。
 
@@ -100,7 +114,7 @@ GeoSkill 的版本化地理场景逻辑放 `kunyu/scenes/`，场景数据放 `ba
 
 `SessionAgent.inbox` 从会话的 `agent/inbox/spliced` 日志重放 next-step 和 next-turn 两条队列。运行中发送 `steer` 保持当前 Run、模型快照和预算，不取消模型流或工具执行。受理事务持久保存消息、地图快照和幂等身份；重复请求返回同一消息。最多等待 32 条引导输入。
 
-进入下一模型步骤时，ContextProvider 先持久领取等待输入，再运行技能等上下文贡献。领取步骤、丢弃状态和用户消息均可重放；未领取或已丢弃输入不进入模型历史。当前模型以普通 stop 结束但仍有等待输入时，先结算助手消息，再在同一个 Run 中开启新步骤。显式取消或终态失败丢弃尚未领取的输入，中断则保留它们供恢复领取。
+进入新模型步骤时，ContextProvider 先持久领取等待输入，再运行 pre-step 和技能等上下文贡献。领取步骤、丢弃状态和用户消息均可重放；未领取、未发送或已丢弃输入不进入后续模型历史。恢复/重试已接纳步骤时复用决定，不领取新输入；中断期间追加的引导留到下一步。当前模型以普通 stop 结束但仍有等待输入时，先结算助手消息，再在同一个 Run 中开启新步骤。显式取消或终态失败丢弃尚未领取的输入，中断则保留它们供恢复领取。
 
 `followup` 进入 next-turn 队列，保存未来轮次身份、模型快照、预算和调度顺序，但等待期间不创建 Run，也不进入模型历史。会话空闲时，调度器在同一数据库事务内领取首条输入并追加用户消息与 Run 事实；前一轮等待确认或恢复时，后续输入保持排队。每个会话最多一个未完成 Run，不同会话最多并发四个；全局待调度 Run 与输入总计最多 32 条。后端重启重新读取队列，执行中的 Run 中断后按显式恢复契约继续。
 
@@ -108,7 +122,9 @@ GeoSkill 的版本化地理场景逻辑放 `kunyu/scenes/`，场景数据放 `ba
 
 受理响应的 `turn` 在输入等待领取时为 null，领取后查询返回真实轮次；不创建占位 Run。消息投影可保存用户输入的取消状态。开发迁移 `0003` 明确历史 inbox 的 target 并更新消息约束，SQLite 表重建期间关闭外键级联，提交前检查完整性。最终数据库仍待开发结束统一整理 SQL。
 
-mu 草稿箱的手动发送模式、原位编辑、拖拽排序和立即发送尚未实现；生命周期 hooks、PTC 与多 Agent 委派也仍是后续对齐项。
+迁移 `0004` 为既有请求日志补齐实际模型配置，为显式技能注入补齐步骤归属；旧日志通过重放验证，不保留运行时兼容分支。
+
+mu 草稿箱的手动发送模式、原位编辑、拖拽排序和立即发送尚未实现；完整通知流水线、重试策略插件、PTC 与多 Agent 委派也仍是后续对齐项。
 
 系统指令和两个工具的描述未在本次架构改动中修改；维护入口见[记忆工具与上下文](记忆工具与上下文.md)。
 
@@ -120,9 +136,11 @@ mu 草稿箱的手动发送模式、原位编辑、拖拽排序和立即发送�
 
 双队列验证三个有效输入串行完成三个 Run、四次模型请求，同会话并发上限为一；未领取输入不泄露到模型历史，删除的输入从未送入模型。关闭并重建完整插件组合后，等待输入和引导输入继续保留，显式恢复后顺序完成。旧预览数据库升级并重建投影，原 Run 与两个工具记录完整保留，外键检查无错误。离屏 Electron 验证待发送面板及实际删除 API，计数从二变为一。
 
+控制边界探针验证消息改写、实际请求路由变更、同一步失败重试、结束前引导继续、拒绝/空步骤零调用，以及释放会话作用域后注册不复用。取消探针验证吞掉取消异常仍终止，未发送输入及技能正文不进入下一轮。错误通知探针验证同步/异步观察者报错不否决主流程、兄弟作用域隔离、owner 释放排空异步通知。新的恢复边界验证三个 Run、五次请求：中断尝试及恢复保持同一步，引导另开下一步，随后串行处理两个后续问题。旧预览数据库升级至 `0004` 后原 Run、两个工具与请求模型快照完整保留。
+
 `ruff check`、`compileall`、98 个后端模块导入及 `uv build` 通过；全新临时数据库的 FastAPI lifespan 启动和关闭通过。
 
-不请求真实模型，不修改用户数据库，不新增测试文件或数据库迁移。
+验证使用临时脚本与临时数据库，不请求真实模型，不修改用户数据库，不新增测试文件。开发数据库迁移随功能提交。
 
 ## 会话命令与推理参数
 

@@ -8,6 +8,7 @@ from kunyu.agent import services as s
 from kunyu.agent.commands.plugin import CommandsPlugin
 from kunyu.agent.kernel import Kernel, Plugin
 from kunyu.agent.plugins.core import (
+    AgentHooksPlugin,
     PromptPlugin,
     ScopePlugin,
     ToolsPlugin,
@@ -70,6 +71,7 @@ async def create_agent_runtime(
         PersistencePlugin(),
         ScopePlugin(),
         model_plugin,
+        AgentHooksPlugin(),
         PromptPlugin(),
         ToolsPlugin(),
         MemoryToolsPlugin(),

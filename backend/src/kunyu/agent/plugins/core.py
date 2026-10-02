@@ -2,6 +2,7 @@
 
 from kunyu.agent import services as s
 from kunyu.agent.context import RunContextNotFoundError, register_system_prompt
+from kunyu.agent.hooks import AgentHookRegistry
 from kunyu.agent.runtime.context import (
     ContextPreparationRegistry,
     PromptSectionRegistry,
@@ -91,3 +92,12 @@ class TurnServicesPlugin:
                 context.require(s.LIFECYCLE_REPOSITORY), context.require(s.EVENTS)
             ),
         )
+
+
+class AgentHooksPlugin:
+    name = "agent-hooks"
+    requires = ()
+    provides = (s.HOOKS,)
+
+    async def apply(self, context: Context) -> None:
+        context.provide(s.HOOKS, AgentHookRegistry())
