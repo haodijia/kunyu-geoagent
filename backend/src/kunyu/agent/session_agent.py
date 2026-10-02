@@ -7,6 +7,7 @@ from typing import Literal
 
 from kunyu.agent import services as s
 from kunyu.agent.inbox import SessionInbox
+from kunyu.agent.notifications import AgentNotifications, AgentStatus
 from kunyu.agent.runtime.events import (
     TERMINAL_RUN_STATES,
     ContextInjectedEvent,
@@ -21,6 +22,7 @@ from kunyu.application.run_lifecycle import RunLifecycleService
 from kunyu.domain.run_acceptance import RunAcceptanceRequest, RunAcceptanceResult
 from kunyu.domain.runs import RunDetails
 from kunyu.persistence.agent_projections import SQLAlchemyAgentProjectionService
+from kunyu.persistence.event_publications import SessionEventPublication
 
 
 class SessionAgent:
@@ -38,6 +40,11 @@ class SessionAgent:
         self._projections = projections
         self.ctx = context
         self.inbox = SessionInbox(session_id, context.require(s.EVENTS))
+        self.notifications = AgentNotifications(self, context.require(s.HOOKS))
+
+    @property
+    def status(self) -> AgentStatus:
+        return self.notifications.status
 
     async def followup(self, request: RunAcceptanceRequest) -> RunAcceptanceResult:
         self._require_request(request)
@@ -172,6 +179,24 @@ class AgentDirectory:
         self._owner = owner
         self._agents: dict[str, SessionAgent] = {}
         owner.effect(self._close_scopes)
+        unsubscribe = owner.require(s.DATABASE).publications.subscribe(self._committed)
+        owner.effect(unsubscribe, before_children=True)
+
+    def _committed(self, publication: SessionEventPublication) -> None:
+        agent = self._agents.get(publication.after.session_id)
+        if agent is None:
+            if not self._owner.active or not any(
+                event.event_type
+                in {
+                    "agent/inbox/spliced",
+                    "message.assistant.started",
+                    "model.attempt.finished",
+                }
+                for event in publication.events
+            ):
+                return
+            agent = self.for_session(publication.after.session_id)
+        agent.notifications.committed(publication)
 
     async def _close_scopes(self) -> None:
         results = await asyncio.gather(

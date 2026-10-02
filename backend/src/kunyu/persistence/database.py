@@ -6,6 +6,7 @@ from sqlalchemy import Engine, create_engine, event
 from sqlalchemy.engine import URL
 from sqlalchemy.orm import Session, sessionmaker
 
+from kunyu.persistence.event_publications import SessionEventPublications
 from kunyu.persistence.migration_runner import upgrade_database
 from kunyu.settings import get_app_data_directory
 
@@ -18,6 +19,7 @@ class Database:
     path: Path
     engine: Engine
     sessions: sessionmaker[Session]
+    publications: SessionEventPublications
 
     @classmethod
     def open(cls) -> "Database":
@@ -36,13 +38,16 @@ class Database:
         except Exception:
             engine.dispose()
             raise
+        sessions = sessionmaker(bind=engine, expire_on_commit=False)
         return cls(
             path=database_path,
             engine=engine,
-            sessions=sessionmaker(bind=engine, expire_on_commit=False),
+            sessions=sessions,
+            publications=SessionEventPublications(sessions),
         )
 
     def close(self) -> None:
+        self.publications.close()
         self.engine.dispose()
 
 

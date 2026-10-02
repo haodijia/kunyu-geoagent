@@ -11,14 +11,14 @@ Agent 架构必须对齐本地 `deepseek-harness` 源码的服务、插件、作
 | Cordis 服务定义与插件组合、`packages/bundle/base` | `agent/kernel.py`、`services.py`、`bootstrap.py`、`plugins/` | 服务定义与实现分离，依赖顺序安装，重复提供者和缺失依赖报错，失败回滚，提供者卸载释放依赖者 |
 | `core/scope/src/index.ts`、`store.ts` | `agent/scope.py` | 作用域向下继承；同名注册由近层覆盖；注册与 effect 归属提供者；关闭等待清理，汇总清理错误 |
 | `core/agent/src/index.ts`、`core/agent-loop/src/index.ts` | `session_agent.py`、`plugins/loop.py`、`scheduler.py`、`runtime/driver.py` | Agent 注册表与具体驱动分开；每个会话有独立 Context；每次执行有子作用域；卸载先取消、等待执行退出，再释放资源 |
-| `core/agent/src/dispatch.ts`、`runtime-types.ts`、`core/agent-loop/src/agent.ts` | `hooks.py`、`runtime/hooks.py`、`runner.py`、`runner_model.py` | 带作用域的 pre-step、request、request-error、turn-stopping 控制边界；独立错误通知；同一步重试 |
+| `core/agent/src/dispatch.ts`、`runtime-types.ts`、`core/agent-loop/src/agent.ts` | `hooks.py`、`notifications.py`、`runtime/hooks.py`、`runner.py`、`runner_model.py` | 带作用域的控制边界、状态/输入/助手流/错误通知与同一步重试 |
 | `core/session` | `runtime/events.py`、`session_reducer.py`、`persistence/` | 追加日志为事实源，确定性重放得到查询投影 |
 | `core/system-prompt` | `runtime/context.py`、`plugins/core.py`、`prompts/system.md` | 有序、带作用域的提示词段注册；指令正文由用户维护 |
 | `core/tools` | `runtime/tools.py`、`runner_tools.py`、`tools/registry.py` | 工具注册与实现分开；模型 Schema 来自实际注册；有界并行/独占调度；风险策略与确认接缝 |
 | `packages/context` | `agent/context.py`、`persistence/agent_context.py` | 注入正文成为有顺序的持久会话内容，后续步骤及轮次按原位置重放 |
 | `skill/skill`、`skill/skill-filesystem`、`skill/tool-skill` | `skills/registry.py`、`filesystem.py`、`context.py`、`tools/skills.py` | 注册表、来源、调用工具分开；目录仅注入名称和简介；选择后加载正文；区分模型/用户调用权限；持久目录替换与显式用户调用 |
 
-这是 Python 的对应实现，没有引入 Cordis 的 TypeScript 运行时。尚未实现参考项目的完整事件 hook 流水线、重试策略插件与持久退避计划、作用域事件路由、surface 替换/压缩、PTC、多 Agent 委派、profile 配置装载及插件市场，不能宣称完整功能等价。中断恢复仍采用本项目的显式恢复与持久确认契约。
+这是 Python 的对应实现，没有引入 Cordis 的 TypeScript 运行时。尚未实现参考项目的重试策略插件与持久退避计划、完整助手流记录、surface 替换/压缩、PTC、多 Agent 委派、profile 配置装载及插件市场，不能宣称完整功能等价。中断恢复仍采用本项目的显式恢复与持久确认契约。
 
 ## 目录与运行链路
 
@@ -38,7 +38,8 @@ backend/src/kunyu/agent/
 ├── scheduler.py          # 队列、并发、取消、恢复
 ├── adapters.py           # 已提交 Run、凭据和确认适配
 ├── context.py            # 模型可见历史与上下文组装
-├── hooks.py              # 会话 Agent 融合调用、作用域中间件与错误通知
+├── hooks.py              # 会话 Agent 融合调用、作用域中间件与通知注册
+├── notifications.py      # 非否决状态、输入及助手流通知
 ├── commands/             # 作用域命令注册、计划/权限、压缩和执行日志
 ├── prompts/system.md     # 用户维护的系统指令
 ├── runtime/              # 模型/工具契约、循环、类型事件、Reducer
@@ -69,9 +70,17 @@ backend/src/kunyu/agent/
 
 `request` 在每次尝试前选择完整调用配置；日志保存实际配置，Run 受理时的初始模型选择保持独立。`request_error` 在失败尝试和助手消息结算后选择同一步重试，或交给默认终止行为。重试追加 `run.retried`，递增 attempt，保留 step 和本步已组装上下文，不重新领取输入或重复加载技能；仍受总调用、输出和活动时间预算约束。尚未配置自动重试策略、退避定时或永久重试模式。
 
-`turn_stopping` 在助手结算后串行等待处理器，随后重新读取下一步队列；处理器通过实际 Agent 追加引导时继续当前 Run。控制处理器的异常会记录并结束 Run；即使处理器吞掉取消异常，取消信号也会阻止继续调用模型。`errors` 是不影响控制决定的通知，单个同步/异步观察者报错独立记录；异步通知由注册 owner 持有，关闭时取消并等待退出。
+`turn_stopping` 在助手结算后按序执行同步或异步处理器，随后重新读取下一步队列；处理器通过实际 Agent 追加引导时继续当前 Run。控制处理器的异常会记录并结束 Run；即使处理器吞掉取消异常，取消信号也会阻止继续调用模型。`errors` 是不影响控制决定的通知，单个同步/异步观察者报错独立记录；异步通知由注册 owner 持有，关闭时取消并等待退出。
 
 主循环、模型执行和模型尝试结算分别放在 `runtime/runner.py`、`runner_model.py` 和 `model_attempt.py`，工具执行继续由 `runner_tools.py` 负责。
+
+`hooks.status/inbox_inserted/inbox_claimed/inbox_discarded/assistant_stream.register(owner, name, handler)` 提供参考项目的五类非否决通知。所有通知绑定实际 SessionAgent 和其作用域，最近同名贡献覆盖祖先，兄弟会话隔离。同步异常与异步拒绝分别记录，后续观察者继续执行；异步任务由注册 owner 持有，释放时取消并等待结束。输入通知为每个观察者复制内容/地图/轮次快照，助手帧及工具参数为不可变快照，观察者不能改写模型输出或其他观察者的输入。
+
+`SessionAgent.status` 仅表示实际驱动的 `idle/running`，进入可取消执行时切换为 running，驱动及其执行作用域排空后切换为 idle，不对重复状态发通知。确认等待和显式中断停止本次驱动后为 idle，具体 Run 状态继续由持久事件查询。作用域关闭时，本地已释放观察者不再调用，仍存活的全局观察者可以收到最后的取消结算与 idle。
+
+`persistence/event_publications.py` 在最外层事务提交后发布事件批次；保存点提交只合并等待发布内容，保存点回滚仅丢弃所属内容，外层回滚不发布。重入提交按批次顺序发布。输入通知按真实 splice 的插入、领取或丢弃身份生成，幂等受理不重复通知，历史重放不发送新通知。
+
+助手流按 start → chunk → end 发布。每个 SessionAgent 生命周期内 revision 严格递增，chunk index 从零连续编号，end index 为块数量；chunk 携带毫秒时间及真实文本、推理、完整工具调用、用量或结束结果。end 的 committed 指向已经提交的 `model.attempt.finished` 序号和真实结果，取消也先结算；结算事务失败则发 abandoned。新 Agent 生命周期重新计数，不重放旧帧。当前前端仍读取既有持久 delta 事件，原始 chunk 帧只用于进程内扩展；参考项目的完整紧凑助手流持久记录仍待对齐。
 
 ## 扩展 Tool
 
@@ -132,7 +141,7 @@ GeoSkill 的版本化地理场景逻辑放 `kunyu/scenes/`，场景数据放 `ba
 
 `POST /agent/inbox/{message_id}/edit` 在调度锁内原子移出等待输入，返回原内容、完整地图上下文与未来轮次模型快照；前端一次恢复三个状态并聚焦。编辑中的普通消息及显式技能保留后续轮次语义，运行中再次发送不会改为当前轮引导；已有草稿与未决提交禁止覆盖。队列路由集中在 `api/agent_queue.py`，共享作用域依赖集中在 `api/agent_dependencies.py`。
 
-附件/跨会话引用、完整通知流水线、重试策略插件、PTC 与多 Agent 委派仍是后续对齐项。
+附件/跨会话引用、完整助手流持久记录、重试策略插件、PTC 与多 Agent 委派仍是后续对齐项。
 
 系统指令和两个工具的描述未在本次架构改动中修改；维护入口见[记忆工具与上下文](记忆工具与上下文.md)。
 
@@ -149,6 +158,8 @@ GeoSkill 的版本化地理场景逻辑放 `kunyu/scenes/`，场景数据放 `ba
 草稿箱探针通过真实 Agent 与 ASGI API 验证手动模式/排序重启保留、过期排序返回 409、普通发送不触发手动草稿、立即发送取消活动回复且优先执行目标、保留其余队列、原子清空和单会话模型并发上限一。离屏 Electron 验证浅色、深色、600px 窗口、实际键盘排序 API、清空确认取消、编辑后草稿/焦点还原与已有草稿保护；桌面面板和输入框宽度均为 800px，窄窗口均为 576px，无横向溢出。
 
 交互探针验证拖动暂停自动领取、其他会话继续运行、排序提交后释放、续租、超时恢复、作用域释放以及重复编辑冲突。离屏 Electron 通过真实键盘拖动验证请求顺序为暂停、排序、释放；编辑后原模型、高推理参数、地图视口、输入框焦点与后续发送标记全部还原，重新入队的请求携带完整原快照。浅色桌面和深色窄窗口无横向溢出、无渲染错误。
+
+通知探针验证同步/异步观察者失败不否决、会话隔离、幂等输入不重复、输入快照隔离、连续助手帧、已提交结束序号、取消结算和 owner 释放排空。关闭活动会话与卸载循环插件仍发布实际已提交的最后结算；新生命周期重置 revision。保存点/外层回滚和重入顺序探针通过，结算写入失败明确发布 abandoned，所有模型输出类型及不可变工具参数通过验证。原引导/后续轮次、重启恢复、队列交互及控制取消探针继续通过，同步 turn-stopping 处理器通过。
 
 `ruff check`、`compileall`、后端模块导入及 `uv build` 通过；全新临时数据库的 FastAPI lifespan 启动和关闭通过。
 

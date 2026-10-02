@@ -33,6 +33,10 @@ from kunyu.domain.runs import (
 from kunyu.persistence import run_records
 from kunyu.persistence.confirmations import confirmation_record
 from kunyu.persistence.database import Database
+from kunyu.persistence.event_publications import (
+    SessionEventPublication,
+    stage_publication,
+)
 from kunyu.persistence.models import (
     ConfirmationRecord,
     MessageRecord,
@@ -87,7 +91,23 @@ class SQLAlchemyAgentProjectionService:
         database_session.add_all(new_records)
         self._replace_session_projections(database_session, reduced)
         database_session.flush()
-        return tuple(run_records.event_to_domain(record) for record in new_records)
+        committed = tuple(run_records.event_to_domain(record) for record in new_records)
+        stage_publication(
+            database_session,
+            SessionEventPublication(
+                committed,
+                reduce_session(
+                    run_records.event_to_domain(record) for record in previous_records
+                )
+                if previous_records
+                and any(
+                    event.event_type == "agent/inbox/spliced" for event in committed
+                )
+                else None,
+                reduced,
+            ),
+        )
+        return committed
 
     def rebuild_session(self, session_id: str) -> ReducedSession:
         with self._database.sessions() as database_session:

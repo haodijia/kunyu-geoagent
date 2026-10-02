@@ -5,8 +5,16 @@ import inspect
 import logging
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
+from datetime import UTC, datetime
 from typing import TYPE_CHECKING
 
+from kunyu.agent.notifications import (
+    AssistantStreamNotification,
+    InboxNotification,
+    ObserverRegistry,
+    StatusNotification,
+    invoke_observer,
+)
 from kunyu.agent.runtime.events import ModelSnapshotPayload
 from kunyu.agent.runtime.hooks import (
     CancellationSignal,
@@ -16,6 +24,7 @@ from kunyu.agent.runtime.hooks import (
     StepDecision,
     StepProposal,
 )
+from kunyu.agent.runtime.models import ModelOutput
 from kunyu.agent.runtime.run_state import ReducedRun
 from kunyu.agent.scope import Context, ScopedEntries
 
@@ -81,9 +90,14 @@ class AgentHookRegistry:
             Middleware[RequestErrorInvocation, RequestErrorAction]
         ] = ScopedEntries()
         self.turn_stopping: ScopedEntries[
-            Callable[[AgentHookInvocation], Awaitable[None]]
+            Callable[[AgentHookInvocation], Awaitable[None] | None]
         ] = ScopedEntries()
         self.errors = ErrorObserverRegistry()
+        self.status = ObserverRegistry[StatusNotification]()
+        self.inbox_inserted = ObserverRegistry[InboxNotification]()
+        self.inbox_claimed = ObserverRegistry[InboxNotification]()
+        self.inbox_discarded = ObserverRegistry[InboxNotification]()
+        self.assistant_stream = ObserverRegistry[AssistantStreamNotification]()
 
     def bind(self, agent: "SessionAgent", scope: Context) -> "AgentHookDispatch":
         if scope.scope != agent.ctx.scope:
@@ -181,7 +195,9 @@ class AgentHookDispatch:
     async def turn_stopping(self, run: ReducedRun, signal: CancellationSignal) -> None:
         invocation = self._invocation(run, signal)
         for handler in self._registry.turn_stopping.view(self._scope).values():
-            await handler(invocation)
+            returned = handler(invocation)
+            if inspect.isawaitable(returned):
+                await returned
             signal.throw_if_cancelled()
             self._scope.assert_active()
 
@@ -198,27 +214,12 @@ class AgentHookDispatch:
             )
             return
         for owner, handler in observers:
-            try:
-                owner.assert_active()
-                returned = handler(invocation, error)
-                if inspect.isawaitable(returned):
-                    notification = asyncio.create_task(self._observe(returned))
-
-                    async def drain(task=notification):
-                        task.cancel()
-                        await asyncio.gather(task, return_exceptions=True)
-
-                    detach = owner.effect(drain)
-                    notification.add_done_callback(lambda _, detach=detach: detach())
-            except BaseException:
-                logger.exception("Agent error notification failed for %s.", run.run_id)
-
-    async def _observe(self, awaitable: Awaitable[object]) -> None:
-        try:
-            await awaitable
-        except asyncio.CancelledError:
-            raise
-        except Exception:
-            logger.exception(
-                "Agent error notification rejected for %s.", self._agent.session_id
+            invoke_observer(
+                owner, lambda handler=handler: handler(invocation, error), "error"
             )
+
+    def assistant_output(self, run: ReducedRun, output: ModelOutput) -> None:
+        self._agent.notifications.output(run, output, datetime.now(UTC))
+
+    def assistant_abandoned(self, run: ReducedRun) -> None:
+        self._agent.notifications.abandon(run)

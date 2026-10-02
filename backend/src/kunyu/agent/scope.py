@@ -43,6 +43,10 @@ class Context:
             self.parent.assert_active()
 
     @property
+    def active(self) -> bool:
+        return self._closing is None and (self.parent is None or self.parent.active)
+
+    @property
     def disposing(self) -> bool:
         return self._closing is not None
 
@@ -138,16 +142,24 @@ class ScopedEntries[T]:
         owner.effect(remove)
 
     def view(self, context: Context) -> dict[str, T]:
+        context.assert_active()
+        return self.view_scope(context.scope)
+
+    def view_scope(self, scope: ScopeKey) -> dict[str, T]:
+        """Resolve a notification carrier while its lifecycle is unwinding."""
         values: dict[str, T] = {}
-        for layer in self.layers(context):
+        for layer in self._layers_for_scope(scope):
             values.update(layer)
         return values
 
     def layers(self, context: Context) -> tuple[dict[str, T], ...]:
         """Global-to-nearest registration layers without collapsing ownership."""
         context.assert_active()
+        return self._layers_for_scope(context.scope)
+
+    def _layers_for_scope(self, scope: ScopeKey) -> tuple[dict[str, T], ...]:
         chain: list[ScopeKey] = []
-        cursor: ScopeKey | None = context.scope
+        cursor: ScopeKey | None = scope
         while cursor is not None:
             chain.append(cursor)
             cursor = cursor.parent
