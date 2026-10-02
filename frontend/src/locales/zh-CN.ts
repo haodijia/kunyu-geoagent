@@ -510,6 +510,12 @@ export const zhCN = {
     input: "输入",
     output: "输出",
     raw: "原始内容",
+    stream: "输出流",
+    streamDetails: {
+      origin: "记录来源", model: "模型分块", buffered: "历史合并分块",
+      chunks: "输出块数", records: "压缩记录数",
+      historicalTiming: "此历史仅保存合并后的分块，原始 token 到达时间未记录。",
+    },
     status: "状态",
     source: "来源",
     duration: "时长",

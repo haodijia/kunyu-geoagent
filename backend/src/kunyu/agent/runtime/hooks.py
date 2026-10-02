@@ -4,8 +4,8 @@ import asyncio
 from dataclasses import dataclass
 from typing import Literal, Protocol
 
+from kunyu.agent.runtime.assistant_stream import TimedModelOutput
 from kunyu.agent.runtime.events import ModelSnapshotPayload, StepMessagePayload
-from kunyu.agent.runtime.models import ModelOutput
 from kunyu.agent.runtime.retry_policy import RetryPolicy
 from kunyu.agent.runtime.run_state import ReducedRun
 
@@ -72,6 +72,6 @@ class LoopHooks(Protocol):
 
     def error(self, run: ReducedRun, error: BaseException) -> None: ...
 
-    def assistant_output(self, run: ReducedRun, output: ModelOutput) -> None: ...
+    def assistant_output(self, run: ReducedRun, output: TimedModelOutput) -> None: ...
 
     def assistant_abandoned(self, run: ReducedRun) -> None: ...

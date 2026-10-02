@@ -4,6 +4,12 @@ from collections.abc import Iterable
 from datetime import datetime
 from typing import Literal, Protocol
 
+from kunyu.agent.runtime.assistant_stream import (
+    FinishChunk,
+    RawChunk,
+    UsageChunk,
+    stream_text,
+)
 from kunyu.agent.runtime.events import (
     ALLOWED_RUN_TRANSITIONS,
     TERMINAL_RUN_STATES,
@@ -589,6 +595,59 @@ def _finish_model_attempt(
     assistant = _attempt_assistant(state, payload.step, payload.attempt)
     if assistant.model_outcome is not None:
         raise RunReductionError("A model attempt can only finish once.")
+    if payload.message_id != assistant.message_id:
+        raise RunReductionError(
+            "Attempt settlement must identify its assistant message."
+        )
+    text = stream_text(payload.stream)
+    reasoning = stream_text(payload.stream, reasoning=True)
+    if payload.error_code == "OUTPUT_LIMIT":
+        valid_prefix = text.startswith(assistant.content) and reasoning.startswith(
+            assistant.reasoning_content
+        )
+    else:
+        valid_prefix = (text, reasoning) == (
+            assistant.content,
+            assistant.reasoning_content,
+        )
+    if not valid_prefix:
+        raise RunReductionError(
+            "Attempt stream does not match the delivered assistant prefix."
+        )
+    if payload.stream_origin == "model":
+        usage = [
+            record.chunk
+            for record in payload.stream
+            if isinstance(record, RawChunk) and isinstance(record.chunk, UsageChunk)
+        ]
+        if (
+            len(usage) > 1
+            and payload.outcome != "error"
+            or not usage
+            and any(
+                value is not None
+                for value in (
+                    payload.input_tokens,
+                    payload.output_tokens,
+                    payload.total_tokens,
+                )
+            )
+            or usage
+            and (usage[0].input_tokens, usage[0].output_tokens, usage[0].total_tokens)
+            != (payload.input_tokens, payload.output_tokens, payload.total_tokens)
+        ):
+            raise RunReductionError("Attempt accounting must match its stream usage.")
+        finishes = [
+            record.chunk.reason.value
+            for record in payload.stream
+            if isinstance(record, RawChunk) and isinstance(record.chunk, FinishChunk)
+        ]
+        if (
+            payload.outcome in {"stop", "tool_calls", "content_filter"}
+            or payload.outcome == "length"
+            and payload.error_code != "OUTPUT_LIMIT"
+        ) and finishes != [payload.outcome]:
+            raise RunReductionError("Attempt outcome must match its stream finish.")
     if payload.outcome in {"stop", "tool_calls"}:
         if (
             assistant.status != "completed"

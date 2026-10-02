@@ -9,6 +9,7 @@ from typing import Literal
 
 from pydantic import JsonValue, TypeAdapter
 
+from kunyu.agent.runtime.assistant_stream import model_json_data
 from kunyu.agent.runtime.context import AgentContext, ContextProvider
 from kunyu.agent.runtime.events import (
     AssistantStartedEvent,
@@ -48,6 +49,7 @@ from kunyu.agent.runtime.models import (
     ModelRequest,
     ModelRole,
     ModelToolCall,
+    ModelToolCallDelta,
     ReasoningDelta,
     TextDelta,
     TokenUsage,
@@ -437,6 +439,16 @@ class ModelStepExecutor[AdapterConfigT]:
             async for output in stream:
                 if terminal_seen:
                     raise _ModelOutputError("Output followed the terminal result.")
+                try:
+                    timed = attempt.stream.push(
+                        output, int(self._clock().timestamp() * 1_000)
+                    )
+                except (TypeError, ValueError) as error:
+                    raise _ModelOutputError(
+                        "The model returned an invalid stream chunk."
+                    ) from error
+                output = timed.output
+                self._hooks.assistant_output(run, timed)
                 due = attempt.buffer.flush_if_due()
                 if due is not None:
                     await self._commit_delta(run, attempt, due)
@@ -467,6 +479,8 @@ class ModelStepExecutor[AdapterConfigT]:
                         await self._commit_delta(
                             run, attempt, batch, reasoning=reasoning
                         )
+                elif isinstance(output, ModelToolCallDelta):
+                    pass  # Fragments are recorded; only complete calls may execute.
                 elif isinstance(output, ModelToolCall):
                     if any(
                         call.call_id == output.call_id
@@ -488,7 +502,6 @@ class ModelStepExecutor[AdapterConfigT]:
                     terminal_seen = True
                 else:
                     raise _ModelOutputError("Unknown model output.")
-                self._hooks.assistant_output(run, output)
         finally:
             close = getattr(stream, "aclose", None)
             if close is not None:
@@ -586,7 +599,9 @@ class ModelStepExecutor[AdapterConfigT]:
             tool = registry.get(call.name)
             # Preserve model arguments verbatim. Validation is a tool result, so the
             # next model step can correct the call without losing the assistant frame.
-            arguments = _JSON_OBJECT_ADAPTER.validate_python(dict(call.arguments))
+            arguments = _JSON_OBJECT_ADAPTER.validate_python(
+                model_json_data(call.arguments)
+            )
             tool_call_id = self._tool_call_id_factory()
             validated.append(
                 _PlannedToolCall(

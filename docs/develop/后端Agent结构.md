@@ -13,13 +13,14 @@ Agent 架构必须对齐本地 `deepseek-harness` 源码的服务、插件、作
 | `core/agent/src/index.ts`、`core/agent-loop/src/index.ts` | `session_agent.py`、`plugins/loop.py`、`scheduler.py`、`runtime/driver.py` | Agent 注册表与具体驱动分开；每个会话有独立 Context；每次执行有子作用域；卸载先取消、等待执行退出，再释放资源 |
 | `core/agent/src/dispatch.ts`、`runtime-types.ts`、`core/agent-loop/src/agent.ts` | `hooks.py`、`notifications.py`、`runtime/hooks.py`、`runner.py`、`runner_model.py` | 带作用域的控制边界、状态/输入/助手流/错误通知与同一步重试 |
 | `llm/llm/src/retry-policy.ts`、`llm/llm-retry/src/index.ts` | `runtime/retry_policy.py`、`agent/retry.py` | Provider 持有策略，配置为空的插件执行持久退避，按步骤／路由／完整策略续接计数 |
+| `llm/llm/src/assistant-stream.ts`、`core/agent-loop/src/assistant-stream.ts` | `runtime/assistant_stream.py`、`model_attempt.py` | 一次捕获模型分块与时间，紧凑保存文本／思考／工具碎片，结算后发布已提交结束帧 |
 | `core/session` | `runtime/events.py`、`session_reducer.py`、`persistence/` | 追加日志为事实源，确定性重放得到查询投影 |
 | `core/system-prompt` | `runtime/context.py`、`plugins/core.py`、`prompts/system.md` | 有序、带作用域的提示词段注册；指令正文由用户维护 |
 | `core/tools` | `runtime/tools.py`、`runner_tools.py`、`tools/registry.py` | 工具注册与实现分开；模型 Schema 来自实际注册；有界并行/独占调度；风险策略与确认接缝 |
 | `packages/context` | `agent/context.py`、`persistence/agent_context.py` | 注入正文成为有顺序的持久会话内容，后续步骤及轮次按原位置重放 |
 | `skill/skill`、`skill/skill-filesystem`、`skill/tool-skill` | `skills/registry.py`、`filesystem.py`、`context.py`、`tools/skills.py` | 注册表、来源、调用工具分开；目录仅注入名称和简介；选择后加载正文；区分模型/用户调用权限；持久目录替换与显式用户调用 |
 
-这是 Python 的对应实现，没有引入 Cordis 的 TypeScript 运行时。尚未实现参考项目的完整助手流记录、surface 替换/压缩、PTC、多 Agent 委派、profile 配置装载及插件市场，不能宣称完整功能等价。中断恢复仍采用本项目的显式恢复与持久确认契约。
+这是 Python 的对应实现，没有引入 Cordis 的 TypeScript 运行时。尚未实现参考项目的完整 block/replay 协议、原始助手帧对外传输、surface 替换/压缩、PTC、多 Agent 委派、profile 配置装载及插件市场，不能宣称完整功能等价。中断恢复仍采用本项目的显式恢复与持久确认契约。
 
 ## 目录与运行链路
 
@@ -45,6 +46,7 @@ backend/src/kunyu/agent/
 ├── commands/             # 作用域命令注册、计划/权限、压缩和执行日志
 ├── prompts/system.md     # 用户维护的系统指令
 ├── runtime/              # 模型/工具契约、循环、类型事件、Reducer
+│   └── assistant_stream.py # 带时间的不可变分块、紧凑记录和记录级读取
 ├── tools/
 │   ├── memory.py         # 记忆 Schema、描述、执行和确认事务处理器
 │   ├── registry.py       # 作用域工具贡献、写处理器与风险策略
@@ -88,7 +90,13 @@ backend/src/kunyu/agent/
 
 `persistence/event_publications.py` 在最外层事务提交后发布事件批次；保存点提交只合并等待发布内容，保存点回滚仅丢弃所属内容，外层回滚不发布。重入提交按批次顺序发布。输入通知按真实 splice 的插入、领取或丢弃身份生成，幂等受理不重复通知，历史重放不发送新通知。
 
-助手流按 start → chunk → end 发布。每个 SessionAgent 生命周期内 revision 严格递增，chunk index 从零连续编号，end index 为块数量；chunk 携带毫秒时间及真实文本、推理、完整工具调用、用量或结束结果。end 的 committed 指向已经提交的 `model.attempt.finished` 序号和真实结果，取消也先结算；结算事务失败则发 abandoned。新 Agent 生命周期重新计数，不重放旧帧。当前前端仍读取既有持久 delta 事件，原始 chunk 帧只用于进程内扩展；参考项目的完整紧凑助手流持久记录仍待对齐。
+助手流按 start → chunk → end 发布。每个 SessionAgent 生命周期内 revision 严格递增，chunk index 从零连续编号，end index 为块数量；chunk 携带毫秒时间及真实文本、推理、工具参数碎片、完整工具调用、用量或结束结果。end 的 committed 指向已经提交的 `model.attempt.finished` 序号和真实结果，取消也先结算；结算事务失败则发 abandoned。新 Agent 生命周期重新计数，不重放旧帧。`AssistantStreamAccumulator` 在模型输出进入组装和通知前只捕获一次时间与内容，同类连续文本、思考或同身份工具碎片保存为 `time0 + dt + texts/args`，保留空块、每块边界与时钟回退；完整调用、用量和结束结果保留为原始记录。不再保留第二份完整分块数组。快照及工具嵌套参数不可变，执行边界还原为 JSON 数据。工具碎片仅用于记录和展示，只有完整、已校验的调用进入工具调度。
+
+`model.attempt.finished` 必须携带实际 `message_id`、紧凑 `stream` 和 `stream_origin`。正常、失败及取消尝试都保存已收到的完整输出；超出输出预算的原始块仍记录，用户可见前缀保持预算限制。Reducer 校验消息身份、文本／思考前缀、真实用量和结束原因；失败尝试也先持久结算，再发布结束帧。
+
+实时对话仍读取既有持久 delta，原始 start/chunk/end 帧目前用于进程内扩展。结算后前端从嵌入流取得精确思考时间和首 token 时间（包括思考或工具碎片），并立即应用最终消息状态；轨迹详情复用已有详情样式增加“输出流”。参考项目的完整 block/replay 与原始帧外部传输继续对齐。
+
+迁移 `0006` 只将旧事件中已知的合并正文／思考块写入流，标记 `stream_origin=buffered`，不编造原始工具碎片、用量块或 token 时间。历史消息正文与状态保持原值，旧流不用于精确首 token 延迟。
 
 ## 扩展 Tool
 
@@ -149,7 +157,7 @@ GeoSkill 的版本化地理场景逻辑放 `kunyu/scenes/`，场景数据放 `ba
 
 `POST /agent/inbox/{message_id}/edit` 在调度锁内原子移出等待输入，返回原内容、完整地图上下文与未来轮次模型快照；前端一次恢复三个状态并聚焦。编辑中的普通消息及显式技能保留后续轮次语义，运行中再次发送不会改为当前轮引导；已有草稿与未决提交禁止覆盖。队列路由集中在 `api/agent_queue.py`，共享作用域依赖集中在 `api/agent_dependencies.py`。
 
-附件/跨会话引用、完整助手流持久记录、PTC 与多 Agent 委派仍是后续对齐项。
+附件/跨会话引用、完整 block/replay 与原始助手帧外部传输、PTC 与多 Agent 委派仍是后续对齐项。
 
 系统指令和两个工具的描述未在本次架构改动中修改；维护入口见[记忆工具与上下文](记忆工具与上下文.md)。
 
@@ -170,6 +178,8 @@ GeoSkill 的版本化地理场景逻辑放 `kunyu/scenes/`，场景数据放 `ba
 通知探针验证同步/异步观察者失败不否决、会话隔离、幂等输入不重复、输入快照隔离、连续助手帧、已提交结束序号、取消结算和 owner 释放排空。关闭活动会话与卸载循环插件仍发布实际已提交的最后结算；新生命周期重置 revision。保存点/外层回滚和重入顺序探针通过，结算写入失败明确发布 abandoned，所有模型输出类型及不可变工具参数通过验证。原引导/后续轮次、重启恢复、队列交互及控制取消探针继续通过，同步 turn-stopping 处理器通过。
 
 Provider 重试探针通过 normal 次数/错误筛选、指数退避、空回复恢复、Retry-After、always 后续决定/异常、总调用预算、同一步 Skill 仅加载一次、停止等待、重启计数、路由/策略隔离、伪造与重复事件拒绝、释放等待及后续处理器排空。实际 ASGI 接口验证策略保存、无效参数、草稿占用锁及目录验证不变，修复连接占用查询的错误 join。0004 预览库升级至 0005 并重建投影，原运行/消息/队列数量不变，嵌套队列策略快照完整。离屏 Electron 使用本地真实 HTTP 429 供应商验证倒计时递减、轨迹计划、停止清除、策略保存、无效参数禁用保存、浅色桌面及深色窄窗口，无横向溢出和渲染错误。
+
+助手流探针验证逐块内容／时间无损展开、负时间差、快照不可变、实际工具仅执行一次、观察帧与已结算记录一致，以及结束帧晚于事务提交。超预算前缀、重复用量、伪造结算和参数未完成时取消均通过；取消碎片从不执行工具。0004／0005 临时库升级至 0006 后重建投影，消息正文、状态和记录数量不变。离屏 Electron 使用本地 HTTP SSE 供应商完成思考、工具碎片、真实记忆读取和最终回复，验证轨迹输出流、精确计时、窄窗口布局，无横向溢出或渲染错误。
 
 `ruff check`、`compileall`、后端模块导入及 `uv build` 通过；全新临时数据库的 FastAPI lifespan 启动和关闭通过。
 

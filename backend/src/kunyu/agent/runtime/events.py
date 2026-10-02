@@ -16,6 +16,7 @@ from pydantic import (
 )
 
 type NonNegativeInt = Annotated[int, Field(ge=0)]
+from kunyu.agent.runtime.assistant_stream import AssistantStreamRecord
 from kunyu.agent.runtime.retry_policy import RetryPolicy
 
 type PositiveInt = Annotated[int, Field(gt=0)]
@@ -331,6 +332,7 @@ class AssistantCompletedPayload(EventPayload):
 
 
 class ModelAttemptFinishedPayload(EventPayload):
+    message_id: str
     step: PositiveInt
     attempt: PositiveInt
     outcome: Literal[
@@ -346,6 +348,8 @@ class ModelAttemptFinishedPayload(EventPayload):
     output_tokens: NonNegativeInt | None
     total_tokens: NonNegativeInt | None
     cumulative_active_milliseconds: NonNegativeInt
+    stream: tuple[AssistantStreamRecord, ...]
+    stream_origin: Literal["model", "buffered"]
 
 
 class ToolRequestedPayload(EventPayload):

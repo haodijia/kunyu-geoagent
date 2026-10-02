@@ -11,6 +11,11 @@ import remarkGfm from "remark-gfm";
 import { kindLabel } from "./TrajectoryLedger";
 import { TrajectoryPayload, payloadText } from "./TrajectoryPayload";
 import {
+  assistantStreamChunkCount,
+  parseAssistantStream,
+  parseStreamOrigin,
+} from "./assistant-stream";
+import {
   formatDurationMillis,
   type TrajectoryRecord,
 } from "./trajectory-model";
@@ -31,7 +36,8 @@ type Tab =
   | "model"
   | "changes"
   | "schema"
-  | "timing";
+  | "timing"
+  | "stream";
 interface Props {
   record: TrajectoryRecord;
   onClose: () => void;
@@ -196,6 +202,7 @@ export function TrajectoryInspector({ record, onClose, onWidthChange }: Props) {
         {tab === "schema" && <Schema record={record} />}
         {tab === "timing" && <Timing record={record} />}
         {tab === "changes" && <PromptChanges record={record} />}
+        {tab === "stream" && <StreamDetails record={record} />}
       </div>
     </aside>
   );
@@ -209,7 +216,13 @@ function tabsFor(record: TrajectoryRecord): readonly Tab[] {
       "model",
     ];
   if (["context", "user", "assistant"].includes(record.kind))
-    return ["summary", "preview", "raw", "source"];
+    return [
+      "summary",
+      "preview",
+      ...(streamFor(record) === null ? [] : ["stream" as const]),
+      "raw",
+      "source",
+    ];
   return [
     "summary",
     ...(record.input === null ? [] : ["input" as const]),
@@ -217,6 +230,53 @@ function tabsFor(record: TrajectoryRecord): readonly Tab[] {
     "schema",
     "timing",
   ];
+}
+function streamFor(record: TrajectoryRecord) {
+  if (
+    record.kind !== "assistant" ||
+    record.output === null ||
+    typeof record.output !== "object"
+  )
+    return null;
+  const output = record.output as { stream: unknown; stream_origin: unknown };
+  if (output.stream === null) return null;
+  return {
+    records: parseAssistantStream(output.stream),
+    origin: parseStreamOrigin(output.stream_origin),
+  };
+}
+function StreamDetails({ record }: { record: TrajectoryRecord }) {
+  const stream = streamFor(record);
+  if (stream === null)
+    throw new Error("Stream details require a settled assistant attempt.");
+  return (
+    <>
+      <dl className={css.overview}>
+        <div>
+          <dt>{content.streamDetails.origin}</dt>
+          <dd>
+            {stream.origin === "model"
+              ? content.streamDetails.model
+              : content.streamDetails.buffered}
+          </dd>
+        </div>
+        <div>
+          <dt>{content.streamDetails.chunks}</dt>
+          <dd>{assistantStreamChunkCount(stream.records)}</dd>
+        </div>
+        <div>
+          <dt>{content.streamDetails.records}</dt>
+          <dd>{stream.records.length}</dd>
+        </div>
+      </dl>
+      {stream.origin === "buffered" && (
+        <p className="mb-3 text-xs text-muted-foreground">
+          {content.streamDetails.historicalTiming}
+        </p>
+      )}
+      <TrajectoryPayload value={stream.records} tree />
+    </>
+  );
 }
 function Summary({
   record,

@@ -1,4 +1,9 @@
 import { attachRequestDetails } from "./trajectory-requests";
+import {
+  assistantStreamFirstTokenTime,
+  parseAssistantStream,
+  parseStreamOrigin,
+} from "./assistant-stream";
 import { sanitizeTrajectoryValue } from "./trajectory-sanitize";
 import type { Confirmation } from "@/features/confirmations/api";
 import type { SessionMessage } from "@/features/messages/api";
@@ -96,43 +101,83 @@ function contextRecord(
 ): TrajectoryRecord {
   const first = events[0]!;
   if (first.eventType === "llm/retry") {
-    const started = events.find((event) => event.eventType === "llm/retry-started");
-    const run = first.runId === null ? undefined : context.runs.get(first.runId);
-    const active = run?.state === "model_running" && run.step === first.payload.step && run.attempt === first.payload.attempt;
-    const text = zhCN.conversation.modelRetry.scheduled(Number(first.payload.retry), Number(first.payload.delay_ms));
+    const started = events.find(
+      (event) => event.eventType === "llm/retry-started",
+    );
+    const run =
+      first.runId === null ? undefined : context.runs.get(first.runId);
+    const active =
+      run?.state === "model_running" &&
+      run.step === first.payload.step &&
+      run.attempt === first.payload.attempt;
+    const text = zhCN.conversation.modelRetry.scheduled(
+      Number(first.payload.retry),
+      Number(first.payload.delay_ms),
+    );
     return baseRecord(events, {
-      turn: turnFor(first, context), text, searchText: `${text} ${safeString(first.payload.failure)} ${String(first.payload.provider)}`,
-      status: started === undefined ? active ? "pending" : "cancelled" : "completed", completedAt: started?.occurredAt ?? null, startedAt: first.occurredAt, isError: false,
-      source: { kind: "model-retry", retry_id: first.payload.retry_id, provider: first.payload.provider, policy_key: first.payload.policy_key, step: first.payload.step, attempt: first.payload.attempt },
-      input: first.payload, output: started?.payload ?? null,
+      turn: turnFor(first, context),
+      text,
+      searchText: `${text} ${safeString(first.payload.failure)} ${String(first.payload.provider)}`,
+      status:
+        started === undefined
+          ? active
+            ? "pending"
+            : "cancelled"
+          : "completed",
+      completedAt: started?.occurredAt ?? null,
+      startedAt: first.occurredAt,
+      isError: false,
+      source: {
+        kind: "model-retry",
+        retry_id: first.payload.retry_id,
+        provider: first.payload.provider,
+        policy_key: first.payload.policy_key,
+        step: first.payload.step,
+        attempt: first.payload.attempt,
+      },
+      input: first.payload,
+      output: started?.payload ?? null,
     });
   }
   const done = events.find((event) => event.eventType === "command/done");
   const isCommand = first.eventType === "command/run";
   const content = isCommand
     ? `/${String(first.payload.name)}${stringValue(first.payload.raw_input) ?? ""}`
-    : stringValue(first.payload.content) ?? stringValue(first.payload.summary) ?? stringValue(first.payload.text) ?? `${first.eventType} ${safeString(first.payload)}`;
+    : (stringValue(first.payload.content) ??
+      stringValue(first.payload.summary) ??
+      stringValue(first.payload.text) ??
+      `${first.eventType} ${safeString(first.payload)}`);
   const output = isCommand ? stringValue(done?.payload.text) : null;
   return baseRecord(events, {
     turn: turnFor(first, context),
     text: content,
     searchText: `${content} ${output ?? ""}`,
-    status: isCommand && done === undefined ? "running" : done?.payload.kind === "error" ? "failed" : "completed",
-    completedAt: isCommand ? done?.occurredAt ?? null : first.occurredAt,
+    status:
+      isCommand && done === undefined
+        ? "running"
+        : done?.payload.kind === "error"
+          ? "failed"
+          : "completed",
+    completedAt: isCommand ? (done?.occurredAt ?? null) : first.occurredAt,
     startedAt: first.occurredAt,
     isError: done?.payload.kind === "error",
-    source: isCommand ? {
-      kind: "command",
-      command_id: first.entityId,
-      definition_id: first.payload.definition_id,
-      source_event_sequence: done?.payload.source_event_sequence ?? null,
-    } : {
-      kind: "context",
-      producer: first.payload.producer ?? first.eventType,
-      metadata: first.payload.metadata,
-      session_id: first.payload.session_id ?? null,
-    },
-    input: isCommand || first.eventType === "context.injected" ? content : first.payload,
+    source: isCommand
+      ? {
+          kind: "command",
+          command_id: first.entityId,
+          definition_id: first.payload.definition_id,
+          source_event_sequence: done?.payload.source_event_sequence ?? null,
+        }
+      : {
+          kind: "context",
+          producer: first.payload.producer ?? first.eventType,
+          metadata: first.payload.metadata,
+          session_id: first.payload.session_id ?? null,
+        },
+    input:
+      isCommand || first.eventType === "context.injected"
+        ? content
+        : first.payload,
     output,
   });
 }
@@ -241,13 +286,18 @@ function assistantRecord(
   const step = integerValue(first.payload.step);
   const attempt = integerValue(first.payload.attempt);
   const startTime = timestamp(started?.occurredAt);
-  const firstTokenTime = timestamp(
-    events.find(
-      (event) =>
-        event.eventType === "message.assistant.delta" &&
-        stringValue(event.payload.text) !== null,
-    )?.occurredAt,
-  );
+  const stream =
+    attemptFinished === undefined
+      ? null
+      : parseAssistantStream(attemptFinished.payload.stream);
+  const origin =
+    attemptFinished === undefined
+      ? null
+      : parseStreamOrigin(attemptFinished.payload.stream_origin);
+  const firstTokenTime =
+    stream !== null && origin === "model"
+      ? assistantStreamFirstTokenTime(stream)
+      : null;
   const completedTime = timestamp(completed?.occurredAt);
   const usage = usageFrom(attemptFinished);
   const displayText =
@@ -286,6 +336,8 @@ function assistantRecord(
       finish_reason: typeof finishReason === "string" ? finishReason : null,
       outcome,
       error_code: stringValue(attemptFinished?.payload.error_code),
+      stream,
+      stream_origin: origin,
     },
     usage,
     callOnly: content.trim().length === 0 && finishReason === "tool_calls",

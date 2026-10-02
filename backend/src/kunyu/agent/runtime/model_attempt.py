@@ -1,9 +1,10 @@
 """Streaming attempt state and durable settlement frame construction."""
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Literal
 
+from kunyu.agent.runtime.assistant_stream import AssistantStreamAccumulator
 from kunyu.agent.runtime.events import (
     AssistantCompletedEvent,
     AssistantCompletedPayload,
@@ -40,6 +41,9 @@ class ModelAttempt:
     initial_active_milliseconds: int
     buffer: DeltaBuffer
     reasoning_buffer: DeltaBuffer
+    stream: AssistantStreamAccumulator = field(
+        default_factory=AssistantStreamAccumulator
+    )
     usage: TokenUsage | None = None
     finish: ModelFinishReason | None = None
     tool_calls: list[ModelToolCall] | None = None
@@ -105,6 +109,7 @@ def model_settlement_events(
             run_id=run.run_id,
             event_type="model.attempt.finished",
             payload=ModelAttemptFinishedPayload(
+                message_id=attempt.message_id,
                 step=run.step,
                 attempt=run.attempt,
                 outcome=outcome,
@@ -115,6 +120,8 @@ def model_settlement_events(
                 cumulative_active_milliseconds=(
                     attempt.initial_active_milliseconds + elapsed_milliseconds
                 ),
+                stream=attempt.stream.snapshot(),
+                stream_origin="model",
             ),
             occurred_at=now,
         )

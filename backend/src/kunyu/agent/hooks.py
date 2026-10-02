@@ -5,7 +5,6 @@ import inspect
 import logging
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
-from datetime import UTC, datetime
 from typing import TYPE_CHECKING
 
 from kunyu.agent.notifications import (
@@ -15,6 +14,7 @@ from kunyu.agent.notifications import (
     StatusNotification,
     invoke_observer,
 )
+from kunyu.agent.runtime.assistant_stream import TimedModelOutput
 from kunyu.agent.runtime.events import ModelSnapshotPayload
 from kunyu.agent.runtime.hooks import (
     CancellationSignal,
@@ -24,7 +24,6 @@ from kunyu.agent.runtime.hooks import (
     StepDecision,
     StepProposal,
 )
-from kunyu.agent.runtime.models import ModelOutput
 from kunyu.agent.runtime.run_state import ReducedRun
 from kunyu.agent.scope import Context, ScopedEntries
 
@@ -218,8 +217,8 @@ class AgentHookDispatch:
                 owner, lambda handler=handler: handler(invocation, error), "error"
             )
 
-    def assistant_output(self, run: ReducedRun, output: ModelOutput) -> None:
-        self._agent.notifications.output(run, output, datetime.now(UTC))
+    def assistant_output(self, run: ReducedRun, output: TimedModelOutput) -> None:
+        self._agent.notifications.output(run, output)
 
     def assistant_abandoned(self, run: ReducedRun) -> None:
         self._agent.notifications.abandon(run)

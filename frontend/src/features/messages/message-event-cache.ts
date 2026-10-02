@@ -1,4 +1,8 @@
 import type { SessionEvent } from "@/features/events/api";
+import {
+  assistantStreamText,
+  parseAssistantStream,
+} from "@/features/events/assistant-stream";
 import type { SessionMessage } from "./api";
 
 export interface MessageEventResult {
@@ -7,15 +11,18 @@ export interface MessageEventResult {
 }
 
 export function isMessageEvent(event: SessionEvent): boolean {
-  return event.event_type === "message.user.appended" ||
+  return (
+    event.event_type === "message.user.appended" ||
     event.event_type === "message.assistant.started" ||
     event.event_type === "message.assistant.delta" ||
-    event.event_type === "message.assistant.completed";
+    event.event_type === "message.assistant.completed" ||
+    event.event_type === "model.attempt.finished"
+  );
 }
 
 export function applyMessageEvent(
   messages: SessionMessage[],
-  event: SessionEvent
+  event: SessionEvent,
 ): MessageEventResult {
   if (event.event_type === "message.user.appended") {
     return applyUserAppended(messages, event);
@@ -29,12 +36,14 @@ export function applyMessageEvent(
   if (event.event_type === "message.assistant.completed") {
     return applyAssistantCompleted(messages, event);
   }
+  if (event.event_type === "model.attempt.finished")
+    return applyAttemptFinished(messages, event);
   return { messages: [...messages], needsSnapshot: false };
 }
 
 function applyUserAppended(
   messages: SessionMessage[],
-  event: SessionEvent
+  event: SessionEvent,
 ): MessageEventResult {
   const messageId = stringPayload(event, "message_id");
   const content = stringPayload(event, "content");
@@ -68,15 +77,15 @@ function applyUserAppended(
         content_length: Array.from(content).length,
         updated_sequence: event.sequence,
         created_at: event.occurred_at,
-        updated_at: event.occurred_at
-      }
-    ]
+        updated_at: event.occurred_at,
+      },
+    ],
   };
 }
 
 export function mergeMessageSnapshots(
   current: readonly SessionMessage[] | undefined,
-  incoming: readonly SessionMessage[]
+  incoming: readonly SessionMessage[],
 ): SessionMessage[] {
   if (current === undefined) return [...incoming];
   const merged = new Map(current.map((message) => [message.id, message]));
@@ -89,12 +98,14 @@ export function mergeMessageSnapshots(
       merged.set(message.id, message);
     }
   }
-  return [...merged.values()].sort((left, right) => left.sequence - right.sequence);
+  return [...merged.values()].sort(
+    (left, right) => left.sequence - right.sequence,
+  );
 }
 
 function applyAssistantStarted(
   messages: SessionMessage[],
-  event: SessionEvent
+  event: SessionEvent,
 ): MessageEventResult {
   const messageId = stringPayload(event, "message_id");
   const step = numberPayload(event, "step");
@@ -133,15 +144,15 @@ function applyAssistantStarted(
         content_length: 0,
         updated_sequence: event.sequence,
         created_at: event.occurred_at,
-        updated_at: event.occurred_at
-      }
-    ]
+        updated_at: event.occurred_at,
+      },
+    ],
   };
 }
 
 function applyAssistantDelta(
   messages: SessionMessage[],
-  event: SessionEvent
+  event: SessionEvent,
 ): MessageEventResult {
   const messageId = stringPayload(event, "message_id");
   const text = stringPayload(event, "text");
@@ -171,7 +182,7 @@ function applyAssistantDelta(
   if (offset > currentCodepoints.length) return snapshotNeeded(messages);
   const overlap = currentCodepoints.slice(
     offset,
-    Math.min(currentCodepoints.length, offset + deltaCodepoints.length)
+    Math.min(currentCodepoints.length, offset + deltaCodepoints.length),
   );
   if (overlap.some((value, position) => value !== deltaCodepoints[position])) {
     return snapshotNeeded(messages);
@@ -183,14 +194,14 @@ function applyAssistantDelta(
     content: current.content + tail.join(""),
     content_length: currentCodepoints.length + tail.length,
     updated_sequence: event.sequence,
-    updated_at: event.occurred_at
+    updated_at: event.occurred_at,
   };
   return { messages: next, needsSnapshot: false };
 }
 
 function applyAssistantCompleted(
   messages: SessionMessage[],
-  event: SessionEvent
+  event: SessionEvent,
 ): MessageEventResult {
   const messageId = stringPayload(event, "message_id");
   const step = numberPayload(event, "step");
@@ -220,13 +231,51 @@ function applyAssistantCompleted(
     status: "completed",
     content_length: contentLength,
     updated_sequence: event.sequence,
-    updated_at: event.occurred_at
+    updated_at: event.occurred_at,
   };
   return { messages: next, needsSnapshot: false };
 }
 
 function unchanged(messages: SessionMessage[]): MessageEventResult {
   return { messages, needsSnapshot: false };
+}
+
+function applyAttemptFinished(
+  messages: SessionMessage[],
+  event: SessionEvent,
+): MessageEventResult {
+  const identity = stringPayload(event, "message_id");
+  const position = messages.findIndex((message) => message.id === identity);
+  const current = messages[position];
+  if (
+    current === undefined ||
+    current.step !== event.payload.step ||
+    current.attempt !== event.payload.attempt
+  )
+    return snapshotNeeded(messages);
+  if (current.updated_sequence >= event.sequence) return unchanged(messages);
+  const text = assistantStreamText(parseAssistantStream(event.payload.stream));
+  if (
+    event.payload.error_code === "OUTPUT_LIMIT"
+      ? !text.startsWith(current.content)
+      : text !== current.content
+  )
+    return snapshotNeeded(messages);
+  const outcome = event.payload.outcome;
+  const status =
+    outcome === "stop" || outcome === "tool_calls"
+      ? "completed"
+      : outcome === "cancelled"
+        ? "interrupted"
+        : "failed";
+  const next = [...messages];
+  next[position] = {
+    ...current,
+    status,
+    updated_sequence: event.sequence,
+    updated_at: event.occurred_at,
+  };
+  return { messages: next, needsSnapshot: false };
 }
 
 function snapshotNeeded(messages: SessionMessage[]): MessageEventResult {
