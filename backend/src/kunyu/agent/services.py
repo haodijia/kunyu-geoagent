@@ -11,6 +11,7 @@ if TYPE_CHECKING:
 
     from kunyu.agent.adapters import StoredRunExecutionProvider
     from kunyu.agent.commands.registry import CommandRegistry
+    from kunyu.agent.hooks import AgentHookRegistry
     from kunyu.agent.runtime.context import (
         ContextPreparationRegistry,
         PromptSectionRegistry,
@@ -53,6 +54,7 @@ EXECUTIONS: ServiceKey[StoredRunExecutionProvider] = ServiceKey("loop.executions
 LIFECYCLE_REPOSITORY: ServiceKey[SQLAlchemyRunLifecycleRepository] = ServiceKey(
     "turns.repository"
 )
+HOOKS: ServiceKey[AgentHookRegistry] = ServiceKey("agent.hooks")
 MODEL: ServiceKey[ModelAdapter] = ServiceKey("model")
 PROMPTS: ServiceKey[PromptSectionRegistry] = ServiceKey("system_prompt")
 CONTEXT_PREPARERS: ServiceKey[ContextPreparationRegistry] = ServiceKey(

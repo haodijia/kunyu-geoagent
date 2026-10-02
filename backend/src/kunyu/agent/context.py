@@ -9,11 +9,15 @@ from kunyu.agent.runtime.context import (
     PromptSection,
     PromptSectionRegistry,
 )
-from kunyu.agent.runtime.events import EventStore
+from kunyu.agent.runtime.events import EventStore, StepMessagePayload
 from kunyu.agent.runtime.models import ModelMessage, ModelRole, ModelToolCall
 from kunyu.agent.runtime.run_state import ReducedAssistant, ReducedRun, ReducedToolCall
 from kunyu.agent.scope import Context
-from kunyu.domain.agent_context import RunContextRepository, RunContextSource
+from kunyu.domain.agent_context import (
+    InjectedContext,
+    RunContextRepository,
+    RunContextSource,
+)
 
 SYSTEM_PROMPT_PATH = Path(__file__).parent / "prompts" / "system.md"
 
@@ -49,11 +53,26 @@ class ScopedAgentContextProvider:
         self._preparers = preparers
         self._events = events
 
-    async def build(self, run_id: str) -> AgentContext:
+    async def propose(self, run_id: str, step: int) -> tuple[StepMessagePayload, ...]:
         source = self._require_source(run_id)
-        await SessionInbox(source.session.id, self._events).claim(
-            run_id, source.run.step
+        claimed = await SessionInbox(source.session.id, self._events).claim(
+            run_id, step
         )
+        initial = (
+            tuple(
+                message
+                for message in source.reduced_session.user_messages
+                if message.message_id == source.run.user_message_id
+            )
+            if not source.run.decisions
+            else ()
+        )
+        return tuple(
+            StepMessagePayload(message_id=message.message_id, content=message.content)
+            for message in (*initial, *claimed)
+        )
+
+    async def build(self, run_id: str) -> AgentContext:
         await self._preparers.prepare(run_id, self._scope)
         source = self._require_source(run_id)
         return AgentContext(
@@ -100,6 +119,16 @@ def build_model_history(source: RunContextSource) -> tuple[ModelMessage, ...]:
             "The current run must own exactly one committed user message."
         )
 
+    admitted = tuple(
+        decision
+        for run in source.reduced_session.runs
+        if run.created_sequence <= source.run.created_sequence
+        for decision in run.decisions
+    )
+    replaced_inputs = {
+        message_id for decision in admitted for message_id in decision.payload.input_ids
+    }
+    runs_by_id = {run.run_id: run for run in source.reduced_session.runs}
     steps = [
         _HistoryStep(
             sequence=message.created_sequence,
@@ -118,16 +147,20 @@ def build_model_history(source: RunContextSource) -> tuple[ModelMessage, ...]:
         )
         for message in source.reduced_session.user_messages
         if not message.discarded
+        and message.message_id not in replaced_inputs
         and (
             (
                 message.delivery == "followup"
                 and message.run_id is not None
+                and bool(runs_by_id[message.run_id].admitted_steps)
                 and message.created_sequence
                 <= current_user_messages[0].created_sequence
             )
             or (
                 message.delivery == "steer"
                 and message.applied_step is not None
+                and message.run_id is not None
+                and message.applied_step in runs_by_id[message.run_id].admitted_steps
                 and (
                     message.run_id == source.run.run_id
                     or message.created_sequence <= source.run.created_sequence
@@ -135,6 +168,48 @@ def build_model_history(source: RunContextSource) -> tuple[ModelMessage, ...]:
             )
         )
     ]
+    original_messages = {
+        item.message_id: item for item in source.reduced_session.user_messages
+    }
+    steps.extend(
+        _HistoryStep(
+            sequence=decision.sequence,
+            messages=tuple(
+                model_message
+                for message in decision.payload.messages
+                for model_message in (
+                    ModelMessage(ModelRole.USER, message.content),
+                    *(
+                        (
+                            ModelMessage(
+                                ModelRole.USER,
+                                _json_text(
+                                    original_messages[message.message_id].map_context
+                                ),
+                                context_source="steering-map",
+                            ),
+                        )
+                        if message.message_id in original_messages
+                        and original_messages[message.message_id].delivery == "steer"
+                        else ()
+                    ),
+                )
+            ),
+        )
+        for decision in admitted
+        if decision.payload.kind == "enter"
+        and any(
+            decision in run.decisions
+            and (
+                decision.payload.step in run.admitted_steps
+                or (
+                    run.run_id == source.run.run_id
+                    and decision.payload.step == source.run.step
+                )
+            )
+            for run in source.reduced_session.runs
+        )
+    )
     steps.extend(
         _HistoryStep(
             sequence=item.sequence,
@@ -147,6 +222,7 @@ def build_model_history(source: RunContextSource) -> tuple[ModelMessage, ...]:
             ),
         )
         for item in source.injected_context
+        if _visible_injection(item, source)
     )
     for run in source.reduced_session.runs:
         if run.created_sequence > source.run.created_sequence:
@@ -177,6 +253,20 @@ def build_model_history(source: RunContextSource) -> tuple[ModelMessage, ...]:
     )
 
 
+def _visible_injection(item: InjectedContext, source: RunContextSource) -> bool:
+    if item.producer != "skill-invocation":
+        return True
+    owner = next(
+        run
+        for run in source.reduced_session.runs
+        if run.run_id == item.metadata["run_id"]
+    )
+    step = item.metadata["step"]
+    return step in owner.admitted_steps or (
+        owner.run_id == source.run.run_id and step == source.run.step
+    )
+
+
 def validate_run_context_source(source: RunContextSource, run_id: str) -> None:
     matching_runs = tuple(
         run for run in source.reduced_session.runs if run.run_id == run_id
@@ -197,7 +287,9 @@ def validate_run_context_source(source: RunContextSource, run_id: str) -> None:
 def _visible_assistant_step(
     run: ReducedRun, assistant: ReducedAssistant
 ) -> tuple[ModelMessage, ...] | None:
-    if assistant.status in {"interrupted", "failed", "cancelled"}:
+    if assistant.status == "failed":
+        return None
+    if assistant.status in {"interrupted", "cancelled"}:
         if assistant.content:
             return (
                 ModelMessage(

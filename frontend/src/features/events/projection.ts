@@ -27,6 +27,7 @@ const RUN_CONTROL_EVENTS = new Set([
   "run.model_selected",
   "run.queued",
   "run.started",
+  "run.retried",
   "run.resumed",
   "run.interrupted",
   "run.recovery_required",
@@ -52,7 +53,7 @@ export function projectSessionEvent(
   if (["plan/changed", "permission/changed", "feedback/record", "history/compacted"].includes(event.event_type)) {
     return projection(event, "context", event.id);
   }
-  if (event.event_type === "context.injected" || event.event_type === "agent/inbox/spliced") {
+  if (event.event_type === "context.injected" || event.event_type === "agent/inbox/spliced" || event.event_type === "agent/step/decision") {
     return projection(event, "context", event.id);
   }
   if (event.event_type === "request.header") {

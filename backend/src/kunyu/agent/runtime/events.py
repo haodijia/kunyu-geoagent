@@ -45,6 +45,7 @@ ALLOWED_RUN_TRANSITIONS: Mapping[RunState, frozenset[RunState]] = {
             RunState.READY,
             RunState.MODEL_RUNNING,
             RunState.TOOL_RUNNING,
+            RunState.COMPLETED,
             RunState.FAILED,
             RunState.CANCELLED,
         }
@@ -240,9 +241,24 @@ class RequestHeaderPayload(EventPayload):
     model_id: str
     reasoning_effort: str | None
     max_output_tokens: PositiveInt
+    model_snapshot: ModelSnapshotPayload
     system_prompt: str
     messages: list[dict[str, JsonValue]]
     tools: list[dict[str, JsonValue]]
+
+
+class StepMessagePayload(EventPayload):
+    message_id: str = Field(min_length=1, max_length=64)
+    content: str = Field(min_length=1, max_length=32_768)
+
+
+class StepDecisionPayload(EventPayload):
+    step: PositiveInt
+    attempt: PositiveInt
+    input_ids: list[str]
+    kind: Literal["enter", "reject"]
+    messages: list[StepMessagePayload]
+    reason: str | None
 
 
 class AssistantDeltaPayload(EventPayload):
@@ -426,6 +442,7 @@ class RunModelSelectedEvent(_RunEventDraft):
 class RunProgressEvent(_RunEventDraft):
     event_type: Literal[
         "run.started",
+        "run.retried",
         "run.queued",
         "run.resumed",
         "run.interrupted",
@@ -452,6 +469,11 @@ class AssistantStartedEvent(_RunEventDraft):
 class RequestHeaderEvent(_RunEventDraft):
     event_type: Literal["request.header"]
     payload: RequestHeaderPayload
+
+
+class StepDecisionEvent(_RunEventDraft):
+    event_type: Literal["agent/step/decision"]
+    payload: StepDecisionPayload
 
 
 class AssistantDeltaEvent(_RunEventDraft):
@@ -532,6 +554,7 @@ type EventDraft = Annotated[
     | BudgetReservedEvent
     | BudgetSettledEvent
     | RequestHeaderEvent
+    | StepDecisionEvent
     | AssistantStartedEvent
     | AssistantDeltaEvent
     | AssistantReasoningDeltaEvent

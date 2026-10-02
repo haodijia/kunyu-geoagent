@@ -26,6 +26,7 @@ from kunyu.agent.runtime.events import (
     RunProgressEvent,
     RunState,
     RunTerminalEvent,
+    StepDecisionEvent,
     ToolCompletedEvent,
     ToolFailedEvent,
     ToolProgressEvent,
@@ -39,6 +40,7 @@ from kunyu.agent.runtime.run_state import (
     ReducedBudget,
     ReducedConfirmation,
     ReducedRun,
+    ReducedStepDecision,
     ReducedToolCall,
     RunReductionError,
     _Assistant,
@@ -162,8 +164,38 @@ def _apply(state: _State, event: EventDraft, sequence: int) -> None:
         _reserve_budget(state, event)
     elif isinstance(event, BudgetSettledEvent):
         _settle_budget(state, event)
+    elif isinstance(event, StepDecisionEvent):
+        payload = event.payload
+        _validate_start(state, RunState.MODEL_RUNNING, payload.step, payload.attempt, 0)
+        if any(item.payload.step == payload.step for item in state.decisions):
+            raise RunReductionError("A model step can be admitted only once.")
+        if len(payload.input_ids) != len(set(payload.input_ids)) or len(
+            payload.messages
+        ) != len({item.message_id for item in payload.messages}):
+            raise RunReductionError("Step admission requires unique input identities.")
+        if payload.kind == "reject" and (payload.messages or not payload.reason):
+            raise RunReductionError(
+                "Rejected steps require a reason and no admitted messages."
+            )
+        state.decisions.append(ReducedStepDecision(sequence, payload))
     elif isinstance(event, RequestHeaderEvent):
-        return
+        payload = event.payload
+        if state.state is not RunState.MODEL_RUNNING or (
+            payload.step,
+            payload.attempt,
+        ) != (state.step, state.attempt):
+            raise RunReductionError("Request header must match its active attempt.")
+        snapshot = payload.model_snapshot
+        if (payload.model_id, payload.reasoning_effort, payload.max_output_tokens) != (
+            snapshot.model_id,
+            snapshot.reasoning_effort,
+            snapshot.max_output_tokens,
+        ):
+            raise RunReductionError(
+                "Request configuration must match its logged model snapshot."
+            )
+        state.request_snapshot = snapshot
+        state.admitted_steps.add(payload.step)
     elif isinstance(event, AssistantStartedEvent):
         _start_assistant(state, event, sequence)
     elif isinstance(event, (AssistantDeltaEvent, AssistantReasoningDeltaEvent)):
@@ -218,6 +250,23 @@ def _progress(state: _State, event: RunProgressEvent, sequence: int) -> None:
             state, target, payload.step, payload.attempt, payload.next_tool_index
         )
         _transition(state, target)
+    elif event.event_type == "run.retried":
+        assistant = _attempt_assistant(state, state.step, state.attempt)
+        if (
+            state.state is not RunState.MODEL_RUNNING
+            or state.reservations
+            or assistant.model_outcome != "error"
+            or assistant.status != "failed"
+            or _attempt_tools(state)
+            or phase is not ResumePhase.MODEL
+            or (payload.step, payload.attempt) != (state.step, state.attempt + 1)
+            or payload.next_tool_index != 0
+            or payload.requires_resume
+            or payload.queue_sequence is not None
+        ):
+            raise RunReductionError(
+                "Retry must follow one settled failed request attempt."
+            )
     elif event.event_type == "run.queued":
         if state.state is not RunState.READY or state.requires_resume:
             raise RunReductionError("Only an executable ready run can be queued.")
@@ -556,6 +605,8 @@ def _finish_model_attempt(
             "Model outcome active time differs from the run budget."
         )
     assistant.model_outcome = payload.outcome
+    if payload.outcome in {"error", "length", "content_filter"}:
+        assistant.status = "failed"
     assistant.updated_at = event.occurred_at
     assistant.updated_sequence = sequence
     state.budget.input_tokens = _add_known(
@@ -796,7 +847,15 @@ def _finish_run(state: _State, event: RunTerminalEvent, sequence: int) -> None:
     payload = event.payload
     target = RunState(payload.state)
     _require_budget(state, payload.budget)
-    if target is RunState.COMPLETED:
+    empty_initial_step = (
+        state.state is RunState.READY
+        and state.step == 0
+        and state.decisions
+        and state.decisions[-1].payload.kind == "enter"
+        and not state.decisions[-1].payload.messages
+        and state.budget.model_calls == 0
+    )
+    if target is RunState.COMPLETED and not empty_initial_step:
         assistant = _attempt_assistant(state, state.step, state.attempt)
         if assistant.status != "completed" or assistant.model_outcome != "stop":
             raise RunReductionError(
@@ -992,6 +1051,9 @@ def _freeze(state: _State) -> ReducedRun:
         pending_confirmation_id=state.pending_confirmation_id,
         pause_reason=state.pause_reason,
         model_snapshot=state.model_snapshot,
+        request_snapshot=state.request_snapshot,
+        admitted_steps=frozenset(state.admitted_steps),
+        decisions=tuple(state.decisions),
         map_snapshot=state.map_snapshot,
         scene_snapshot=state.scene_snapshot,
         budget=ReducedBudget(

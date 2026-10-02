@@ -19,6 +19,8 @@ class RunnerPlugin:
     name = "run-driver"
     requires = (
         s.RUN_ID,
+        s.HOOKS,
+        s.SESSION_AGENT,
         s.EXECUTIONS,
         s.EVENTS,
         s.CONTEXTS,
@@ -48,6 +50,10 @@ class RunnerPlugin:
                 context.require(s.TOOLS),
                 context.require(s.POLICY),
                 ServiceConfirmationRequester(context.require(s.CONFIRMATIONS)),
+                context.require(s.HOOKS).bind(
+                    context.require(s.SESSION_AGENT),
+                    context.require(s.SESSION_AGENT).ctx,
+                ),
                 message_id_factory=lambda: f"msg_{uuid4().hex}",
                 tool_call_id_factory=lambda: f"tlc_{uuid4().hex}",
                 operation_id_factory=lambda: f"op_{uuid4().hex}",
@@ -114,6 +120,7 @@ class ScopedRuntime:
 class AgentLoopPlugin:
     name = "agent-loop"
     requires = (
+        s.HOOKS,
         s.SCOPES,
         s.PROJECTIONS,
         s.EXECUTIONS,

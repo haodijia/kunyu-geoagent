@@ -1,5 +1,6 @@
 """Bind durable Kunyu state and credentials to the internal runner contracts."""
 
+from kunyu.agent.runtime.events import ModelSnapshotPayload
 from kunyu.agent.runtime.models import ModelAdapterError, ModelErrorCode
 from kunyu.agent.runtime.runner_types import ConfirmationRequester, RunExecution
 from kunyu.application.confirmations import ConfirmationService
@@ -26,29 +27,28 @@ class StoredRunExecutionProvider:
         run = self._events.get_reduced_run(run_id)
         if run is None:
             return None
-        snapshot = run.model_snapshot
+        snapshot = (
+            run.model_snapshot if run.request_snapshot is None else run.request_snapshot
+        )
+        return RunExecution(run=run, adapter_config=self.prepare(snapshot))
+
+    def prepare(self, snapshot: ModelSnapshotPayload) -> OpenAICompatibleModelConfig:
         if snapshot.protocol != ModelProtocol.OPENAI_COMPATIBLE.value:
             raise ModelAdapterError(
                 ModelErrorCode.UNSUPPORTED_CAPABILITY,
-                "The run snapshot uses an unsupported model protocol.",
+                "The request uses an unsupported model protocol.",
             )
-        reasoning_efforts = (
-            (snapshot.reasoning_effort,)
+        return OpenAICompatibleModelConfig(
+            connection_id=snapshot.connection_id,
+            config_revision=snapshot.connection_revision,
+            base_url=snapshot.base_url,
+            auth_mode=ModelAuthMode(snapshot.auth_mode),
+            max_tokens_field=MaxTokensField(snapshot.max_tokens_field),
+            include_usage=snapshot.include_usage,
+            reasoning_efforts=(snapshot.reasoning_effort,)
             if snapshot.reasoning_effort is not None
-            else ()
-        )
-        return RunExecution(
-            run=run,
-            adapter_config=OpenAICompatibleModelConfig(
-                connection_id=snapshot.connection_id,
-                config_revision=snapshot.connection_revision,
-                base_url=snapshot.base_url,
-                auth_mode=ModelAuthMode(snapshot.auth_mode),
-                max_tokens_field=MaxTokensField(snapshot.max_tokens_field),
-                include_usage=snapshot.include_usage,
-                reasoning_efforts=reasoning_efforts,
-                provider_type=ModelProviderType(snapshot.provider_type),
-            ),
+            else (),
+            provider_type=ModelProviderType(snapshot.provider_type),
         )
 
 
