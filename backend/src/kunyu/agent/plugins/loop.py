@@ -84,13 +84,17 @@ class ScopedRuntime:
             scope = agent.ctx.child()
             scope.provide(s.RUN_ID, run_id)
             scope.effect(lambda: self.cancel(run_id), before_children=True)
+            agent.notifications.set_status("running")
             try:
                 await install_plugin(scope, RunnerPlugin(), lifetime=scope)
                 await scope.require(s.RUNNER).run(run_id)
             finally:
                 self._active.pop(run_id)
-                if not scope.disposing:
-                    await scope.close()
+                try:
+                    if not scope.disposing:
+                        await scope.close()
+                finally:
+                    agent.notifications.set_status("idle")
         finally:
             self._active.pop(run_id, None)
 
@@ -121,6 +125,7 @@ class ScopedRuntime:
 class AgentLoopPlugin:
     name = "agent-loop"
     requires = (
+        s.DATABASE,
         s.HOOKS,
         s.SCOPES,
         s.PROJECTIONS,

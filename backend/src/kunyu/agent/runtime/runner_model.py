@@ -352,6 +352,8 @@ class ModelStepExecutor[AdapterConfigT]:
                 "MODEL_RUNTIME_ERROR",
                 "The model request failed unexpectedly.",
             )
+        finally:
+            self._hooks.assistant_abandoned(run)
 
     async def _handle_request_failure(
         self,
@@ -469,6 +471,7 @@ class ModelStepExecutor[AdapterConfigT]:
                     terminal_seen = True
                 else:
                     raise _ModelOutputError("Unknown model output.")
+                self._hooks.assistant_output(run, output)
         finally:
             close = getattr(stream, "aclose", None)
             if close is not None:
