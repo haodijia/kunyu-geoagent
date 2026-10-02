@@ -60,7 +60,7 @@ export interface UsableModel {
 interface FrozenSubmission {
   readonly idempotencyKey: string;
   readonly content: string;
-  readonly delivery: "followup" | "steer";
+  readonly delivery: "followup" | "steer" | "queue";
   readonly connectionId: string;
   readonly modelId: string;
   readonly reasoningEffort: string | null;
@@ -296,7 +296,7 @@ function useMessages(sessionId: string, workspaceId: string) {
     }
   });
 
-  function sendMessage(delivery?: "followup" | "steer") {
+  function sendMessage(delivery?: "followup" | "steer" | "queue") {
     if (mutation.isPending) return;
     const frozen = frozenSubmissionRef.current;
     if (frozen !== null) {

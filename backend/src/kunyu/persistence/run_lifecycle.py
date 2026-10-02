@@ -105,6 +105,8 @@ class SQLAlchemyRunLifecycleRepository:
         return count + self.pending_turn_count()
 
     def list_pending_turn_sessions(self, limit: int | None = None) -> tuple[str, ...]:
+        if limit == 0:
+            return ()
         active_session = (
             select(RunRecord.id)
             .where(
@@ -124,10 +126,23 @@ class SQLAlchemyRunLifecycleRepository:
             .group_by(MessageRecord.session_id)
             .order_by(func.min(MessageRecord.created_at), MessageRecord.session_id)
         )
-        if limit is not None:
-            statement = statement.limit(limit)
         with self._database.sessions() as database_session:
-            return tuple(database_session.scalars(statement).all())
+            candidates = tuple(database_session.scalars(statement).all())
+            ready = []
+            for session_id in candidates:
+                state = reduce_session(
+                    event_to_domain(record)
+                    for record in database_session.scalars(
+                        select(SessionEventRecord)
+                        .where(SessionEventRecord.session_id == session_id)
+                        .order_by(SessionEventRecord.sequence)
+                    )
+                )
+                if state.queue_mode == "auto" or state.dispatch_message_id is not None:
+                    ready.append(session_id)
+                if limit is not None and len(ready) >= limit:
+                    break
+        return tuple(ready)
 
     def pending_turn_count(self) -> int:
         with self._database.sessions() as database_session:

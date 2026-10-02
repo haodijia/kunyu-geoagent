@@ -1,4 +1,4 @@
-import { ArrowUp, Inbox, LoaderCircle, MapPinned, RotateCw, Settings2, Slash, Square } from "lucide-react";
+import { ArrowUp, LoaderCircle, MapPinned, RotateCw, Settings2, Slash, Square } from "lucide-react";
 import {
   useEffect, useId, useRef, useState,
   type ChangeEvent, type FormEvent, type KeyboardEvent,
@@ -10,7 +10,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { zhCN } from "@/locales/zh-CN";
 import { ComposerCommandMenu } from "./composer/ComposerCommandMenu";
 import { ComposerModelPicker, type ComposerModelGroup, type ModelPickerPane } from "./composer/ComposerModelPicker";
-import { filterComposerCommands, type ComposerCommandDescriptor } from "./composer/commands";
+import { filterComposerCommands, parseComposerCommand, type ComposerCommandDescriptor } from "./composer/commands";
+import { DraftBoxIcon } from "./composer/DraftBoxIcon";
 
 const content = zhCN.conversation;
 const MAX_TEXTAREA_HEIGHT = 120;
@@ -23,6 +24,7 @@ interface ConversationComposerProps {
   readonly modelDisabled: boolean;
   readonly modelGroups: readonly ComposerModelGroup[];
   readonly pending: boolean;
+  readonly interactionLocked: boolean;
   readonly running: boolean;
   readonly stopPending: boolean;
   readonly reasoningOptions: readonly string[];
@@ -49,7 +51,7 @@ interface ConversationComposerProps {
 
 export function ConversationComposer({
   contextLabel, draft, error, draftFrozen, modelDisabled, modelGroups,
-  pending, running, stopPending, reasoningOptions, selectedModel,
+  pending, interactionLocked, running, stopPending, reasoningOptions, selectedModel,
   defaultReasoningEffort,
   selectedReasoningEffort, sendDisabled, showModelSettings, commands,
   commandPending, commandFeedback, modelPickerPane, onModelPickerPaneChange,
@@ -62,11 +64,12 @@ export function ConversationComposer({
   const [activeIndex, setActiveIndex] = useState(0);
   const [dismissedDraft, setDismissedDraft] = useState<string | null>(null);
   const isCommand = draft.trimStart().startsWith("/");
-  const inputLocked = pending || draftFrozen || commandPending;
+  const inputLocked = pending || draftFrozen || commandPending || interactionLocked;
   const matchingCommands = filterComposerCommands(commands, draft);
   const menuOpen = matchingCommands !== null && dismissedDraft !== draft && !inputLocked;
   const activeCommand = matchingCommands?.[activeIndex];
-  const canSend = draft.trim().length > 0 && !pending && !commandPending &&
+  const queueable = !isCommand || commands.some((item) => item.kind === "skill" && item.name === parseComposerCommand(draft)?.name && item.unavailableReason === null);
+  const canSend = draft.trim().length > 0 && !pending && !commandPending && !interactionLocked &&
     (isCommand ? !draftFrozen : !sendDisabled);
 
   useEffect(() => {
@@ -210,11 +213,9 @@ export function ConversationComposer({
             </span>
           </div>
           <div className="flex min-w-0 items-center justify-end gap-1">
-            {running && (
               <Button type="button" size="icon" variant="ghost" className="size-7 rounded-full text-muted-foreground"
-                disabled={!canSend || isCommand || draftFrozen} aria-label={content.queue.add} title={content.queue.add} onClick={onQueue}
-              ><Inbox className="size-3.5" /></Button>
-            )}
+                disabled={!canSend || !queueable || draftFrozen} aria-label={content.queue.add} title={content.queue.add} onClick={onQueue}
+              ><DraftBoxIcon size={15} /></Button>
             <ComposerModelPicker
               disabled={modelDisabled}
               groups={modelGroups}

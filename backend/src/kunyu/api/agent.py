@@ -1,11 +1,11 @@
 """Session-scoped Agent state and lifecycle API."""
 
-from typing import Annotated
+from typing import Annotated, Literal
 
 from fastapi import APIRouter, Depends, Request, Response
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 
-from kunyu.agent.inbox import InboxMessageNotFoundError
+from kunyu.agent.inbox import InboxMessageNotFoundError, InboxQueueConflictError
 from kunyu.agent.scheduler import (
     RunQueueFullError,
     RunScheduler,
@@ -37,6 +37,67 @@ def get_agent_directory(request: Request) -> AgentDirectory:
 
 
 AgentDirectoryDependency = Annotated[AgentDirectory, Depends(get_agent_directory)]
+
+
+class QueueUpdateRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    mode: Literal["auto", "manual"] | None = None
+    message_ids: list[str] | None = Field(default=None, max_length=32)
+
+
+@router.patch("/queue", status_code=204)
+async def update_queue(
+    session_id: str, body: QueueUpdateRequest, agents: AgentDirectoryDependency
+) -> Response:
+    if (body.mode is None) == (body.message_ids is None):
+        raise ApiError(
+            422, "INVALID_INPUT", "Choose either a queue mode or a complete order."
+        )
+    try:
+        agent = agents.for_session(session_id)
+        if body.mode is not None:
+            await agent.set_queue_mode(body.mode)
+        elif body.message_ids is not None:
+            await agent.reorder_inputs(tuple(body.message_ids))
+    except InboxQueueConflictError as error:
+        raise ApiError(409, "QUEUE_CHANGED", str(error)) from error
+    except SessionNotFoundError as error:
+        raise ApiError(404, "NOT_FOUND", str(error)) from error
+    except RunSchedulerClosingError as error:
+        raise ApiError(503, "SHUTTING_DOWN", str(error)) from error
+    return Response(status_code=204)
+
+
+@router.post("/queue/clear", status_code=204)
+async def clear_queue(
+    session_id: str, _: EmptyRequest, agents: AgentDirectoryDependency
+) -> Response:
+    try:
+        await agents.for_session(session_id).clear_queue()
+    except SessionNotFoundError as error:
+        raise ApiError(404, "NOT_FOUND", str(error)) from error
+    except RunSchedulerClosingError as error:
+        raise ApiError(503, "SHUTTING_DOWN", str(error)) from error
+    return Response(status_code=204)
+
+
+@router.post("/inbox/{message_id}/send", status_code=204)
+async def send_queued_input(
+    session_id: str, message_id: str, _: EmptyRequest, agents: AgentDirectoryDependency
+) -> Response:
+    try:
+        await agents.for_session(session_id).send_queued(message_id)
+    except InboxMessageNotFoundError as error:
+        raise ApiError(
+            409, "INPUT_ALREADY_CLAIMED", "The input is no longer pending."
+        ) from error
+    except SessionNotFoundError as error:
+        raise ApiError(404, "NOT_FOUND", str(error)) from error
+    except (RunLifecycleConflictError, ConfirmationConflictError) as error:
+        raise ApiError(409, "AGENT_CONFLICT", str(error)) from error
+    except RunSchedulerClosingError as error:
+        raise ApiError(503, "SHUTTING_DOWN", str(error)) from error
+    return Response(status_code=204)
 
 
 @router.delete("/inbox/{message_id}", status_code=204)

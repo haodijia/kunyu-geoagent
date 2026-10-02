@@ -3,6 +3,7 @@
 import asyncio
 from builtins import BaseExceptionGroup
 from datetime import UTC, datetime
+from typing import Literal
 
 from kunyu.agent import services as s
 from kunyu.agent.inbox import SessionInbox
@@ -41,6 +42,26 @@ class SessionAgent:
         self._require_request(request)
         return await self._scheduler.accept(request)
 
+    async def enqueue(self, request: RunAcceptanceRequest) -> RunAcceptanceResult:
+        self._require_request(request)
+        return await self._scheduler.accept(request, queue_only=True)
+
+    async def set_queue_mode(self, mode: Literal["auto", "manual"]) -> None:
+        self.turns()
+        await self._scheduler.set_queue_mode(self.inbox, mode)
+
+    async def reorder_inputs(self, message_ids: tuple[str, ...]) -> None:
+        self.turns()
+        await self._scheduler.reorder_inputs(self.inbox, message_ids)
+
+    async def send_queued(self, message_id: str) -> None:
+        self.turns()
+        await self._scheduler.send_queued(self.inbox, message_id)
+
+    async def clear_queue(self) -> None:
+        self.turns()
+        await self._scheduler.clear_queue(self.inbox)
+
     async def steer(self, request: RunAcceptanceRequest) -> RunAcceptanceResult:
         self._require_request(request)
         return await self._scheduler.steer(request)
@@ -77,7 +98,11 @@ class SessionAgent:
     async def when_idle(self) -> None:
         while True:
             active = self._find_active_turn()
-            if (active is None and not await self.inbox.next_turn()) or (
+            state = await self.inbox.state()
+            runnable_input = bool(state.next_turn) and (
+                state.queue_mode == "auto" or state.dispatch_message_id is not None
+            )
+            if (active is None and not runnable_input) or (
                 active is not None
                 and active.run.state
                 in {

@@ -3,12 +3,16 @@
 from collections import defaultdict
 from collections.abc import Iterable
 from dataclasses import replace
+from typing import Literal
 
 from kunyu.agent.runtime.events import (
     TERMINAL_RUN_STATES,
     AgentEvent,
     InboxMessagePayload,
     InboxSplicedEvent,
+    QueueDispatchedEvent,
+    QueueModeEvent,
+    QueueReorderedEvent,
     SessionCreatedEvent,
     StepDecisionEvent,
     UserMessageAppendedEvent,
@@ -33,6 +37,8 @@ def reduce_session(events: Iterable[AgentEvent]) -> ReducedSession:
     user_messages: dict[str, ReducedUserMessage] = {}
     next_step: list[str] = []
     next_turn: list[InboxMessagePayload] = []
+    queue_mode: Literal["auto", "manual"] = "auto"
+    dispatch_message_id: str | None = None
     run_events: dict[str, list[AgentEvent]] = defaultdict(list)
 
     for envelope in events:
@@ -100,8 +106,36 @@ def reduce_session(events: Iterable[AgentEvent]) -> ReducedSession:
 
         if isinstance(event, InboxSplicedEvent) and event.payload.target == "next-turn":
             _splice_next_turn(
-                event, envelope.sequence, next_turn, user_messages, run_events
+                event,
+                envelope.sequence,
+                next_turn,
+                user_messages,
+                run_events,
+                queue_mode,
+                dispatch_message_id,
             )
+            if dispatch_message_id is not None and not any(
+                item.message_id == dispatch_message_id for item in next_turn
+            ):
+                dispatch_message_id = None
+
+        if isinstance(event, QueueModeEvent):
+            queue_mode = event.payload.mode
+        if isinstance(event, QueueReorderedEvent):
+            order = event.payload.message_ids
+            indexed = {item.message_id: item for item in next_turn}
+            if len(order) != len(indexed) or set(order) != set(indexed):
+                raise SessionReductionError(
+                    "Queue order must include every pending input exactly once."
+                )
+            next_turn = [indexed[message_id] for message_id in order]
+            dispatch_message_id = None
+        if isinstance(event, QueueDispatchedEvent):
+            if not next_turn or next_turn[0].message_id != event.payload.message_id:
+                raise SessionReductionError(
+                    "Explicit dispatch must select the first queued input."
+                )
+            dispatch_message_id = event.payload.message_id
 
         if isinstance(event, InboxSplicedEvent) and event.payload.target == "next-step":
             payload = event.payload
@@ -265,6 +299,8 @@ def reduce_session(events: Iterable[AgentEvent]) -> ReducedSession:
         runs=tuple(sorted(runs, key=lambda item: item.created_sequence)),
         next_step=tuple(next_step),
         next_turn=tuple(next_turn),
+        queue_mode=queue_mode,
+        dispatch_message_id=dispatch_message_id,
     )
 
 
@@ -274,6 +310,8 @@ def _splice_next_turn(
     pending: list[InboxMessagePayload],
     messages: dict[str, ReducedUserMessage],
     runs: dict[str, list[AgentEvent]],
+    queue_mode: str,
+    dispatch_message_id: str | None,
 ) -> None:
     payload = event.payload
     stop = payload.start + payload.delete_count
@@ -291,6 +329,7 @@ def _splice_next_turn(
             if payload.disposition == "claim" and (
                 payload.start != 0
                 or len(removed) != 1
+                or (queue_mode == "manual" and item.message_id != dispatch_message_id)
                 or any(
                     reduce_run(events).state not in TERMINAL_RUN_STATES
                     for events in runs.values()

@@ -39,6 +39,8 @@ class RunAcceptanceService:
         self,
         request: RunAcceptanceRequest,
         queue_sequence: int,
+        *,
+        queue_only: bool = False,
     ) -> RunAcceptanceResult:
         connection_id = request.model_selection.connection_id
         with self._locks.hold(connection_id):
@@ -50,6 +52,7 @@ class RunAcceptanceService:
                 message_id=self._message_id_factory(),
                 run_id=self._run_id_factory(),
                 occurred_at=self._clock(),
+                queue_only=queue_only,
             )
 
     def steer(self, request: RunAcceptanceRequest, run_id: str) -> RunAcceptanceResult:

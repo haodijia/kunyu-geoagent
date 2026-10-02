@@ -28,6 +28,16 @@
 .composer-panel {
   box-shadow: none;
 }
+.queue-panel {
+  border-color: color-mix(in srgb, var(--color-border-2) 56%, transparent);
+  background: color-mix(in srgb, var(--color-fill-1) 84%, var(--bg-1));
+}
+.queue-message-row {
+  background: color-mix(in srgb, var(--color-fill-1) 76%, transparent);
+}
+.queue-message-row[aria-grabbed="true"] {
+  background: color-mix(in srgb, var(--color-fill-2) 88%, var(--bg-1));
+}
 .composer-panel:focus-within {
   border-color: var(--bg-4);
   box-shadow: var(--mu-shadow-2);

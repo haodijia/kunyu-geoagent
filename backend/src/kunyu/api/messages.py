@@ -49,7 +49,7 @@ class AppendMessageRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     content: str = Field(min_length=1, max_length=32_768)
-    delivery: Literal["followup", "steer"]
+    delivery: Literal["followup", "steer", "queue"]
     model_selection: "ModelSelectionRequest"
     map_context: "MapContextRequest"
 
@@ -217,11 +217,12 @@ async def append_message(
     )
     try:
         agent = agents.for_session(session_id)
-        result = (
-            await agent.steer(request)
-            if body.delivery == "steer"
-            else await agent.followup(request)
-        )
+        if body.delivery == "steer":
+            result = await agent.steer(request)
+        elif body.delivery == "queue":
+            result = await agent.enqueue(request)
+        else:
+            result = await agent.followup(request)
     except RunAcceptanceNotFoundError as error:
         raise ApiError(404, "NOT_FOUND", str(error)) from error
     except IdempotencyConflictError as error:

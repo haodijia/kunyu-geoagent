@@ -34,3 +34,5 @@ class ReducedSession:
     runs: tuple[ReducedRun, ...]
     next_step: tuple[str, ...] = ()
     next_turn: tuple[InboxMessagePayload, ...] = ()
+    queue_mode: Literal["auto", "manual"] = "auto"
+    dispatch_message_id: str | None = None

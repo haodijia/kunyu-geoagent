@@ -100,6 +100,18 @@ class ContextInjectedPayload(EventPayload):
     metadata: dict[str, JsonValue] = Field(default_factory=dict)
 
 
+class QueueModePayload(EventPayload):
+    mode: Literal["auto", "manual"]
+
+
+class QueueReorderedPayload(EventPayload):
+    message_ids: list[str] = Field(max_length=32)
+
+
+class QueueDispatchedPayload(EventPayload):
+    message_id: str = Field(min_length=1, max_length=64)
+
+
 class CommandRunPayload(EventPayload):
     command_id: str
     definition_id: str
@@ -409,6 +421,21 @@ class InboxSplicedEvent(_SessionEventDraft):
     payload: InboxSplicedPayload
 
 
+class QueueModeEvent(_SessionEventDraft):
+    event_type: Literal["agent/queue/mode"]
+    payload: QueueModePayload
+
+
+class QueueReorderedEvent(_SessionEventDraft):
+    event_type: Literal["agent/queue/reordered"]
+    payload: QueueReorderedPayload
+
+
+class QueueDispatchedEvent(_SessionEventDraft):
+    event_type: Literal["agent/queue/dispatched"]
+    payload: QueueDispatchedPayload
+
+
 class CommandDoneEvent(_SessionEventDraft):
     event_type: Literal["command/done"]
     payload: CommandDonePayload
@@ -542,6 +569,9 @@ type EventDraft = Annotated[
     | UserMessageAppendedEvent
     | ContextInjectedEvent
     | InboxSplicedEvent
+    | QueueModeEvent
+    | QueueReorderedEvent
+    | QueueDispatchedEvent
     | CommandRunEvent
     | CommandDoneEvent
     | PlanChangedEvent
