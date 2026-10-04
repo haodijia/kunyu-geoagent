@@ -7,6 +7,7 @@ from typing import Literal
 from kunyu.agent.runtime.events import InboxMessagePayload
 from kunyu.agent.runtime.run_state import ReducedRun
 from kunyu.agent.runtime.todos import TodoItem
+from kunyu.domain.attachments import Attachment
 
 
 class SessionReductionError(ValueError):
@@ -26,6 +27,7 @@ class ReducedUserMessage:
     applied_step: int | None = None
     discarded: bool = False
     map_context: dict[str, object] = field(default_factory=dict)
+    attachments: tuple[Attachment, ...] = ()
 
 
 @dataclass(frozen=True, slots=True)

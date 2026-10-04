@@ -23,8 +23,8 @@ export interface ServerSentEvent {
   readonly data: string;
 }
 
-export async function requestBlob(path: string): Promise<Blob> {
-  const response = await request(path, { method: "GET" }, "application/zip");
+export async function requestBlob(path: string, signal?: AbortSignal): Promise<Blob> {
+  const response = await request(path, { method: "GET", signal }, "application/octet-stream");
   return response.blob();
 }
 

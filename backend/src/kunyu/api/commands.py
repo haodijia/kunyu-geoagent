@@ -113,6 +113,7 @@ async def execute_command(
                 body.model_dump(mode="json"), ensure_ascii=False, sort_keys=True
             ),
             content=request.content,
+            attachment_ids=tuple(str(identity) for identity in request.attachment_ids),
             model_selection=ModelSelection(
                 request.model_selection.connection_id,
                 request.model_selection.model_id,

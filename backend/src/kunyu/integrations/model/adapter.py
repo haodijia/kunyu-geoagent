@@ -8,12 +8,14 @@ from email.utils import parsedate_to_datetime
 
 import httpx
 
+from kunyu.agent.runtime.input_content import ImageInputBlock
 from kunyu.agent.runtime.models import (
     ModelAdapterError,
     ModelErrorCode,
     ModelOutput,
     ModelRequest,
 )
+from kunyu.domain.attachments import ImageAttachment
 from kunyu.domain.model_connections import ModelAuthMode, ModelProtocol
 from kunyu.integrations.model.connection import (
     ModelConnectionConfig,
@@ -36,6 +38,8 @@ STREAM_IDLE_TIMEOUT_SECONDS = 300
 MAX_SSE_EVENT_BYTES = 2 * 1024 * 1024
 MODEL_HTTP_TIMEOUT = httpx.Timeout(300, connect=10)
 
+type ImageResolver = Callable[[str, ImageAttachment], Awaitable[bytes]]
+
 type CredentialResolver = Callable[[str, int], Awaitable[str | None]]
 
 
@@ -44,23 +48,42 @@ class HTTPModelAdapter:
         self,
         client: httpx.AsyncClient,
         credential_resolver: CredentialResolver | None = None,
+        image_resolver: ImageResolver | None = None,
     ) -> None:
         if client.follow_redirects:
             raise ValueError("The model HTTP client must not follow redirects.")
         self._client = client
         self._credential_resolver = credential_resolver
+        self._image_resolver = image_resolver
 
     async def stream(
         self,
         request: ModelRequest[ModelConnectionConfig],
     ) -> AsyncIterator[ModelOutput]:
         config = request.adapter_config
+        images: dict[str, bytes] = {}
+        image_refs = {}
+        for message in request.messages:
+            for block in message.content:
+                if isinstance(block, ImageInputBlock):
+                    if (
+                        block.attachment.id in image_refs
+                        and image_refs[block.attachment.id] != block.attachment
+                    ):
+                        raise invalid_request(
+                            "One image identity has inconsistent receipts."
+                        )
+                    image_refs[block.attachment.id] = block.attachment
+        for identity, ref in image_refs.items():
+            if self._image_resolver is None:
+                raise invalid_request("The image attachment resolver is unavailable.")
+            images[identity] = await self._image_resolver(request.run_id, ref)
         if config.protocol is ModelProtocol.DEEPSEEK_MESSAGES:
-            body = encode_messages_request(request)
+            body = encode_messages_request(request, images)
             url = f"{messages_root(config.base_url)}/messages"
             parser = DeepSeekMessagesStreamParser(request.model_id)
         elif config.protocol is ModelProtocol.OPENAI_COMPATIBLE:
-            body = encode_chat_request(request)
+            body = encode_chat_request(request, images)
             url = f"{api_root(config.base_url)}/chat/completions"
             parser = OpenAIChatStreamParser()
         else:

@@ -11,6 +11,7 @@ from kunyu.agent.runtime.context import (
     PromptSectionRegistry,
 )
 from kunyu.agent.runtime.events import EventStore, StepMessagePayload
+from kunyu.agent.runtime.input_content import user_content
 from kunyu.agent.runtime.models import ModelMessage, ModelRole
 from kunyu.agent.runtime.run_state import ReducedAssistant, ReducedRun, ReducedToolCall
 from kunyu.agent.scope import Context
@@ -69,7 +70,11 @@ class ScopedAgentContextProvider:
             else ()
         )
         return tuple(
-            StepMessagePayload(message_id=message.message_id, content=message.content)
+            StepMessagePayload(
+                message_id=message.message_id,
+                content=message.content,
+                attachments=message.attachments,
+            )
             for message in (*initial, *claimed)
         )
 
@@ -135,7 +140,8 @@ def build_model_history(source: RunContextSource) -> tuple[ModelMessage, ...]:
             sequence=message.created_sequence,
             messages=(
                 ModelMessage(
-                    role=ModelRole.USER, content=text_content(message.content)
+                    role=ModelRole.USER,
+                    content=user_content(message.content, message.attachments),
                 ),
             )
             + (
@@ -183,7 +189,10 @@ def build_model_history(source: RunContextSource) -> tuple[ModelMessage, ...]:
                 model_message
                 for message in decision.payload.messages
                 for model_message in (
-                    ModelMessage(ModelRole.USER, text_content(message.content)),
+                    ModelMessage(
+                        ModelRole.USER,
+                        user_content(message.content, message.attachments),
+                    ),
                     *(
                         (
                             ModelMessage(

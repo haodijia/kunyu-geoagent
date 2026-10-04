@@ -18,6 +18,7 @@ export function SessionComposer() {
   const [queueEditing, setQueueEditing] = useState(false);
   const {
     draft,
+    attachmentState,
     queuedDraft,
     mapContext,
     changeDraft,
@@ -79,13 +80,14 @@ export function SessionComposer() {
   const sendDisabled = selectedModel === undefined || reasoningSelectionInvalid || agentTurnsQuery.data === undefined;
   const commandState = useComposerCommands({
     draft,
-    locked: mutation.isPending || requestFrozen || queueEditing,
+    locked: mutation.isPending || requestFrozen || queueEditing || attachmentState.pending || attachmentState.retryAvailable,
     modelDisabled,
     agentBusy: activeTurn !== undefined,
     sendDisabled,
     sendSkill: sendMessage,
     message: selectedModel === undefined ? null : {
       content: draft,
+      attachmentIds: attachmentState.attachments.map((ref) => ref.id),
       delivery: activeTurn === undefined || queuedDraft ? "followup" : "steer",
       connectionId: selectedModel.connection.id,
       modelId: selectedModel.entry.model_id,
@@ -133,6 +135,8 @@ export function SessionComposer() {
       processing={activeTurn !== undefined && activeTurn.state !== "interrupted" && !(activeTurn.state === "ready" && activeTurn.requires_resume)}
     />
     <ConversationComposer
+      sessionId={session.id}
+      attachmentState={attachmentState}
       contextLabel={zhCN.conversation.mapViewport(
         longitude.toFixed(4),
         latitude.toFixed(4),

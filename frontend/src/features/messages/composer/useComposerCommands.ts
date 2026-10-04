@@ -2,6 +2,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useRef, useState } from "react";
 
 import { ApiError } from "@/api/client";
+import { useAppUiStore } from "@/app/store";
 import { agentQueryKeys } from "@/features/agent/api";
 import { messageQueryKeys } from "@/features/messages/api";
 import { useSessionWorkspace } from "@/features/sessions/SessionWorkspaceContext";
@@ -26,6 +27,7 @@ export function useComposerCommands({
   draft, locked, modelDisabled, agentBusy, message, sendDisabled, sendSkill, changeDraft, openModelPicker,
 }: ComposerCommandOptions) {
   const session = useSessionWorkspace();
+  const clearComposerDraft = useAppUiStore((state) => state.clearComposerDraft);
   const queryClient = useQueryClient();
   const executingRef = useRef(false);
   const frozenRef = useRef<{ id: string; line: string; message: CommandMessage | null } | null>(null);
@@ -96,7 +98,10 @@ export function useComposerCommands({
         link.click();
         setTimeout(() => URL.revokeObjectURL(url), 1000);
       }
-      if (currentDraftRef.current === submittedDraft) changeDraft("");
+      if (currentDraftRef.current === submittedDraft) {
+        if (command.name === "plan" && parsed.rawInput.trim() !== "" && parsed.rawInput.trim() !== "off") clearComposerDraft(session.id);
+        else changeDraft("");
+      }
       setFeedback(result);
     } catch (error) {
       console.error("[commands] Failed to execute Agent command.", { sessionId: session.id, command: command.name, error });

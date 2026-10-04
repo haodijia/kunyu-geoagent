@@ -53,6 +53,8 @@ export function SessionEventProvider({
 
   useEffect(() => {
     const controller = new AbortController();
+    const cancelStream = () => controller.abort();
+    window.addEventListener("beforeunload", cancelStream);
     const assistant = new LiveAssistantStream();
     lastSequenceRef.current = 0;
     setActiveAssistant(null);
@@ -150,7 +152,10 @@ export function SessionEventProvider({
     }
 
     void connect();
-    return () => controller.abort();
+    return () => {
+      window.removeEventListener("beforeunload", cancelStream);
+      cancelStream();
+    };
   }, [sessionId]);
 
   return (

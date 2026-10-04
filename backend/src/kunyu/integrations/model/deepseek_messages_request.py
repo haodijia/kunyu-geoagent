@@ -4,6 +4,7 @@ import json
 from collections.abc import Mapping
 
 from kunyu.agent.runtime.content import ReasoningBlock, TextBlock, ToolCallBlock
+from kunyu.agent.runtime.input_content import FileInputBlock, ImageInputBlock
 from kunyu.agent.runtime.models import (
     ModelAdapterError,
     ModelErrorCode,
@@ -11,6 +12,7 @@ from kunyu.agent.runtime.models import (
     ModelRequest,
     ModelRole,
 )
+from kunyu.integrations.model.attachment_projection import input_block
 from kunyu.integrations.model.connection import ModelConnectionConfig, validate_request
 
 
@@ -82,7 +84,10 @@ def _assistant(message: ModelMessage, model: str) -> list[dict]:
     return result
 
 
-def encode_request(request: ModelRequest[ModelConnectionConfig]) -> bytes:
+def encode_request(
+    request: ModelRequest[ModelConnectionConfig],
+    images: Mapping[str, bytes] | None = None,
+) -> bytes:
     validate_request(request, maximum_output_tokens=256_000)
     messages: list[dict] = []
     system: str | None = None
@@ -112,12 +117,17 @@ def encode_request(request: ModelRequest[ModelConnectionConfig]) -> bytes:
             flush_updates()
             content = _assistant(message, request.model_id)
         else:
-            if any(not isinstance(block, TextBlock) for block in message.content):
-                raise invalid("Non-assistant content must contain text blocks.")
+            allowed = (
+                (TextBlock, ImageInputBlock, FileInputBlock)
+                if message.role is ModelRole.USER
+                else (TextBlock,)
+            )
+            if any(not isinstance(block, allowed) for block in message.content):
+                raise invalid("Attachment blocks are only permitted in user input.")
             content = [
-                {"type": "text", "text": block.text}
+                input_block(block, images if images is not None else {}, native=True)
                 for block in message.content
-                if block.text
+                if not isinstance(block, TextBlock) or block.text
             ]
             if message.role is ModelRole.SYSTEM:
                 text = "".join(block.text for block in message.content)

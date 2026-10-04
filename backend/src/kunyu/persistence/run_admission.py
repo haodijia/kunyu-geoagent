@@ -34,6 +34,7 @@ def turn_events(
                 message_id=message_id,
                 role="user",
                 content=item.content,
+                attachments=item.attachments,
                 run_id=run_id,
             ),
             occurred_at=occurred_at,

@@ -2,12 +2,14 @@
 
 from kunyu.agent import services as s
 from kunyu.agent.adapters import SnapshotCredentialResolver, StoredRunExecutionProvider
+from kunyu.agent.attachments import RunImageResolver
 from kunyu.agent.scope import Context
 from kunyu.integrations.model.adapter import (
     HTTPModelAdapter,
 )
 from kunyu.persistence.agent_context import SQLAlchemyRunContextRepository
 from kunyu.persistence.agent_projections import SQLAlchemyAgentProjectionService
+from kunyu.persistence.attachments import SQLAlchemyAttachmentStore
 from kunyu.persistence.model_connections import SQLAlchemyModelConnectionRepository
 from kunyu.persistence.run_lifecycle import SQLAlchemyRunLifecycleRepository
 from kunyu.persistence.runs import SQLAlchemyEventStore
@@ -18,6 +20,7 @@ class PersistencePlugin:
     name = "session-persistence"
     requires = (s.DATABASE,)
     provides = (
+        s.ATTACHMENTS,
         s.EVENTS,
         s.CONNECTIONS,
         s.CONTEXTS,
@@ -31,6 +34,7 @@ class PersistencePlugin:
         database = context.require(s.DATABASE)
         events = SQLAlchemyEventStore(database)
         context.provide(s.EVENTS, events)
+        context.provide(s.ATTACHMENTS, SQLAlchemyAttachmentStore(database))
         context.provide(s.CONNECTIONS, SQLAlchemyModelConnectionRepository(database))
         context.provide(s.CONTEXTS, SQLAlchemyRunContextRepository(database))
         context.provide(s.MEMORIES, SQLAlchemyWorkspaceMemoryRepository(database))
@@ -43,7 +47,7 @@ class PersistencePlugin:
 
 class ModelPlugin:
     name = "http-model"
-    requires = (s.HTTP_CLIENT, s.CONNECTIONS)
+    requires = (s.HTTP_CLIENT, s.CONNECTIONS, s.CONTEXTS, s.ATTACHMENTS)
     provides = (s.MODEL,)
 
     async def apply(self, context: Context) -> None:
@@ -52,5 +56,8 @@ class ModelPlugin:
             HTTPModelAdapter(
                 context.require(s.HTTP_CLIENT),
                 SnapshotCredentialResolver(context.require(s.CONNECTIONS)),
+                RunImageResolver(
+                    context.require(s.CONTEXTS), context.require(s.ATTACHMENTS)
+                ),
             ),
         )

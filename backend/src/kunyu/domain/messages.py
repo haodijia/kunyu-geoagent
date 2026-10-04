@@ -2,6 +2,7 @@ from dataclasses import dataclass
 from datetime import datetime
 from typing import Literal, Protocol
 
+from kunyu.domain.attachments import Attachment
 from kunyu.domain.events import AgentEvent
 
 MessageRole = Literal["user", "assistant"]
@@ -29,6 +30,7 @@ class Message:
     updated_sequence: int
     created_at: datetime
     updated_at: datetime
+    attachments: tuple[Attachment, ...] = ()
 
 
 class MessageRepository(Protocol):

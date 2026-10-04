@@ -57,6 +57,7 @@ class RunAcceptanceRequest:
     content: str
     model_selection: ModelSelection
     map_context: dict[str, JsonValue]
+    attachment_ids: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True, slots=True)

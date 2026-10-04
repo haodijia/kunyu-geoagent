@@ -102,6 +102,7 @@ def reduce_session(events: Iterable[AgentEvent]) -> ReducedSession:
                 previous.applied_step == 0
                 and previous.run_id == event.run_id
                 and previous.content == event.payload.content
+                and previous.attachments == event.payload.attachments
                 and not previous.discarded
             ):
                 raise SessionReductionError(
@@ -112,6 +113,7 @@ def reduce_session(events: Iterable[AgentEvent]) -> ReducedSession:
                 session_id=event.session_id,
                 run_id=event.run_id,
                 content=event.payload.content,
+                attachments=event.payload.attachments,
                 created_at=event.occurred_at,
                 created_sequence=envelope.sequence,
                 updated_sequence=envelope.sequence,
@@ -215,6 +217,7 @@ def reduce_session(events: Iterable[AgentEvent]) -> ReducedSession:
                     session_id=event.session_id,
                     run_id=payload.target_run_id,
                     content=message.content,
+                    attachments=message.attachments,
                     created_at=event.occurred_at,
                     created_sequence=envelope.sequence,
                     updated_sequence=envelope.sequence,
@@ -246,6 +249,16 @@ def reduce_session(events: Iterable[AgentEvent]) -> ReducedSession:
                 raise SessionReductionError(
                     "Step admission must account for all claimed input."
                 )
+
+            for message in event.payload.messages:
+                owned = user_messages.get(message.message_id)
+                if any(
+                    ref not in (() if owned is None else owned.attachments)
+                    for ref in message.attachments
+                ):
+                    raise SessionReductionError(
+                        "Step admission cannot introduce unowned attachments."
+                    )
 
         if envelope.run_id is not None:
             run_events[envelope.run_id].append(envelope)
@@ -386,6 +399,7 @@ def _splice_next_turn(
             session_id=event.session_id,
             run_id=None,
             content=item.content,
+            attachments=item.attachments,
             created_at=event.occurred_at,
             created_sequence=sequence,
             updated_sequence=sequence,

@@ -107,6 +107,27 @@ class SessionRecord(Base):
     )
 
 
+class SessionAttachmentRecord(Base):
+    __tablename__ = "session_attachments"
+    __table_args__ = (
+        Index("ix_session_attachments_session_created", "session_id", "created_at"),
+        CheckConstraint(
+            "source_bytes >= 0", name="ck_session_attachments_source_bytes"
+        ),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    session_id: Mapped[str] = mapped_column(
+        ForeignKey("sessions.id", ondelete="CASCADE"), nullable=False
+    )
+    receipt: Mapped[dict[str, Any]] = mapped_column(JSON, nullable=False)
+    source_media_type: Mapped[str | None] = mapped_column(String(100))
+    source_bytes: Mapped[int] = mapped_column(Integer, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False
+    )
+
+
 class SessionPreferenceRecord(Base):
     __tablename__ = "session_preferences"
 
@@ -198,6 +219,7 @@ class MessageRecord(Base):
     sequence: Mapped[int] = mapped_column(Integer, nullable=False)
     role: Mapped[str] = mapped_column(String(32), nullable=False)
     content: Mapped[str] = mapped_column(Text, nullable=False)
+    attachments: Mapped[list[dict[str, Any]]] = mapped_column(JSON, nullable=False)
     run_id: Mapped[str | None] = mapped_column(String(64))
     step: Mapped[int | None] = mapped_column(Integer)
     attempt: Mapped[int | None] = mapped_column(Integer)

@@ -7,6 +7,7 @@ import {
   assistantStreamText,
   parseAssistantStream,
 } from "@/features/events/assistant-stream";
+import { parseAttachments } from "@/features/attachments/api";
 import type { SessionMessage } from "./api";
 
 export interface MessageEventResult {
@@ -55,10 +56,13 @@ function applyUserAppended(
   if (messageId === null || content === null || role !== "user") {
     return snapshotNeeded(messages);
   }
+  if (event.payload.attachments === undefined) return snapshotNeeded(messages);
+  const attachments = parseAttachments(event.payload.attachments);
   const existing = messages.find((item) => item.id === messageId);
   if (existing !== undefined) {
     return existing.role === "user" &&
       existing.content === content &&
+      JSON.stringify(existing.attachments) === JSON.stringify(attachments) &&
       existing.run_id === event.run_id
       ? unchanged(messages)
       : snapshotNeeded(messages);
@@ -73,6 +77,7 @@ function applyUserAppended(
         session_id: event.session_id,
         sequence,
         role: "user",
+        attachments,
         content,
         run_id: event.run_id,
         step: null,
@@ -140,6 +145,7 @@ function applyAssistantStarted(
         session_id: event.session_id,
         sequence,
         role: "assistant",
+        attachments: [],
         content: "",
         run_id: event.run_id,
         step,

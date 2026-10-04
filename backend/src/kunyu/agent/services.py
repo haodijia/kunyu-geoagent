@@ -29,6 +29,7 @@ if TYPE_CHECKING:
     from kunyu.application.run_lifecycle import RunLifecycleService
     from kunyu.persistence.agent_context import SQLAlchemyRunContextRepository
     from kunyu.persistence.agent_projections import SQLAlchemyAgentProjectionService
+    from kunyu.persistence.attachments import SQLAlchemyAttachmentStore
     from kunyu.persistence.database import Database
     from kunyu.persistence.model_connections import SQLAlchemyModelConnectionRepository
     from kunyu.persistence.run_lifecycle import SQLAlchemyRunLifecycleRepository
@@ -36,6 +37,7 @@ if TYPE_CHECKING:
     from kunyu.persistence.workspace_memory import SQLAlchemyWorkspaceMemoryRepository
 
 DATABASE: ServiceKey[Database] = ServiceKey("database")
+ATTACHMENTS: ServiceKey[SQLAlchemyAttachmentStore] = ServiceKey("sessions.attachments")
 SCOPES: ServiceKey[AgentScopes] = ServiceKey("agent_scopes")
 HTTP_CLIENT: ServiceKey[httpx.AsyncClient] = ServiceKey("http_client")
 CONNECTION_LOCKS: ServiceKey[ConnectionOperationLocks] = ServiceKey("connection_locks")

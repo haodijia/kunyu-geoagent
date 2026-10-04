@@ -1,3 +1,4 @@
+import type { Attachment } from "@/features/attachments/api";
 import { requestJson } from "@/api/client";
 import type { MapContext } from "@/features/sessions/map-context";
 import type { AgentTurn } from "@/features/agent/api";
@@ -16,6 +17,7 @@ export interface SessionMessage {
   readonly sequence: number;
   readonly role: "user" | "assistant";
   readonly content: string;
+  readonly attachments: readonly Attachment[];
   readonly run_id: string | null;
   readonly step: number | null;
   readonly attempt: number | null;
@@ -45,6 +47,7 @@ export function appendUserMessage(
   idempotencyKey: string,
   input: {
     readonly content: string;
+    readonly attachmentIds: readonly string[];
     readonly delivery: "followup" | "steer" | "queue";
     readonly connectionId: string;
     readonly modelId: string;
@@ -66,6 +69,7 @@ export function serializeMessageInput(input: Parameters<typeof appendUserMessage
   const map = input.mapContext;
   return {
     content: input.content,
+    attachment_ids: input.attachmentIds,
     delivery: input.delivery,
     model_selection: {
       connection_id: input.connectionId,

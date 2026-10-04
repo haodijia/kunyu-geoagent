@@ -21,6 +21,7 @@ from kunyu.application.messages import (
     MessageService,
 )
 from kunyu.application.sessions import SessionNotFoundError
+from kunyu.domain.attachments import MAX_ATTACHMENTS, Attachment, AttachmentError
 from kunyu.domain.events import AgentEvent
 from kunyu.domain.messages import Message
 from kunyu.domain.run_acceptance import (
@@ -46,7 +47,8 @@ router = APIRouter(prefix="/api/v1/sessions/{session_id}", tags=["messages"])
 class AppendMessageRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    content: str = Field(min_length=1, max_length=32_768)
+    content: str = Field(max_length=32_768)
+    attachment_ids: list[UUID] = Field(default_factory=list, max_length=MAX_ATTACHMENTS)
     delivery: Literal["followup", "steer", "queue"]
     model_selection: "ModelSelectionRequest"
     map_context: "MapContextRequest"
@@ -109,6 +111,7 @@ class MessageResponse(BaseModel):
     updated_sequence: int
     created_at: datetime
     updated_at: datetime
+    attachments: tuple[Attachment, ...]
 
     @classmethod
     def from_domain(cls, message: Message) -> "MessageResponse":
@@ -118,6 +121,7 @@ class MessageResponse(BaseModel):
             sequence=message.sequence,
             role=message.role,
             content=message.content,
+            attachments=message.attachments,
             run_id=message.run_id,
             step=message.step,
             attempt=message.attempt,
@@ -193,8 +197,8 @@ async def append_message(
     agents: AgentDirectoryDependency,
     idempotency_key: Annotated[UUID, Header(alias="Idempotency-Key")],
 ) -> AcceptedMessageResponse:
-    if not body.content.strip():
-        raise ApiError(422, "INVALID_INPUT", "Message content must not be blank.")
+    if not body.content.strip() and not body.attachment_ids:
+        raise ApiError(422, "INVALID_INPUT", "Message requires text or attachments.")
     normalized_body = json.dumps(
         body.model_dump(mode="json"),
         ensure_ascii=False,
@@ -206,6 +210,7 @@ async def append_message(
         idempotency_key=str(idempotency_key),
         normalized_body=normalized_body,
         content=body.content,
+        attachment_ids=tuple(str(identity) for identity in body.attachment_ids),
         model_selection=ModelSelection(
             connection_id=body.model_selection.connection_id,
             model_id=body.model_selection.model_id,
@@ -221,6 +226,8 @@ async def append_message(
             result = await agent.enqueue(request)
         else:
             result = await agent.followup(request)
+    except AttachmentError as error:
+        raise ApiError(error.status, error.code, str(error)) from error
     except RunAcceptanceNotFoundError as error:
         raise ApiError(404, "NOT_FOUND", str(error)) from error
     except IdempotencyConflictError as error:
