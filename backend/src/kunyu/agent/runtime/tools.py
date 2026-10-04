@@ -29,10 +29,15 @@ class ToolSpec:
     risk_level: ToolRiskLevel
     execution: Literal["parallel", "exclusive"]
     presentation: Literal["context", "search", "write"]
+    interaction: bool = False
     timeout_ms: int | None = None
     timeout_error_code: str = "TOOL_TIMEOUT"
 
     def __post_init__(self) -> None:
+        if self.interaction and (
+            self.execution != "exclusive" or self.risk_level is not ToolRiskLevel.L0
+        ):
+            raise ValueError("Human interaction tools must be exclusive L0 tools.")
         if self.timeout_ms is not None and (
             type(self.timeout_ms) is not int or self.timeout_ms <= 0
         ):

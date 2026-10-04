@@ -7,6 +7,7 @@ import { cancelAgent, agentQueryKeys } from "@/features/agent/api";
 import { useSessionWorkspace } from "@/features/sessions/SessionWorkspaceContext";
 import { zhCN } from "@/locales/zh-CN";
 import { ConversationComposer } from "./ConversationComposer";
+import { QuestionComposer } from "@/features/questions/QuestionComposer";
 import { QueuedMessages } from "./QueuedMessages";
 import { type ComposerModelGroup, type ModelPickerPane } from "./composer/ComposerModelPicker";
 import { useComposerCommands } from "./composer/useComposerCommands";
@@ -138,7 +139,7 @@ export function SessionComposer() {
       runId={activeTurn?.id ?? null}
       processing={activeTurn !== undefined && activeTurn.state !== "interrupted" && !(activeTurn.state === "ready" && activeTurn.requires_resume)}
     />
-    <ConversationComposer
+    {activeTurn?.state === "waiting_input" ? <QuestionComposer turn={activeTurn} onCancel={() => stopMutation.mutate()} cancelPending={stopMutation.isPending} cancelError={stopMutation.isError ? zhCN.conversation.runActionFailed : null} /> : <ConversationComposer
       sessionId={session.id}
       attachmentState={attachmentState}
       contextLabel={zhCN.conversation.mapViewport(
@@ -195,7 +196,7 @@ export function SessionComposer() {
       onModelChange={changeModel}
       onReasoningEffortChange={changeReasoningEffort}
       onStop={() => stopMutation.mutate()}
-    />
+    />}
     </>
   );
 }

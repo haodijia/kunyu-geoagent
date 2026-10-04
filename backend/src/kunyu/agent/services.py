@@ -26,6 +26,7 @@ if TYPE_CHECKING:
     from kunyu.agent.tools.registry import ToolPolicyGate, ToolRegistryFactory
     from kunyu.application.confirmations import ConfirmationService
     from kunyu.application.connection_locks import ConnectionOperationLocks
+    from kunyu.application.questions import UserQuestionService
     from kunyu.application.run_acceptance import RunAcceptanceService
     from kunyu.application.run_lifecycle import RunLifecycleService
     from kunyu.domain.filesystem import Filesystem
@@ -70,6 +71,7 @@ CONTEXT_PREPARERS: ServiceKey[ContextPreparationRegistry] = ServiceKey(
 )
 TOOLS: ServiceKey[ToolRegistryFactory] = ServiceKey("tools")
 POLICY: ServiceKey[ToolPolicyGate] = ServiceKey("tools.policy")
+QUESTIONS: ServiceKey[UserQuestionService] = ServiceKey("userQuestions")
 CONFIRMATIONS: ServiceKey[ConfirmationService] = ServiceKey("approval")
 ACCEPTANCE: ServiceKey[RunAcceptanceService] = ServiceKey("turns.acceptance")
 LIFECYCLE: ServiceKey[RunLifecycleService] = ServiceKey("turns.lifecycle")

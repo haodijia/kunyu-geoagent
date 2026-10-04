@@ -72,6 +72,7 @@ export type AgentTurnState =
   | "ready"
   | "model_running"
   | "tool_running"
+  | "waiting_input"
   | "waiting_confirmation"
   | "interrupted"
   | "completed"

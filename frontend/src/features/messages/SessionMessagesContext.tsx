@@ -18,6 +18,7 @@ import {
   mergeConfirmationSnapshots,
   type Confirmation
 } from "@/features/confirmations/api";
+import { listQuestions, mergeQuestions, questionQueryKeys, type HumanQuestion } from "@/features/questions/api";
 import type { SessionEvent } from "@/features/events/api";
 import { useSessionEvents } from "@/features/events/SessionEventContext";
 import {
@@ -133,6 +134,11 @@ function useMessages(sessionId: string, workspaceId: string) {
     }
   });
 
+  const questionsQuery = useQuery<HumanQuestion[]>({
+    queryKey: questionQueryKeys.session(sessionId),
+    queryFn: async () => { const incoming = await listQuestions(sessionId); return mergeQuestions(queryClient.getQueryData<HumanQuestion[]>(questionQueryKeys.session(sessionId)), incoming); },
+  });
+
   const usableModels = useMemo(
     () => usableModelsFrom(connectionsQuery.data ?? []),
     [connectionsQuery.data]
@@ -189,6 +195,7 @@ function useMessages(sessionId: string, workspaceId: string) {
     let needsMessageSnapshot = false;
     let refreshAgentTurns = false;
     let refreshConfirmations = false;
+    let refreshQuestions = false;
 
     for (const event of events) {
       if (event.sequence <= seenSequenceRef.current) continue;
@@ -206,10 +213,11 @@ function useMessages(sessionId: string, workspaceId: string) {
       refreshAgentTurns ||=
         event.event_type.startsWith("run.") ||
         event.event_type.startsWith("tool.") ||
-        event.event_type.startsWith("confirmation.");
+        event.event_type.startsWith("confirmation.") || event.event_type.startsWith("question.");
       refreshConfirmations ||=
         event.event_type === "confirmation.requested" ||
         event.event_type === "confirmation.resolved";
+      refreshQuestions ||= event.event_type.startsWith("question.") || TERMINAL_RUN_EVENTS.has(event.event_type);
       needsMessageSnapshot ||= TERMINAL_RUN_EVENTS.has(event.event_type) || event.event_type === "agent/inbox/spliced";
     }
 
@@ -250,6 +258,7 @@ function useMessages(sessionId: string, workspaceId: string) {
     if (refreshAgentTurns) {
       void queryClient.invalidateQueries({ queryKey: agentQueryKeys.session(sessionId) });
     }
+    if (refreshQuestions) void queryClient.invalidateQueries({ queryKey: questionQueryKeys.session(sessionId) });
     if (refreshConfirmations) {
       void queryClient.invalidateQueries({
         queryKey: confirmationQueryKeys.session(sessionId)
@@ -338,6 +347,7 @@ function useMessages(sessionId: string, workspaceId: string) {
     connectionsQuery,
     agentTurnsQuery,
     confirmationsQuery,
+    questionsQuery,
     mutation,
     requestFrozen,
     usableModels,

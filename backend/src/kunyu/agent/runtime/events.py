@@ -15,6 +15,7 @@ from pydantic import (
     model_validator,
 )
 
+from kunyu.agent.runtime.questions import QuestionAnswers, QuestionSet
 from kunyu.domain.model_images import ModelImageInput
 
 type NonNegativeInt = Annotated[int, Field(ge=0)]
@@ -33,6 +34,7 @@ class RunState(StrEnum):
     MODEL_RUNNING = "model_running"
     TOOL_RUNNING = "tool_running"
     WAITING_CONFIRMATION = "waiting_confirmation"
+    WAITING_INPUT = "waiting_input"
     INTERRUPTED = "interrupted"
     COMPLETED = "completed"
     FAILED = "failed"
@@ -72,6 +74,7 @@ ALLOWED_RUN_TRANSITIONS: Mapping[RunState, frozenset[RunState]] = {
     ),
     RunState.TOOL_RUNNING: frozenset(
         {
+            RunState.WAITING_INPUT,
             RunState.MODEL_RUNNING,
             RunState.WAITING_CONFIRMATION,
             RunState.FAILED,
@@ -80,6 +83,9 @@ ALLOWED_RUN_TRANSITIONS: Mapping[RunState, frozenset[RunState]] = {
         }
     ),
     RunState.WAITING_CONFIRMATION: frozenset({RunState.READY, RunState.CANCELLED}),
+    RunState.WAITING_INPUT: frozenset(
+        {RunState.READY, RunState.CANCELLED, RunState.FAILED}
+    ),
     RunState.INTERRUPTED: frozenset({RunState.READY, RunState.CANCELLED}),
     RunState.COMPLETED: frozenset(),
     RunState.FAILED: frozenset(),
@@ -675,6 +681,34 @@ class ConfirmationResolvedEvent(_RunEventDraft):
     payload: ConfirmationResolvedPayload
 
 
+class QuestionRequestedPayload(EventPayload):
+    question_id: str
+    tool_call_id: str
+    request: QuestionSet
+
+
+class QuestionResolvedPayload(EventPayload):
+    question_id: str
+    decision: Literal["answered", "dismissed", "cancelled"]
+    answer: QuestionAnswers | None = None
+
+    @model_validator(mode="after")
+    def valid_answer(self) -> Self:
+        if (self.decision == "answered") != (self.answer is not None):
+            raise ValueError("Only an answered question carries an answer.")
+        return self
+
+
+class QuestionRequestedEvent(_RunEventDraft):
+    event_type: Literal["question.requested"]
+    payload: QuestionRequestedPayload
+
+
+class QuestionResolvedEvent(_RunEventDraft):
+    event_type: Literal["question.resolved"]
+    payload: QuestionResolvedPayload
+
+
 class RunTerminalEvent(_RunEventDraft):
     event_type: Literal["run.completed", "run.failed", "run.cancelled"]
     payload: RunTerminalPayload
@@ -723,6 +757,8 @@ type EventDraft = Annotated[
     | ToolFailedEvent
     | ConfirmationRequestedEvent
     | ConfirmationResolvedEvent
+    | QuestionRequestedEvent
+    | QuestionResolvedEvent
     | RunTerminalEvent,
     Field(discriminator="event_type"),
 ]

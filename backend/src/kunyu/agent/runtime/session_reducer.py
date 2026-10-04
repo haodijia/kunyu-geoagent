@@ -305,7 +305,12 @@ def reduce_session(events: Iterable[AgentEvent]) -> ReducedSession:
     message_ids = set(user_messages)
     tool_call_ids: set[str] = set()
     confirmation_ids: set[str] = set()
+    question_ids: set[str] = set()
     for run in runs:
+        for question in run.questions:
+            if question.question_id in question_ids:
+                raise SessionReductionError("Human-question identities must be unique.")
+            question_ids.add(question.question_id)
         for assistant in run.assistants:
             if assistant.message_id in message_ids:
                 raise SessionReductionError(

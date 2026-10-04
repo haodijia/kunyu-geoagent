@@ -107,6 +107,7 @@ class AgentTurnResponse(BaseModel):
         "model_running",
         "tool_running",
         "waiting_confirmation",
+        "waiting_input",
         "interrupted",
         "completed",
         "failed",

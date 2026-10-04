@@ -8,6 +8,7 @@ from typing import Protocol
 from pydantic import JsonValue
 from sqlalchemy.orm import Session
 
+from kunyu.agent.runtime.questions import QuestionAnswers, QuestionSet
 from kunyu.agent.runtime.tools import (
     PolicyDecision,
     Tool,
@@ -15,12 +16,18 @@ from kunyu.agent.runtime.tools import (
     ToolExecutionError,
     ToolNotFoundError,
     ToolRegistry,
+    ToolResult,
     ToolRiskLevel,
 )
 from kunyu.agent.scope import Context, ScopedEntries
 from kunyu.domain.agent_context import RunContextRepository
 from kunyu.persistence.commands import read_session_controls
 from kunyu.persistence.database import Database
+
+
+class QuestionHandler(Protocol):
+    def questions(self, call: ToolCall) -> QuestionSet: ...
+    def resolve(self, call: ToolCall, answer: QuestionAnswers | None) -> ToolResult: ...
 
 
 class ConfirmedWriteHandler(Protocol):
@@ -43,6 +50,7 @@ class ConfirmedWriteHandler(Protocol):
 class ToolRegistration:
     build: Callable[[str], Tool]
     write_handler: ConfirmedWriteHandler | None = None
+    question_handler: QuestionHandler | None = None
 
 
 class ToolRegistryFactory:
@@ -73,6 +81,8 @@ class ToolRegistryFactory:
             tools.append(tool)
         registry = ToolRegistry(tuple(tools))
         for spec in registry.specs:
+            if spec.interaction:
+                self.require_question_handler(spec.name, run_id)
             if spec.risk_level is ToolRiskLevel.L2:
                 self.require_write_handler(spec.name, run_id)
         return registry
@@ -84,6 +94,12 @@ class ToolRegistryFactory:
                 f"Tool '{name}' has no confirmed local write handler."
             )
         return entry.write_handler
+
+    def require_question_handler(self, name: str, run_id: str) -> QuestionHandler:
+        entry = self.registration_for_run(name, run_id)
+        if entry is None or entry.question_handler is None:
+            raise ToolExecutionError(f"Tool '{name}' has no human-question handler.")
+        return entry.question_handler
 
 
 class ToolPolicyGate:

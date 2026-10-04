@@ -6,6 +6,7 @@ import httpx
 from fastapi import Depends, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from kunyu.agent import services as s
 from kunyu.agent.bootstrap import create_agent_runtime
 from kunyu.api.agent import router as agent_router
 from kunyu.api.attachments import router as attachments_router
@@ -15,6 +16,7 @@ from kunyu.api.errors import install_error_handlers
 from kunyu.api.files import router as files_router
 from kunyu.api.messages import router as messages_router
 from kunyu.api.model_connections import router as model_connections_router
+from kunyu.api.questions import router as questions_router
 from kunyu.api.sessions import router as sessions_router
 from kunyu.api.skills import router as skills_router
 from kunyu.api.system import require_desktop_session
@@ -69,6 +71,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         app.state.run_scheduler = agent_runtime.scheduler
         app.state.run_lifecycle_service = agent_runtime.lifecycle
         app.state.confirmation_service = agent_runtime.confirmations
+        app.state.question_service = agent_runtime.kernel.context.require(s.QUESTIONS)
         app.state.agent_directory = agent_runtime.agents
         app.state.skill_service = SkillManagementService(
             agent_runtime.kernel.context,
@@ -103,6 +106,7 @@ def create_app(session_token: str | None = None) -> FastAPI:
     app.include_router(system_router)
     app.include_router(model_connections_router)
     app.include_router(confirmations_router)
+    app.include_router(questions_router)
     app.include_router(agent_router)
     app.include_router(commands_router)
     app.include_router(skills_router)

@@ -8,6 +8,8 @@ from kunyu.agent.runtime.events import (
     BudgetSettledPayload,
     EventBatch,
     EventDraft,
+    QuestionResolvedEvent,
+    QuestionResolvedPayload,
     RunProgressEvent,
     RunProgressPayload,
     RunState,
@@ -185,23 +187,41 @@ class RunLifecycleService:
             raise RunLifecycleConflictError(
                 "Waiting confirmations must be cancelled through their exact decision."
             )
+        now = self._clock()
+        events: list[EventDraft] = []
+        if run.state is RunState.WAITING_INPUT:
+            assert run.pending_question_id is not None
+            events.append(
+                QuestionResolvedEvent(
+                    session_id=run.session_id,
+                    run_id=run.run_id,
+                    event_type="question.resolved",
+                    payload=QuestionResolvedPayload(
+                        question_id=run.pending_question_id,
+                        decision="cancelled",
+                        answer=None,
+                    ),
+                    occurred_at=now,
+                )
+            )
+        events.append(
+            RunTerminalEvent(
+                session_id=run.session_id,
+                run_id=run.run_id,
+                event_type="run.cancelled",
+                payload=RunTerminalPayload(
+                    state="cancelled",
+                    reason="Run cancelled by the user.",
+                    budget=budget_usage(run),
+                ),
+                occurred_at=now,
+            )
+        )
         await self._events.commit(
             EventBatch(
                 session_id=run.session_id,
                 run_id=run.run_id,
-                events=(
-                    RunTerminalEvent(
-                        session_id=run.session_id,
-                        run_id=run.run_id,
-                        event_type="run.cancelled",
-                        payload=RunTerminalPayload(
-                            state="cancelled",
-                            reason="Run cancelled by the user.",
-                            budget=budget_usage(run),
-                        ),
-                        occurred_at=self._clock(),
-                    ),
-                ),
+                events=tuple(events),
             )
         )
         return self.get_details(run_id)

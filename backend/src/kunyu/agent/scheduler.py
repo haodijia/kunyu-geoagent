@@ -16,14 +16,17 @@ from kunyu.agent.runtime.events import (
     InboxMessagePayload,
     RunState,
 )
+from kunyu.agent.runtime.questions import QuestionAnswers
 from kunyu.agent.scope import Context
 from kunyu.application.confirmations import ConfirmationService
+from kunyu.application.questions import UserQuestionService
 from kunyu.application.run_acceptance import RunAcceptanceService
 from kunyu.application.run_lifecycle import (
     RunLifecycleConflictError,
     RunLifecycleService,
 )
 from kunyu.domain.confirmations import ConfirmationDecisionResult, ConfirmationStatus
+from kunyu.domain.questions import QuestionDecision
 from kunyu.domain.run_acceptance import RunAcceptanceRequest, RunAcceptanceResult
 from kunyu.domain.runs import RunDetails
 from kunyu.persistence.run_lifecycle import SQLAlchemyRunLifecycleRepository
@@ -51,6 +54,7 @@ class RunScheduler:
         repository: SQLAlchemyRunLifecycleRepository,
         confirmations: ConfirmationService,
         acceptance: RunAcceptanceService,
+        questions: UserQuestionService,
         *,
         interaction_config: QueueInteractionConfig = DEFAULT_QUEUE_INTERACTION_CONFIG,
     ) -> None:
@@ -59,6 +63,7 @@ class RunScheduler:
         self._repository = repository
         self._confirmations = confirmations
         self._acceptance = acceptance
+        self._questions = questions
         self._lock = asyncio.Lock()
         self._active: dict[str, asyncio.Task[None]] = {}
         self._blocked: set[str] = set()
@@ -315,6 +320,21 @@ class RunScheduler:
         async with self._lock:
             self._require_accepting()
             return self._confirmations.reject(confirmation_id)
+
+    async def answer_question(
+        self, question_id: str, answer: QuestionAnswers | None
+    ) -> QuestionDecision:
+        async with self._lock:
+            self._require_accepting()
+            pending = self._questions.get(question_id).question.status == "pending"
+            queue_sequence = None
+            if pending:
+                self._require_queue_capacity()
+                queue_sequence = self._allocate_queue_sequence()
+            result = self._questions.decide(question_id, answer, queue_sequence)
+            if result.continuation_required:
+                self._wake_dispatcher()
+            return result
 
     def _require_accepting(self) -> None:
         if not self._started:

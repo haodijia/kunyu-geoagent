@@ -239,7 +239,7 @@ class RunRecord(Base):
     __table_args__ = (
         CheckConstraint(
             "state IN ('ready', 'model_running', 'tool_running', "
-            "'waiting_confirmation', 'interrupted', 'completed', 'failed', "
+            "'waiting_confirmation', 'waiting_input', 'interrupted', 'completed', 'failed', "
             "'cancelled')",
             name="ck_runs_state",
         ),
@@ -279,7 +279,7 @@ class RunRecord(Base):
             unique=True,
             sqlite_where=sql_text(
                 "state IN ('ready', 'model_running', 'tool_running', "
-                "'waiting_confirmation', 'interrupted')"
+                "'waiting_confirmation', 'waiting_input', 'interrupted')"
             ),
         ),
         Index("ix_runs_session_created", "session_id", "created_at"),

@@ -55,6 +55,10 @@ class ToolRegistryProvider(Protocol):
     def for_run(self, run_id: str) -> ToolRegistry: ...
 
 
+class QuestionRequester(Protocol):
+    async def request(self, run_id: str, tool_call_id: str) -> None: ...
+
+
 class ConfirmationRequester(Protocol):
     async def request(self, run_id: str, tool_call_id: str) -> None: ...
 

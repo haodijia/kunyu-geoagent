@@ -2,6 +2,8 @@ import {
   ChevronDown,
   ChevronRight,
   Circle,
+  Clock,
+  MessageCircle,
   Image,
   FileText,
   ListTodo,
@@ -19,6 +21,7 @@ import type { Confirmation } from "@/features/confirmations/api";
 import { zhCN } from "@/locales/zh-CN";
 import { useSessionEvents } from "@/features/events/SessionEventContext";
 import { CopyButton } from "@/features/messages/CopyButton";
+import type { TrajectoryEventProjection } from "@/features/events/projection";
 import type { GeneratingTool } from "@/features/events/stream-presentation";
 
 import { TodoItems } from "./TodoItems";
@@ -94,6 +97,8 @@ export function ToolActivity({
   readonly tools: readonly ToolCall[];
 }) {
   const [expanded, setExpanded] = useState(false);
+  const { records } = useSessionEvents();
+  const waitingQuestion = tools.some((tool) => isWaitingQuestion(tool, records));
   if (tools.length === 0) return null;
   if (tools.length === 1) {
     return (
@@ -110,7 +115,7 @@ export function ToolActivity({
     (tool) => tool.status === "cancelled",
   ).length;
   const failedCount = tools.filter((tool) => tool.status === "failed").length;
-  const summary =
+  const summary = waitingQuestion ? zhCN.questions.waiting :
     runningTool === undefined
       ? failedCount > 0
         ? content.groupFailed(tools.length, failedCount)
@@ -133,7 +138,7 @@ export function ToolActivity({
         aria-expanded={expanded}
         onClick={() => setExpanded((value) => !value)}
       >
-        <ToolStatusIcon
+        {waitingQuestion ? <Clock className="size-3.5 shrink-0 text-muted-foreground" aria-label={zhCN.questions.waiting} /> : <ToolStatusIcon
           status={
             runningTool === undefined
               ? failedCount > 0
@@ -145,7 +150,7 @@ export function ToolActivity({
                     : "completed"
               : runningTool.status
           }
-        />
+        />}
         <span className="min-w-0 flex-1 truncate">{summary}</span>
         {expanded ? (
           <ChevronDown className="size-3.5" />
@@ -212,7 +217,8 @@ function ToolCallRow({
           0,
           Date.parse(tool.updated_at) - Date.parse(started.occurredAt),
         );
-  const preview = images.length > 0 ? images.map((ref) => ref.name).join(", ") : toolPreview(tool.arguments);
+  const waitingQuestion = isWaitingQuestion(tool, records);
+  const preview = waitingQuestion ? zhCN.questions.waiting : images.length > 0 ? images.map((ref) => ref.name).join(", ") : toolPreview(tool.arguments);
 
   return (
     <div className="w-full min-w-0 py-0.5">
@@ -223,7 +229,7 @@ function ToolCallRow({
         aria-expanded={hasDetails ? expanded : undefined}
         onClick={() => setExpanded((value) => !value)}
       >
-        <ToolStatusIcon status={tool.status} />
+        {waitingQuestion ? <Clock className="size-3.5 shrink-0 text-muted-foreground" aria-label={zhCN.questions.waiting} /> : <ToolStatusIcon status={tool.status} />}
         <ToolKindIcon name={tool.name} />
         <span
           className="min-w-0 max-w-[35%] shrink truncate font-medium text-foreground"
@@ -393,7 +399,7 @@ export function toolLabel(name: string): string {
 
 function ToolKindIcon({ name }: { readonly name: string }) {
   const Icon =
-    name === "write" || name === "edit" ? PenLine : name === "read" ? FileText : name === "read_image" ? Image : name === "todo_write" ? ListTodo : name === "memory_read" || name === "glob" || name === "grep"
+    name === "ask_user_question" ? MessageCircle : name === "write" || name === "edit" ? PenLine : name === "read" ? FileText : name === "read_image" ? Image : name === "todo_write" ? ListTodo : name === "memory_read" || name === "glob" || name === "grep"
       ? Search
       : name === "memory_write"
         ? PenLine
@@ -410,6 +416,9 @@ function ToolKindIcon({ name }: { readonly name: string }) {
 }
 
 function toolPreview(arguments_: ToolCall["arguments"]): string | undefined {
+  if (Array.isArray(arguments_.questions)) {
+    return arguments_.questions.map((item) => typeof item === "object" && item !== null && "question" in item ? String(item.question) : "").join(" · ");
+  }
   for (const key of [
     "name",
     "command",
@@ -450,4 +459,12 @@ function todoResultItems(result: ToolCall["result"]) {
   if (typeof result !== "object" || result === null || Array.isArray(result) || !("todos" in result))
     throw new Error("Todo tool result has no task list.");
   return parseTodos(result.todos);
+}
+
+
+function isWaitingQuestion(tool: ToolCall, records: readonly TrajectoryEventProjection[]): boolean {
+  return tool.status === "running" && records.some((request) =>
+    request.eventType === "question.requested" && request.payload.tool_call_id === tool.id &&
+    !records.some((decision) => decision.eventType === "question.resolved" && decision.entityId === request.entityId)
+  );
 }
