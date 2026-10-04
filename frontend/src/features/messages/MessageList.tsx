@@ -22,6 +22,7 @@ import { collectMessageBlocks } from "./message-blocks";
 import { collectSessionSkills } from "@/features/skills/session-skills";
 import { UserSkillText } from "@/features/skills/UserSkillText";
 
+import { PlanCards } from "@/features/plans/PlanCards";
 import { AssistantContent } from "./AssistantContent";
 
 const content = zhCN.conversation;
@@ -125,6 +126,11 @@ export function MessageList({
         })),
     ].sort((left, right) => left.sequence - right.sequence);
   }, [visibleMessages, records, repairedAttempts, reasoningByMessage]);
+  const lastAssistantByRun = useMemo(() => {
+    const last = new Map<string, string>();
+    for (const item of timeline) if (item.kind === "message" && item.message.role === "assistant" && item.message.run_id !== null) last.set(item.message.run_id, item.id);
+    return last;
+  }, [timeline]);
   const endRef = useRef<HTMLDivElement>(null);
   const followStreamRef = useRef(true);
   const [awayFromEnd, setAwayFromEnd] = useState(false);
@@ -282,6 +288,7 @@ export function MessageList({
                   )}
               </>
             )}
+            {message.role === "assistant" && message.run_id !== null && lastAssistantByRun.get(message.run_id) === message.id && turns.some(turn => turn.id === message.run_id && ["completed", "failed", "cancelled"].includes(turn.state)) && <PlanCards tools={turns.find(turn => turn.id === message.run_id)!.tool_calls} />}
             <div
               className={`mt-1 flex h-6 items-center gap-2 px-1 text-xs text-muted-foreground transition-opacity ${message.status === "completed" && !pendingSteering.has(message.id) ? "opacity-0 group-hover:opacity-100 group-focus-within:opacity-100" : "opacity-100"}`}
             >

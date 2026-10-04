@@ -1,4 +1,4 @@
-import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from "react";
+import { createContext, useCallback, useContext, useEffect, useState, useSyncExternalStore, type ReactNode } from "react";
 
 interface ExplorerState {
   readonly preference: boolean | null;
@@ -29,15 +29,20 @@ function readState(key: string): ExplorerState {
   return state;
 }
 
+const desktopFiles = window.matchMedia("(min-width: 768px)");
+function subscribeViewport(notify: () => void) { desktopFiles.addEventListener("change", notify); return () => desktopFiles.removeEventListener("change", notify); }
+const desktopViewport = () => desktopFiles.matches;
+
 export function FileExplorerProvider({ workspaceId, children }: { readonly workspaceId: string; readonly children: ReactNode }) {
+  const wide = useSyncExternalStore(subscribeViewport, desktopViewport);
   const key = `kunyu:files:${workspaceId}`;
   const [state, setState] = useState(() => readState(key));
   const [populated, setPopulated] = useState(false);
   const [selected, setSelected] = useState<string | null>(null);
   const showWhenPopulated = useCallback(() => setPopulated(true), []);
   useEffect(() => { localStorage.setItem(key, JSON.stringify(state)); }, [key, state]);
-  return <ExplorerContext value={{ ...state, open: state.preference ?? populated, selected,
-    togglePanel: () => setState(current => ({ ...current, preference: !(current.preference ?? populated) })),
+  return <ExplorerContext value={{ ...state, open: state.preference ?? (populated && wide), selected,
+    togglePanel: () => setState(current => ({ ...current, preference: !(current.preference ?? (populated && wide)) })),
     closePanel: () => setState(current => ({ ...current, preference: false })),
     toggleDirectory: path => setState(current => ({ ...current, expanded: current.expanded.includes(path) ? current.expanded.filter(value => value !== path && !value.startsWith(path + "/")) : [...current.expanded, path] })),
     collapseAll: () => setState(current => ({ ...current, expanded: [] })),

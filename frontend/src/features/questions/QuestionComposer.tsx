@@ -17,6 +17,8 @@ import {
   type HumanQuestion,
   type QuestionAnswer,
 } from "./api";
+import { PlanReviewPanel } from "@/features/plans/PlanReviewPanel";
+import { planReviewOf } from "@/features/plans/plan";
 import { QuestionFlow } from "./QuestionFlow";
 
 export function QuestionComposer({
@@ -79,6 +81,25 @@ export function QuestionComposer({
       ? mutation.error.message
       : zhCN.questions.submitFailed
     : null;
+  async function settle(answers: readonly QuestionAnswer[] | null) {
+    try {
+      await mutation.mutateAsync(answers);
+      return true;
+    } catch {
+      return false;
+    }
+  }
+  const review = question === undefined ? null : planReviewOf(question);
+  if (question !== undefined && review !== null)
+    return (
+      <PlanReviewPanel
+        pending={question}
+        review={review}
+        busy={mutation.isPending || cancelPending}
+        error={error}
+        onDecide={settle}
+      />
+    );
   return (
     <div className="shrink-0 px-3 pt-2 pb-3">
       {question === undefined ? (
@@ -122,14 +143,7 @@ export function QuestionComposer({
           busy={mutation.isPending || cancelPending}
           error={error}
           onResetError={mutation.reset}
-          onDecide={async (answers) => {
-            try {
-              await mutation.mutateAsync(answers);
-              return true;
-            } catch {
-              return false;
-            }
-          }}
+          onDecide={settle}
         />
       )}
     </div>

@@ -8,7 +8,10 @@ export interface PlanState {
 export function projectPlanEvents(state: PlanState, events: readonly SessionEvent[]): PlanState {
   let current = state;
   for (const event of events) {
-    if (event.event_type === "plan/changed" || event.event_type === "plan/selected") {
+    if (event.event_type === "plan/exit-selected") {
+      if (typeof event.payload.tool_call_id !== "string" || event.payload.tool_call_id === "") throw new Error("Invalid plan approval selection.");
+      current = { ...current, pending: false };
+    } else if (event.event_type === "plan/changed" || event.event_type === "plan/selected") {
       const active = event.payload.active;
       if (typeof active !== "boolean") throw new Error("Invalid plan selection.");
       current = event.event_type === "plan/changed"

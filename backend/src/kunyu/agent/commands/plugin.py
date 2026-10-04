@@ -4,14 +4,13 @@ from datetime import UTC, datetime
 
 from kunyu.agent import services as s
 from kunyu.agent.commands.compaction import compact_history
-from kunyu.agent.commands.plan import narrate_plan_selection, plan_command, plan_policy
+from kunyu.agent.commands.plan import plan_command
 from kunyu.agent.commands.registry import (
     CommandDefinition,
     CommandInvocation,
     CommandRegistry,
     CommandResult,
 )
-from kunyu.agent.runtime.context import PromptSection
 from kunyu.agent.runtime.events import (
     EventBatch,
     FeedbackRecordedEvent,
@@ -93,8 +92,6 @@ class CommandsPlugin:
         s.CONTEXTS,
         s.EXECUTIONS,
         s.MODEL,
-        s.PROMPTS,
-        s.HOOKS,
     )
     provides = (s.COMMANDS,)
 
@@ -139,10 +136,3 @@ class CommandsPlugin:
         )
         for definition in definitions:
             registry.register(context, definition)
-        context.require(s.PROMPTS).register(
-            context, PromptSection("plan:policy", 30, plan_policy)
-        )
-
-        context.require(s.HOOKS).pre_step.register(
-            context, "plan:selection", narrate_plan_selection
-        )

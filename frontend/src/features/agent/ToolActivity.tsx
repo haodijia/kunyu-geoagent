@@ -399,7 +399,7 @@ export function toolLabel(name: string): string {
 
 function ToolKindIcon({ name }: { readonly name: string }) {
   const Icon =
-    name === "ask_user_question" ? MessageCircle : name === "write" || name === "edit" ? PenLine : name === "read" ? FileText : name === "read_image" ? Image : name === "todo_write" ? ListTodo : name === "memory_read" || name === "glob" || name === "grep"
+    name === "exit_plan_mode" ? FileText : name === "ask_user_question" ? MessageCircle : name === "write" || name === "edit" ? PenLine : name === "read" ? FileText : name === "read_image" ? Image : name === "todo_write" ? ListTodo : name === "memory_read" || name === "glob" || name === "grep"
       ? Search
       : name === "memory_write"
         ? PenLine
@@ -420,6 +420,7 @@ function toolPreview(arguments_: ToolCall["arguments"]): string | undefined {
     return arguments_.questions.map((item) => typeof item === "object" && item !== null && "question" in item ? String(item.question) : "").join(" · ");
   }
   for (const key of [
+    "plan",
     "name",
     "command",
     "file_path",

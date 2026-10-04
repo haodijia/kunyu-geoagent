@@ -12,6 +12,7 @@ import { downloadFile } from "./api";
 import { AppliedDiff } from "./AppliedDiff";
 import { fileName } from "./file-path";
 import { useFilePreview, type PreviewTab } from "./FilePreviewContext";
+import { PlanPreview } from "@/features/plans/PlanPreview";
 import { FileViewer } from "./FileViewer";
 import { filePreviewError, fileSaveError, LoadingPreview, PreviewNotice } from "./preview-status";
 import styles from "./FilePreviewLayout.module.css";
@@ -24,7 +25,7 @@ export function FilePreviewLayout({ children }: { readonly children: ReactNode }
   const root = useRef<HTMLDivElement>(null);
   const [downloading, setDownloading] = useState(false);
   const tab = preview.tabs.find(item => item.id === preview.activeId);
-  const saving = tab !== undefined && preview.saving.includes(tab.path);
+  const saving = tab?.kind === "file" && preview.saving.includes(tab.path);
   const editable = tab?.kind === "file" && (preview.loaded[tab.path]?.editable === true || preview.drafts[tab.path] !== undefined);
   const updated = tab?.kind === "file" && preview.hasUpdate(tab.path);
   async function download() {
@@ -41,10 +42,10 @@ export function FilePreviewLayout({ children }: { readonly children: ReactNode }
     {tab !== undefined && <aside className={`${styles.panel} ${preview.maximized ? styles.maximized : ""}`} onKeyDown={event => {
       if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "s" && editable) {
         event.preventDefault();
-        if (!saving && preview.drafts[tab.path] !== undefined) void preview.save(tab.id).catch(error => toast.error(fileSaveError(error)));
+        if (!saving && tab.kind === "file" && preview.drafts[tab.path] !== undefined) void preview.save(tab.id).catch(error => toast.error(fileSaveError(error)));
       }
       if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "w") { event.preventDefault(); preview.closeTab(tab.id); }
-    }} aria-label={content.title} data-file-preview-path={tab.path}>
+    }} aria-label={tab.kind === "plan" ? zhCN.planReview.document : content.title} data-file-preview-path={tab.kind === "plan" ? undefined : tab.path}>
       {!preview.maximized && <div className={styles.resize} role="separator" tabIndex={0} aria-label={content.resize} aria-orientation="vertical" aria-valuemin={20} aria-valuemax={80} aria-valuenow={preview.width}
         onPointerDown={event => { event.currentTarget.setPointerCapture(event.pointerId); }}
         onPointerMove={event => { if (!event.currentTarget.hasPointerCapture(event.pointerId)) return; const bounds = root.current!.getBoundingClientRect(); preview.resize((bounds.right - event.clientX) / bounds.width * 100); }}
@@ -53,29 +54,29 @@ export function FilePreviewLayout({ children }: { readonly children: ReactNode }
       <div className="flex h-9 shrink-0 items-center border-b border-border bg-muted/50" role="tablist" aria-label={content.tabs}>
         <div className="flex min-w-0 flex-1 overflow-x-auto">
           {preview.tabs.map(item => <div key={item.id} className={`flex h-9 shrink-0 items-center border-r border-border ${item.id === preview.activeId ? "border-t-2 border-t-primary bg-background" : "text-secondary-foreground"}`}>
-            <button type="button" role="tab" aria-selected={item.id === preview.activeId} aria-controls="file-preview-body" className="flex max-w-52 items-center gap-1.5 px-3 text-xs" title={item.path} onClick={() => preview.select(item.id)}>
-              {item.kind === "file" ? <FileText className="size-3.5 shrink-0" /> : <ArrowLeftRight className="size-3.5 shrink-0" />}<span className="truncate">{fileName(item.path)}{item.kind === "diff" ? ` · ${content.diff}` : ""}</span>{preview.drafts[item.path] !== undefined && <span className="size-1.5 shrink-0 rounded-full bg-primary" title={content.unsaved} aria-label={content.unsaved} />}
-            </button><button type="button" className="mr-1 rounded p-1 hover:bg-muted" disabled={preview.saving.includes(item.path)} aria-label={content.closeTab(fileName(item.path))} onClick={() => preview.closeTab(item.id)}><X className="size-3" /></button>
+            <button type="button" role="tab" aria-selected={item.id === preview.activeId} aria-controls="file-preview-body" className="flex max-w-52 items-center gap-1.5 px-3 text-xs" title={item.kind === "plan" ? item.title : item.path} onClick={() => preview.select(item.id)}>
+              {item.kind !== "diff" ? <FileText className="size-3.5 shrink-0" /> : <ArrowLeftRight className="size-3.5 shrink-0" />}<span className="truncate">{previewTabTitle(item)}{item.kind === "diff" ? ` · ${content.diff}` : ""}</span>{item.kind === "file" && preview.drafts[item.path] !== undefined && <span className="size-1.5 shrink-0 rounded-full bg-primary" title={content.unsaved} aria-label={content.unsaved} />}
+            </button><button type="button" className="mr-1 rounded p-1 hover:bg-muted" disabled={item.kind === "file" && preview.saving.includes(item.path)} aria-label={content.closeTab(previewTabTitle(item))} onClick={() => preview.closeTab(item.id)}><X className="size-3" /></button>
           </div>)}
         </div>
         <Button type="button" size="icon" variant="ghost" className="size-7 shrink-0" aria-label={content.close} disabled={preview.saving.length > 0} onClick={preview.closePanel}><X className="size-3.5" /></Button>
       </div>
       <div className="flex h-8 shrink-0 items-center justify-between gap-2 border-b border-border bg-muted/50 px-2">
-        <span className="min-w-0 truncate text-[11px] text-secondary-foreground" title={tab.path}>{tab.path}</span>
+        <span className="min-w-0 truncate text-[11px] text-secondary-foreground" title={tab.kind === "plan" ? tab.title : tab.path}>{tab.kind === "plan" ? zhCN.planReview.document : tab.path}</span>
         <div className="flex shrink-0 items-center gap-1">
-          <CopyButton text={tab.path} />
+          {tab.kind !== "plan" && <CopyButton text={tab.path} />}
           {tab.kind === "file" && <>
             {preview.watchErrors[tab.path] != null && <Button variant="ghost" size="icon" className="size-6 text-destructive" aria-label={content.watchFailed} title={preview.watchErrors[tab.path]!} onClick={() => preview.retryWatch(tab.path)}><TriangleAlert className="size-3" /></Button>}
             {preview.loaded[tab.path]?.refreshable !== false && <Button variant="ghost" size="icon" className={`size-6 ${updated ? "text-amber-600 dark:text-amber-400" : ""}`} aria-label={updated ? content.updated : content.refresh} title={updated ? content.updated : content.refresh} data-preview-refresh-state={updated ? "updated" : "idle"} disabled={saving} onClick={preview.refresh}><RefreshCw className="size-3" /></Button>}
             <Button variant="ghost" size="icon" className="size-6" disabled={downloading} aria-label={content.download} onClick={() => void download()}><Download className="size-3" /></Button>
           </>}
           <Button variant="ghost" size="icon" className="size-6" aria-label={preview.maximized ? content.restore : content.maximize} onClick={preview.toggleMaximized}>{preview.maximized ? <Minimize2 className="size-3" /> : <Maximize2 className="size-3" />}</Button>
-          {editable && <Button variant="ghost" size="sm" className={`h-6 gap-1 px-1.5 text-xs ${preview.drafts[tab.path] !== undefined ? "text-amber-600 dark:text-amber-400" : ""}`} disabled={saving || preview.drafts[tab.path] === undefined} aria-label={content.save} title={content.saveTooltip} onClick={() => void preview.save(tab.id).catch(error => toast.error(fileSaveError(error)))}><Save className="size-3" />{saving ? content.saving : content.save}</Button>}
+          {editable && <Button variant="ghost" size="sm" className={`h-6 gap-1 px-1.5 text-xs ${tab.kind === "file" && preview.drafts[tab.path] !== undefined ? "text-amber-600 dark:text-amber-400" : ""}`} disabled={saving || tab.kind !== "file" || preview.drafts[tab.path] === undefined} aria-label={content.save} title={content.saveTooltip} onClick={() => void preview.save(tab.id).catch(error => toast.error(fileSaveError(error)))}><Save className="size-3" />{saving ? content.saving : content.save}</Button>}
         </div>
       </div>
       {preview.storageError !== null && <div role="alert" className="border-b border-border px-3 py-2 text-xs text-destructive">{preview.storageError}</div>}
       <div id="file-preview-body" className="flex min-h-0 min-w-0 flex-1 flex-col" role="tabpanel">
-        {tab.kind === "file" ? <FileViewer key={`${tab.id}:${tab.revision}`} tab={tab} /> : <DiffPreview tab={tab} />}
+        {tab.kind === "file" ? <FileViewer key={`${tab.id}:${tab.revision}`} tab={tab} /> : tab.kind === "diff" ? <DiffPreview tab={tab} /> : <PlanPreview toolId={tab.toolId} />}
       </div>
     </aside>}
   </div>;
@@ -89,3 +90,6 @@ function DiffPreview({ tab }: { readonly tab: Extract<PreviewTab, { kind: "diff"
   if (tool === undefined || tool.status !== "completed" || (tool.name !== "write" && tool.name !== "edit")) return <PreviewNotice text={content.diffMissing} danger />;
   return <AppliedDiff result={parseFileMutationResult(tool.result)} />;
 }
+
+
+function previewTabTitle(tab: PreviewTab): string { return tab.kind === "plan" ? tab.title : fileName(tab.path); }

@@ -8,6 +8,7 @@ from typing import Literal
 class SessionControls:
     plan_active: bool = False
     plan_pending: bool | None = None
+    plan_narrate: bool = True
     plan_at_last_header: bool | None = None
     permission: Literal["read-only", "workspace-write"] = "workspace-write"
     summary: str | None = None
