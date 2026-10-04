@@ -15,6 +15,8 @@ import { parseSessionRoute } from "@/features/sessions/routes";
 import { SessionTitlebar } from "@/features/sessions/SessionTitlebar";
 import { SessionWorkspaceProvider } from "@/features/sessions/SessionWorkspaceContext";
 import { zhCN } from "@/locales/zh-CN";
+import { FilePreviewProvider } from "@/features/files/FilePreviewContext";
+import { FilePreviewLayout } from "@/features/files/FilePreviewLayout";
 
 const content = zhCN.sessionWorkspace;
 
@@ -114,12 +116,14 @@ function SessionWorkspaceContent({
           sessionId={sessionQuery.data.id}
           workspaceId={sessionQuery.data.workspace_id}
         >
+        <FilePreviewProvider key={sessionQuery.data.id} sessionId={sessionQuery.data.id}>
         <section className="flex h-full min-h-0 flex-col bg-background">
           <SessionTitlebar />
           <div className="min-h-0 flex-1 overflow-hidden">
-            <Outlet />
+            <FilePreviewLayout><Outlet /></FilePreviewLayout>
           </div>
         </section>
+        </FilePreviewProvider>
         </SessionMessagesProvider>
       </SessionEventProvider>
     </SessionWorkspaceProvider>

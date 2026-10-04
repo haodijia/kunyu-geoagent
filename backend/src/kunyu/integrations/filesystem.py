@@ -95,7 +95,7 @@ class MountedFilesystem:
     def stream_text(self, target: FsTarget, cancelled: Event) -> Generator[str]:
         decoder = codecs.getincrementaldecoder("utf-8-sig")(errors="strict")
         sampled_bytes = 0
-        chunks = self._bytes(target, cancelled)
+        chunks = self.stream_bytes(target, cancelled)
         try:
             for chunk in chunks:
                 sample = chunk[: max(0, BINARY_SAMPLE_BYTES - sampled_bytes)]
@@ -122,7 +122,7 @@ class MountedFilesystem:
         finally:
             chunks.close()
 
-    def _bytes(self, target: FsTarget, cancelled: Event) -> Iterator[bytes]:
+    def stream_bytes(self, target: FsTarget, cancelled: Event) -> Generator[bytes]:
         if cancelled.is_set():
             raise FilesystemError("FS_ABORTED", "read aborted")
         if target.kind == "attachment":

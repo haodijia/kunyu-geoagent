@@ -101,6 +101,8 @@ class Filesystem(Protocol):
 
     def stream_text(self, target: FsTarget, cancelled: Event) -> Generator[str]: ...
 
+    def stream_bytes(self, target: FsTarget, cancelled: Event) -> Generator[bytes]: ...
+
     def write_text(
         self,
         target: FsTarget,

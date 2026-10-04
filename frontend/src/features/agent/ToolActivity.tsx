@@ -269,7 +269,7 @@ function ToolCallRow({
           ) : tool.name === "glob" || tool.name === "grep" ? (
             <SearchResult value={tool.result} text={toolContentText(resultContent)} />
           ) : tool.name === "write" || tool.name === "edit" ? (
-            <FileMutationResult value={tool.result} text={toolContentText(resultContent)} />
+            <FileMutationResult toolId={tool.id} value={tool.result} text={toolContentText(resultContent)} />
           ) : (
             <ToolDetail label={tool.name === "skill" ? zhCN.skills.instructions : content.output}>
               {formatToolResult(tool)}
