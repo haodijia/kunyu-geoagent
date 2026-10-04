@@ -1,4 +1,4 @@
-import { ChevronLeft, ChevronRight, Download, FileText, LoaderCircle, X } from "lucide-react";
+import { ChevronLeft, ChevronRight, Download, FileText, ImageOff, LoaderCircle, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { AlertDialog, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogTitle } from "@/components/ui/alert-dialog";
@@ -8,9 +8,10 @@ import { readAttachment, type Attachment } from "./api";
 
 const content = zhCN.conversation.attachments;
 
-export function AttachmentStrip({ sessionId, attachments, disabled = false, onRemove }: {
+export function AttachmentStrip({ sessionId, attachments, disabled = false, onRemove, offloadedIds }: {
   readonly sessionId: string;
   readonly attachments: readonly Attachment[];
+  readonly offloadedIds?: ReadonlySet<string>;
   readonly disabled?: boolean;
   readonly onRemove?: (id: string) => void;
 }) {
@@ -27,15 +28,15 @@ export function AttachmentStrip({ sessionId, attachments, disabled = false, onRe
   }, [attachments]);
   if (attachments.length === 0) return null;
   return <div className="relative min-w-0 max-w-full"><div ref={scrollRef} aria-label={content.list} className="flex min-w-0 max-w-full items-center gap-2 overflow-x-auto py-1.5 [scrollbar-width:none]">
-    {attachments.map((ref) => <AttachmentCard key={ref.id} sessionId={sessionId} attachment={ref} disabled={disabled} onRemove={onRemove} />)}
+    {attachments.map((ref) => <AttachmentCard key={ref.id} sessionId={sessionId} attachment={ref} offloaded={offloadedIds?.has(ref.id) === true} disabled={disabled} onRemove={onRemove} />)}
   </div>
     {edges.left && <div className="pointer-events-none absolute inset-y-0 left-0 flex w-[60px] items-center bg-[linear-gradient(to_left,transparent,var(--attachment-surface,var(--mu-composer-bg))_70%)]"><Button type="button" size="icon" variant="outline" className="pointer-events-auto size-7 rounded-full bg-background shadow-sm" aria-label={content.scrollLeft} onClick={() => scrollRef.current?.scrollBy({ left: -200, behavior: "smooth" })}><ChevronLeft className="size-3.5" /></Button></div>}
     {edges.right && <div className="pointer-events-none absolute inset-y-0 right-0 flex w-[60px] items-center justify-end bg-[linear-gradient(to_right,transparent,var(--attachment-surface,var(--mu-composer-bg))_70%)]"><Button type="button" size="icon" variant="outline" className="pointer-events-auto size-7 rounded-full bg-background shadow-sm" aria-label={content.scrollRight} onClick={() => scrollRef.current?.scrollBy({ left: 200, behavior: "smooth" })}><ChevronRight className="size-3.5" /></Button></div>}
   </div>;
 }
 
-function AttachmentCard({ sessionId, attachment: ref, disabled, onRemove }: {
-  readonly sessionId: string; readonly attachment: Attachment; readonly disabled: boolean;
+function AttachmentCard({ sessionId, attachment: ref, disabled, onRemove, offloaded }: {
+  readonly sessionId: string; readonly attachment: Attachment; readonly disabled: boolean; readonly offloaded: boolean;
   readonly onRemove: ((id: string) => void) | undefined;
 }) {
   const [url, setUrl] = useState<string | null>(null);
@@ -65,12 +66,13 @@ function AttachmentCard({ sessionId, attachment: ref, disabled, onRemove }: {
     finally { setDownloading(false); }
   }
   return <div className="relative shrink-0" data-attachment-id={ref.id}>
-    {ref.kind === "image" ? <Button type="button" variant="ghost" className="size-[60px] overflow-hidden rounded-lg border border-border bg-accent p-0" disabled={url === null} onClick={() => setPreview(true)} aria-label={content.preview(ref.name)} title={ref.name}>
+    {ref.kind === "image" ? <Button type="button" variant="ghost" className="size-[60px] overflow-hidden rounded-lg border border-border bg-accent p-0" disabled={url === null} onClick={() => setPreview(true)} aria-label={content.preview(ref.name)} title={offloaded ? `${ref.name} · ${content.offloaded}` : ref.name}>
       {url !== null ? <img src={url} alt={ref.name} className="size-full object-cover" /> : failed ? <span className="px-1 text-[10px] text-destructive">{content.previewFailed}</span> : <LoaderCircle className="size-4 animate-spin" />}
     </Button> : <Button type="button" variant="ghost" onClick={() => void download()} disabled={downloading} className="flex h-[60px] max-w-[250px] gap-3 rounded-lg border border-border bg-accent px-3 text-left" title={ref.name} aria-label={content.download(ref.name)}>
       {downloading ? <LoaderCircle className="size-7 shrink-0 animate-spin" /> : <FileText className="size-7 shrink-0 text-muted-foreground" strokeWidth={1.5} />}
       <span className="flex min-w-0 flex-col gap-0.5"><span className="max-w-[150px] truncate text-[13px] font-normal">{ref.name}</span><span className="text-[11px] font-normal text-muted-foreground">{formatBytes(ref.bytes)}</span></span>
     </Button>}
+    {offloaded && <span className="pointer-events-none absolute right-1 bottom-1 rounded bg-background/90 p-0.5 text-muted-foreground" aria-label={content.offloaded}><ImageOff className="size-3" /></span>}
     {onRemove !== undefined && <button type="button" disabled={disabled} aria-label={content.remove(ref.name)} onClick={() => onRemove(ref.id)} className="absolute -top-1 -right-1 flex size-4 items-center justify-center rounded-full border bg-background text-muted-foreground shadow-sm hover:text-foreground disabled:opacity-50"><X className="size-2.5" /></button>}
     <AlertDialog open={preview} onOpenChange={setPreview}><AlertDialogContent className="max-w-3xl gap-3 p-4">
       <div className="flex items-center justify-between gap-3"><AlertDialogTitle className="truncate text-sm">{ref.name}</AlertDialogTitle><AlertDialogCancel asChild><Button type="button" size="icon" variant="ghost" aria-label={content.close}><X className="size-4" /></Button></AlertDialogCancel></div>

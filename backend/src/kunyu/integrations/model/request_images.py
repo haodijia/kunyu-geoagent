@@ -19,6 +19,37 @@ from kunyu.integrations.model.image_geometry import (
 
 MAX_REQUEST_IMAGES = 600
 MAX_INLINE_IMAGE_BYTES = 20 * 1024 * 1024
+IMAGE_COUNT_QUANTUM = 20
+IMAGE_BYTE_QUANTUM = 10 * 1024 * 1024
+
+
+def required_image_offload(lengths: list[int]) -> int:
+    excess_count = max(0, len(lengths) - MAX_REQUEST_IMAGES)
+    excess_bytes = max(0, sum(lengths) - MAX_INLINE_IMAGE_BYTES)
+    if excess_count == 0 and excess_bytes == 0:
+        return 0
+    remove_count = (
+        (excess_count + IMAGE_COUNT_QUANTUM - 1) // IMAGE_COUNT_QUANTUM
+    ) * IMAGE_COUNT_QUANTUM
+    remove_bytes = (
+        (excess_bytes + IMAGE_BYTE_QUANTUM - 1) // IMAGE_BYTE_QUANTUM
+    ) * IMAGE_BYTE_QUANTUM
+    removed = count = 0
+    for size in lengths:
+        if count >= remove_count and (remove_bytes == 0 or removed > remove_bytes):
+            break
+        removed += size
+        count += 1
+    return count
+
+
+def raise_image_offload(count: int) -> None:
+    if count:
+        raise ModelAdapterError(
+            ModelErrorCode.IMAGE_OFFLOAD_REQUIRED,
+            f"Request images require {count} oldest occurrence(s) to be offloaded.",
+            offload_images=count,
+        )
 
 
 @dataclass(frozen=True, slots=True)
@@ -82,10 +113,10 @@ def require_images_fit(
     images: Mapping[str, RequestImage],
     policy: ModelImageInput,
 ) -> None:
-    count = encoded_bytes = 0
+    lengths = []
     for message in messages:
         for block in message.content:
-            if not isinstance(block, ImageInputBlock):
+            if not isinstance(block, ImageInputBlock) or block.offloaded is True:
                 continue
             if not policy.enabled:
                 raise ModelAdapterError(
@@ -104,10 +135,5 @@ def require_images_fit(
                 raise ModelAdapterError(
                     ModelErrorCode.IMAGE_LIMIT, "Image byte limit exceeded."
                 )
-            count += 1
-            encoded_bytes += 4 * ((len(image.data) + 2) // 3)
-    if count > MAX_REQUEST_IMAGES or encoded_bytes > MAX_INLINE_IMAGE_BYTES:
-        raise ModelAdapterError(
-            ModelErrorCode.IMAGE_LIMIT,
-            "Retained images exceed the request image count or inline byte limit.",
-        )
+            lengths.append(4 * ((len(image.data) + 2) // 3))
+    raise_image_offload(required_image_offload(lengths))

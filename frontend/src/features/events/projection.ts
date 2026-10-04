@@ -53,7 +53,7 @@ export function projectSessionEvent(
   if (event.event_type === "llm/retry" || event.event_type === "llm/retry-started") {
     return projection(event, "context", `${requiredString(event, "retry_id")}:${requiredInteger(event, "retry")}`);
   }
-  if (["todo/write", "plan/changed", "permission/changed", "feedback/record", "history/compacted"].includes(event.event_type)) {
+  if (["todo/write", "plan/changed", "permission/changed", "feedback/record", "history/compacted", "image/offload"].includes(event.event_type)) {
     return projection(event, "context", event.id);
   }
   if (event.event_type === "context.injected" || event.event_type === "agent/inbox/spliced" || event.event_type === "agent/step/decision" || event.event_type.startsWith("agent/queue/")) {

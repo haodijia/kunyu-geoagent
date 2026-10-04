@@ -5,6 +5,7 @@ import json
 from collections.abc import Mapping
 
 from kunyu.agent.runtime.content import TextBlock
+from kunyu.agent.runtime.image_offload import offloaded_image_text
 from kunyu.agent.runtime.input_content import FileInputBlock, ImageInputBlock
 from kunyu.integrations.model.connection import invalid_request
 from kunyu.integrations.model.request_images import RequestImage
@@ -80,6 +81,8 @@ def input_blocks(
     *,
     native: bool,
 ) -> list[dict]:
+    if isinstance(block, ImageInputBlock) and block.offloaded is True:
+        return [{"type": "text", "text": offloaded_image_text(block.attachment)}]
     encoded = input_block(block, images, native=native)
     return (
         [image_handle(block, images), encoded]

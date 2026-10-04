@@ -285,6 +285,8 @@ export const zhCN = {
   },
   conversation: {
     attachments: {
+      offloaded: "已从模型图片上下文省略，附件仍可预览",
+      offloadSummary: (count: number) => `为适应模型图片限制，已省略 ${count} 张图片上下文。`,
       scrollLeft: "向左滚动附件", scrollRight: "向右滚动附件", add: "添加附件", list: "附件", uploading: "正在上传附件…", drop: "松开以添加附件",
       preview: (name: string) => `预览 ${name}`, remove: (name: string) => `移除 ${name}`, download: (name: string) => `下载 ${name}`,
       downloadLabel: "下载", close: "关闭预览", retry: "重试上传", dismiss: "取消此次上传",
@@ -541,6 +543,7 @@ export const zhCN = {
       injected: "会话注入",
       "skill-catalog": "技能目录",
       "skill-invocation": "用户调用技能",
+      "image/offload": "图片上下文省略",
     },
     details: "事件详情",
     resizeDetails: "调整事件详情宽度；双击恢复默认值",
@@ -575,6 +578,7 @@ export const zhCN = {
     outputTokens: "输出 Token",
     totalTokens: "总 Token",
     emptyAssistant: "模型未返回可见文本",
+    imageOffloadRequired: "图片请求超限，准备省略上下文",
     injectedContext: "下一步注入上下文",
     unknownTool: "未知工具",
     statuses: {

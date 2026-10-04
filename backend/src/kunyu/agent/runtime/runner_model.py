@@ -37,6 +37,7 @@ from kunyu.agent.runtime.hooks import (
     CancellationSignal,
     LoopHooks,
     RequestFailure,
+    RequestRetry,
 )
 from kunyu.agent.runtime.model_attempt import (
     AssistantFinish,
@@ -97,6 +98,8 @@ def _message_snapshot(message: ModelMessage) -> dict[str, JsonValue]:
         if message.replay_state is None
         else message.replay_state.model_dump(mode="json"),
     }
+    if message.input_source is not None:
+        value["input_source"] = message.input_source.model_dump(mode="json")
     if message.context_source is not None:
         value["source"] = {"kind": "context", "producer": message.context_source}
     if message.source_model is not None:
@@ -345,6 +348,7 @@ class ModelStepExecutor[AdapterConfigT]:
                 str(error),
                 call_config,
                 error.provider_retry_after_ms,
+                error.offload_images,
             )
         except _ModelOutputError as error:
             return await self._handle_request_failure(
@@ -379,6 +383,7 @@ class ModelStepExecutor[AdapterConfigT]:
         message: str,
         call_config: ModelSnapshotPayload,
         provider_retry_after_ms: float | None = None,
+        offload_images: int | None = None,
     ) -> str:
         await self._commit(
             run,
@@ -401,13 +406,16 @@ class ModelStepExecutor[AdapterConfigT]:
                 call_config.connection_id,
                 call_config.retry_policy,
                 provider_retry_after_ms,
+                offload_images,
             ),
             self._signal(),
         )
-        if action != "retry":
+        if not isinstance(action, RequestRetry):
             self._hooks.error(run, RuntimeError(f"{code}: {message}"))
             await self._fail_run(run, code, message)
             return "failed"
+        if action.rebuild_context:
+            self._prepared_context = None
         await self._commit(
             run,
             (

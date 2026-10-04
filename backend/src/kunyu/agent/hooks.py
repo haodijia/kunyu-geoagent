@@ -21,6 +21,7 @@ from kunyu.agent.runtime.hooks import (
     EnterStep,
     RequestErrorAction,
     RequestFailure,
+    RequestRetry,
     StepDecision,
     StepProposal,
 )
@@ -187,7 +188,7 @@ class AgentHookDispatch:
             default,
         )
         signal.throw_if_cancelled()
-        if result not in {None, "retry"}:
+        if result is not None and not isinstance(result, RequestRetry):
             raise ValueError("Request-error hooks may delegate or request a retry.")
         return result
 

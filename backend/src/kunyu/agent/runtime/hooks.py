@@ -50,9 +50,16 @@ class RequestFailure:
     provider: str | None = None
     retry_policy: RetryPolicy | None = None
     provider_retry_after_ms: float | None = None
+    offload_images: int | None = None
 
 
-type RequestErrorAction = Literal["retry"] | None
+@dataclass(frozen=True, slots=True)
+class RequestRetry:
+    rebuild_context: bool = False
+    kind: Literal["retry"] = "retry"
+
+
+type RequestErrorAction = RequestRetry | None
 
 
 class LoopHooks(Protocol):

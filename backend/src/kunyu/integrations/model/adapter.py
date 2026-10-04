@@ -37,9 +37,10 @@ from kunyu.integrations.model.openai_chat_request import (
 from kunyu.integrations.model.openai_chat_stream import OpenAIChatStreamParser
 from kunyu.integrations.model.request_images import (
     MAX_INLINE_IMAGE_BYTES,
-    MAX_REQUEST_IMAGES,
     RequestImage,
     prepare_image,
+    raise_image_offload,
+    required_image_offload,
 )
 
 logger = logging.getLogger(__name__)
@@ -77,7 +78,7 @@ class HTTPModelAdapter:
         occurrences: dict[str, int] = {}
         for message in request.messages:
             for block in message.content:
-                if isinstance(block, ImageInputBlock):
+                if isinstance(block, ImageInputBlock) and block.offloaded is not True:
                     if (
                         block.attachment.id in image_refs
                         and image_refs[block.attachment.id] != block.attachment
@@ -94,11 +95,9 @@ class HTTPModelAdapter:
                 ModelErrorCode.UNSUPPORTED_CAPABILITY,
                 "The selected model does not declare image input support.",
             )
-        if sum(occurrences.values()) > MAX_REQUEST_IMAGES:
-            raise ModelAdapterError(
-                ModelErrorCode.IMAGE_LIMIT, "Too many retained request images."
-            )
         encoded_bytes = 0
+        lengths_by_id: dict[str, int] = {}
+        overflow = False
         for identity, ref in image_refs.items():
             if self._image_resolver is None:
                 raise invalid_request("The image attachment resolver is unavailable.")
@@ -107,12 +106,12 @@ class HTTPModelAdapter:
                 prepare_image, ref, data, config.image_input
             )
             encoded_bytes += 4 * ((len(image.data) + 2) // 3) * occurrences[identity]
+            lengths_by_id[identity] = 4 * ((len(image.data) + 2) // 3)
             if encoded_bytes > MAX_INLINE_IMAGE_BYTES:
-                raise ModelAdapterError(
-                    ModelErrorCode.IMAGE_LIMIT,
-                    "Retained images exceed the inline request byte limit.",
-                )
-            images[identity] = image
+                overflow = True
+                images.clear()
+            if not overflow:
+                images[identity] = image
             logger.info(
                 "Model image projection run=%s model=%s attachment=%s source=%sx%s request=%sx%s bytes=%s occurrences=%s",
                 request.run_id,
@@ -125,6 +124,13 @@ class HTTPModelAdapter:
                 len(image.data),
                 occurrences[identity],
             )
+        lengths = [
+            lengths_by_id[block.attachment.id]
+            for message in request.messages
+            for block in message.content
+            if isinstance(block, ImageInputBlock) and block.offloaded is not True
+        ]
+        raise_image_offload(required_image_offload(lengths))
         if config.protocol is ModelProtocol.DEEPSEEK_MESSAGES:
             body = encode_messages_request(request, images)
             url = f"{messages_root(config.base_url)}/messages"
