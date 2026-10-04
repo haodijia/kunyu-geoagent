@@ -13,6 +13,8 @@ export type PreviewTab = { readonly id: string; readonly path: string; readonly 
 interface PreviewState { readonly tabs: readonly PreviewTab[]; readonly activeId: string | null; readonly width: number; }
 interface PreviewActions extends PreviewState {
   readonly maximized: boolean;
+  readonly split: boolean;
+  setSplit(enabled: boolean): void;
   openFile(path: string, line?: number): void;
   openDiff(toolId: string, path: string): void;
   select(id: string): void;
@@ -58,6 +60,7 @@ export function FilePreviewProvider({ sessionId, children }: { readonly sessionI
   const key = `kunyu:file-preview:${sessionId}`;
   const [state, setState] = useState(() => readState(key));
   const [maximized, setMaximized] = useState(false);
+  const [split, setSplit] = useState(false);
   const [loaded, setLoaded] = useState<Partial<Record<string, { version: string | null; refreshable: boolean; editable: boolean }>>>({});
   const [infos, setInfos] = useState<Partial<Record<string, FileInfo | null>>>({});
   const [watchErrors, setWatchErrors] = useState<Partial<Record<string, string | null>>>({});
@@ -123,7 +126,7 @@ export function FilePreviewProvider({ sessionId, children }: { readonly sessionI
     // All saves finished before a close can discard any editor state.
     finish(pending);
   }
-  return <PreviewContext value={{ ...state, maximized, loaded, watchErrors, drafts: edits.drafts, saving: edits.saving, saveErrors: edits.errors, storageError: edits.storageError, edit: edits.edit, save, recordLoaded, recordInfo, recordWatchError, registerWatch,
+  return <PreviewContext value={{ ...state, maximized, split, setSplit, loaded, watchErrors, drafts: edits.drafts, saving: edits.saving, saveErrors: edits.errors, storageError: edits.storageError, edit: edits.edit, save, recordLoaded, recordInfo, recordWatchError, registerWatch,
     hasUpdate: path => infos[path] !== undefined && loaded[path]?.version != null && (infos[path] === null || infos[path]!.kind !== "file" || infos[path]!.version !== loaded[path]!.version),
     retryWatch: path => { const retry = retries.current.get(path); if (retry === undefined) throw new Error("The file watch is not registered."); retry(); },
     openFile: (path, line) => { const normalized = workspaceFilePath(path); open({ kind: "file", id: `file:${normalized}`, path: normalized, line, revision: 0 }); },
