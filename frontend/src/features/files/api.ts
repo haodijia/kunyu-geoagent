@@ -4,7 +4,7 @@ export interface FilePreview {
   readonly path: string;
   readonly version: string;
   readonly bytes: number;
-  readonly kind: "markdown" | "html" | "code" | "image" | "unsupported";
+  readonly kind: "markdown" | "html" | "code" | "image" | "pdf" | "unsupported";
   readonly state: "ready" | "oversized" | "unsupported";
   readonly threshold_bytes: number | null;
   readonly text: string | null;
@@ -18,16 +18,20 @@ export async function readFilePreview(sessionId: string, path: string, signal: A
   if (typeof value.path !== "string" || typeof value.version !== "string" || !value.version
     || typeof value.editable !== "boolean" || (value.editable && (value.state !== "ready" || !["code", "markdown", "html"].includes(value.kind)))
     || !Number.isSafeInteger(value.bytes) || value.bytes < 0
-    || !["markdown", "html", "code", "image", "unsupported"].includes(value.kind)
+    || !["markdown", "html", "code", "image", "pdf", "unsupported"].includes(value.kind)
     || !["ready", "oversized", "unsupported"].includes(value.state)
     || !(value.threshold_bytes === null || (Number.isSafeInteger(value.threshold_bytes) && value.threshold_bytes > 0))
     || !(value.text === null || typeof value.text === "string")
-    || ((value.state === "ready" && value.kind !== "image") !== (typeof value.text === "string"))) throw new Error("Invalid file preview payload.");
+    || ((value.state === "ready" && !["image", "pdf"].includes(value.kind)) !== (typeof value.text === "string"))) throw new Error("Invalid file preview payload.");
   return value;
 }
 
 export function readFileImage(sessionId: string, preview: FilePreview, signal: AbortSignal): Promise<Blob> {
   return requestBlob(`${endpoint(sessionId, "image", preview.path)}&version=${encodeURIComponent(preview.version)}`, signal);
+}
+
+export function readFilePdf(sessionId: string, preview: FilePreview, signal: AbortSignal): Promise<Blob> {
+  return requestBlob(`${endpoint(sessionId, "pdf", preview.path)}&version=${encodeURIComponent(preview.version)}`, signal);
 }
 
 export function downloadFile(sessionId: string, path: string): Promise<Blob> {

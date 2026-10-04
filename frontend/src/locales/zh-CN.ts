@@ -1,4 +1,9 @@
 export const zhCN = {
+  pdfPreview: {
+    controls: "PDF 阅读控制", page: "PDF 页码", previous: "上一页", next: "下一页", zoom: "PDF 缩放", fitWidth: "适应宽度", retry: "重新渲染",
+    rendering: (page: number) => `正在渲染第 ${page} 页…`, pageImage: (page: number) => `PDF 第 ${page} 页`, renderFailed: (page: number) => `第 ${page} 页渲染失败。`,
+    workerFailed: "PDF 解析进程不可用，请刷新预览。", passwordRequired: "此 PDF 需要密码，请下载后使用系统应用打开。",
+  },
   fileExplorer: {
     title: "文件", root: "工作区", toggle: "切换文件面板", close: "关闭文件面板", resize: "调整文件面板宽度",
     refresh: "刷新文件", collapse: "全部折叠", loading: "正在读取目录…", empty: "此目录为空。",
@@ -20,7 +25,7 @@ export const zhCN = {
     line: (path: string, line: number) => `查看 ${path} 第 ${line} 行`, invalidLink: "文件链接无效。",
     unsupported: "暂不支持预览此文件类型，可下载文件查看。", failed: "文件读取失败。", diffMissing: "未找到这次工具调用的已保存变更。",
     oversized: (bytes: number, limit: number) => `文件大小 ${bytes.toLocaleString()} 字节，超过预览上限 ${limit.toLocaleString()} 字节。可下载完整文件查看。`,
-    errors: { FILE_SAVE_FAILED: "文件保存失败，请重试。", FS_READ_ONLY: "此文件为只读。", FS_TOO_LARGE: "编辑内容超过 1 MiB 保存上限。", FS_WATCH_FAILED: "文件监视失败，请重新连接。", FS_WATCH_UNSUPPORTED: "当前环境无法提供原生文件通知。", FS_WATCH_CLOSED: "文件服务已关闭。", FS_NOT_DIRECTORY: "此路径不是可展开的目录。", FS_IO_ERROR: "无法读取文件系统，请检查目录权限后刷新。", FS_NOT_FOUND: "文件已不存在。", FS_STALE_VERSION: "文件已发生变化，请刷新预览。", FS_OUT_OF_SCOPE: "文件路径不在当前工作区中。", FS_PERMISSION_DENIED: "无权读取该文件。", FS_NOT_TEXT: "此文件不是有效的 UTF-8 文本，可下载查看。", FS_NOT_REGULAR_FILE: "此路径不是可预览的普通文件。", FILE_READ_FAILED: "文件读取失败，请重试。" },
+    errors: { FILE_SAVE_FAILED: "文件保存失败，请重试。", FS_READ_ONLY: "此文件为只读。", FS_TOO_LARGE: "文件内容超过当前操作的大小上限。", FS_NOT_PDF: "此文件不是有效的 PDF。", FS_WATCH_FAILED: "文件监视失败，请重新连接。", FS_WATCH_UNSUPPORTED: "当前环境无法提供原生文件通知。", FS_WATCH_CLOSED: "文件服务已关闭。", FS_NOT_DIRECTORY: "此路径不是可展开的目录。", FS_IO_ERROR: "无法读取文件系统，请检查目录权限后刷新。", FS_NOT_FOUND: "文件已不存在。", FS_STALE_VERSION: "文件已发生变化，请刷新预览。", FS_OUT_OF_SCOPE: "文件路径不在当前工作区中。", FS_PERMISSION_DENIED: "无权读取该文件。", FS_NOT_TEXT: "此文件不是有效的 UTF-8 文本，可下载查看。", FS_NOT_REGULAR_FILE: "此路径不是可预览的普通文件。", FILE_READ_FAILED: "文件读取失败，请重试。" },
   },
   api: {
     runtimeUnavailable: "桌面运行时连接不可用。",

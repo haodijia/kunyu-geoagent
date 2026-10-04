@@ -35,7 +35,7 @@ class FilePreviewResponse(BaseModel):
     path: str
     version: str
     bytes: int
-    kind: Literal["markdown", "html", "code", "image", "unsupported"]
+    kind: Literal["markdown", "html", "code", "image", "pdf", "unsupported"]
     state: Literal["ready", "oversized", "unsupported"]
     threshold_bytes: int | None
     text: str | None
@@ -162,6 +162,21 @@ async def watch_file(
     with file_errors(session_id, "read"):
         sources = await run_in_threadpool(service.watch, session_id, body.paths)
         return FileWatchResponse(session_id, sources)
+
+
+@router.get("/pdf")
+def preview_pdf(
+    session_id: str,
+    path: PathQuery,
+    version: Annotated[str, Query(min_length=1)],
+    service: FilesDependency,
+) -> Response:
+    with file_errors(session_id, "read"):
+        return Response(
+            service.pdf(session_id, path, version),
+            media_type="application/pdf",
+            headers={"Cache-Control": "no-store", "X-Content-Type-Options": "nosniff"},
+        )
 
 
 @router.get("/image")

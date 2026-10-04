@@ -1,3 +1,4 @@
+import { pdfAssets } from "./pdf-assets";
 import tailwindcss from "@tailwindcss/vite";
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
@@ -15,7 +16,7 @@ export default defineConfig({
       }
     }
   },
-  plugins: [react(), tailwindcss()],
+  plugins: [react(), tailwindcss(), pdfAssets()],
   optimizeDeps: {
     include: ["@radix-ui/react-tooltip"]
   },

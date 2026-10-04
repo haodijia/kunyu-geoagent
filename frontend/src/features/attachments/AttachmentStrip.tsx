@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { ImageLightbox } from "./ImageLightbox";
 import { Button } from "@/components/ui/button";
+import { useFilePreview } from "@/features/files/FilePreviewContext";
 import { zhCN } from "@/locales/zh-CN";
 import { readAttachment, type Attachment } from "./api";
 
@@ -39,6 +40,8 @@ function AttachmentCard({ sessionId, attachment: ref, disabled, onRemove, offloa
   readonly sessionId: string; readonly attachment: Attachment; readonly disabled: boolean; readonly offloaded: boolean;
   readonly onRemove: ((id: string) => void) | undefined;
 }) {
+  const filePreview = useFilePreview();
+  const pdf = ref.kind === "file" && /\.pdf$/i.test(ref.name);
   const [url, setUrl] = useState<string | null>(null);
   const [failed, setFailed] = useState(false);
   const [preview, setPreview] = useState(false);
@@ -68,7 +71,7 @@ function AttachmentCard({ sessionId, attachment: ref, disabled, onRemove, offloa
   return <div className="relative shrink-0" data-attachment-id={ref.id}>
     {ref.kind === "image" ? <Button type="button" variant="ghost" className="size-[60px] overflow-hidden rounded-lg border border-border bg-accent p-0" disabled={url === null} onClick={() => setPreview(true)} aria-label={content.preview(ref.name)} title={offloaded ? `${ref.name} · ${content.offloaded}` : ref.name}>
       {url !== null ? <img src={url} alt={ref.name} className="size-full object-cover" /> : failed ? <span className="px-1 text-[10px] text-destructive">{content.previewFailed}</span> : <LoaderCircle className="size-4 animate-spin" />}
-    </Button> : <Button type="button" variant="ghost" onClick={() => void download()} disabled={downloading} className="flex h-[60px] max-w-[250px] gap-3 rounded-lg border border-border bg-accent px-3 text-left" title={ref.name} aria-label={content.download(ref.name)}>
+    </Button> : <Button type="button" variant="ghost" onClick={() => { if (pdf) filePreview.openFile(`/attachments/${ref.id}/${ref.name}`); else void download(); }} disabled={downloading} className="flex h-[60px] max-w-[250px] gap-3 rounded-lg border border-border bg-accent px-3 text-left" title={ref.name} aria-label={pdf ? content.preview(ref.name) : content.download(ref.name)}>
       {downloading ? <LoaderCircle className="size-7 shrink-0 animate-spin" /> : <FileText className="size-7 shrink-0 text-muted-foreground" strokeWidth={1.5} />}
       <span className="flex min-w-0 flex-col gap-0.5"><span className="max-w-[150px] truncate text-[13px] font-normal">{ref.name}</span><span className="text-[11px] font-normal text-muted-foreground">{formatBytes(ref.bytes)}</span></span>
     </Button>}

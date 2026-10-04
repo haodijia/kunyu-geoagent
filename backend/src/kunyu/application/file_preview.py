@@ -27,6 +27,7 @@ from kunyu.persistence.attachments import SQLAlchemyAttachmentStore
 logger = logging.getLogger(__name__)
 TEXT_LIMIT = 1024 * 1024
 IMAGE_LIMIT = 20 * 1024 * 1024
+PDF_LIMIT = 32 * 1024 * 1024
 IMAGE_TYPES = {
     ".png": "image/png",
     ".jpg": "image/jpeg",
@@ -35,7 +36,6 @@ IMAGE_TYPES = {
     ".gif": "image/gif",
 }
 UNSUPPORTED = {
-    ".pdf",
     ".doc",
     ".docx",
     ".xls",
@@ -63,7 +63,7 @@ class FilePreview:
     path: str
     version: str
     bytes: int
-    kind: Literal["markdown", "html", "code", "image", "unsupported"]
+    kind: Literal["markdown", "html", "code", "image", "pdf", "unsupported"]
     state: Literal["ready", "oversized", "unsupported"]
     threshold_bytes: int | None
     text: str | None
@@ -158,12 +158,16 @@ class FilePreviewService:
             if extension in {".html", ".htm"}
             else "image"
             if extension in IMAGE_TYPES
+            else "pdf"
+            if extension == ".pdf"
             else "unsupported"
             if extension in UNSUPPORTED
             else "code"
         )
         threshold = (
-            IMAGE_LIMIT
+            PDF_LIMIT
+            if kind == "pdf"
+            else IMAGE_LIMIT
             if kind == "image"
             else None
             if kind == "unsupported"
@@ -177,7 +181,7 @@ class FilePreviewService:
             else "ready"
         )
         text = None
-        if state == "ready" and kind != "image":
+        if state == "ready" and kind not in {"image", "pdf"}:
             raw = self._read(target, info, threshold)
             if b"\x00" in raw[:8192]:
                 raise FilesystemError(
@@ -270,6 +274,24 @@ class FilePreviewService:
         return {
             target.display_path: self._filesystem.watch(target) for target in targets
         }
+
+    def pdf(self, session_id: str, path: str, version: str) -> bytes:
+        target = self._target(session_id, path)
+        info = self._info(target, version)
+        if PurePosixPath(target.display_path).suffix.lower() != ".pdf" or isinstance(
+            target.attachment, ImageAttachment
+        ):
+            raise FilesystemError("FS_NOT_PDF", "This is not a PDF file path.")
+        if info.size > PDF_LIMIT:
+            raise FilesystemError(
+                "FS_TOO_LARGE", "The PDF exceeds the preview size limit."
+            )
+        data = self._read(target, info, PDF_LIMIT)
+        if not data.startswith(b"%PDF-"):
+            raise FilesystemError(
+                "FS_NOT_PDF", "The file does not contain a PDF header."
+            )
+        return data
 
     def image(self, session_id: str, path: str, version: str) -> tuple[str, bytes]:
         target = self._target(session_id, path)

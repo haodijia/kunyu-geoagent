@@ -321,9 +321,13 @@ Canonical `content` 与 `paths`／按文件分组的 `matches` 展示元数据�
 
 `application.file_preview.FilePreviewService` 处理目录列表、完整预览和原件下载，`api.files` 只负责鉴权接口与错误映射。复用文件系统提供者的目录描述符／no-follow 读取；工作区取实际会话归属，文件附件要求同会话精确收据与名称，恢复文件继续按会话隔离。人类预览允许查看尚未送入模型的文件附件，但不触发 Agent observation，不改变模型从实际历史取得的文件授权。
 
-`GET /api/v1/sessions/{session_id}/files/preview?path=...` 先 stat 返回不透明版本、源字节数与类型。文本最多 1 MiB，图片源最多 20 MiB，不支持类型与超限仅返回明确状态，不读取内容。文本整读后验证版本和实际长度，严格 UTF-8 解码并去除 BOM，保留 CRLF；不返回截断文本。`/image` 要求对应版本，复用图片规范化，可能缩小大图或取首帧；`/download` 读取原始字节，提前打开文件再发送响应头，精确长度并在断开或取消时关闭生成器／描述符。API 原件下载使用流式响应；当前前端下载通过鉴权 Blob，仍会在 renderer 中持有整个下载文件。
+`GET /api/v1/sessions/{session_id}/files/preview?path=...` 先 stat 返回不透明版本、源字节数与类型。文本最多 1 MiB，图片源最多 20 MiB，PDF 最多 32 MiB，不支持类型与超限仅返回明确状态，不读取内容。文本整读后验证版本和实际长度，严格 UTF-8 解码并去除 BOM，保留 CRLF；不返回截断文本。`/image` 要求对应版本，复用图片规范化，可能缩小大图或取首帧；`/download` 读取原始字节，提前打开文件再发送响应头，精确长度并在断开或取消时关闭生成器／描述符。API 原件下载使用流式响应；当前前端下载通过鉴权 Blob，仍会在 renderer 中持有整个下载文件。
 
-前端 `features/files` 统一管理目录树、预览标签、宽度、查看器与入口。文件标签按规范化路径去重，刷新重新读取当前版本；变更标签按真实 tool_call_id 定位 journal 投影的原始 hunks，避免把后续编辑当作历史变更。会话存储分别保存标签描述／宽度和未保存修改；源码按需加载 CodeMirror 语言包，保持虚拟化，工作区普通文本可编辑，附件和内部恢复文件只读。Markdown 文件链接可按当前文件目录解析并定位行号；HTML 在独立 sandbox iframe 内，仅允许内联脚本和样式，CSP 禁止网络。尚未提供 PDF／Office 与 HTML 本地资源加载。
+前端 `features/files` 统一管理目录树、预览标签、宽度、查看器与入口。文件标签按规范化路径去重，刷新重新读取当前版本；变更标签按真实 tool_call_id 定位 journal 投影的原始 hunks，避免把后续编辑当作历史变更。会话存储分别保存标签描述／宽度和未保存修改；源码按需加载 CodeMirror 语言包，保持虚拟化，工作区普通文本可编辑，附件和内部恢复文件只读。Markdown 文件链接可按当前文件目录解析并定位行号；HTML 在独立 sandbox iframe 内，仅允许内联脚本和样式，CSP 禁止网络。PDF 通过版本绑定的完整二进制读取与独立 Worker 渲染；Office 与 HTML 本地资源加载仍待实现。
+
+PDF 的 `/pdf?path=...&version=...` 复用相同会话文件作用域，只接受 PDF 路径和实际 `%PDF-` 文件头，拒绝将图片收据伪装成 PDF；读取前检查 32 MiB 上限，读取后再次验证版本和完整长度，返回原始 `application/pdf` 字节。元数据检查不读取 PDF 内容，人类查看不授予 Agent 编辑权限。文件树、Markdown 链接及 PDF 附件卡片均可打开该预览，附件仍只读。
+
+前端 PDF 按需加载与 harness 相同的 `pdfjs-dist@6.3.289`。一份挂载文档独占一个真实 module Worker，通过启动握手后才建立 PDF.js 的 port；Worker、字体、CMap 和 WASM 解码器统一打包，资源缺失或 Worker 失败明确报错，没有主线程解析或网络资源替代。取消和关闭销毁解析任务、渲染任务、文字层、原生 Worker 与 Blob URL；错误清理保持日志。每页按当前显示比例与 DPR 渲染，像素分配最多 16,777,216，文字层随页面比例缩放并支持选择复制。完整页面几何以四路并发加载，首屏附近和目标页面按需渲染；连续页面支持横竖混排、页码跳转、25–400% 缩放与适应宽度。标签描述保存当前页和缩放，切换、刷新与窗口内重载恢复，文件缩短时限制到新页数。加密 PDF 明确提示需要密码，当前没有解锁输入；也尚未提供全文搜索、打印、批注及 Mu 原生 PDF webview 的全部控件。PDF 前端渲染不构成独立 `read_pdf` Agent 工具，参考 harness 本身也没有该工具。Office 和更多文档能力继续待对齐。
 
 `GET /api/v1/sessions/{session_id}/files/list?path=...` 只列当前工作区目录的一层。Filesystem 新增目录列表契约，`filesystem_directory` 负责有界扫描；根目录按需建立托管存储，缺失用户目录不会被创建。支持普通隐藏文件，排除内部搜索恢复目录及 UUID 原子写入暂存目录；类型来自 no-follow stat，链接与特殊文件标记 other，不可打开。后端稳定名称顺序截取前 2000 项并标记 truncated，扫描只保留上限加一的候选名称；选中条目在 stat 前消失则明确报 FS_STALE_VERSION。根目录作为真实 directory 解析，read/write/edit 继续拒绝它作为文件。
 
