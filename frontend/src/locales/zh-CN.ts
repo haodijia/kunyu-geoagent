@@ -7,7 +7,7 @@ export const zhCN = {
   },
   filePreview: {
     title: "文件预览", tabs: "打开的文件", close: "关闭预览", closeTab: (name: string) => `关闭 ${name}`, resize: "调整预览宽度",
-    source: "源码", preview: "预览", split: "分屏", viewMode: "文件视图", diff: "变更", html: "HTML 预览",
+    source: "源码", preview: "预览", editor: "编辑器", split: "分屏", splitResize: "调整编辑器与预览宽度", splitStorageFailed: "分屏宽度无法保存，请检查本地存储。", viewMode: "文件视图", diff: "变更", html: "HTML 预览",
     refresh: "刷新文件", download: "下载文件", maximize: "最大化预览", restore: "还原预览",
     updated: "文件已变化，点击刷新", watchFailed: "文件监视不可用，点击重新连接",
     saveConflict: "保存冲突：文件已发生变化，你的修改已保留。",
