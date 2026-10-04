@@ -17,20 +17,24 @@ from kunyu.agent.runtime.models import (
 )
 from kunyu.agent.runtime.tools import ToolSpec
 from kunyu.domain.model_connections import ModelProviderType
-from kunyu.integrations.model.attachment_projection import input_block
+from kunyu.integrations.model.attachment_projection import input_blocks
 from kunyu.integrations.model.connection import (
     ModelConnectionConfig,
     invalid_request,
     validate_request,
 )
+from kunyu.integrations.model.request_images import RequestImage, require_images_fit
 
 
 def encode_request(
     request: ModelRequest[ModelConnectionConfig],
-    images: Mapping[str, bytes] | None = None,
+    images: Mapping[str, RequestImage] | None = None,
 ) -> bytes:
     config = request.adapter_config
     validate_request(request, maximum_output_tokens=4_096)
+    require_images_fit(
+        request.messages, images if images is not None else {}, config.image_input
+    )
     messages = [
         _serialize_message(message, images if images is not None else {})
         for message in request.messages
@@ -87,7 +91,7 @@ def encode_request(
 
 
 def _serialize_message(
-    message: ModelMessage, images: Mapping[str, bytes]
+    message: ModelMessage, images: Mapping[str, RequestImage]
 ) -> dict[str, object]:
     if (
         not isinstance(message.role, ModelRole)
@@ -127,7 +131,9 @@ def _serialize_message(
     payload: dict[str, object] = {
         "role": message.role.value,
         "content": [
-            input_block(block, images, native=False) for block in message.content
+            encoded
+            for block in message.content
+            for encoded in input_blocks(block, images, native=False)
         ]
         if attachments
         else content_text(message.content),

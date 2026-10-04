@@ -246,4 +246,11 @@ Provider 重试探针通过 normal 次数/错误筛选、指数退避、空回�
 
 `MessageInputPayload` 将引用贯穿用户消息、双队列和步骤决策。步骤不能引入原输入不拥有的引用；重建投影保留引用。模型历史使用独立 `ImageInputBlock` / `FileInputBlock`，助手输出仍只接受 text／reasoning／tool-call。`RunImageResolver` 仅物化当前运行实际可见的图片，HTTP 适配器根据明确协议编码；请求头 journal 保留元数据而不保存 base64。
 
-`AttachmentToolsPlugin` 提供 `file_read`，使用当前运行历史中的文件引用授权，按 Unicode 字符分页读取 UTF-8 文本。未准入草稿、未来队列和压缩边界以前的附件不自动授予读取权限；空文件可读，非 UTF-8／含 NUL 的二进制内容明确报错。PDF、Office 等格式的读取器、图片能力校验与模型专用图片投影仍待实现。
+`AttachmentToolsPlugin` 提供 `file_read`，使用当前运行历史中的文件引用授权，按 Unicode 字符分页读取 UTF-8 文本。未准入草稿、未来队列和压缩边界以前的附件不自动授予读取权限；空文件可读，非 UTF-8／含 NUL 的二进制内容明确报错。PDF、Office 等格式的读取器与真实供应商图片能力探测仍待实现。
+
+
+## 模型图片声明与请求投影
+
+`ModelImageInput` 为严格、不可变配置，包含 `enabled`、`pixel_budget`（默认网格／low／正整数）和 `max_bytes`（默认 2 MiB）。目录编辑需要连接锁并检查未完成／排队引用；执行修订变更清除声明。`0010` 迁移，新增目录和运行快照 JSON 列，旧事件不改写。接收、steering、恢复和路由统一使用所对应的冻结声明，默认仅文本，不从模型名字猜测图片能力。
+
+HTTP 适配器只读取真实可见图片，通过 harness 几何算法做请求投影；固定格式与质量，单张超限明确失败。身份、规范化收据和源字节不随请求变化。每个身份只准备一次，整次请求按图片实际出现次数限制 600 张及 20 MiB base64；投影日志和模型的附件文字句柄包含请求尺寸／字节数，不保存 base64。未支持图片的目标模型不能读取图片后偷偷替换成文本。图片自动卸载与 Files API 仍待实现。

@@ -34,6 +34,7 @@ from kunyu.domain.model_connections import (
     ModelConnectionRepository,
     ModelCredentialRepository,
 )
+from kunyu.domain.model_images import ModelImageInput
 from kunyu.integrations.model.provider_client import (
     ModelCheckOutcome,
     ModelProviderClient,
@@ -208,6 +209,30 @@ class ModelCatalogService:
             result = find_entry(updated, normalized_id)
             if result is None:
                 raise RuntimeError("The manual model disappeared during update.")
+            return result
+
+    def set_image_input(
+        self, connection_id: str, model_id: str, image_input: ModelImageInput
+    ) -> ModelCatalogEntry:
+        normalized_id = normalize_model_id(model_id)
+        with self._locks.hold(connection_id):
+            self._run_lifecycle.require_connection_available(connection_id)
+            connection = self._get(connection_id)
+            current = require_testable_entry(connection, normalized_id)
+            entry = replace(current, image_input=image_input)
+            updated = self._connections.update(
+                replace(
+                    connection,
+                    catalog=tuple(
+                        entry if item.model_id == normalized_id else item
+                        for item in connection.catalog
+                    ),
+                    updated_at=self._clock(),
+                )
+            )
+            result = find_entry(updated, normalized_id)
+            if result is None:
+                raise RuntimeError("The model disappeared during its input update.")
             return result
 
     def delete_manual_model(self, connection_id: str, model_id: str) -> None:

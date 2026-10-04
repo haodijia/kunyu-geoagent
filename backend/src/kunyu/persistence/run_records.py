@@ -8,6 +8,7 @@ from kunyu.domain.model_connections import (
     ModelProtocol,
     ModelProviderType,
 )
+from kunyu.domain.model_images import ModelImageInput
 from kunyu.domain.runs import (
     Run,
     RunBudget,
@@ -108,6 +109,7 @@ def snapshot_record(snapshot: RunModelSnapshot) -> RunModelSnapshotRecord:
         connection_revision=snapshot.connection_revision,
         max_tokens_field=snapshot.max_tokens_field.value,
         include_usage=snapshot.include_usage,
+        image_input=snapshot.image_input.model_dump(mode="json"),
         max_output_tokens=snapshot.max_output_tokens,
         map_context=snapshot.map_context,
         scene=snapshot.scene,
@@ -183,6 +185,7 @@ def snapshot_to_domain(record: RunModelSnapshotRecord) -> RunModelSnapshot:
         connection_revision=record.connection_revision,
         max_tokens_field=MaxTokensField(record.max_tokens_field),
         include_usage=record.include_usage,
+        image_input=ModelImageInput.model_validate(record.image_input),
         max_output_tokens=record.max_output_tokens,
         map_context=record.map_context,
         scene=record.scene,

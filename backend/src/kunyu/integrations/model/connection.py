@@ -1,6 +1,6 @@
 """Validated provider routing and immutable per-request configuration."""
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from urllib.parse import urlsplit
 
 from kunyu.agent.runtime.models import ModelAdapterError, ModelErrorCode, ModelRequest
@@ -10,6 +10,7 @@ from kunyu.domain.model_connections import (
     ModelProtocol,
     ModelProviderType,
 )
+from kunyu.domain.model_images import ModelImageInput
 
 
 @dataclass(frozen=True, slots=True)
@@ -23,6 +24,7 @@ class ModelConnectionConfig:
     include_usage: bool
     provider_type: ModelProviderType
     reasoning_efforts: tuple[str, ...] = ()
+    image_input: ModelImageInput = field(default_factory=ModelImageInput)
 
 
 def invalid_request(message: str) -> ModelAdapterError:
@@ -31,7 +33,8 @@ def invalid_request(message: str) -> ModelAdapterError:
 
 def validate_config(config: ModelConnectionConfig) -> None:
     if (
-        not isinstance(config.protocol, ModelProtocol)
+        not isinstance(config.image_input, ModelImageInput)
+        or not isinstance(config.protocol, ModelProtocol)
         or not isinstance(config.provider_type, ModelProviderType)
         or not isinstance(config.connection_id, str)
         or not config.connection_id

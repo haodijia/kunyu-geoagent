@@ -306,6 +306,7 @@ def _snapshot_record(reduced: ReducedRun) -> RunModelSnapshotRecord:
         connection_revision=model.connection_revision,
         max_tokens_field=MaxTokensField(model.max_tokens_field),
         include_usage=model.include_usage,
+        image_input=model.image_input,
         max_output_tokens=model.max_output_tokens,
         map_context=dict(reduced.map_snapshot),
         scene=(

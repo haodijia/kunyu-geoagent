@@ -7,11 +7,12 @@ from collections.abc import Mapping
 from kunyu.agent.runtime.content import TextBlock
 from kunyu.agent.runtime.input_content import FileInputBlock, ImageInputBlock
 from kunyu.integrations.model.connection import invalid_request
+from kunyu.integrations.model.request_images import RequestImage
 
 
 def input_block(
     block: TextBlock | FileInputBlock | ImageInputBlock,
-    images: Mapping[str, bytes],
+    images: Mapping[str, RequestImage],
     *,
     native: bool,
 ) -> dict:
@@ -32,11 +33,11 @@ def input_block(
         }
     if isinstance(block, ImageInputBlock):
         ref = block.attachment
-        if ref.id not in images or len(images[ref.id]) != ref.bytes:
+        if ref.id not in images or images[ref.id].attachment != ref:
             raise invalid_request(
                 "Image bytes are missing or differ from their receipt."
             )
-        data = base64.b64encode(images[ref.id]).decode("ascii")
+        data = base64.b64encode(images[ref.id].data).decode("ascii")
         if native:
             return {
                 "type": "image",
@@ -51,3 +52,37 @@ def input_block(
             "image_url": {"url": f"data:{ref.media_type};base64,{data}"},
         }
     raise invalid_request("Unsupported input content block.")
+
+
+def image_handle(block: ImageInputBlock, images: Mapping[str, RequestImage]) -> dict:
+    image = images.get(block.attachment.id)
+    if image is None or image.attachment != block.attachment:
+        raise invalid_request("Image request projection is missing.")
+    return {
+        "type": "text",
+        "text": "Attached image: "
+        + json.dumps(
+            {
+                "attachment_id": image.attachment.id,
+                "name": image.attachment.name,
+                "width": image.width,
+                "height": image.height,
+                "bytes": len(image.data),
+            },
+            ensure_ascii=False,
+        ),
+    }
+
+
+def input_blocks(
+    block: TextBlock | FileInputBlock | ImageInputBlock,
+    images: Mapping[str, RequestImage],
+    *,
+    native: bool,
+) -> list[dict]:
+    encoded = input_block(block, images, native=native)
+    return (
+        [image_handle(block, images), encoded]
+        if isinstance(block, ImageInputBlock)
+        else [encoded]
+    )

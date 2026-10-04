@@ -1,4 +1,4 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime
 from enum import StrEnum
 from typing import Literal
@@ -12,6 +12,7 @@ from kunyu.domain.model_connections import (
     ModelProtocol,
     ModelProviderType,
 )
+from kunyu.domain.model_images import ModelImageInput
 
 
 class ToolCallStatus(StrEnum):
@@ -74,6 +75,7 @@ class RunModelSnapshot:
     max_output_tokens: int
     map_context: dict[str, JsonValue]
     scene: dict[str, JsonValue] | None
+    image_input: ModelImageInput = field(default_factory=ModelImageInput)
 
 
 @dataclass(frozen=True, slots=True)

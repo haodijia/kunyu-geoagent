@@ -4,7 +4,8 @@ import type {
   MaxTokensField,
   ModelAuthMode,
   ModelProtocol,
-  ModelProviderType
+  ModelProviderType,
+  ModelImageInput
 } from "@/features/settings/models/api";
 
 export function discardAgentInput(sessionId: string, messageId: string): Promise<void> {
@@ -108,6 +109,7 @@ export interface StepModelSnapshot {
   readonly max_tokens_field: MaxTokensField;
   readonly include_usage: boolean;
   readonly max_output_tokens: number;
+  readonly image_input: ModelImageInput;
 }
 
 export interface TurnMapContext {

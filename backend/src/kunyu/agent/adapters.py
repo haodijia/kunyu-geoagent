@@ -39,6 +39,7 @@ class StoredRunExecutionProvider:
             auth_mode=ModelAuthMode(snapshot.auth_mode),
             max_tokens_field=MaxTokensField(snapshot.max_tokens_field),
             include_usage=snapshot.include_usage,
+            image_input=snapshot.image_input,
             reasoning_efforts=(snapshot.reasoning_effort,)
             if snapshot.reasoning_effort is not None
             else (),

@@ -1,9 +1,10 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime
 from enum import StrEnum
 from typing import Protocol
 
 from kunyu.agent.runtime.retry_policy import RetryPolicy
+from kunyu.domain.model_images import ModelImageInput
 
 
 class ModelProtocol(StrEnum):
@@ -126,6 +127,7 @@ class ModelCatalogEntry:
     reasoning_source: CapabilitySource
     discovered_at: datetime | None
     reasoning_default: str | None = None
+    image_input: ModelImageInput = field(default_factory=ModelImageInput)
 
     @property
     def agent_verified(self) -> bool:

@@ -12,8 +12,9 @@ from kunyu.agent.runtime.models import (
     ModelRequest,
     ModelRole,
 )
-from kunyu.integrations.model.attachment_projection import input_block
+from kunyu.integrations.model.attachment_projection import input_blocks
 from kunyu.integrations.model.connection import ModelConnectionConfig, validate_request
+from kunyu.integrations.model.request_images import RequestImage, require_images_fit
 
 
 def invalid(detail: str) -> ModelAdapterError:
@@ -86,9 +87,14 @@ def _assistant(message: ModelMessage, model: str) -> list[dict]:
 
 def encode_request(
     request: ModelRequest[ModelConnectionConfig],
-    images: Mapping[str, bytes] | None = None,
+    images: Mapping[str, RequestImage] | None = None,
 ) -> bytes:
     validate_request(request, maximum_output_tokens=256_000)
+    require_images_fit(
+        request.messages,
+        images if images is not None else {},
+        request.adapter_config.image_input,
+    )
     messages: list[dict] = []
     system: str | None = None
     updates: list[dict] = []
@@ -125,9 +131,12 @@ def encode_request(
             if any(not isinstance(block, allowed) for block in message.content):
                 raise invalid("Attachment blocks are only permitted in user input.")
             content = [
-                input_block(block, images if images is not None else {}, native=True)
+                encoded
                 for block in message.content
                 if not isinstance(block, TextBlock) or block.text
+                for encoded in input_blocks(
+                    block, images if images is not None else {}, native=True
+                )
             ]
             if message.role is ModelRole.SYSTEM:
                 text = "".join(block.text for block in message.content)

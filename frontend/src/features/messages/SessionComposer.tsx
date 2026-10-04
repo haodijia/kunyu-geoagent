@@ -77,7 +77,11 @@ export function SessionComposer() {
 
   const modelDisabled = mutation.isPending || requestFrozen || queueEditing || activeTurn !== undefined || connectionsQuery.isPending;
   const reasoningSelectionInvalid = selectedModel !== undefined && modelSelection?.reasoningEffort !== null && modelSelection?.reasoningEffort !== undefined && !selectedModel.entry.reasoning_efforts.includes(modelSelection.reasoningEffort);
-  const sendDisabled = selectedModel === undefined || reasoningSelectionInvalid || agentTurnsQuery.data === undefined;
+  const imageUnsupported = attachmentState.attachments.some((ref) => ref.kind === "image")
+    && !(activeTurn === undefined || queuedDraft
+      ? selectedModel?.entry.image_input.enabled
+      : activeTurn.model_snapshot.image_input.enabled);
+  const sendDisabled = imageUnsupported || selectedModel === undefined || reasoningSelectionInvalid || agentTurnsQuery.data === undefined;
   const commandState = useComposerCommands({
     draft,
     locked: mutation.isPending || requestFrozen || queueEditing || attachmentState.pending || attachmentState.retryAvailable,
@@ -167,7 +171,7 @@ export function SessionComposer() {
       }
       stopPending={stopMutation.isPending}
       draftFrozen={requestFrozen}
-      error={error}
+      error={imageUnsupported ? zhCN.conversation.imageModelRequired : error}
       modelGroups={modelGroups}
       selectedModel={selectedValue}
       modelDisabled={modelDisabled}
@@ -177,7 +181,7 @@ export function SessionComposer() {
       sendDisabled={
         requestFrozen
           ? false
-          : selectedModel === undefined ||
+          : imageUnsupported || selectedModel === undefined ||
             reasoningSelectionInvalid ||
             agentTurnsQuery.data === undefined
       }
@@ -185,7 +189,7 @@ export function SessionComposer() {
         !requestFrozen &&
         !connectionsQuery.isPending &&
         !connectionsQuery.isError &&
-        usableModels.length === 0
+        (usableModels.length === 0 || imageUnsupported)
       }
       onModelChange={changeModel}
       onReasoningEffortChange={changeReasoningEffort}

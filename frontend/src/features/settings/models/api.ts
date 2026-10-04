@@ -46,6 +46,12 @@ export interface ModelCheck {
   readonly error_code: string | null;
 }
 
+export interface ModelImageInput {
+  readonly enabled: boolean;
+  readonly pixel_budget: number | "low" | null;
+  readonly max_bytes: number;
+}
+
 export interface ModelCatalogEntry {
   readonly model_id: string;
   readonly display_name: string | null;
@@ -62,6 +68,7 @@ export interface ModelCatalogEntry {
   readonly reasoning_efforts: string[];
   readonly reasoning_default: string | null;
   readonly reasoning_source: CapabilitySource;
+  readonly image_input: ModelImageInput;
   readonly discovered_at: string | null;
 }
 
@@ -184,6 +191,10 @@ export const modelConnectionsApi = {
       `${pathFor(connectionId)}/manual-models?${new URLSearchParams({ model_id: modelId })}`,
       { method: "DELETE" }
     ),
+  setImageInput: (connectionId: string, modelId: string, input: ModelImageInput) =>
+    requestJson<ModelCatalogEntry>(`${pathFor(connectionId)}/image-input?${new URLSearchParams({ model_id: modelId })}`, {
+      method: "PUT", body: JSON.stringify(input),
+    }),
   test: (connectionId: string, modelId: string, mode: "text" | "tools") =>
     requestJson<ModelTestResult>(`${pathFor(connectionId)}/test`, {
       method: "POST",
