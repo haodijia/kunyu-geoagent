@@ -1,8 +1,6 @@
-import {
-  assistantOutputLimit,
-  assistantPresentation,
-  type ActiveAssistant,
-} from "./live-assistant";
+import { streamPresentation } from "./stream-presentation";
+import { contentText, parseContentBlocks } from "./content-blocks";
+import { assistantOutputLimit, type ActiveAssistant } from "./live-assistant";
 import { attachRequestDetails } from "./trajectory-requests";
 import {
   assistantStreamFirstTokenTime,
@@ -281,8 +279,8 @@ function assistantRecord(
       : null;
   const prefix =
     live !== null && run !== undefined
-      ? assistantPresentation(
-          live,
+      ? streamPresentation(
+          live.stream,
           assistantOutputLimit(
             live,
             run.budget.max_output_codepoints,
@@ -293,9 +291,11 @@ function assistantRecord(
   const content =
     prefix !== null
       ? prefix.text
-      : message?.role === "assistant"
-        ? message.content
-        : reconstructAssistantText(events);
+      : attemptFinished !== undefined
+        ? contentText(parseContentBlocks(attemptFinished.payload.blocks))
+        : message?.role === "assistant"
+          ? message.content
+          : reconstructAssistantText(events);
   const finishReason = events.find(
     (event) => event.eventType === "message.assistant.completed",
   )?.payload.finish_reason;
@@ -367,6 +367,8 @@ function assistantRecord(
       error_code: stringValue(attemptFinished?.payload.error_code),
       stream,
       stream_origin: origin,
+      blocks: attemptFinished?.payload.blocks ?? null,
+      replay_state: attemptFinished?.payload.replay_state ?? null,
     },
     usage,
     callOnly: content.trim().length === 0 && finishReason === "tool_calls",

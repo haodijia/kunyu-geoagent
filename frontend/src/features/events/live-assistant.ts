@@ -231,49 +231,6 @@ function appendChunk(
   return [...stream, { type: "chunk", time, chunk }];
 }
 
-export function* timedChunks(
-  stream: readonly AssistantStreamRecord[],
-): Generator<{ time: number; chunk: StreamChunk }> {
-  for (const record of stream) {
-    if (record.type === "chunk") {
-      yield { time: record.time, chunk: record.chunk };
-      continue;
-    }
-    const members =
-      record.type === "tool-call-chunks" ? record.args : record.texts;
-    let time = record.time0;
-    for (let index = 0; index < members.length; index++) {
-      if (index > 0) time += record.dt[index - 1]!;
-      yield {
-        time,
-        chunk:
-          record.type === "tool-call-chunks"
-            ? {
-                type: "tool-call-delta",
-                index: record.index,
-                id: record.id,
-                name: record.name,
-                arguments_delta: members[index]!,
-              }
-            : {
-                type:
-                  record.type === "text-chunks"
-                    ? "text-delta"
-                    : "reasoning-delta",
-                index: record.index,
-                text: members[index]!,
-              },
-      };
-    }
-  }
-}
-
-export interface GeneratingTool {
-  readonly index: number;
-  readonly id: string;
-  readonly name: string | null;
-  readonly arguments: string;
-}
 export function assistantOutputLimit(
   active: ActiveAssistant,
   maximum: number,
@@ -291,65 +248,6 @@ export function assistantOutputLimit(
     0,
   );
   return Math.max(0, maximum - used);
-}
-export function assistantPresentation(
-  active: ActiveAssistant,
-  outputLimit: number,
-) {
-  let remaining = outputLimit,
-    text = "",
-    reasoning = "";
-  let reasoningStarted: number | null = null,
-    reasoningFinished: number | null = null;
-  const tools = new Map<number, GeneratingTool>();
-  for (const { time, chunk } of timedChunks(active.stream)) {
-    if (chunk.type === "text-delta" || chunk.type === "reasoning-delta") {
-      const visible = Array.from(chunk.text).slice(0, remaining).join("");
-      remaining -= Array.from(visible).length;
-      if (chunk.type === "text-delta") {
-        text += visible;
-        if (
-          visible !== "" &&
-          reasoningStarted !== null &&
-          reasoningFinished === null
-        )
-          reasoningFinished = time;
-      } else {
-        reasoning += visible;
-        if (visible !== "" && reasoningStarted === null)
-          reasoningStarted = time;
-      }
-    } else if (chunk.type === "tool-call-delta") {
-      const previous = tools.get(chunk.index);
-      tools.set(chunk.index, {
-        index: chunk.index,
-        id: chunk.id,
-        name: chunk.name === null ? (previous?.name ?? null) : chunk.name,
-        arguments: (previous?.arguments ?? "") + chunk.arguments_delta,
-      });
-      if (
-        (chunk.name !== null || chunk.arguments_delta !== "") &&
-        reasoningStarted !== null &&
-        reasoningFinished === null
-      )
-        reasoningFinished = time;
-    }
-  }
-  return {
-    text,
-    reasoning:
-      reasoningStarted === null
-        ? null
-        : {
-            text: reasoning,
-            startedAt: new Date(reasoningStarted).toISOString(),
-            finishedAt:
-              reasoningFinished === null
-                ? null
-                : new Date(reasoningFinished).toISOString(),
-          },
-    tools: [...tools.values()].sort((left, right) => left.index - right.index),
-  };
 }
 function object(value: unknown): value is Record<string, unknown> {
   return value !== null && typeof value === "object" && !Array.isArray(value);

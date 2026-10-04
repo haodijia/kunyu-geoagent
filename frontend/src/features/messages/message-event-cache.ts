@@ -1,3 +1,7 @@
+import {
+  contentText,
+  parseContentBlocks,
+} from "@/features/events/content-blocks";
 import type { SessionEvent } from "@/features/events/api";
 import {
   assistantStreamText,
@@ -272,6 +276,10 @@ function applyAttemptFinished(
   next[position] = {
     ...current,
     status,
+    content: contentText(parseContentBlocks(event.payload.blocks)),
+    content_length: Array.from(
+      contentText(parseContentBlocks(event.payload.blocks)),
+    ).length,
     updated_sequence: event.sequence,
     updated_at: event.occurred_at,
   };

@@ -1,3 +1,9 @@
+import {
+  validContentBlock,
+  validReplayEnvelope,
+  type ContentBlock,
+  type ReplayEnvelope,
+} from "./content-blocks";
 /** Compact attempt records retain exact model chunk boundaries and timestamps. */
 export type StreamOrigin = "model" | "buffered";
 type TextChunk = {
@@ -12,11 +18,15 @@ type ToolDelta = {
   readonly name: string | null;
   readonly arguments_delta: string;
 };
-type ToolChunk = {
-  readonly type: "tool-call";
-  readonly call_id: string;
-  readonly name: string;
-  readonly arguments: string;
+type BlockStart = {
+  readonly type: "block-start";
+  readonly index: number;
+  readonly block_type: "text" | "reasoning" | "tool-call";
+};
+type BlockEnd = {
+  readonly type: "block-end";
+  readonly index: number;
+  readonly block: ContentBlock;
 };
 type Usage = {
   readonly type: "usage";
@@ -27,8 +37,10 @@ type Usage = {
 type Finish = {
   readonly type: "finish";
   readonly reason: "stop" | "tool_calls" | "length" | "content_filter";
+  readonly replay_state: ReplayEnvelope | null;
 };
-export type StreamChunk = TextChunk | ToolDelta | ToolChunk | Usage | Finish;
+export type StreamChunk =
+  TextChunk | ToolDelta | BlockStart | BlockEnd | Usage | Finish;
 interface PackedRun {
   readonly time0: number;
   readonly index: number;
@@ -117,7 +129,9 @@ export function assistantStreamFirstTokenTime(
         ((chunk.type === "text-delta" || chunk.type === "reasoning-delta") &&
           chunk.text !== "") ||
         (chunk.type === "tool-call-delta" &&
-          (chunk.name !== null || chunk.arguments_delta !== ""))
+          (chunk.name !== null || chunk.arguments_delta !== "")) ||
+        (chunk.type === "block-end" &&
+          (chunk.block.type === "tool-call" || chunk.block.text !== ""))
       )
         return record.time;
     } else {
@@ -154,15 +168,20 @@ export function assistantStreamChunkCount(
 export function assistantStreamText(
   stream: readonly AssistantStreamRecord[],
 ): string {
-  return stream
-    .map((record) =>
-      record.type === "text-chunks"
-        ? record.texts.join("")
-        : record.type === "chunk" && record.chunk.type === "text-delta"
-          ? record.chunk.text
-          : "",
+  const observed = new Set<number>();
+  let result = "";
+  for (const { chunk } of timedChunks(stream)) {
+    if (chunk.type === "text-delta") {
+      observed.add(chunk.index);
+      result += chunk.text;
+    } else if (
+      chunk.type === "block-end" &&
+      chunk.block.type === "text" &&
+      !observed.has(chunk.index)
     )
-    .join("");
+      result += chunk.block.text;
+  }
+  return result;
 }
 
 export function streamReasoning(
@@ -170,6 +189,7 @@ export function streamReasoning(
   settledAt: string,
 ) {
   let text = "";
+  const observed = new Set<number>();
   let started: number | null = null;
   let finished: number | null = null;
   for (const record of stream) {
@@ -177,6 +197,7 @@ export function streamReasoning(
     let reasoningTime: number | null = null;
     let nextOutputTime: number | null = null;
     if (record.type === "reasoning-chunks") {
+      observed.add(record.index);
       reason = record.texts.join("");
       reasoningTime = firstMemberTime(
         record,
@@ -198,11 +219,22 @@ export function streamReasoning(
     } else if (record.type === "chunk") {
       const chunk = record.chunk;
       if (chunk.type === "reasoning-delta") {
+        observed.add(chunk.index);
         reason = chunk.text;
         reasoningTime = chunk.text === "" ? null : record.time;
       } else if (
+        chunk.type === "block-end" &&
+        chunk.block.type === "reasoning" &&
+        !observed.has(chunk.index)
+      ) {
+        reason = chunk.block.text;
+        reasoningTime = reason === "" ? null : record.time;
+      } else if (
         (chunk.type === "text-delta" && chunk.text !== "") ||
-        chunk.type === "tool-call" ||
+        (chunk.type === "block-end" &&
+          chunk.block.type === "text" &&
+          chunk.block.text !== "") ||
+        (chunk.type === "block-end" && chunk.block.type === "tool-call") ||
         (chunk.type === "tool-call-delta" &&
           (chunk.name !== null || chunk.arguments_delta !== ""))
       )
@@ -268,13 +300,13 @@ function validChunk(value: unknown): boolean {
         (value.name === null || typeof value.name === "string") &&
         typeof value.arguments_delta === "string"
       );
-    case "tool-call":
+    case "block-start":
       return (
-        typeof value.call_id === "string" &&
-        typeof value.name === "string" &&
-        typeof value.arguments === "string" &&
-        isObject(JSON.parse(value.arguments))
+        index(value.index) &&
+        ["text", "reasoning", "tool-call"].includes(String(value.block_type))
       );
+    case "block-end":
+      return index(value.index) && validContentBlock(value.block);
     case "usage":
       return [
         value.input_tokens,
@@ -282,10 +314,49 @@ function validChunk(value: unknown): boolean {
         value.total_tokens,
       ].every((count) => count === null || index(count));
     case "finish":
-      return ["stop", "tool_calls", "length", "content_filter"].includes(
-        String(value.reason),
+      return (
+        ["stop", "tool_calls", "length", "content_filter"].includes(
+          String(value.reason),
+        ) && validReplayEnvelope(value.replay_state)
       );
     default:
       return false;
+  }
+}
+
+export function* timedChunks(
+  stream: readonly AssistantStreamRecord[],
+): Generator<{ time: number; chunk: StreamChunk }> {
+  for (const record of stream) {
+    if (record.type === "chunk") {
+      yield { time: record.time, chunk: record.chunk };
+      continue;
+    }
+    const members =
+      record.type === "tool-call-chunks" ? record.args : record.texts;
+    let time = record.time0;
+    for (let index = 0; index < members.length; index++) {
+      if (index > 0) time += record.dt[index - 1]!;
+      yield {
+        time,
+        chunk:
+          record.type === "tool-call-chunks"
+            ? {
+                type: "tool-call-delta",
+                index: record.index,
+                id: record.id,
+                name: record.name,
+                arguments_delta: members[index]!,
+              }
+            : {
+                type:
+                  record.type === "text-chunks"
+                    ? "text-delta"
+                    : "reasoning-delta",
+                index: record.index,
+                text: members[index]!,
+              },
+      };
+    }
   }
 }

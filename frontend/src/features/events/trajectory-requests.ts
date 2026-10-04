@@ -1,3 +1,4 @@
+import { contentText, parseContentBlocks } from "./content-blocks";
 import { zhCN } from "@/locales/zh-CN";
 import type { TrajectoryEventProjection } from "./projection";
 import type { TrajectoryRecord, TrajectoryPrompt } from "./trajectory-model";
@@ -62,11 +63,15 @@ export function attachRequestDetails(
         !isObject(message) ||
         !isObject(message.source) ||
         message.source.kind !== "context" ||
-        ["injected", "skill-catalog", "skill-invocation"].includes(String(message.source.producer))
+        ["injected", "skill-catalog", "skill-invocation"].includes(
+          String(message.source.producer),
+        )
       )
         return;
       const producer = String(message.source.producer);
-      const text = sanitizeTrajectoryValue(message.content) as string;
+      const text = sanitizeTrajectoryValue(
+        contentText(parseContentBlocks(message.content)),
+      ) as string;
       if (contexts.get(producer) === text) return;
       contexts.set(producer, text);
       result.push({

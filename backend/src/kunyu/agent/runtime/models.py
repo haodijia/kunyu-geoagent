@@ -1,10 +1,11 @@
 """Model input, streaming output, and failure contracts."""
 
-from collections.abc import AsyncIterator, Mapping
+from collections.abc import AsyncIterator
 from dataclasses import dataclass
 from enum import StrEnum
 from typing import Protocol
 
+from kunyu.agent.runtime.content import ContentBlock, ContentBlockType, ReplayEnvelope
 from kunyu.agent.runtime.tools import ToolSpec
 
 
@@ -51,12 +52,15 @@ class ModelAdapterError(RuntimeError):
 
 
 @dataclass(frozen=True, slots=True)
-class ModelToolCall:
-    """A complete structured call assembled from provider stream fragments."""
+class BlockStart:
+    index: int
+    block_type: ContentBlockType
 
-    call_id: str
-    name: str
-    arguments: Mapping[str, object]
+
+@dataclass(frozen=True, slots=True)
+class BlockEnd:
+    index: int
+    block: ContentBlock
 
 
 @dataclass(frozen=True, slots=True)
@@ -70,11 +74,10 @@ class ModelToolCallDelta:
 @dataclass(frozen=True, slots=True)
 class ModelMessage:
     role: ModelRole
-    content: str
+    content: tuple[ContentBlock, ...]
     tool_call_id: str | None = None
-    tool_calls: tuple[ModelToolCall, ...] = ()
     context_source: str | None = None
-    reasoning_content: str | None = None
+    replay_state: ReplayEnvelope | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -90,11 +93,13 @@ class ModelRequest[AdapterConfigT]:
 
 @dataclass(frozen=True, slots=True)
 class TextDelta:
+    index: int
     text: str
 
 
 @dataclass(frozen=True, slots=True)
 class ReasoningDelta:
+    index: int
     text: str
 
 
@@ -108,13 +113,15 @@ class TokenUsage:
 @dataclass(frozen=True, slots=True)
 class ModelFinish:
     reason: ModelFinishReason
+    replay_state: ReplayEnvelope | None = None
 
 
 type ModelOutput = (
     TextDelta
     | ReasoningDelta
     | ModelToolCallDelta
-    | ModelToolCall
+    | BlockStart
+    | BlockEnd
     | TokenUsage
     | ModelFinish
 )

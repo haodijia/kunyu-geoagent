@@ -6,20 +6,18 @@ import { Button } from "@/components/ui/button";
 import type { MessageStatus, SessionMessage } from "@/features/messages/api";
 import type { AgentTurn, ToolCall } from "@/features/agent/api";
 import type { Confirmation } from "@/features/confirmations/api";
-import { conversationSlots } from "@/features/conversation/slots";
 import { pendingInboxMessages } from "@/features/conversation/inbox";
 import { useSessionEvents } from "@/features/events/SessionEventContext";
 import { SessionEmptyState } from "@/features/sessions/SessionEmptyState";
 import { zhCN } from "@/locales/zh-CN";
 import { CopyButton } from "./CopyButton";
-import { MessageMarkdown } from "./MessageMarkdown";
-import { MessageReasoning } from "./MessageReasoning";
 import { collectMessageReasoning } from "./reasoning";
 import { ModelRetryStatus } from "./ModelRetryStatus";
-import {
-  assistantOutputLimit,
-  assistantPresentation,
-} from "@/features/events/live-assistant";
+import { assistantOutputLimit } from "@/features/events/live-assistant";
+
+import { streamPresentation } from "@/features/events/stream-presentation";
+import { collectMessageBlocks } from "./message-blocks";
+import { AssistantContent } from "./AssistantContent";
 
 const content = zhCN.conversation;
 const timeFormatter = new Intl.DateTimeFormat("zh-CN", {
@@ -52,8 +50,8 @@ export function MessageList({
     if (activeAssistant === null) return null;
     const turn = turns.find((turn) => turn.id === activeAssistant.run_id);
     if (turn === undefined) return null;
-    return assistantPresentation(
-      activeAssistant,
+    return streamPresentation(
+      activeAssistant.stream,
       assistantOutputLimit(
         activeAssistant,
         turn.budget.max_output_codepoints,
@@ -76,6 +74,7 @@ export function MessageList({
     () => collectMessageReasoning(records),
     [records],
   );
+  const settledBlocks = useMemo(() => collectMessageBlocks(records), [records]);
   const pendingSteering = useMemo(
     () => pendingInboxMessages(records, "next-step"),
     [records],
@@ -212,48 +211,65 @@ export function MessageList({
                 : "group mr-auto flex w-full flex-col items-start"
             }
           >
-            {message.role === "assistant" && reasoning !== undefined && (
-              <MessageReasoning
-                id={message.id}
-                reasoning={reasoning}
-                active={active && reasoning.finishedAt === null}
-                updatedAt={message.updated_at}
-              />
-            )}
             {message.role === "user" ? (
               <div className="max-w-full rounded-[8px] bg-[var(--message-user-bg)] px-2.5 py-2 text-[13px] leading-5 whitespace-pre-wrap text-foreground [overflow-wrap:anywhere]">
                 {message.content}
               </div>
-            ) : message.content.length > 0 ? (
+            ) : (
               <>
-                <MessageMarkdown text={message.content} />
-                {active && (
+                <AssistantContent
+                  blocks={
+                    generating
+                      ? live.blocks
+                      : settledBlocks.has(message.id)
+                        ? settledBlocks.get(message.id)!
+                        : [
+                            ...(reasoning === undefined
+                              ? []
+                              : [
+                                  {
+                                    type: "reasoning" as const,
+                                    index: 0,
+                                    text: reasoning.text,
+                                    startedAt: reasoning.startedAt,
+                                    finishedAt: reasoning.finishedAt,
+                                  },
+                                ]),
+                            {
+                              type: "text" as const,
+                              index: 1,
+                              text: message.content,
+                              startedAt: null,
+                              finishedAt: null,
+                            },
+                          ]
+                  }
+                  messageId={message.id}
+                  active={active}
+                  generating={generating}
+                  updatedAt={message.updated_at}
+                  tools={tools}
+                  confirmations={confirmations}
+                />
+                {active && message.content.length > 0 && (
                   <span className="ml-0.5 inline-block h-4 w-0.5 animate-pulse rounded-full bg-muted-foreground align-text-bottom" />
                 )}
+                {active &&
+                  message.content.length === 0 &&
+                  reasoning === undefined && (
+                    <div
+                      className="flex items-center gap-2 py-1 text-[13px] text-muted-foreground"
+                      role="status"
+                    >
+                      <LoaderCircle
+                        className="size-3.5 animate-spin"
+                        aria-hidden="true"
+                      />
+                      {content.status.streaming}
+                    </div>
+                  )}
               </>
-            ) : active && reasoning === undefined ? (
-              <div
-                className="flex items-center gap-2 py-1 text-[13px] text-muted-foreground"
-                role="status"
-              >
-                <LoaderCircle
-                  className="size-3.5 animate-spin"
-                  aria-hidden="true"
-                />
-                {content.status.streaming}
-              </div>
-            ) : null}
-            {tools.length > 0
-              ? conversationSlots.render("message.tools", {
-                  confirmations,
-                  tools,
-                })
-              : null}
-            {generating &&
-              live.tools.length > 0 &&
-              conversationSlots.render("message.generating-tools", {
-                tools: live.tools,
-              })}
+            )}
             <div
               className={`mt-1 flex h-6 items-center gap-2 px-1 text-xs text-muted-foreground transition-opacity ${message.status === "completed" && !pendingSteering.has(message.id) ? "opacity-0 group-hover:opacity-100 group-focus-within:opacity-100" : "opacity-100"}`}
             >

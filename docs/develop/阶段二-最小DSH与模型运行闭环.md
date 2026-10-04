@@ -243,7 +243,7 @@ api/application/domain/persistence 中分别增加模型连接、Run、确认、
 P2-04B 必须扩展已交付的 `kunyu.agent.runtime.models`：
 
 - ModelRequest 绑定唯一 RunModelSnapshot 对应的适配器配置，包含输出 Token 上限；取消由 Runner 取消调用任务并关闭 HTTP 流，不以停止读取界面作为取消。
-- 输出除 TextDelta、完整 ModelToolCall、可空 TokenUsage 外，必须有一次终止结果：`stop / tool_calls / length / content_filter`。网络、认证、无终止事件、非法 JSON 等通过稳定异常契约报告，不能把迭代结束直接视为成功。
+- 当前模型输出使用 BlockStart、带索引的 TextDelta／ReasoningDelta／ModelToolCallDelta、BlockEnd 和可空 TokenUsage（内容块与 replay 详见《后端Agent结构》），必须有一次终止结果：`stop / tool_calls / length / content_filter`。网络、认证、无终止事件、非法 JSON 等通过稳定异常契约报告，不能把迭代结束直接视为成功。
 - `stop` 且有正文、无工具才可完成 Run；`tool_calls` 必须有非空且完整合法的批次；`length` 和 `content_filter` 保留已提交正文并失败。空正常回复、重复 call_id、结束原因与内容矛盾均为协议错误。`[DONE]` 不能代替 finish_reason；获得完整终止记录之前不执行工具。
 - 标准请求仅发送 model/messages/stream/tools/tool_choice/max_tokens/max_completion_tokens/stream_options/reasoning_effort 中本次适用的字段；输出上限字段由显式 `max_tokens_field=max_tokens|max_completion_tokens` 配置。用量开关 `include_usage` 显式配置，true 时发送 stream_options.include_usage=true，默认 false，不因请求失败自动改参。上述配置进入连接修订及 Run 快照。
 - reasoning_effort 首期只支持标准同名 wire 字段。可靠元数据映射由后端显式 Provider 配置提供，声明精确模型、枚举和来源；无元数据时保持 unknown、UI 只提供 null，不靠模型名称推断，也不开放任意 JSON 参数编辑。

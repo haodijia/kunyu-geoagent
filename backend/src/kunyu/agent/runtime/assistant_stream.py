@@ -1,9 +1,6 @@
 """Lossless timed model output, compact attempt records and record-level readers."""
 
-import json
-from collections.abc import Mapping
 from dataclasses import dataclass
-from types import MappingProxyType
 from typing import Annotated, Literal, Self
 
 from pydantic import (
@@ -14,11 +11,13 @@ from pydantic import (
     model_validator,
 )
 
+from kunyu.agent.runtime.content import ContentBlock, ContentBlockType, ReplayEnvelope
 from kunyu.agent.runtime.models import (
+    BlockEnd,
+    BlockStart,
     ModelFinish,
     ModelFinishReason,
     ModelOutput,
-    ModelToolCall,
     ModelToolCallDelta,
     ReasoningDelta,
     TextDelta,
@@ -52,19 +51,16 @@ class ToolDeltaChunk(StreamValue):
     arguments_delta: str = Field(strict=True)
 
 
-class ToolChunk(StreamValue):
-    type: Literal["tool-call"] = "tool-call"
-    call_id: str = Field(strict=True)
-    name: str = Field(strict=True)
-    arguments: str = Field(strict=True)
+class BlockStartChunk(StreamValue):
+    type: Literal["block-start"] = "block-start"
+    index: ChunkIndex
+    block_type: ContentBlockType
 
-    @model_validator(mode="after")
-    def validate_arguments(self) -> Self:
-        parsed = json.loads(self.arguments)
-        if not isinstance(parsed, dict):
-            raise ValueError("Tool arguments must encode a JSON object.")  # noqa: TRY004 -- a Pydantic decoded-value validation failure
-        json.dumps(parsed, allow_nan=False)
-        return self
+
+class BlockEndChunk(StreamValue):
+    type: Literal["block-end"] = "block-end"
+    index: ChunkIndex
+    block: ContentBlock
 
 
 class UsageChunk(StreamValue):
@@ -77,10 +73,16 @@ class UsageChunk(StreamValue):
 class FinishChunk(StreamValue):
     type: Literal["finish"] = "finish"
     reason: ModelFinishReason
+    replay_state: ReplayEnvelope | None = None
 
 
 type StreamChunk = Annotated[
-    TextChunk | ToolDeltaChunk | ToolChunk | UsageChunk | FinishChunk,
+    TextChunk
+    | ToolDeltaChunk
+    | BlockStartChunk
+    | BlockEndChunk
+    | UsageChunk
+    | FinishChunk,
     Field(discriminator="type"),
 ]
 
@@ -148,7 +150,7 @@ def snapshot_chunk(output: ModelOutput) -> StreamChunk:
             type="reasoning-delta"
             if isinstance(output, ReasoningDelta)
             else "text-delta",
-            index=0,
+            index=output.index,
             text=output.text,
         )
     if isinstance(output, ModelToolCallDelta):
@@ -158,15 +160,10 @@ def snapshot_chunk(output: ModelOutput) -> StreamChunk:
             name=output.name,
             arguments_delta=output.arguments_delta,
         )
-    if isinstance(output, ModelToolCall):
-        # JSON round-trip rejects non-serializable values and detaches nested arguments.
-        arguments = json.dumps(
-            model_json_data(output.arguments),
-            allow_nan=False,
-            ensure_ascii=False,
-            separators=(",", ":"),
-        )
-        return ToolChunk(call_id=output.call_id, name=output.name, arguments=arguments)
+    if isinstance(output, BlockStart):
+        return BlockStartChunk(index=output.index, block_type=output.block_type)
+    if isinstance(output, BlockEnd):
+        return BlockEndChunk(index=output.index, block=output.block)
     if isinstance(output, TokenUsage):
         return UsageChunk(
             input_tokens=output.input_tokens,
@@ -174,50 +171,30 @@ def snapshot_chunk(output: ModelOutput) -> StreamChunk:
             total_tokens=output.total_tokens,
         )
     if isinstance(output, ModelFinish):
-        return FinishChunk(reason=output.reason)
+        return FinishChunk(reason=output.reason, replay_state=output.replay_state)
     raise TypeError("Unknown model stream output.")
 
 
 def chunk_output(chunk: StreamChunk) -> ModelOutput:
     if isinstance(chunk, TextChunk):
         return (
-            ReasoningDelta(chunk.text)
+            ReasoningDelta(chunk.index, chunk.text)
             if chunk.type == "reasoning-delta"
-            else TextDelta(chunk.text)
+            else TextDelta(chunk.index, chunk.text)
         )
     if isinstance(chunk, ToolDeltaChunk):
         return ModelToolCallDelta(
             chunk.index, chunk.id, chunk.name, chunk.arguments_delta
         )
-    if isinstance(chunk, ToolChunk):
-        return ModelToolCall(
-            chunk.call_id, chunk.name, _freeze_json(json.loads(chunk.arguments))
-        )
+    if isinstance(chunk, BlockStartChunk):
+        return BlockStart(chunk.index, chunk.block_type)
+    if isinstance(chunk, BlockEndChunk):
+        return BlockEnd(chunk.index, chunk.block)
     if isinstance(chunk, UsageChunk):
         return TokenUsage(chunk.input_tokens, chunk.output_tokens, chunk.total_tokens)
     if isinstance(chunk, FinishChunk):
-        return ModelFinish(chunk.reason)
+        return ModelFinish(chunk.reason, chunk.replay_state)
     raise TypeError("Unknown stored model stream chunk.")
-
-
-def model_json_data(value: object) -> object:
-    if isinstance(value, Mapping):
-        if not all(isinstance(key, str) for key in value):
-            raise TypeError("Model JSON object keys must be strings.")
-        return {key: model_json_data(item) for key, item in value.items()}
-    if isinstance(value, (list, tuple)):
-        return [model_json_data(item) for item in value]
-    return value
-
-
-def _freeze_json(value: object) -> object:
-    if isinstance(value, Mapping):
-        return MappingProxyType(
-            {key: _freeze_json(item) for key, item in value.items()}
-        )
-    if isinstance(value, (list, tuple)):
-        return tuple(_freeze_json(item) for item in value)
-    return value
 
 
 class AssistantStreamAccumulator:
@@ -296,31 +273,14 @@ def expand_assistant_stream(
                 time += record.dt[index - 1]
             if isinstance(record, TextChunks):
                 output = (
-                    ReasoningDelta(text)
+                    ReasoningDelta(record.index, text)
                     if record.type == "reasoning-chunks"
-                    else TextDelta(text)
+                    else TextDelta(record.index, text)
                 )
             else:
                 output = ModelToolCallDelta(record.index, record.id, record.name, text)
             result.append(TimedModelOutput(time, output))
     return tuple(result)
-
-
-def stream_text(
-    stream: tuple[AssistantStreamRecord, ...], *, reasoning: bool = False
-) -> str:
-    packed_kind = "reasoning-chunks" if reasoning else "text-chunks"
-    raw_kind = "reasoning-delta" if reasoning else "text-delta"
-    return "".join(
-        "".join(record.texts)
-        if isinstance(record, TextChunks) and record.type == packed_kind
-        else record.chunk.text
-        if isinstance(record, RawChunk)
-        and isinstance(record.chunk, TextChunk)
-        and record.chunk.type == raw_kind
-        else ""
-        for record in stream
-    )
 
 
 def first_token_time(stream: tuple[AssistantStreamRecord, ...]) -> int | None:
@@ -332,6 +292,8 @@ def first_token_time(stream: tuple[AssistantStreamRecord, ...]) -> int | None:
                 and chunk.text
                 or isinstance(chunk, ToolDeltaChunk)
                 and (chunk.arguments_delta or chunk.name is not None)
+                or isinstance(chunk, BlockEndChunk)
+                and (chunk.block.type == "tool-call" or chunk.block.text)
             ):
                 return record.time
         else:

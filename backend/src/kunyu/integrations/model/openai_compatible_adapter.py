@@ -9,6 +9,12 @@ from urllib.parse import urlsplit
 
 import httpx
 
+from kunyu.agent.runtime.content import (
+    ReasoningBlock,
+    TextBlock,
+    ToolCallBlock,
+    content_text,
+)
 from kunyu.agent.runtime.models import (
     ModelAdapterError,
     ModelErrorCode,
@@ -16,7 +22,6 @@ from kunyu.agent.runtime.models import (
     ModelOutput,
     ModelRequest,
     ModelRole,
-    ModelToolCall,
 )
 from kunyu.agent.runtime.tools import ToolSpec
 from kunyu.domain.model_connections import (
@@ -215,9 +220,14 @@ def _encode_request(
     if config.provider_type is ModelProviderType.DEEPSEEK and request.tools:
         for message, serialized in zip(request.messages, messages, strict=True):
             if message.role is ModelRole.ASSISTANT:
-                if message.reasoning_content is not None:
-                    serialized["reasoning_content"] = message.reasoning_content
-                elif message.tool_calls and request.reasoning_effort != "off":
+                if any(isinstance(block, ReasoningBlock) for block in message.content):
+                    serialized["reasoning_content"] = content_text(
+                        message.content, reasoning=True
+                    )
+                elif (
+                    any(isinstance(block, ToolCallBlock) for block in message.content)
+                    and request.reasoning_effort != "off"
+                ):
                     raise _invalid_request(
                         "DeepSeek thinking tool history is missing its reasoning content."
                     )
@@ -259,55 +269,52 @@ def _encode_request(
 
 
 def _serialize_message(message: ModelMessage) -> dict[str, object]:
-    if not isinstance(message.role, ModelRole) or not isinstance(message.content, str):
-        raise _invalid_request("The model message is invalid.")
+    if (
+        not isinstance(message.role, ModelRole)
+        or not isinstance(message.content, tuple)
+        or any(
+            not isinstance(block, (TextBlock, ReasoningBlock, ToolCallBlock))
+            for block in message.content
+        )
+    ):
+        raise _invalid_request("The model message content blocks are invalid.")
+    calls = tuple(
+        block for block in message.content if isinstance(block, ToolCallBlock)
+    )
+    if message.role is not ModelRole.ASSISTANT and (
+        calls
+        or message.replay_state is not None
+        or any(isinstance(block, ReasoningBlock) for block in message.content)
+    ):
+        raise _invalid_request(
+            "Only assistant messages may contain model blocks or replay state."
+        )
     payload: dict[str, object] = {
         "role": message.role.value,
-        "content": message.content,
+        "content": content_text(message.content),
     }
     if message.role is ModelRole.TOOL:
         if (
             not isinstance(message.tool_call_id, str)
             or not message.tool_call_id.strip()
             or len(message.tool_call_id) > 256
-            or message.tool_calls
         ):
             raise _invalid_request("The tool result message is invalid.")
         payload["tool_call_id"] = message.tool_call_id
-        return payload
-    if message.tool_call_id is not None:
-        raise _invalid_request("Only tool result messages may name tool_call_id.")
-    if message.tool_calls:
-        if message.role is not ModelRole.ASSISTANT:
-            raise _invalid_request("Only assistant messages may contain tool calls.")
-        call_ids = [call.call_id for call in message.tool_calls]
-        if len(set(call_ids)) != len(call_ids):
+    elif message.tool_call_id is not None:
+        raise _invalid_request("Only tool results may name tool_call_id.")
+    if calls:
+        if len({call.id for call in calls}) != len(calls):
             raise _invalid_request("Assistant tool-call IDs must be unique.")
         payload["tool_calls"] = [
-            _serialize_history_tool_call(call) for call in message.tool_calls
+            {
+                "id": call.id,
+                "type": "function",
+                "function": {"name": call.name, "arguments": call.arguments},
+            }
+            for call in calls
         ]
     return payload
-
-
-def _serialize_history_tool_call(call: ModelToolCall) -> dict[str, object]:
-    if (
-        not isinstance(call.call_id, str)
-        or not call.call_id.strip()
-        or len(call.call_id) > 256
-        or not isinstance(call.name, str)
-        or not call.name.strip()
-        or len(call.name) > 256
-        or not isinstance(call.arguments, Mapping)
-    ):
-        raise _invalid_request("The assistant tool call is invalid.")
-    return {
-        "id": call.call_id,
-        "type": "function",
-        "function": {
-            "name": call.name,
-            "arguments": _json_string(dict(call.arguments)),
-        },
-    }
 
 
 def _serialize_tool(tool: ToolSpec) -> dict[str, object]:
