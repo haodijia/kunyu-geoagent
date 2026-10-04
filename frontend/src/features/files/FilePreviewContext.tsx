@@ -8,8 +8,8 @@ import { FileEditConfirm, type FileEditAction } from "./FileEditConfirm";
 import { useFileWatch } from "./useFileWatch";
 
 export interface PdfView { readonly page: number; readonly zoom: "fit" | number; }
-export type PreviewTab = { readonly id: string; readonly path: string; readonly revision: number } & (
-  { readonly kind: "file"; readonly line?: number; readonly pdf?: PdfView } | { readonly kind: "diff"; readonly toolId: string }
+export type PreviewTab = { readonly id: string; readonly revision: number } & (
+  { readonly kind: "file"; readonly path: string; readonly line?: number; readonly pdf?: PdfView } | { readonly kind: "diff"; readonly path: string; readonly toolId: string } | { readonly kind: "plan"; readonly toolId: string; readonly title: string }
 );
 interface PreviewState { readonly tabs: readonly PreviewTab[]; readonly activeId: string | null; readonly width: number; }
 interface PreviewActions extends PreviewState {
@@ -19,6 +19,8 @@ interface PreviewActions extends PreviewState {
   setPdfView(id: string, view: PdfView): void;
   openFile(path: string, line?: number): void;
   openDiff(toolId: string, path: string): void;
+  openPlan(toolId: string, title: string): void;
+  openReview(questionId: string, toolId: string, title: string): void;
   select(id: string): void;
   closeTab(id: string): void;
   closePanel(): void;
@@ -54,8 +56,9 @@ function readState(key: string): PreviewState {
   const state = JSON.parse(stored) as PreviewState;
   if (!Array.isArray(state.tabs) || !(state.activeId === null || typeof state.activeId === "string")
     || !Number.isFinite(state.width) || state.width < 20 || state.width > 80
-    || state.tabs.some(tab => typeof tab.path !== "string" || typeof tab.id !== "string" || !Number.isSafeInteger(tab.revision)
-      || !(tab.kind === "file" ? tab.id === `file:${tab.path}` && (tab.line === undefined || (Number.isSafeInteger(tab.line) && tab.line >= 1)) && (tab.pdf === undefined || validPdfView(tab.pdf)) : tab.kind === "diff" && typeof tab.toolId === "string" && tab.id === `diff:${tab.toolId}`))
+    || state.tabs.some(tab => typeof tab.id !== "string" || !Number.isSafeInteger(tab.revision)
+      || !(tab.kind === "plan" ? typeof tab.toolId === "string" && tab.toolId !== "" && typeof tab.title === "string" && tab.id === `plan:${tab.toolId}`
+        : typeof tab.path === "string" && (tab.kind === "file" ? tab.id === `file:${tab.path}` && (tab.line === undefined || (Number.isSafeInteger(tab.line) && tab.line >= 1)) && (tab.pdf === undefined || validPdfView(tab.pdf)) : tab.kind === "diff" && typeof tab.toolId === "string" && tab.id === `diff:${tab.toolId}`)))
     || new Set(state.tabs.map(tab => tab.id)).size !== state.tabs.length
     || (state.activeId !== null && !state.tabs.some(tab => tab.id === state.activeId))) throw new Error("Invalid persisted file preview state.");
   return state;
@@ -72,6 +75,7 @@ export function FilePreviewProvider({ sessionId, children }: { readonly sessionI
   const [loaded, setLoaded] = useState<Partial<Record<string, { version: string | null; refreshable: boolean; editable: boolean }>>>({});
   const [infos, setInfos] = useState<Partial<Record<string, FileInfo | null>>>({});
   const [watchErrors, setWatchErrors] = useState<Partial<Record<string, string | null>>>({});
+  const openedReviews = useRef(new Set<string>());
   const retries = useRef(new Map<string, () => void>());
   const recordLoaded = useCallback((path: string, version: string | null, refreshable: boolean, editable: boolean) => setLoaded(current => current[path]?.version === version && current[path]?.refreshable === refreshable && current[path]?.editable === editable ? current : { ...current, [path]: { version, refreshable, editable } }), []);
   const recordInfo = useCallback((path: string, info: FileInfo | null) => setInfos(current => current[path]?.version === info?.version && current[path] !== undefined ? current : { ...current, [path]: info }), []);
@@ -94,7 +98,7 @@ export function FilePreviewProvider({ sessionId, children }: { readonly sessionI
     const index = current.tabs.findIndex(item => item.id === tab.id);
     const tabs = [...current.tabs];
     if (index === -1) tabs.push(tab);
-    else tabs[index] = { ...tab, ...(tabs[index]!.kind === "file" && "pdf" in tabs[index]! ? { pdf: tabs[index]!.pdf } : {}), revision: tabs[index]!.revision + (edits.drafts[tab.path] === undefined ? 1 : 0) };
+    else tabs[index] = { ...tab, ...(tabs[index]!.kind === "file" && "pdf" in tabs[index]! ? { pdf: tabs[index]!.pdf } : {}), revision: tabs[index]!.revision + (tab.kind !== "file" || edits.drafts[tab.path] === undefined ? 1 : 0) };
     return { ...current, tabs, activeId: tab.id };
   });
   function finish(action: FileEditAction) {
@@ -113,8 +117,8 @@ export function FilePreviewProvider({ sessionId, children }: { readonly sessionI
   }
   function request(action: FileEditAction) {
     const targets = state.tabs.filter(tab => action.ids.includes(tab.id));
-    if (targets.some(tab => edits.saving.includes(tab.path))) return;
-    if (targets.some(tab => edits.drafts[tab.path] !== undefined)) setPending(action);
+    if (targets.some(tab => tab.kind === "file" && edits.saving.includes(tab.path))) return;
+    if (targets.some(tab => tab.kind === "file" && edits.drafts[tab.path] !== undefined)) setPending(action);
     else finish(action);
   }
   async function save(id: string) {
@@ -146,13 +150,15 @@ export function FilePreviewProvider({ sessionId, children }: { readonly sessionI
     retryWatch: path => { const retry = retries.current.get(path); if (retry === undefined) throw new Error("The file watch is not registered."); retry(); },
     openFile: (path, line) => { const normalized = workspaceFilePath(path); open({ kind: "file", id: `file:${normalized}`, path: normalized, line, revision: 0 }); },
     openDiff: (toolId, path) => open({ kind: "diff", id: `diff:${toolId}`, path, toolId, revision: 0 }),
+    openPlan: (toolId, title) => open({ kind: "plan", id: `plan:${toolId}`, toolId, title, revision: 0 }),
+    openReview: (questionId, toolId, title) => { if (openedReviews.current.has(questionId)) return; openedReviews.current.add(questionId); open({ kind: "plan", id: `plan:${toolId}`, toolId, title, revision: 0 }); },
     select: activeId => setState(current => ({ ...current, activeId })),
     closeTab: id => request({ kind: "close", ids: [id] }),
     closePanel: () => request({ kind: "hide", ids: state.tabs.map(tab => tab.id) }),
     resize: width => setState(current => ({ ...current, width: Math.max(20, Math.min(80, width)) })),
     toggleMaximized: () => setMaximized(current => !current),
     refresh: () => { if (state.activeId !== null) request({ kind: "refresh", ids: [state.activeId] }); },
-  }}>{children}{state.tabs.filter(tab => tab.kind === "file" && tab.path.startsWith("/workspace/")).map(tab => <FileTabWatch key={tab.id} sessionId={sessionId} path={tab.path} />)}<FileEditConfirm action={pending} count={pending?.ids.filter(id => state.tabs.some(tab => tab.id === id && edits.drafts[tab.path] !== undefined)).length ?? 0} busy={edits.saving.length > 0} onCancel={() => setPending(null)} onDiscard={() => { if (pending !== null) finish(pending); }} onSave={savePending} /></PreviewContext>;
+  }}>{children}{state.tabs.flatMap(tab => tab.kind === "file" && tab.path.startsWith("/workspace/") ? [<FileTabWatch key={tab.id} sessionId={sessionId} path={tab.path} />] : [])}<FileEditConfirm action={pending} count={pending?.ids.filter(id => state.tabs.some(tab => tab.id === id && tab.kind === "file" && edits.drafts[tab.path] !== undefined)).length ?? 0} busy={edits.saving.length > 0} onCancel={() => setPending(null)} onDiscard={() => { if (pending !== null) finish(pending); }} onSave={savePending} /></PreviewContext>;
 }
 
 function FileTabWatch({ sessionId, path }: { readonly sessionId: string; readonly path: string }) {

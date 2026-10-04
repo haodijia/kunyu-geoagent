@@ -7,6 +7,7 @@ from kunyu.agent.runtime.events import (
     HistoryCompactedEvent,
     PermissionChangedEvent,
     PlanChangedEvent,
+    PlanExitSelectedEvent,
     PlanSelectedEvent,
     RequestHeaderEvent,
     RunCreatedEvent,
@@ -34,18 +35,28 @@ class ControlProjection:
     def accept(self, event: EventDraft) -> None:
         if isinstance(event, (RunCreatedEvent, RunTerminalEvent, RequestHeaderEvent)):
             self.accept_boundary(event.event_type, event.run_id)
+        elif isinstance(event, PlanExitSelectedEvent):
+            if event.run_id not in self._open_runs or not self.state.plan_active:
+                raise ValueError(
+                    "Plan approval requires an active plan in an open turn."
+                )
+            self.state = replace(self.state, plan_pending=False, plan_narrate=False)
         elif isinstance(event, PlanSelectedEvent):
             if not self._open_runs:
                 raise ValueError("Deferred plan selection requires an open turn.")
             self.state = replace(
                 self.state,
+                plan_narrate=True,
                 plan_pending=event.payload.active
                 if event.payload.active != self.state.plan_active
                 else None,
             )
         elif isinstance(event, PlanChangedEvent):
             self.state = replace(
-                self.state, plan_active=event.payload.active, plan_pending=None
+                self.state,
+                plan_active=event.payload.active,
+                plan_pending=None,
+                plan_narrate=True,
             )
         elif isinstance(event, StepDecisionEvent):
             if event.payload.kind == "enter" and self.state.plan_pending is not None:
@@ -70,6 +81,10 @@ class ControlProjection:
         if event_type == "run.created":
             self._open_runs.add(run_id)
         elif event_type == "request.header":
-            self.state = replace(self.state, plan_at_last_header=self.state.plan_active)
+            self.state = replace(
+                self.state,
+                plan_at_last_header=self.state.plan_active,
+                plan_narrate=True,
+            )
         else:
             self._open_runs.discard(run_id)

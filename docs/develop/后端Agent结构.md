@@ -19,6 +19,7 @@ Agent 架构必须对齐本地 `deepseek-harness` 源码的服务、插件、作
 | `core/session` | `runtime/events.py`、`session_reducer.py`、`persistence/` | 追加日志为事实源，确定性重放得到查询投影 |
 | `core/system-prompt` | `runtime/context.py`、`plugins/core.py`、`prompts/system.md` | 有序、带作用域的提示词段注册；指令正文由用户维护 |
 | `interaction/user-questions`、`interaction/tool-ask-user` | `runtime/questions.py`、`plugins/questions.py`、`application/questions.py`、`tools/questions.py` | 日志持有问题与决定，独占工具等待释放执行槽，原子结算后继续当前工具批次 |
+| `plan/plan-mode`、`ui-plan` | `plugins/plan_mode.py`、`agent/plan_mode.py`、`tools/plan_mode.py`、`application/plans.py`、前端 `features/plans/` | 完整计划工具、人工审阅、静默退出选择和原调用文档 |
 | `core/tools` | `runtime/tools.py`、`runner_tools.py`、`tools/registry.py` | 工具注册与实现分开；模型 Schema 来自实际注册；有界并行/独占调度；风险策略与确认接缝 |
 | `packages/context` | `agent/context.py`、`persistence/agent_context.py` | 注入正文成为有顺序的持久会话内容，后续步骤及轮次按原位置重放 |
 | `skill/skill`、`skill/skill-filesystem`、`skill/tool-skill` | `skills/registry.py`、`filesystem.py`、`context.py`、`tools/skills.py` | 注册表、来源、调用工具分开；目录仅注入名称和简介；选择后加载正文；区分模型/用户调用权限；持久目录替换与显式用户调用 |
@@ -39,6 +40,8 @@ backend/src/kunyu/agent/
 │   ├── core.py           # 作用域、提示词、工具、确认与轮次服务
 │   ├── memory.py         # 两个记忆工具的贡献插件
 │   ├── filesystem.py     # 文件系统提供者、观察策略与 read/write/edit 工具贡献
+│   ├── questions.py      # 通用用户问题服务与工具贡献
+│   ├── plan_mode.py      # 计划提示词、步骤选择与退出审阅工具
 │   └── loop.py           # 默认驱动提供者与每次执行的 Runner 插件
 ├── session_agent.py      # 对外 Agent API、注册表与会话 Context
 ├── inbox.py              # 持久 next-step/next-turn 输入、领取与丢弃
@@ -50,7 +53,8 @@ backend/src/kunyu/agent/
 ├── retry.py              # Provider 策略执行、持久退避与取消排空
 ├── filesystem.py         # 文件观察通知、写入/编辑意图槽与会话观察策略
 ├── commands/             # 作用域命令注册、计划/权限、压缩和执行日志
-├── prompts/system.md     # 用户维护的系统指令
+├── plan_mode.py          # 计划提示词与接受步骤通知
+├── prompts/              # 用户维护的系统及计划指令
 ├── runtime/              # 模型/工具契约、循环、类型事件、Reducer
 │   └── assistant_stream.py # 带时间的不可变分块、紧凑记录和记录级读取
 ├── tools/
@@ -60,6 +64,7 @@ backend/src/kunyu/agent/
 │   ├── file_mutations.py # write/edit 参数、守卫和模型结果
 │   ├── file_diff.py      # 与 jsdiff 9 一致的上下文 hunk
 │   ├── files_shared.py   # 当前历史挂载与模型文件错误说明
+│   ├── plan_mode.py      # 完整计划 Schema、审阅问题与决定处理器
 │   ├── registry.py       # 作用域工具贡献、写处理器与风险策略
 │   └── shared.py         # 参数、归属与结果校验
 └── skills/
@@ -146,7 +151,7 @@ DeepSeek 新连接默认 `deepseek_messages` 与 `https://api.deepseek.com/anthr
 3. 调用 `TOOLS.register(owner, name, ToolRegistration(builder, write_handler))`，贡献随 owner 释放。
 4. 在产品组合的 `plugins` 参数中启用插件；会话专属扩展通过 `install_plugin(agent.ctx, plugin)` 安装。
 
-默认启用 `MemoryToolsPlugin` 的 `memory_read`、`memory_write`，`SkillToolsPlugin` 的 `skill`、`skill_resource`，`TodoToolsPlugin` 的 `todo_write`，`FilesystemToolsPlugin` 的 `read`、`write`、`edit`，`UserQuestionsPlugin` 的 `ask_user_question`，以及 `AttachmentToolsPlugin` 的 `read_image`。模型提供者和循环提供者可分别通过 `model_plugin`、`loop_plugin` 显式替换。没有旧路径、静态插件包装或工具名分支兼容层。
+默认启用 `MemoryToolsPlugin` 的 `memory_read`、`memory_write`，`SkillToolsPlugin` 的 `skill`、`skill_resource`，`TodoToolsPlugin` 的 `todo_write`，`FilesystemToolsPlugin` 的 `read`、`write`、`edit`，`UserQuestionsPlugin` 的 `ask_user_question`，`PlanModePlugin` 的 `exit_plan_mode`，以及 `AttachmentToolsPlugin` 的 `read_image`。模型提供者和循环提供者可分别通过 `model_plugin`、`loop_plugin` 显式替换。没有旧路径、静态插件包装或工具名分支兼容层。
 
 L0 工具可直接执行；L1 工作区文件工具为独占调用，在 workspace-write 权限下直接执行，计划／read-only 模式拒绝。L2 记忆写入必须注册同名事务处理器。确认服务保留精确参数快照，批准后调用处理器；数据库业务修改、确认和工具结果同一事务提交，失败一起回滚。远程业务应另建持久作业与监督流程。
 
@@ -186,11 +191,17 @@ GeoSkill 的版本化地理场景逻辑放 `kunyu/scenes/`，场景数据放 `ba
 
 ## 运行中引导
 
-计划模式由 `commands/plan.py` 注册命令、提示词与 pre-step 通知，`application/plan_mode.py` 在同一 SQLite 事务读取当前控制事实与运行边界后追加选择。空闲切换提交 `plan/changed`；有未完成 Run 时提交 `plan/selected`，只改变待生效目标，同批 L1／L2 工具继续使用已生效模式。重复目标不追加选择，反向选择取消待生效切换。
+计划命令由 `commands/plan.py` 注册；`PlanModePlugin` 独立贡献 `agent/plan_mode.py` 中的提示词与 pre-step 通知，`application/plan_mode.py` 在同一 SQLite 事务读取当前控制事实与运行边界后追加选择。空闲切换提交 `plan/changed`；有未完成 Run 时提交 `plan/selected`，只改变待生效目标，同批 L1／L2 工具继续使用已生效模式。重复目标不追加选择，反向选择取消待生效切换。
 
 `runtime/control_projection.py` 统一重放计划、权限与摘要控制；只有 `agent/step/decision` 的 enter 决定消费待生效选择，步骤拒绝、同一步重试、工具确认、取消和重启恢复不消费。模式与输入接纳由同一提交事实生效，不存在先放开写入、再提交接纳的窗口。pre-step 在最后请求曾采用不同模式时追加一次真实模式通知；第一步无历史请求时不添加通知。计划状态随 `ReducedSession` 返回，工具策略读取同一投影，控制查询只读取请求头边界标记，不加载完整请求正文。
 
-输入区从完整订阅日志增量折叠已生效模式与待生效目标，独立于最近 256 条事件缓存；计划标记按已选择的目标显示，流未连接时不可操作。退出调用原命令接口并保留草稿；失败显示现有命令错误，重试保留命令 ID。模型提交计划审阅的 `exit_plan_mode` 和通用用户问题服务尚待接入。
+输入区从完整订阅日志增量折叠已生效模式与待生效目标，独立于最近 256 条事件缓存；计划标记按已选择的目标显示，流未连接时不可操作。退出调用原命令接口并保留草稿；失败显示现有命令错误，重试保留命令 ID。模型审阅通过下述独立插件和通用用户问题服务接入。
+
+`exit_plan_mode` 始终注册，只有当前已生效计划模式允许提交；参数为完整 Markdown，首行必须为一级标题。工具通过通用问题服务形成单个 `plan-review` 问题，选项为 `Approve`／`Keep planning`，完整计划为 detail，intent 绑定原 tool_call_id。批准、反馈、跳过、关闭及取消沿用原子问题结算，不另建计划运行或文件。
+
+批准在问题答案和工具完成之间提交 Run 归属的 `plan/exit-selected`，仅选择下一接受步骤退出，同批写入继续受当前计划限制。退出是静默选择，下一请求不追加“用户切换模式”的重复通知；步骤拒绝、重启和恢复仍保留选择。Reducer 校验原问题、原工具、完整计划、精确批准答案与成功结果，缺失、重复、错误身份或伪造结果均拒绝。用户再次显式切换时恢复普通通知规则。
+
+前端计划审阅面板自动打开原提交文档一次，手动关闭后不重复打开；“修改计划”关闭问题并回到普通输入区，保留计划模式。`GET /sessions/{session_id}/plans/{tool_call_id}` 只读取本会话原 `tool.requested`，所有有效提交在终态轮次末尾保留文档卡。预览标签保存身份和标题，完整 Markdown 从不可变日志加载；计划不进入文件监视、编辑、保存及未保存确认，普通文件编辑草稿保持原契约。读取和审批失败可见、记录日志并可明确重试。
 
 `SessionAgent.inbox` 从会话的 `agent/inbox/spliced` 日志重放 next-step 和 next-turn 两条队列。运行中发送 `steer` 保持当前 Run、模型快照和预算，不取消模型流或工具执行。受理事务持久保存消息、地图快照和幂等身份；重复请求返回同一消息。最多等待 32 条引导输入。
 
@@ -381,3 +392,8 @@ HtmlPreview 保留 allow-scripts、无同源权限的隔离 iframe 和原有 CSP
 回答或关闭经 scheduler 锁和 SQLite 写事务检查原调用、当前问题及决定，原子提交 `question.resolved`、工具结果和 `run.queued`。相同决定重复提交不重新排队，不同决定冲突；非法或迟到答案不改写日志。关闭产生 `ASK_CANCELLED` 工具结果，供模型停止等待用户发言；停止整个运行同时记录问题取消。后续工具先完成原批次，再开始下一模型步骤。数据库迁移 `0013` 更新运行状态约束和单会话未完成运行索引，问题内容和状态仅从会话日志投影，无额外问题表。
 
 前端 `features/questions` 复用 Mu 输入区的宽度、背景、边框和字体，问题卡替换普通输入区，保留外层对话草稿。题号、选项、自由输入和跳过状态保存到本窗口 `sessionStorage`，恢复失败显式要求清除，保存失败保持已保存版本并展示错误。网络失败保留答案，可重复提交同一问题。对话工具行区分人类等待和正在执行，轨迹按问题 ID 聚合请求和决定。计划审阅工具与专用计划预览尚待接入。
+
+
+### 完整计划审阅验证
+
+临时真实 Agent 与两种协议验证批准、反馈、跳过、关闭、非计划模式拒绝、无标题拒绝、同批写入限制、下一步静默退出、审批提交失败整事务回滚、批准后的重启恢复及完整投影重建。缺失、重复、错误身份和伪造审批成功结果的日志均拒绝；通用用户问题协议流程保持通过。离屏 Electron 验证完整 Markdown、摘要、自动打开一次、手动关闭、刷新恢复原文档、503 原答案重试、终态卡片及修改计划返回输入区。混合计划／文件标签验证只读、读取失败重试、未保存文件内容、普通输入草稿和刷新恢复；窄屏自动文件树不遮挡文档，手动开关有效。实际浅色、深色和 600px 截图检查通过。未新增仓库测试文件或数据库迁移，未调用真实模型供应商。

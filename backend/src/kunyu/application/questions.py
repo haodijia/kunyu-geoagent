@@ -282,6 +282,7 @@ class UserQuestionService:
                     cause.code,
                 )
                 error = cause
+            finished_at = datetime.now(UTC)
             common = {
                 "tool_call_id": tool.tool_call_id,
                 "provider_call_id": tool.provider_call_id,
@@ -311,7 +312,7 @@ class UserQuestionService:
                             error_code=error.code,
                             error_summary=str(error),
                         ),
-                        occurred_at=now,
+                        occurred_at=finished_at,
                     )
                 )
             else:
@@ -328,7 +329,7 @@ class UserQuestionService:
                             result=result.result,
                             content=result.content,
                         ),
-                        occurred_at=now,
+                        occurred_at=finished_at,
                     )
                 )
             events.append(
@@ -348,7 +349,7 @@ class UserQuestionService:
                         reason=None,
                         budget=budget_usage(run),
                     ),
-                    occurred_at=now,
+                    occurred_at=finished_at,
                 )
             )
             self._projections.commit_in_transaction(

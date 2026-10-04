@@ -16,6 +16,7 @@ from kunyu.api.errors import install_error_handlers
 from kunyu.api.files import router as files_router
 from kunyu.api.messages import router as messages_router
 from kunyu.api.model_connections import router as model_connections_router
+from kunyu.api.plans import router as plans_router
 from kunyu.api.questions import router as questions_router
 from kunyu.api.sessions import router as sessions_router
 from kunyu.api.skills import router as skills_router
@@ -107,6 +108,7 @@ def create_app(session_token: str | None = None) -> FastAPI:
     app.include_router(model_connections_router)
     app.include_router(confirmations_router)
     app.include_router(questions_router)
+    app.include_router(plans_router)
     app.include_router(agent_router)
     app.include_router(commands_router)
     app.include_router(skills_router)

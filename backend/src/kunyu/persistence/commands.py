@@ -27,6 +27,7 @@ def session_controls(transaction: Session, session_id: str) -> SessionControls:
                 (
                     "plan/changed",
                     "plan/selected",
+                    "plan/exit-selected",
                     "permission/changed",
                     "history/compacted",
                     "agent/step/decision",

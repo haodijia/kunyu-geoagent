@@ -33,7 +33,7 @@ export function FileExplorerLayout({ children }: { readonly children: ReactNode 
   const rootQuery = useQuery({ queryKey: directoryQueryKey(session.id, "/workspace"), queryFn: ({ signal }) => listDirectory(session.id, "/workspace", signal), retry: false });
   const rootWatch = useFileWatch(session.id, "/workspace", true, () => { void queryClient.invalidateQueries({ queryKey: directoryQueryKey(session.id, "/workspace"), exact: true }); });
   useEffect(() => {
-    if (rootQuery.data !== undefined && rootQuery.data.entries.length > 0 && window.innerWidth >= 768) explorer.showWhenPopulated();
+    if (rootQuery.data !== undefined && rootQuery.data.entries.length > 0) explorer.showWhenPopulated();
   }, [rootQuery.data, explorer.showWhenPopulated]);
   useEffect(() => { if (rootQuery.error !== null) console.error("[files] Root listing failed.", { sessionId: session.id, error: rootQuery.error }); }, [rootQuery.error, session.id]);
   useEffect(() => { if (active?.kind === "file") explorer.select(active.path); }, [active, explorer.select]);

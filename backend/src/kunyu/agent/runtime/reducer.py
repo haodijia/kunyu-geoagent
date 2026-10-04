@@ -35,6 +35,7 @@ from kunyu.agent.runtime.events import (
     ConfirmationResolvedEvent,
     EventDraft,
     ModelAttemptFinishedEvent,
+    PlanExitSelectedEvent,
     QuestionRequestedEvent,
     QuestionResolvedEvent,
     RequestHeaderEvent,
@@ -262,6 +263,8 @@ def _apply(state: _State, event: EventDraft, sequence: int) -> None:
         _complete_tool(state, event, sequence)
     elif isinstance(event, ToolFailedEvent):
         _fail_tool(state, event, sequence)
+    elif isinstance(event, PlanExitSelectedEvent):
+        _select_plan_exit(state, event)
     elif isinstance(event, QuestionRequestedEvent):
         _request_question(state, event, sequence)
     elif isinstance(event, QuestionResolvedEvent):
@@ -1059,6 +1062,32 @@ def _resolve_question(
     )
 
 
+def _select_plan_exit(state: _State, event: PlanExitSelectedEvent) -> None:
+    question = _pending_question(state)
+    tool = _tool(state, event.payload.tool_call_id)
+    items = question.request.questions
+    answer = question.answer
+    if (
+        state.state is not RunState.WAITING_INPUT
+        or question.status != "answered"
+        or tool.tool_call_id != question.tool_call_id
+        or tool.name != "exit_plan_mode"
+        or tool.tool_call_id in state.plan_exit_selections
+        or len(items) != 1
+        or items[0].intent is None
+        or items[0].intent.kind != "plan-review"
+        or items[0].intent.call_id != tool.tool_call_id
+        or items[0].detail != tool.arguments.get("plan")
+        or answer is None
+        or len(answer.answers) != 1
+        or answer.answers[0].id != items[0].id
+        or answer.answers[0].selected != (items[0].intent.approve,)
+        or answer.answers[0].custom is not None
+    ):
+        raise RunReductionError("Plan exit must own one exact approved plan review.")
+    state.plan_exit_selections.add(tool.tool_call_id)
+
+
 def _finish_question_tool(state: _State, tool: _ToolCall) -> None:
     question = _pending_question(state)
     if question.tool_call_id != tool.tool_call_id or question.status not in {
@@ -1066,6 +1095,21 @@ def _finish_question_tool(state: _State, tool: _ToolCall) -> None:
         "dismissed",
     }:
         raise RunReductionError("Tool settlement requires its resolved human question.")
+    if (
+        tool.name == "exit_plan_mode"
+        and tool.status == "completed"
+        and (
+            tool.tool_call_id not in state.plan_exit_selections
+            or not isinstance(tool.result, dict)
+            or set(tool.result) != {"approved"}
+            or tool.result["approved"] is not True
+        )
+    ):
+        raise RunReductionError(
+            "Completed plan exit requires its approved selection and result."
+        )
+    if tool.status == "failed" and tool.tool_call_id in state.plan_exit_selections:
+        raise RunReductionError("An approved plan exit cannot settle as failed.")
     state.pending_question_id = None
     state.pause_reason = None
     state.resume_phase = (

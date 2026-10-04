@@ -1,4 +1,5 @@
 export const zhCN = {
+  planReview: { header: "计划审阅", full: "完整计划", open: "打开完整计划", approve: "批准计划", discuss: "修改计划", loading: "正在读取计划…", loadFailed: "无法读取计划，请重试。", title: "计划", document: "计划文档", view: "查看", openNamed: (title: string) => `打开计划：${title}` },
   questions: {
     loading: "正在读取待回答的问题…", loadFailed: "无法读取待回答的问题，请重试。", retry: "重试", cancelRun: "停止运行",
     customLabel: "自定义回答", customPlaceholder: "输入你的回答…", recommended: "推荐",
@@ -20,7 +21,7 @@ export const zhCN = {
     watchFailed: (message: string) => `自动更新已停止：${message}`, retryWatch: "重新连接",
   },
   filePreview: {
-    title: "文件预览", tabs: "打开的文件", close: "关闭预览", closeTab: (name: string) => `关闭 ${name}`, resize: "调整预览宽度",
+    title: "文件预览", tabs: "打开的文档", close: "关闭预览", closeTab: (name: string) => `关闭 ${name}`, resize: "调整预览宽度",
     source: "源码", preview: "预览", editor: "编辑器", split: "分屏", splitResize: "调整编辑器与预览宽度", splitStorageFailed: "分屏宽度无法保存，请检查本地存储。", viewMode: "文件视图", diff: "变更", html: "HTML 预览",
     refresh: "刷新文件", download: "下载文件", maximize: "最大化预览", restore: "还原预览",
     updated: "文件已变化，点击刷新", watchFailed: "文件监视不可用，点击重新连接",
@@ -521,6 +522,7 @@ export const zhCN = {
       names: {
         memory_read: "搜索工作区记忆",
         memory_write: "保存工作区记忆",
+        exit_plan_mode: "提交计划",
         ask_user_question: "询问用户",
         skill: "加载技能",
         skill_resource: "读取技能资源",

@@ -549,6 +549,15 @@ class PlanSelectedEvent(_SessionEventDraft):
     payload: PlanChangedPayload
 
 
+class PlanExitSelectedPayload(EventPayload):
+    tool_call_id: str = Field(min_length=1)
+
+
+class PlanExitSelectedEvent(_RunEventDraft):
+    event_type: Literal["plan/exit-selected"]
+    payload: PlanExitSelectedPayload
+
+
 class PermissionChangedEvent(_SessionEventDraft):
     event_type: Literal["permission/changed"]
     payload: PermissionChangedPayload
@@ -732,6 +741,7 @@ type EventDraft = Annotated[
     | CommandDoneEvent
     | PlanChangedEvent
     | PlanSelectedEvent
+    | PlanExitSelectedEvent
     | PermissionChangedEvent
     | FeedbackRecordedEvent
     | HistoryCompactedEvent

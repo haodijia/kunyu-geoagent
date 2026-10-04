@@ -258,6 +258,7 @@ class _State:
     pending_confirmation_tool_id: str | None = None
     pending_question_id: str | None = None
     questions: dict[str, ReducedQuestion] = field(default_factory=dict)
+    plan_exit_selections: set[str] = field(default_factory=set)
     pause_reason: str | None = None
     decisions: list[ReducedStepDecision] = field(default_factory=list)
     request_snapshot: ModelSnapshotPayload | None = None
