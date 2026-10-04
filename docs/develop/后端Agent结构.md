@@ -316,3 +316,11 @@ Messages 原样将图文内容嵌入 tool_result。Chat Completions 按 harness 
 Canonical `content` 与 `paths`／按文件分组的 `matches` 展示元数据分离。元数据以 64 KiB 紧凑 UTF-8 JSON 为目标，移除尾部完整路径／文件组，但至少保留一项，因此单个极大的文件组可能超过目标上限，符合 harness 的保留约定。前端严格解析新结构，在对话与轨迹共用 Mu 风格的文件列表、匹配行表格、复制与折叠展示，显示真实保留数／总数和空结果；不从模型参数重建结果。
 
 超过条目上限时必须保存完整格式化结果（grep 的每行预览仍有 2000-byte 边界），不提供保存失败后继续成功的分支。存储采用 UUID 目录与固定 `glob-results.txt`／`grep-results.txt`，位于 `/workspace/.kunyu-search/<session>/<UUID>/`。通过 `read` 可分页读取，跨会话读取和模型 write/edit 禁止；搜索排除该内部目录，避免结果再次进入搜索。读取到的路径与普通 workspace 文件共用挂载。搜索不触发文件版本观察：发现文件后仍须 read，再 edit/write。文件发布与 journal 不在一个事务；未提交成功事实的孤立恢复文件不授予模型路径，后续生命周期清理仍待完善。采样与渲染移植保留 DeepSeek MIT 许可证，根目录和 Python 包均携带副本。
+
+## 人类文件预览与下载
+
+`application.file_preview.FilePreviewService` 处理完整预览和原件下载，`api.files` 只负责鉴权接口与错误映射。复用 `Filesystem.stream_bytes` 的目录描述符／no-follow 读取；工作区取实际会话归属，文件附件要求同会话精确收据与名称，恢复文件继续按会话隔离。人类预览允许查看尚未送入模型的文件附件，但不触发 Agent observation，不改变模型从实际历史取得的文件授权。
+
+`GET /api/v1/sessions/{session_id}/files/preview?path=...` 先 stat 返回不透明版本、源字节数与类型。文本最多 1 MiB，图片源最多 20 MiB，不支持类型与超限仅返回明确状态，不读取内容。文本整读后验证版本和实际长度，严格 UTF-8 解码并去除 BOM，保留 CRLF；不返回截断文本。`/image` 要求对应版本，复用图片规范化，可能缩小大图或取首帧；`/download` 读取原始字节，提前打开文件再发送响应头，精确长度并在断开或取消时关闭生成器／描述符。API 原件下载使用流式响应；当前前端下载通过鉴权 Blob，仍会在 renderer 中持有整个下载文件。
+
+前端 `features/files` 统一管理预览标签、宽度、查看器与入口。文件标签按规范化路径去重，刷新重新读取当前版本；变更标签按真实 tool_call_id 定位 journal 投影的原始 hunks，避免把后续编辑当作历史变更。会话存储只保留标签描述与宽度；源码按需加载 CodeMirror 语言包，并保持只读与虚拟化。Markdown 文件链接可按当前文件目录解析并定位行号；HTML 在独立 sandbox iframe 内，仅允许内联脚本和样式，CSP 禁止网络。尚未提供文件浏览树、用户保存、文件监视、PDF／Office 与 HTML 本地资源加载。
