@@ -1,7 +1,7 @@
 import { ChevronLeft, ChevronRight, Download, FileText, ImageOff, LoaderCircle, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
-import { AlertDialog, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogTitle } from "@/components/ui/alert-dialog";
+import { ImageLightbox } from "./ImageLightbox";
 import { Button } from "@/components/ui/button";
 import { zhCN } from "@/locales/zh-CN";
 import { readAttachment, type Attachment } from "./api";
@@ -74,12 +74,7 @@ function AttachmentCard({ sessionId, attachment: ref, disabled, onRemove, offloa
     </Button>}
     {offloaded && <span className="pointer-events-none absolute right-1 bottom-1 rounded bg-background/90 p-0.5 text-muted-foreground" aria-label={content.offloaded}><ImageOff className="size-3" /></span>}
     {onRemove !== undefined && <button type="button" disabled={disabled} aria-label={content.remove(ref.name)} onClick={() => onRemove(ref.id)} className="absolute -top-1 -right-1 flex size-4 items-center justify-center rounded-full border bg-background text-muted-foreground shadow-sm hover:text-foreground disabled:opacity-50"><X className="size-2.5" /></button>}
-    <AlertDialog open={preview} onOpenChange={setPreview}><AlertDialogContent className="max-w-3xl gap-3 p-4">
-      <div className="flex items-center justify-between gap-3"><AlertDialogTitle className="truncate text-sm">{ref.name}</AlertDialogTitle><AlertDialogCancel asChild><Button type="button" size="icon" variant="ghost" aria-label={content.close}><X className="size-4" /></Button></AlertDialogCancel></div>
-      <AlertDialogDescription>{ref.kind === "image" ? `${ref.width} × ${ref.height} · ${formatBytes(ref.bytes)}` : formatBytes(ref.bytes)}</AlertDialogDescription>
-      {url !== null && <img src={url} alt={ref.name} className="max-h-[65vh] w-full object-contain" />}
-      <Button type="button" variant="outline" size="sm" disabled={downloading} onClick={() => void download()}><Download className="size-3.5" />{content.downloadLabel}</Button>
-    </AlertDialogContent></AlertDialog>
+    {preview && url !== null && ref.kind === "image" && <ImageLightbox src={url} name={ref.name} description={`${ref.width} × ${ref.height} · ${formatBytes(ref.bytes)}`} onClose={() => setPreview(false)} onError={() => { console.error("[attachments] Image decoding failed.", { attachmentId: ref.id }); setFailed(true); setPreview(false); setUrl(null); }} action={<Button type="button" variant="outline" size="sm" disabled={downloading} onClick={() => void download()}><Download className="size-3.5" />{content.downloadLabel}</Button>} />}
   </div>;
 }
 

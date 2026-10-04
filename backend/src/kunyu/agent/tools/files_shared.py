@@ -1,7 +1,7 @@
 """Current-history filesystem scope and model-facing error presentation."""
 
 from kunyu.agent.context import build_model_history
-from kunyu.agent.runtime.input_content import FileInputBlock
+from kunyu.agent.runtime.input_content import FileInputBlock, ImageInputBlock
 from kunyu.agent.runtime.tools import ToolExecutionError
 from kunyu.domain.agent_context import RunContextSource
 from kunyu.domain.filesystem import FilesystemError, FilesystemScope
@@ -15,7 +15,7 @@ def filesystem_scope(source: RunContextSource) -> FilesystemScope:
             block.attachment
             for message in build_model_history(source)
             for block in message.content
-            if isinstance(block, FileInputBlock)
+            if isinstance(block, (FileInputBlock, ImageInputBlock))
         ),
     )
 

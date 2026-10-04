@@ -11,7 +11,7 @@ from contextlib import contextmanager
 from pathlib import Path
 from threading import Event, Lock
 
-from kunyu.domain.attachments import AttachmentError, FileAttachment, attachment_path
+from kunyu.domain.attachments import Attachment, AttachmentError, attachment_path
 from kunyu.domain.filesystem import (
     FilesystemError,
     FilesystemScope,
@@ -202,7 +202,7 @@ class MountedFilesystem:
     def watch(self, target: FsTarget) -> AsyncGenerator[FsWatchFrame, None]:
         return self.watches.follow(target)
 
-    def _attachment(self, target: FsTarget) -> FileAttachment:
+    def _attachment(self, target: FsTarget) -> Attachment:
         if (
             target.attachment is None
             or target.attachment not in target.scope.attachments
@@ -223,7 +223,6 @@ class MountedFilesystem:
                 "FS_RECEIPT_MISMATCH",
                 "The attachment receipt differs from committed history.",
             )
-        assert isinstance(stored, FileAttachment)
         return stored
 
     @contextmanager

@@ -6,7 +6,7 @@ from dataclasses import replace
 from kunyu.agent.runtime.events import ImageOffloadTarget
 from kunyu.agent.runtime.input_content import ImageInputBlock
 from kunyu.agent.runtime.models import ModelMessage
-from kunyu.domain.attachments import ImageAttachment
+from kunyu.domain.attachments import ImageAttachment, attachment_path
 
 
 def apply_offloads(
@@ -73,8 +73,8 @@ def select_oldest_images(
 
 def offloaded_image_text(ref: ImageAttachment) -> str:
     return (
-        f"[image omitted to fit request image limits; attachment_id={ref.id}, "
+        f"[image omitted to fit request image limits; file_path={attachment_path(ref)!r}, "
         f"name={ref.name!r}, normalized={ref.width}x{ref.height}px, "
         f"media_type={ref.media_type}, bytes={ref.bytes}. "
-        "Use read_image with this attachment_id to inspect its pixels again.]"
+        "Use read_image with this file_path to inspect its pixels again.]"
     )

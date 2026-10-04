@@ -11,7 +11,7 @@ from kunyu.agent.runtime.events import (
     UserMessageAppendedEvent,
 )
 from kunyu.agent.runtime.input_content import ImageInputBlock, InputMessageSource
-from kunyu.domain.attachments import Attachment, ImageAttachment
+from kunyu.domain.attachments import Attachment, ImageAttachment, ToolImageProducer
 
 
 class ImageOffloadProjection:
@@ -48,8 +48,13 @@ class ImageOffloadProjection:
                 if isinstance(block, ImageInputBlock)
             )
             admitted = [ref for key in self._visible for ref in self._nodes[key]]
-            if any(ref not in admitted for ref in images):
-                raise ValueError("Tool images must match an admitted image receipt.")
+            producer = ToolImageProducer(
+                run_id=event.run_id, tool_call_id=event.payload.tool_call_id
+            )
+            if any(ref not in admitted and ref.producer != producer for ref in images):
+                raise ValueError(
+                    "Tool images must match admitted receipts or be created by this call."
+                )
             self._add(sequence, event.payload.tool_call_id, images, role="tool")
         elif isinstance(event, RequestHeaderEvent):
             visible = set()

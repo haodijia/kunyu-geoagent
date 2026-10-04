@@ -16,7 +16,7 @@ export const zhCN = {
     closeConfirmTitle: "保存修改后再关闭？", closeConfirmMessage: (count: number) => `${count} 个文件有未保存的修改。`,
     refreshConfirmTitle: "放弃未保存的修改？", refreshConfirmMessage: "刷新将用磁盘中的内容替换当前编辑。",
     draftStorageFailed: "未保存修改无法暂存，请保存文件后再离开。",
-    loading: "正在读取文件…", readOnly: "只读", zoomIn: "放大", zoomOut: "缩小", imageFailed: "图片无法显示。",
+    loading: "正在读取文件…", readOnly: "只读", zoomIn: "放大", zoomOut: "缩小", resetZoom: "重置缩放", imageFailed: "图片无法显示。",
     line: (path: string, line: number) => `查看 ${path} 第 ${line} 行`, invalidLink: "文件链接无效。",
     unsupported: "暂不支持预览此文件类型，可下载文件查看。", failed: "文件读取失败。", diffMissing: "未找到这次工具调用的已保存变更。",
     oversized: (bytes: number, limit: number) => `文件大小 ${bytes.toLocaleString()} 字节，超过预览上限 ${limit.toLocaleString()} 字节。可下载完整文件查看。`,
