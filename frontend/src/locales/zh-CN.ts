@@ -482,7 +482,7 @@ export const zhCN = {
         skill: "加载技能",
         skill_resource: "读取技能资源",
         todo_write: "更新任务列表",
-        file_read: "读取文件",
+        read: "读取文件",
         read_image: "读取图片",
       },
       status: {
@@ -491,6 +491,12 @@ export const zhCN = {
         completed: "执行完成",
         failed: "执行失败",
         cancelled: "已取消",
+      },
+      read: {
+        lines: (path: string) => `文件内容：${path}`,
+        end: (total: number) => `已到文件末尾，共 ${total} 行`,
+        window: (start: number, end: number, total: number, next: number) => `显示第 ${start}–${end} 行，共 ${total} 行；使用 offset=${next} 继续读取`,
+        capped: (start: number, end: number, next: number) => `输出达到上限，显示第 ${start}–${end} 行；使用 offset=${next} 继续读取`,
       },
     },
     imageModelRequired: "所选模型未开启图片输入。请选择支持图片的模型或前往设置开启。",

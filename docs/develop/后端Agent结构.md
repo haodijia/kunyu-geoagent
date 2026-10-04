@@ -21,8 +21,9 @@ Agent 架构必须对齐本地 `deepseek-harness` 源码的服务、插件、作
 | `core/tools` | `runtime/tools.py`、`runner_tools.py`、`tools/registry.py` | 工具注册与实现分开；模型 Schema 来自实际注册；有界并行/独占调度；风险策略与确认接缝 |
 | `packages/context` | `agent/context.py`、`persistence/agent_context.py` | 注入正文成为有顺序的持久会话内容，后续步骤及轮次按原位置重放 |
 | `skill/skill`、`skill/skill-filesystem`、`skill/tool-skill` | `skills/registry.py`、`filesystem.py`、`context.py`、`tools/skills.py` | 注册表、来源、调用工具分开；目录仅注入名称和简介；选择后加载正文；区分模型/用户调用权限；持久目录替换与显式用户调用 |
+| `packages/fs/fs`、`fs-local`、`tool-fs` 的 `read` | `domain/filesystem.py`、`integrations/filesystem.py`、`plugins/filesystem.py`、`tools/files.py`、`read_render.py` | 独立文件系统服务与工具插件；路径作用域、UTF-8 流式读取、实际行号、窗口边界和续读说明 |
 
-这是 Python 的对应实现，没有引入 Cordis 的 TypeScript 运行时。已实现文本／思考／工具三类 block 和 replay 核心；仍未实现附件块、surface 替换/压缩、PTC、多 Agent 委派、profile 配置装载及插件市场，不能宣称完整功能等价。中断恢复仍采用本项目的显式恢复与持久确认契约。
+这是 Python 的对应实现，没有引入 Cordis 的 TypeScript 运行时。已实现文本／思考／工具内容块、图片／文件输入、图文工具结果与 replay 核心；仍未实现 surface 替换/压缩、PTC、多 Agent 委派、profile 配置装载及插件市场，不能宣称完整功能等价。中断恢复仍采用本项目的显式恢复与持久确认契约。
 
 ## 目录与运行链路
 
@@ -36,6 +37,7 @@ backend/src/kunyu/agent/
 │   ├── infrastructure.py # SQLite 事件/仓储与模型提供者
 │   ├── core.py           # 作用域、提示词、工具、确认与轮次服务
 │   ├── memory.py         # 两个记忆工具的贡献插件
+│   ├── filesystem.py     # 独立文件系统提供者与 read 工具贡献
 │   └── loop.py           # 默认驱动提供者与每次执行的 Runner 插件
 ├── session_agent.py      # 对外 Agent API、注册表与会话 Context
 ├── inbox.py              # 持久 next-step/next-turn 输入、领取与丢弃
@@ -51,6 +53,8 @@ backend/src/kunyu/agent/
 │   └── assistant_stream.py # 带时间的不可变分块、紧凑记录和记录级读取
 ├── tools/
 │   ├── memory.py         # 记忆 Schema、描述、执行和确认事务处理器
+│   ├── files.py          # 按路径与行号读取，授权来自当前模型历史
+│   ├── read_render.py    # 有界行窗口、语言和模型读取正文
 │   ├── registry.py       # 作用域工具贡献、写处理器与风险策略
 │   └── shared.py         # 参数、归属与结果校验
 └── skills/
@@ -100,7 +104,7 @@ backend/src/kunyu/agent/
 
 前端从同一 opening 加载历史与活动前缀，不再先分页读取历史再开启另一条流。`LiveAssistantStream` 校验连续 revision、块 index、消息身份与具名结算；缺口触发重新连接和完整前缀替换，不继续追加失去边界的碎片。暂态前缀保留到已匹配的 end，committed 后回到持久投影，abandoned 则撤销暂态内容。重连包括全部精确时间，不用合并 delta 猜测运行中内容。
 
-对话和轨迹使用同一实时前缀显示文字、思考和首 token 时间；思考与正文按字符码点共同遵守剩余输出预算。工具生成行复用 Mu 工具行、图标与详情组件，明确标记“正在生成参数”，不会创建或执行占位工具调用。完整模型调用结算后才显示真实工具生命周期。运行中的轨迹“输出流”也可打开，结算后读取嵌入流、内容块与 replay；附件块仍待对齐。
+对话和轨迹使用同一实时前缀显示文字、思考和首 token 时间；思考与正文按字符码点共同遵守剩余输出预算。工具生成行复用 Mu 工具行、图标与详情组件，明确标记“正在生成参数”，不会创建或执行占位工具调用。完整模型调用结算后才显示真实工具生命周期。运行中的轨迹“输出流”也可打开，结算后读取嵌入流、内容块与 replay；已提交的附件与图文工具结果使用同一预览组件。
 
 迁移 `0006` 只将旧事件中已知的合并正文／思考块写入流，标记 `stream_origin=buffered`，不编造原始工具碎片、用量块或 token 时间。历史消息正文与状态保持原值，旧流不用于精确首 token 延迟。
 
@@ -137,7 +141,7 @@ DeepSeek 新连接默认 `deepseek_messages` 与 `https://api.deepseek.com/anthr
 3. 调用 `TOOLS.register(owner, name, ToolRegistration(builder, write_handler))`，贡献随 owner 释放。
 4. 在产品组合的 `plugins` 参数中启用插件；会话专属扩展通过 `install_plugin(agent.ctx, plugin)` 安装。
 
-默认启用 `MemoryToolsPlugin` 的 `memory_read`、`memory_write`，`SkillToolsPlugin` 的 `skill`、`skill_resource`，`TodoToolsPlugin` 的 `todo_write`，以及 `AttachmentToolsPlugin` 的 `file_read`、`read_image`。模型提供者和循环提供者可分别通过 `model_plugin`、`loop_plugin` 显式替换。没有旧路径、静态插件包装或工具名分支兼容层。
+默认启用 `MemoryToolsPlugin` 的 `memory_read`、`memory_write`，`SkillToolsPlugin` 的 `skill`、`skill_resource`，`TodoToolsPlugin` 的 `todo_write`，`FilesystemToolsPlugin` 的 `read`，以及 `AttachmentToolsPlugin` 的 `read_image`。模型提供者和循环提供者可分别通过 `model_plugin`、`loop_plugin` 显式替换。没有旧路径、静态插件包装或工具名分支兼容层。
 
 L0 工具可直接执行；L2 本地写入必须注册同名事务处理器。确认服务保留精确参数快照，批准后调用处理器；业务修改、确认和工具结果同一事务提交，失败一起回滚。远程业务应另建持久作业与监督流程。
 
@@ -246,7 +250,13 @@ Provider 重试探针通过 normal 次数/错误筛选、指数退避、空回�
 
 `MessageInputPayload` 将引用贯穿用户消息、双队列和步骤决策。步骤不能引入原输入不拥有的引用；重建投影保留引用。模型历史使用独立 `ImageInputBlock` / `FileInputBlock`，助手输出仍只接受 text／reasoning／tool-call。`RunImageResolver` 仅物化当前运行实际可见的图片，HTTP 适配器根据明确协议编码；请求头 journal 保留元数据而不保存 base64。
 
-`AttachmentToolsPlugin` 提供 `file_read`，使用当前运行历史中的文件引用授权，按 Unicode 字符分页读取 UTF-8 文本。未准入草稿、未来队列和压缩边界以前的附件不自动授予读取权限；空文件可读，非 UTF-8／含 NUL 的二进制内容明确报错。PDF、Office 等格式的读取器与真实供应商图片能力探测仍待实现。
+`FilesystemPlugin` 提供独立 `fs` 服务，`FilesystemToolsPlugin` 消费服务并贡献 L0 并行工具 `read({file_path, offset?, limit?})`。旧字符分页工具已移除。相对路径以 `/workspace` 为根，映射数据库同目录的 `workspaces/<workspace_id>/files`；只读取普通文件，逐级目录描述符禁止跟随符号链接，拒绝越界路径、目录和管道。当前插件不创建文件或目录。
+
+文件附件的模型文字句柄包含精确 `/attachments/<UUID>/<name>` 路径。这是只读挂载标识，不是服务端原生路径；读取权限来自当前运行实际模型历史，读取字节时再次核对同会话不可变收据。未准入草稿、未来队列和压缩边界以前的附件不自动授予读取权限。
+
+`read` 使用 1 基行号，默认 offset=1、limit=2000，上限 2000 行；每行保留最多 2000 个 UTF-16 单元，选中内容最多 50 KiB UTF-8。文件系统按 64 KiB 分块解码，去除初始 UTF-8 BOM，前 8192 字节发现 NUL 或任意位置 UTF-8 解码失败均报 `FS_NOT_TEXT`；取消报 `FS_ABORTED`。窗口达到上限后继续有界扫描，保存精确总行数；空文件与 CRLF 按 harness 语义处理。模型正文使用 `<path>`／`<type>`／`<content>` 包装和续读 offset，展示数据独立保存路径、实际行号、总行数、截断标记及可选语言。
+
+对话工具行默认折叠，展开后显示实际行号、读取范围和下一 offset；轨迹概述与结果页复用同一组件。持久重建和页面刷新保留读取窗口。文件观察事件、写入／编辑／搜索、工作区图片读取、PDF／Office 专用读取器与真实供应商图片能力探测仍待实现。
 
 
 ## 模型图片声明与请求投影

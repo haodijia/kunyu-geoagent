@@ -15,6 +15,7 @@ from kunyu.agent.plugins.core import (
     ToolsPlugin,
     TurnServicesPlugin,
 )
+from kunyu.agent.plugins.filesystem import FilesystemPlugin, FilesystemToolsPlugin
 from kunyu.agent.plugins.image_offload import ImageOffloadPlugin
 from kunyu.agent.plugins.infrastructure import ModelPlugin, PersistencePlugin
 from kunyu.agent.plugins.loop import AgentLoopPlugin
@@ -74,6 +75,7 @@ async def create_agent_runtime(
     for plugin in (
         PersistencePlugin(),
         ScopePlugin(),
+        FilesystemPlugin(),
         model_plugin,
         AgentHooksPlugin(),
         ImageOffloadPlugin(),
@@ -82,6 +84,7 @@ async def create_agent_runtime(
         ToolsPlugin(),
         MemoryToolsPlugin(),
         AttachmentToolsPlugin(),
+        FilesystemToolsPlugin(),
         TodoToolsPlugin(),
         SkillPlugin(),
         FilesystemSkillsPlugin(),

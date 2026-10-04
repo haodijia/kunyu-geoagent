@@ -27,6 +27,7 @@ if TYPE_CHECKING:
     from kunyu.application.connection_locks import ConnectionOperationLocks
     from kunyu.application.run_acceptance import RunAcceptanceService
     from kunyu.application.run_lifecycle import RunLifecycleService
+    from kunyu.domain.filesystem import Filesystem
     from kunyu.persistence.agent_context import SQLAlchemyRunContextRepository
     from kunyu.persistence.agent_projections import SQLAlchemyAgentProjectionService
     from kunyu.persistence.attachments import SQLAlchemyAttachmentStore
@@ -36,6 +37,7 @@ if TYPE_CHECKING:
     from kunyu.persistence.runs import SQLAlchemyEventStore
     from kunyu.persistence.workspace_memory import SQLAlchemyWorkspaceMemoryRepository
 
+FILESYSTEM: ServiceKey[Filesystem] = ServiceKey("fs")
 DATABASE: ServiceKey[Database] = ServiceKey("database")
 ATTACHMENTS: ServiceKey[SQLAlchemyAttachmentStore] = ServiceKey("sessions.attachments")
 SCOPES: ServiceKey[AgentScopes] = ServiceKey("agent_scopes")
