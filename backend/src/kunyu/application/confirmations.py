@@ -32,6 +32,7 @@ from kunyu.agent.runtime.events import (
 from kunyu.agent.runtime.tools import PolicyDecision
 from kunyu.agent.runtime.tools import ToolCall as PolicyToolCall
 from kunyu.agent.tools.registry import ToolPolicyGate, ToolRegistryFactory
+from kunyu.agent.tools.shared import tool_result
 from kunyu.application.sessions import SessionNotFoundError
 from kunyu.domain.confirmations import (
     Confirmation,
@@ -429,6 +430,7 @@ class ConfirmationService:
                     **common,
                     next_tool_index=next_tool_index,
                     result=result,
+                    content=tool_result(result).content,
                 ),
                 occurred_at=now,
             ),

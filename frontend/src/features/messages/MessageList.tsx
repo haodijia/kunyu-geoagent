@@ -51,7 +51,7 @@ export function MessageList({
   turns,
 }: MessageListProps) {
   const { events, records, activeAssistant } = useSessionEvents();
-  const imageOffloads = useMemo(() => collectImageOffloads(events), [events]);
+  const imageOffloads = useMemo(() => collectImageOffloads(records), [records]);
   const repairedAttempts = useMemo(() => new Set(records.filter((record) => record.eventType === "model.attempt.finished" && record.payload.error_code === "IMAGE_OFFLOAD_REQUIRED").map((record) => record.messageId)), [records]);
   const skillsByMessage = useMemo(() => collectSessionSkills(events).byMessage, [events]);
   const live = useMemo(() => {

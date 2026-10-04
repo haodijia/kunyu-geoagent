@@ -16,6 +16,7 @@ from kunyu.agent.runtime.events import (
     RunState,
     StepDecisionPayload,
 )
+from kunyu.agent.runtime.tool_content import ToolContentBlock
 
 type AssistantStatus = Literal[
     "streaming", "completed", "interrupted", "failed", "cancelled"
@@ -73,6 +74,7 @@ class ReducedToolCall:
     arguments: Mapping[str, JsonValue]
     status: ToolStatus
     result: JsonValue | None
+    content: tuple[ToolContentBlock, ...]
     error_code: str | None
     error_summary: str | None
     created_at: datetime
@@ -184,6 +186,7 @@ class _ToolCall:
     execution: Literal["parallel", "exclusive"] = "exclusive"
     status: ToolStatus = "pending"
     result: JsonValue | None = None
+    content: tuple[ToolContentBlock, ...] = ()
     error_code: str | None = None
     error_summary: str | None = None
     updated_at: datetime | None = None

@@ -11,6 +11,7 @@ import { sanitizeTrajectoryValue } from "./trajectory-sanitize";
 import type { Confirmation } from "@/features/confirmations/api";
 import type { SessionMessage } from "@/features/messages/api";
 import type { AgentTurn, ToolCall } from "@/features/agent/api";
+import { parseToolContent } from "@/features/agent/tool-content";
 import { zhCN } from "@/locales/zh-CN";
 import type { TrajectoryEventProjection } from "./projection";
 import type {
@@ -428,20 +429,21 @@ function toolRecord(
   const input = sanitizeTrajectoryValue(
     snapshot?.arguments ?? requested?.payload.arguments ?? {},
   );
+  const completed = terminal?.eventType === "tool.completed" ? terminal.payload
+    : snapshot?.status === "completed" ? snapshot : null;
   const output = sanitizeTrajectoryValue(
-    snapshot?.error_summary !== null && snapshot?.error_summary !== undefined
+    completed !== null ? { result: completed.result, content: parseToolContent(completed.content) }
+    : snapshot?.error_summary !== null && snapshot?.error_summary !== undefined
       ? {
           error_code: snapshot.error_code,
           error_summary: snapshot.error_summary,
         }
-      : (snapshot?.result ??
-          terminal?.payload.result ??
-          (terminal?.eventType === "tool.failed"
+      : (terminal?.eventType === "tool.failed"
             ? {
                 error_code: terminal.payload.error_code,
                 error_summary: terminal.payload.error_summary,
               }
-            : null)),
+            : null),
   );
   return baseRecord(events, {
     turn: turnFor(first, context),

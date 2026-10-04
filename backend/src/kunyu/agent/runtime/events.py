@@ -22,6 +22,7 @@ from kunyu.agent.runtime.assistant_stream import AssistantStreamRecord
 from kunyu.agent.runtime.content import ContentBlock, ReplayEnvelope
 from kunyu.agent.runtime.retry_policy import RetryPolicy
 from kunyu.agent.runtime.todos import TodoList
+from kunyu.agent.runtime.tool_content import ToolContent
 from kunyu.domain.attachments import MAX_ATTACHMENTS, MAX_BATCH_BYTES, Attachment
 
 type PositiveInt = Annotated[int, Field(gt=0)]
@@ -420,6 +421,7 @@ class ToolProgressPayload(EventPayload):
 
 class ToolCompletedPayload(ToolProgressPayload):
     result: JsonValue
+    content: ToolContent
 
 
 class ToolFailedPayload(ToolProgressPayload):

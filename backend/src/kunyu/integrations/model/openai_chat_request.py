@@ -53,6 +53,9 @@ def encode_request(
                     raise invalid_request(
                         "DeepSeek thinking tool history is missing its reasoning content."
                     )
+    messages = _project_tool_images(
+        request.messages, messages, images if images is not None else {}
+    )
     tools = [_serialize_tool(tool) for tool in request.tools]
     _require_unique_tool_names(tools)
     payload: dict[str, object] = {
@@ -115,8 +118,14 @@ def _serialize_message(
         isinstance(block, (ImageInputBlock, FileInputBlock))
         for block in message.content
     )
-    if attachments and message.role is not ModelRole.USER:
-        raise invalid_request("Only user input may contain attachment blocks.")
+    if attachments and message.role not in {ModelRole.USER, ModelRole.TOOL}:
+        raise invalid_request(
+            "Only user input and tool results may contain attachments."
+        )
+    if message.role is ModelRole.TOOL and any(
+        isinstance(block, FileInputBlock) for block in message.content
+    ):
+        raise invalid_request("Tool results may contain only text and image blocks.")
     calls = tuple(
         block for block in message.content if isinstance(block, ToolCallBlock)
     )
@@ -130,7 +139,14 @@ def _serialize_message(
         )
     payload: dict[str, object] = {
         "role": message.role.value,
-        "content": [
+        "content": "\n".join(
+            encoded["text"]
+            for block in message.content
+            for encoded in input_blocks(block, images, native=False)
+            if encoded["type"] == "text"
+        )
+        if message.role is ModelRole.TOOL
+        else [
             encoded
             for block in message.content
             for encoded in input_blocks(block, images, native=False)
@@ -160,6 +176,44 @@ def _serialize_message(
             for call in calls
         ]
     return payload
+
+
+def _project_tool_images(
+    history: tuple[ModelMessage, ...],
+    serialized: list[dict[str, object]],
+    images: Mapping[str, RequestImage],
+) -> list[dict[str, object]]:
+    """Chat tool messages carry text; lift pixels after their complete result batch."""
+    result = []
+    pending = []
+
+    def flush() -> None:
+        if pending:
+            result.append(
+                {
+                    "role": "user",
+                    "content": [
+                        {"type": "text", "text": "Attached image(s) from tool result:"},
+                        *pending,
+                    ],
+                }
+            )
+            pending.clear()
+
+    for message, encoded in zip(history, serialized, strict=True):
+        if message.role is not ModelRole.TOOL:
+            flush()
+        result.append(encoded)
+        if message.role is ModelRole.TOOL:
+            for block in message.content:
+                if isinstance(block, ImageInputBlock) and block.offloaded is not True:
+                    pending.extend(
+                        item
+                        for item in input_blocks(block, images, native=False)
+                        if item["type"] == "image_url"
+                    )
+    flush()
+    return result
 
 
 def _serialize_tool(tool: ToolSpec) -> dict[str, object]:

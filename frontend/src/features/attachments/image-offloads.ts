@@ -1,10 +1,11 @@
-import type { SessionEvent } from "@/features/events/api";
+import type { TrajectoryEventProjection } from "@/features/events/projection";
+import { parseToolContent, toolContentImages } from "@/features/agent/tool-content";
 import { parseAttachments, type Attachment } from "./api";
 
 type ImageAttachment = Extract<Attachment, { readonly kind: "image" }>;
 
 /** Resolve durable occurrence indexes using the producing message event, never an attachment-wide flag. */
-export function collectImageOffloads(events: readonly SessionEvent[]): ReadonlyMap<string, ReadonlySet<string>> {
+export function collectImageOffloads(events: readonly TrajectoryEventProjection[]): ReadonlyMap<string, ReadonlySet<string>> {
   const sources = new Map<string, readonly ImageAttachment[]>();
   const selected = new Map<string, Set<number>>();
   const byMessage = new Map<string, Set<string>>();
@@ -14,12 +15,16 @@ export function collectImageOffloads(events: readonly SessionEvent[]): ReadonlyM
     sources.set(`${sequence}\n${value.message_id}`, images);
   }
   for (const event of events) {
-    if (event.event_type === "message.user.appended") add(event.sequence, event.payload);
-    if (event.event_type === "agent/step/decision" && event.payload.kind === "enter") {
+    if (event.eventType === "message.user.appended") add(event.sequence, event.payload);
+    if (event.eventType === "agent/step/decision" && event.payload.kind === "enter") {
       if (!Array.isArray(event.payload.messages)) throw new Error("Invalid image message sources.");
       for (const message of event.payload.messages) add(event.sequence, message);
     }
-    if (event.event_type !== "image/offload") continue;
+    if (event.eventType === "tool.completed") {
+      if (typeof event.payload.tool_call_id !== "string") throw new Error("Tool image source has no identity.");
+      sources.set(`${event.sequence}\n${event.payload.tool_call_id}`, toolContentImages(parseToolContent(event.payload.content)));
+    }
+    if (event.eventType !== "image/offload") continue;
     if (!Array.isArray(event.payload.targets) || event.payload.targets.length === 0) throw new Error("Invalid image offload targets.");
     for (const target of event.payload.targets) {
       if (!record(target) || !Number.isSafeInteger(target.sequence) || (target.sequence as number) < 1

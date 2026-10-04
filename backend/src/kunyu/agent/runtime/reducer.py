@@ -900,6 +900,7 @@ def _complete_tool(state: _State, event: ToolCompletedEvent, sequence: int) -> N
     _finish_tool_cursor(state, tool, event.payload.next_tool_index)
     tool.status = "completed"
     tool.result = event.payload.result
+    tool.content = event.payload.content
     tool.updated_at = event.occurred_at
     tool.updated_sequence = sequence
     if state.state is RunState.WAITING_CONFIRMATION:
@@ -1351,6 +1352,7 @@ def _freeze(state: _State) -> ReducedRun:
                 arguments=item.arguments,
                 status=item.status,
                 result=item.result,
+                content=item.content,
                 error_code=item.error_code,
                 error_summary=item.error_summary,
                 created_at=item.created_at,

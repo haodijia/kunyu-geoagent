@@ -69,6 +69,7 @@ class TodoWriteTool:
         )
         return ToolResult(
             content=result.content,
+            result=result.result,
             events=(
                 TodoWriteEvent(
                     session_id=source.session.id,

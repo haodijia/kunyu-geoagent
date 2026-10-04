@@ -126,10 +126,14 @@ def encode_request(
             allowed = (
                 (TextBlock, ImageInputBlock, FileInputBlock)
                 if message.role is ModelRole.USER
+                else (TextBlock, ImageInputBlock)
+                if message.role is ModelRole.TOOL
                 else (TextBlock,)
             )
             if any(not isinstance(block, allowed) for block in message.content):
-                raise invalid("Attachment blocks are only permitted in user input.")
+                raise invalid(
+                    "Attachment blocks require user input or image tool results."
+                )
             content = [
                 encoded
                 for block in message.content

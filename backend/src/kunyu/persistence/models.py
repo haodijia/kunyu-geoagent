@@ -445,6 +445,9 @@ class ToolCallRecord(Base):
     arguments: Mapped[dict[str, Any]] = mapped_column(JSON, nullable=False)
     status: Mapped[str] = mapped_column(String(32), nullable=False)
     result: Mapped[Any | None] = mapped_column(JSON)
+    content: Mapped[list[dict[str, Any]]] = mapped_column(
+        JSON, nullable=False, server_default="[]"
+    )
     error_code: Mapped[str | None] = mapped_column(String(100))
     error_summary: Mapped[str | None] = mapped_column(String(500))
     created_at: Mapped[datetime] = mapped_column(

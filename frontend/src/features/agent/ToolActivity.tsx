@@ -2,6 +2,7 @@ import {
   ChevronDown,
   ChevronRight,
   Circle,
+  Image,
   ListTodo,
   LoaderCircle,
   PenLine,
@@ -10,7 +11,7 @@ import {
   Wrench,
   X,
 } from "lucide-react";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 
 import type { ToolCall } from "@/features/agent/api";
 import type { Confirmation } from "@/features/confirmations/api";
@@ -21,6 +22,9 @@ import type { GeneratingTool } from "@/features/events/stream-presentation";
 
 import { TodoItems } from "./TodoItems";
 import { parseTodos } from "./todos";
+import { parseToolContent, toolContentImages, toolContentText } from "./tool-content";
+import { AttachmentStrip } from "@/features/attachments/AttachmentStrip";
+import { collectImageOffloads } from "@/features/attachments/image-offloads";
 
 const content = zhCN.conversation.tools;
 
@@ -180,6 +184,9 @@ function ToolCallRow({
 }) {
   const [expanded, setExpanded] = useState(false);
   const { records } = useSessionEvents();
+  const imageOffloads = useMemo(() => collectImageOffloads(records), [records]);
+  const resultContent = useMemo(() => tool.status === "completed" ? parseToolContent(tool.content) : [], [tool.status, tool.content]);
+  const images = useMemo(() => toolContentImages(resultContent), [resultContent]);
   const started = records
     .filter(
       (record) =>
@@ -188,7 +195,7 @@ function ToolCallRow({
     .at(-1);
   const hasDetails =
     Object.keys(tool.arguments).length > 0 ||
-    tool.result !== null ||
+    resultContent.length > 0 ||
     tool.error_summary !== null ||
     confirmation !== undefined;
   const duration =
@@ -200,7 +207,7 @@ function ToolCallRow({
           0,
           Date.parse(tool.updated_at) - Date.parse(started.occurredAt),
         );
-  const preview = toolPreview(tool.arguments);
+  const preview = images.length > 0 ? images.map((ref) => ref.name).join(", ") : toolPreview(tool.arguments);
 
   return (
     <div className="w-full min-w-0 py-0.5">
@@ -245,7 +252,7 @@ function ToolCallRow({
               {formatDetail(tool.arguments)}
             </ToolDetail>
           ) : null}
-          {tool.result !== null ? tool.name === "todo_write" ? (
+          {tool.status === "completed" ? tool.name === "todo_write" ? (
             <div className="mb-2">
               <div className="mb-1 flex items-center justify-between text-[11px] text-secondary-foreground">
                 <span>{content.output}</span>
@@ -258,6 +265,7 @@ function ToolCallRow({
               {formatToolResult(tool)}
             </ToolDetail>
           ) : null}
+          {images.length > 0 && <AttachmentStrip sessionId={tool.session_id} attachments={images} offloadedIds={imageOffloads.get(tool.id)} />}
           {tool.error_summary !== null ? (
             <ToolDetail label={content.error} danger>
               {tool.error_summary}
@@ -372,7 +380,7 @@ export function toolLabel(name: string): string {
 
 function ToolKindIcon({ name }: { readonly name: string }) {
   const Icon =
-    name === "todo_write" ? ListTodo : name === "memory_read"
+    name === "read_image" ? Image : name === "todo_write" ? ListTodo : name === "memory_read"
       ? Search
       : name === "memory_write"
         ? PenLine
@@ -393,6 +401,7 @@ function toolPreview(arguments_: ToolCall["arguments"]): string | undefined {
     "name",
     "command",
     "file_path",
+    "attachment_id",
     "path",
     "query",
     "pattern",
@@ -422,7 +431,7 @@ function formatToolResult(tool: ToolCall): string {
   ) {
     return result.content;
   }
-  return formatDetail(result);
+  return toolContentText(parseToolContent(tool.content));
 }
 
 function todoResultItems(result: ToolCall["result"]) {

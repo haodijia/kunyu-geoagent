@@ -330,6 +330,7 @@ def _tool_record(reduced: ReducedRun, tool: ReducedToolCall) -> ToolCallRecord:
         arguments=dict(tool.arguments),
         status=ToolCallStatus(tool.status),
         result=tool.result,
+        content=tool.content,
         error_code=tool.error_code,
         error_summary=tool.error_summary,
         created_at=tool.created_at,

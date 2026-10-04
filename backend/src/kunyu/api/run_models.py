@@ -3,6 +3,7 @@ from typing import Literal
 
 from pydantic import BaseModel, JsonValue
 
+from kunyu.agent.runtime.tool_content import ToolContentBlock
 from kunyu.domain.model_images import ModelImageInput
 from kunyu.domain.runs import Run, RunDetails, RunModelSnapshot, ToolCall
 
@@ -20,6 +21,7 @@ class ToolCallResponse(BaseModel):
     arguments: dict[str, JsonValue]
     status: Literal["pending", "running", "completed", "failed", "cancelled"]
     result: JsonValue | None
+    content: tuple[ToolContentBlock, ...]
     error_code: str | None
     error_summary: str | None
     created_at: datetime
@@ -41,6 +43,7 @@ class ToolCallResponse(BaseModel):
             arguments=tool.arguments,
             status=tool.status.value,
             result=tool.result,
+            content=tool.content,
             error_code=tool.error_code,
             error_summary=tool.error_summary,
             created_at=tool.created_at,

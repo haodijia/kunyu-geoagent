@@ -3,9 +3,10 @@
 import json
 from collections.abc import Mapping
 
-from pydantic import BaseModel, ConfigDict, ValidationError
+from pydantic import BaseModel, ConfigDict, JsonValue, TypeAdapter, ValidationError
 
 from kunyu.agent.context import RunContextIntegrityError, validate_run_context_source
+from kunyu.agent.runtime.content import TextBlock
 from kunyu.agent.runtime.tools import (
     ToolCall,
     ToolExecutionError,
@@ -64,7 +65,10 @@ def tool_result(value: object) -> ToolResult:
     encoded = encode_json(value)
     if len(encoded) > MAX_TOOL_RESULT_BYTES:
         raise ToolExecutionError("Tool result exceeds the 16 KiB result limit.")
-    return ToolResult(content=encoded.decode("utf-8"))
+    return ToolResult(
+        content=(TextBlock(text=encoded.decode("utf-8")),),
+        result=TypeAdapter(JsonValue).validate_python(value),
+    )
 
 
 def encode_json(value: object) -> bytes:
