@@ -482,6 +482,8 @@ export const zhCN = {
         skill: "加载技能",
         skill_resource: "读取技能资源",
         todo_write: "更新任务列表",
+        file_read: "读取文件",
+        read_image: "读取图片",
       },
       status: {
         pending: "等待执行",

@@ -49,7 +49,7 @@ def select_oldest_images(
     for message in messages:
         if count == 0:
             break
-        if message.role.value != "user" or message.input_source is None:
+        if message.role.value not in {"user", "tool"} or message.input_source is None:
             continue
         image_index = 0
         indexes = []
@@ -76,5 +76,5 @@ def offloaded_image_text(ref: ImageAttachment) -> str:
         f"[image omitted to fit request image limits; attachment_id={ref.id}, "
         f"name={ref.name!r}, normalized={ref.width}x{ref.height}px, "
         f"media_type={ref.media_type}, bytes={ref.bytes}. "
-        "No model image-read tool is available; ask the user to attach it again if visual inspection is needed.]"
+        "Use read_image with this attachment_id to inspect its pixels again.]"
     )

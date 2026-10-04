@@ -6,6 +6,7 @@ from typing import Literal
 from pydantic import JsonValue
 
 from kunyu.agent.runtime.events import TERMINAL_RUN_STATES, ResumePhase, RunState
+from kunyu.agent.runtime.tool_content import ToolContentBlock
 from kunyu.domain.model_connections import (
     MaxTokensField,
     ModelAuthMode,
@@ -92,6 +93,7 @@ class ToolCall:
     arguments: dict[str, JsonValue]
     status: ToolCallStatus
     result: JsonValue | None
+    content: tuple[ToolContentBlock, ...]
     error_code: str | None
     error_summary: str | None
     created_at: datetime

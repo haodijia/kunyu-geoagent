@@ -1,4 +1,5 @@
 import {
+  useMemo,
   useId,
   useLayoutEffect,
   useRef,
@@ -23,6 +24,11 @@ import { trajectoryTranslate as t } from "./trajectory-locales";
 import { zhCN } from "@/locales/zh-CN";
 import css from "./TrajectoryInspector.module.css";
 import ledger from "./TrajectoryLedger.module.css";
+import { AttachmentStrip } from "@/features/attachments/AttachmentStrip";
+import { collectImageOffloads } from "@/features/attachments/image-offloads";
+import { parseToolContent, toolContentImages } from "@/features/agent/tool-content";
+import { useSessionWorkspace } from "@/features/sessions/SessionWorkspaceContext";
+import { useSessionEvents } from "./SessionEventContext";
 const content = zhCN.trajectory;
 type Tab =
   | "summary"
@@ -187,7 +193,7 @@ export function TrajectoryInspector({ record, onClose, onWidthChange }: Props) {
           </div>
         )}
         {tab === "input" && <TrajectoryPayload value={record.input} tree />}
-        {tab === "output" && <TrajectoryPayload value={record.output} tree />}
+        {tab === "output" && <><ToolResultImages record={record} /><TrajectoryPayload value={record.output} tree /></>}
         {tab === "raw" && <TrajectoryPayload value={record.raw} />}
         {tab === "source" && <TrajectoryPayload value={record.source} tree />}
         {tab === "systemPrompt" && (
@@ -340,6 +346,7 @@ function Summary({
               label={content.result}
               onOpen={() => onOpen("output")}
             >
+              <ToolResultImages record={record} />
               <TrajectoryPayload value={record.output} tree />
             </DetailSection>
           )}
@@ -353,6 +360,18 @@ function Summary({
       </DetailSection>
     </>
   );
+}
+function ToolResultImages({ record }: { readonly record: TrajectoryRecord }) {
+  const session = useSessionWorkspace();
+  const { records } = useSessionEvents();
+  const offloads = useMemo(() => collectImageOffloads(records), [records]);
+  const output = record.output;
+  if (record.kind !== "tool" || output === null || typeof output !== "object" || !("content" in output)) return null;
+  const images = toolContentImages(parseToolContent(output.content));
+  if (images.length === 0) return null;
+  const id = record.source.tool_call_id;
+  if (typeof id !== "string") throw new Error("Tool image result has no source identity.");
+  return <AttachmentStrip sessionId={session.id} attachments={images} offloadedIds={offloads.get(id)} />;
 }
 function Preview({ record }: { record: TrajectoryRecord }) {
   const text =

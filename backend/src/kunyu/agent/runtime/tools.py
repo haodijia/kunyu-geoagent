@@ -7,6 +7,10 @@ from dataclasses import dataclass
 from enum import Enum
 from typing import TYPE_CHECKING, Literal, Protocol
 
+from pydantic import JsonValue
+
+from kunyu.agent.runtime.tool_content import ToolContent
+
 if TYPE_CHECKING:
     from kunyu.agent.runtime.events import EventDraft
 
@@ -36,7 +40,8 @@ class ToolCall:
 
 @dataclass(frozen=True)
 class ToolResult:
-    content: str
+    content: ToolContent
+    result: JsonValue
     events: tuple[EventDraft, ...] = ()
 
 

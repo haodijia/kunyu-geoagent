@@ -4,8 +4,9 @@ import asyncio
 from collections.abc import Mapping
 from typing import Annotated
 
-from pydantic import StringConstraints
+from pydantic import JsonValue, StringConstraints, TypeAdapter
 
+from kunyu.agent.runtime.content import TextBlock
 from kunyu.agent.runtime.tools import ToolCall, ToolResult, ToolRiskLevel, ToolSpec
 from kunyu.agent.scope import AgentScopes
 from kunyu.agent.skills.filesystem import read_resource
@@ -94,13 +95,13 @@ class SkillTool:
         else:
             content = render_skill(skill)
         scope.assert_active()
+        value = {
+            "name": skill.summary.name,
+            "source": skill.summary.source,
+            "resource_base": skill.summary.resource_base,
+            "content": content,
+        }
         return ToolResult(
-            encode_json(
-                {
-                    "name": skill.summary.name,
-                    "source": skill.summary.source,
-                    "resource_base": skill.summary.resource_base,
-                    "content": content,
-                }
-            ).decode("utf-8")
+            content=(TextBlock(text=encode_json(value).decode("utf-8")),),
+            result=TypeAdapter(JsonValue).validate_python(value),
         )

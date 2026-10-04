@@ -374,17 +374,22 @@ def _visible_assistant_step(
     results = tuple(
         ModelMessage(
             role=ModelRole.TOOL,
-            content=text_content(
+            content=call.content
+            if call.status == "completed"
+            else text_content(
                 _json_text(
-                    call.result
-                    if call.status == "completed"
-                    else {
+                    {
                         "status": call.status,
                         "error_code": call.error_code,
                         "error_summary": call.error_summary,
                     }
                 )
             ),
+            input_source=InputMessageSource(
+                sequence=call.updated_sequence, message_id=call.tool_call_id
+            )
+            if call.status == "completed"
+            else None,
             tool_call_id=call.provider_call_id,
             is_error=call.status != "completed",
         )

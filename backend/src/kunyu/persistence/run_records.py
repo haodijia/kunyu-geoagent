@@ -1,6 +1,9 @@
 from uuid import uuid4
 
+from pydantic import TypeAdapter
+
 from kunyu.agent.runtime.events import AgentEvent, EventDraft, ResumePhase, RunState
+from kunyu.agent.runtime.tool_content import ToolContentBlock
 from kunyu.domain.messages import Message
 from kunyu.domain.model_connections import (
     MaxTokensField,
@@ -130,6 +133,7 @@ def tool_call_record(call: ToolCall, updated_sequence: int) -> ToolCallRecord:
         arguments=call.arguments,
         status=call.status.value,
         result=call.result,
+        content=[block.model_dump(mode="json") for block in call.content],
         error_code=call.error_code,
         error_summary=call.error_summary,
         created_at=call.created_at,
@@ -206,6 +210,9 @@ def tool_call_to_domain(record: ToolCallRecord) -> ToolCall:
         arguments=record.arguments,
         status=ToolCallStatus(record.status),
         result=record.result,
+        content=TypeAdapter(tuple[ToolContentBlock, ...]).validate_python(
+            record.content
+        ),
         error_code=record.error_code,
         error_summary=record.error_summary,
         created_at=as_utc(record.created_at),

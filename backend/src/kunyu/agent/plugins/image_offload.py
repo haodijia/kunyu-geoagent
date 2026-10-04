@@ -64,7 +64,8 @@ class ImageOffloadPlugin:
                     ),
                 )
                 for message in header.messages
-                if message.get("input_source") is not None and message["role"] == "user"
+                if message.get("input_source") is not None
+                and message["role"] in {"user", "tool"}
             )
             targets = select_oldest_images(messages, failure.offload_images)
             if not targets:

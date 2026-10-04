@@ -7,6 +7,7 @@ from kunyu.agent.runtime.events import (
     ImageOffloadTarget,
     RequestHeaderEvent,
     StepDecisionEvent,
+    ToolCompletedEvent,
     UserMessageAppendedEvent,
 )
 from kunyu.agent.runtime.input_content import ImageInputBlock, InputMessageSource
@@ -16,6 +17,7 @@ from kunyu.domain.attachments import Attachment, ImageAttachment
 class ImageOffloadProjection:
     def __init__(self) -> None:
         self._nodes: dict[tuple[int, str], tuple[ImageAttachment, ...]] = {}
+        self._roles: dict[tuple[int, str], str] = {}
         self._selected: dict[tuple[int, str], set[int]] = {}
         self._visible: set[tuple[int, str]] = set()
         self.targets: list[ImageOffloadTarget] = []
@@ -28,6 +30,7 @@ class ImageOffloadProjection:
             self._nodes = {
                 key: refs for key, refs in self._nodes.items() if key[1] not in replaced
             }
+            self._prune_sources()
             if event.payload.kind == "enter":
                 for message in event.payload.messages:
                     self._add(sequence, message.message_id, message.attachments)
@@ -37,6 +40,17 @@ class ImageOffloadProjection:
                 for key, refs in self._nodes.items()
                 if key[0] > event.payload.through_sequence
             }
+            self._prune_sources()
+        elif isinstance(event, ToolCompletedEvent):
+            images = tuple(
+                block.attachment
+                for block in event.payload.content
+                if isinstance(block, ImageInputBlock)
+            )
+            admitted = [ref for key in self._visible for ref in self._nodes[key]]
+            if any(ref not in admitted for ref in images):
+                raise ValueError("Tool images must match an admitted image receipt.")
+            self._add(sequence, event.payload.tool_call_id, images, role="tool")
         elif isinstance(event, RequestHeaderEvent):
             visible = set()
             for message in event.payload.messages:
@@ -46,8 +60,13 @@ class ImageOffloadProjection:
                 source = InputMessageSource.model_validate(source_value)
                 key = (source.sequence, source.message_id)
                 content = message.get("content")
-                if not isinstance(content, list) or message.get("role") != "user":
-                    raise ValueError("A request image source requires user content.")
+                if not isinstance(content, list) or message.get("role") not in {
+                    "user",
+                    "tool",
+                }:
+                    raise ValueError(
+                        "A request image source requires user or tool content."
+                    )
                 blocks = tuple(
                     ImageInputBlock.model_validate(block)
                     for block in content
@@ -55,8 +74,11 @@ class ImageOffloadProjection:
                 )
                 if not blocks:
                     continue
-                if key in visible or self._nodes.get(key) != tuple(
-                    block.attachment for block in blocks
+                if (
+                    key in visible
+                    or message["role"] != self._roles.get(key)
+                    or self._nodes.get(key)
+                    != tuple(block.attachment for block in blocks)
                 ):
                     raise ValueError(
                         "Request image source differs from the current input surface."
@@ -93,9 +115,21 @@ class ImageOffloadProjection:
                 ).update(target.image_indexes)
             self.targets.extend(event.payload.targets)
 
+    def _prune_sources(self) -> None:
+        self._roles = {
+            key: role for key, role in self._roles.items() if key in self._nodes
+        }
+        self._visible.intersection_update(self._nodes)
+
     def _add(
-        self, sequence: int, message_id: str, attachments: tuple[Attachment, ...]
+        self,
+        sequence: int,
+        message_id: str,
+        attachments: tuple[Attachment, ...],
+        *,
+        role: str = "user",
     ) -> None:
+        self._roles[(sequence, message_id)] = role
         self._nodes[(sequence, message_id)] = tuple(
             ref for ref in attachments if ref.kind == "image"
         )

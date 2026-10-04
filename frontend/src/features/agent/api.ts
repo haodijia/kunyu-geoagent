@@ -1,5 +1,6 @@
 import type { Attachment } from "@/features/attachments/api";
 import { requestJson } from "@/api/client";
+import type { ToolContentBlock } from "./tool-content";
 import type {
   MaxTokensField,
   ModelAuthMode,
@@ -90,6 +91,7 @@ export interface ToolCall {
   readonly arguments: Readonly<Record<string, unknown>>;
   readonly status: "pending" | "running" | "completed" | "failed" | "cancelled";
   readonly result: unknown;
+  readonly content: readonly ToolContentBlock[];
   readonly error_code: string | null;
   readonly error_summary: string | null;
   readonly created_at: string;

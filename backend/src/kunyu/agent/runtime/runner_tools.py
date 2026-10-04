@@ -1,7 +1,6 @@
 """Bounded tool pools, exclusive barriers and model-ordered durable results."""
 
 import asyncio
-import json
 import logging
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
@@ -33,6 +32,7 @@ from kunyu.agent.runtime.runner_types import (
     elapsed_milliseconds,
     summary,
 )
+from kunyu.agent.runtime.tool_content import TOOL_CONTENT_ADAPTER, ToolContentBlock
 from kunyu.agent.runtime.tools import (
     PolicyDecision,
     PolicyGate,
@@ -66,6 +66,7 @@ class _Invocation:
     elapsed_milliseconds: int
     finished_at: datetime
     result: JsonValue | None = None
+    content: tuple[ToolContentBlock, ...] = ()
     events: tuple[EventDraft, ...] = ()
     error_code: str | None = None
     error_summary: str | None = None
@@ -272,13 +273,14 @@ class ToolBatchExecutor[AdapterConfigT]:
         started = self._monotonic_ns()
         try:
             async with asyncio.timeout(timeout / 1_000):
-                result, events = _parse_tool_result(
+                result, content, events = _parse_tool_result(
                     await item.tool.execute(item.call), item.call
                 )
             return _Invocation(
                 elapsed_milliseconds(started, self._monotonic_ns()),
                 self._clock(),
                 result=result,
+                content=content,
                 events=events,
             )
         except TimeoutError:
@@ -383,6 +385,7 @@ class ToolBatchExecutor[AdapterConfigT]:
                             **common,
                             next_tool_index=tool.batch_index + 1,
                             result=invocation.result,
+                            content=invocation.content,
                         ),
                         occurred_at=invocation.finished_at,
                     )
@@ -408,20 +411,19 @@ class ToolBatchExecutor[AdapterConfigT]:
 
 def _parse_tool_result(
     result: object, call: ToolCall
-) -> tuple[JsonValue, tuple[EventDraft, ...]]:
+) -> tuple[JsonValue, tuple[ToolContentBlock, ...], tuple[EventDraft, ...]]:
     if not isinstance(result, ToolResult):
         raise ToolExecutionError("The tool returned an invalid result envelope.")
-    try:
-        value = json.loads(result.content)
-    except (TypeError, ValueError) as error:
-        raise ToolExecutionError("The tool result is not valid JSON.") from error
+    if not isinstance(result.content, tuple):
+        raise ToolExecutionError("Tool content must be an immutable block tuple.")
+    content = TOOL_CONTENT_ADAPTER.validate_python(result.content)
     if not isinstance(result.events, tuple):
         raise ToolExecutionError("Tool event drafts must be an immutable tuple.")
     for event in result.events:
         validate_event_draft(event)
         if event.run_id != call.run_id:
             raise ToolExecutionError("Tool event draft belongs to a different run.")
-    return _JSON_VALUE_ADAPTER.validate_python(value), result.events
+    return _JSON_VALUE_ADAPTER.validate_python(result.result), content, result.events
 
 
 def _tool_common(tool: ReducedToolCall) -> dict[str, object]:
