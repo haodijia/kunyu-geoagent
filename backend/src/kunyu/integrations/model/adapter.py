@@ -1,6 +1,7 @@
 """HTTP model transport with explicit Chat Completions or native Messages routing."""
 
 import asyncio
+import logging
 import math
 from collections.abc import AsyncIterator, Awaitable, Callable
 from datetime import UTC, datetime
@@ -22,6 +23,7 @@ from kunyu.integrations.model.connection import (
     api_root,
     invalid_request,
     messages_root,
+    validate_config,
 )
 from kunyu.integrations.model.deepseek_messages_request import (
     encode_request as encode_messages_request,
@@ -33,6 +35,14 @@ from kunyu.integrations.model.openai_chat_request import (
     encode_request as encode_chat_request,
 )
 from kunyu.integrations.model.openai_chat_stream import OpenAIChatStreamParser
+from kunyu.integrations.model.request_images import (
+    MAX_INLINE_IMAGE_BYTES,
+    MAX_REQUEST_IMAGES,
+    RequestImage,
+    prepare_image,
+)
+
+logger = logging.getLogger(__name__)
 
 STREAM_IDLE_TIMEOUT_SECONDS = 300
 MAX_SSE_EVENT_BYTES = 2 * 1024 * 1024
@@ -61,8 +71,10 @@ class HTTPModelAdapter:
         request: ModelRequest[ModelConnectionConfig],
     ) -> AsyncIterator[ModelOutput]:
         config = request.adapter_config
-        images: dict[str, bytes] = {}
-        image_refs = {}
+        validate_config(config)
+        images: dict[str, RequestImage] = {}
+        image_refs: dict[str, ImageAttachment] = {}
+        occurrences: dict[str, int] = {}
         for message in request.messages:
             for block in message.content:
                 if isinstance(block, ImageInputBlock):
@@ -74,10 +86,45 @@ class HTTPModelAdapter:
                             "One image identity has inconsistent receipts."
                         )
                     image_refs[block.attachment.id] = block.attachment
+                    occurrences[block.attachment.id] = (
+                        occurrences.get(block.attachment.id, 0) + 1
+                    )
+        if image_refs and not config.image_input.enabled:
+            raise ModelAdapterError(
+                ModelErrorCode.UNSUPPORTED_CAPABILITY,
+                "The selected model does not declare image input support.",
+            )
+        if sum(occurrences.values()) > MAX_REQUEST_IMAGES:
+            raise ModelAdapterError(
+                ModelErrorCode.IMAGE_LIMIT, "Too many retained request images."
+            )
+        encoded_bytes = 0
         for identity, ref in image_refs.items():
             if self._image_resolver is None:
                 raise invalid_request("The image attachment resolver is unavailable.")
-            images[identity] = await self._image_resolver(request.run_id, ref)
+            data = await self._image_resolver(request.run_id, ref)
+            image = await asyncio.to_thread(
+                prepare_image, ref, data, config.image_input
+            )
+            encoded_bytes += 4 * ((len(image.data) + 2) // 3) * occurrences[identity]
+            if encoded_bytes > MAX_INLINE_IMAGE_BYTES:
+                raise ModelAdapterError(
+                    ModelErrorCode.IMAGE_LIMIT,
+                    "Retained images exceed the inline request byte limit.",
+                )
+            images[identity] = image
+            logger.info(
+                "Model image projection run=%s model=%s attachment=%s source=%sx%s request=%sx%s bytes=%s occurrences=%s",
+                request.run_id,
+                request.model_id,
+                identity,
+                ref.width,
+                ref.height,
+                image.width,
+                image.height,
+                len(image.data),
+                occurrences[identity],
+            )
         if config.protocol is ModelProtocol.DEEPSEEK_MESSAGES:
             body = encode_messages_request(request, images)
             url = f"{messages_root(config.base_url)}/messages"

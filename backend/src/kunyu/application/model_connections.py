@@ -31,6 +31,7 @@ from kunyu.domain.model_connections import (
     ModelProtocol,
     ModelProviderType,
 )
+from kunyu.domain.model_images import ModelImageInput
 
 MAX_DISPLAY_NAME_LENGTH = 200
 MAX_BASE_URL_LENGTH = 2_048
@@ -451,6 +452,7 @@ def _invalidate_entry(
     is_manual = CatalogSource.MANUAL in entry.sources
     return replace(
         entry,
+        image_input=ModelImageInput(),
         sources=(CatalogSource.MANUAL,) if is_manual else entry.sources,
         revision=next_revision if is_manual else entry.revision,
         availability=(

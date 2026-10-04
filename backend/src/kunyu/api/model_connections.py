@@ -55,6 +55,7 @@ from kunyu.domain.model_connections import (
     ModelProtocol,
     ModelProviderType,
 )
+from kunyu.domain.model_images import ModelImageInput
 from kunyu.integrations.model.provider_client import (
     ProviderErrorCode,
     ProviderRequestError,
@@ -156,6 +157,7 @@ class ModelCatalogEntryResponse(BaseModel):
     tool_capability_source: CapabilitySource
     reasoning_efforts: list[str]
     reasoning_default: str | None
+    image_input: ModelImageInput
     reasoning_source: CapabilitySource
     discovered_at: datetime | None
 
@@ -176,6 +178,7 @@ class ModelCatalogEntryResponse(BaseModel):
             tool_capability_source=entry.tool_capability_source,
             reasoning_efforts=list(entry.reasoning_efforts),
             reasoning_default=entry.reasoning_default,
+            image_input=entry.image_input,
             reasoning_source=entry.reasoning_source,
             discovered_at=entry.discovered_at,
         )
@@ -528,6 +531,24 @@ def add_manual_model(
         raise _invalid_input(error) from error
     except ManualModelExistsError as error:
         raise ApiError(409, "MODEL_EXISTS", str(error)) from error
+    except ModelConnectionInUseError as error:
+        raise _connection_in_use(error) from error
+    return ModelCatalogEntryResponse.from_domain(entry)
+
+
+@router.put("/{connection_id}/image-input", response_model=ModelCatalogEntryResponse)
+def set_model_image_input(
+    connection_id: str,
+    request: ModelImageInput,
+    service: ModelCatalogServiceDependency,
+    model_id: Annotated[str, Query(min_length=1, max_length=256)],
+) -> ModelCatalogEntryResponse:
+    try:
+        entry = service.set_image_input(connection_id, model_id, request)
+    except ModelConnectionNotFoundError as error:
+        raise _not_found(error) from error
+    except InvalidModelConnectionError as error:
+        raise _invalid_input(error) from error
     except ModelConnectionInUseError as error:
         raise _connection_in_use(error) from error
     return ModelCatalogEntryResponse.from_domain(entry)

@@ -19,8 +19,10 @@ from kunyu.agent.runtime.events import (
 )
 from kunyu.agent.runtime.session_reducer import reduce_session
 from kunyu.agent.runtime.session_state import ReducedSession
+from kunyu.domain.attachments import Attachment, AttachmentError
 from kunyu.domain.messages import Message, MessageRole, MessageStatus
 from kunyu.domain.model_connections import ModelAuthMode, ModelProtocol
+from kunyu.domain.model_images import ModelImageInput
 from kunyu.domain.run_acceptance import (
     CredentialUnavailableError,
     IdempotencyConflictError,
@@ -167,6 +169,11 @@ class SQLAlchemyRunAcceptanceRepository:
                 credential_available,
             )
 
+            attachments = resolve_references(
+                database_session, request.session_id, request.attachment_ids
+            )
+            image_input = ModelImageInput.model_validate(entry.image_input)
+            _require_image_input(attachments, image_input)
             model_snapshot = ModelSnapshotPayload(
                 connection_id=connection.id,
                 provider_type=connection.provider_type,
@@ -178,6 +185,7 @@ class SQLAlchemyRunAcceptanceRepository:
                 connection_revision=connection.revision,
                 max_tokens_field=connection.max_tokens_field,
                 include_usage=connection.include_usage,
+                image_input=image_input,
                 max_output_tokens=256_000
                 if connection.protocol == ModelProtocol.DEEPSEEK_MESSAGES
                 else MAX_MODEL_OUTPUT_TOKENS,
@@ -203,11 +211,7 @@ class SQLAlchemyRunAcceptanceRepository:
                             InboxMessagePayload(
                                 message_id=message_id,
                                 content=request.content,
-                                attachments=resolve_references(
-                                    database_session,
-                                    request.session_id,
-                                    request.attachment_ids,
-                                ),
+                                attachments=attachments,
                                 map_context=request.map_context,
                                 turn=QueuedTurnPayload(
                                     run_id=run_id,
@@ -358,6 +362,12 @@ class SQLAlchemyRunAcceptanceRepository:
                 raise RunAcceptanceConflictError(
                     "Steering must preserve the active run's model selection."
                 )
+            attachments = resolve_references(
+                database_session, request.session_id, request.attachment_ids
+            )
+            _require_image_input(
+                attachments, ModelImageInput.model_validate(snapshot.image_input)
+            )
             records = database_session.scalars(
                 select(SessionEventRecord)
                 .where(
@@ -388,11 +398,7 @@ class SQLAlchemyRunAcceptanceRepository:
                                     InboxMessagePayload(
                                         message_id=message_id,
                                         content=request.content,
-                                        attachments=resolve_references(
-                                            database_session,
-                                            request.session_id,
-                                            request.attachment_ids,
-                                        ),
+                                        attachments=attachments,
                                         map_context=request.map_context,
                                     )
                                 ],
@@ -572,3 +578,13 @@ def _session_state(database_session: Session, session_id: str) -> ReducedSession
         .order_by(SessionEventRecord.sequence)
     ).all()
     return reduce_session(run_records.event_to_domain(record) for record in records)
+
+
+def _require_image_input(
+    attachments: tuple[Attachment, ...], image_input: ModelImageInput
+) -> None:
+    if not image_input.enabled and any(ref.kind == "image" for ref in attachments):
+        raise AttachmentError(
+            "UNSUPPORTED_CAPABILITY",
+            "Enable image input for the selected model before sending images.",
+        )

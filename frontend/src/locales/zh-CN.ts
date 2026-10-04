@@ -101,6 +101,22 @@ export const zhCN = {
     back: "返回会话",
   },
   modelConnections: {
+    images: {
+      title: "图片输入",
+      description: "为每个模型声明图片能力和请求限制。",
+      help: "仅为服务实际支持图片的模型开启。文本与工具连接测试不会验证图片能力；排队和运行中的消息保留原有配置。",
+      noModels: "请先在上方启用模型。",
+      imageInput: "支持图片输入",
+      enabled: "图片输入已开启",
+      disabled: "仅文本输入",
+      pixelBudget: "图片像素预算",
+      defaultBudget: "默认 · harness 视觉网格",
+      lowBudget: "低 · 512 × 512 像素",
+      customBudget: "自定义总像素数",
+      customPixels: "自定义总像素数",
+      maxBytes: "单张请求图片上限（字节）",
+      invalidLimits: "请填写有效的正整数：像素数最多 100,000,000，字节数最多 16,777,216。",
+    },
     retryPolicy: {
       title: "请求重试", help: "在同一对话步骤中重新连接模型。每次重试都是新的模型请求，仍受本次运行预算约束。",
       label: "重试策略", mode: "重试方式", normal: "按错误类型重试", always: "持续重试",
@@ -473,6 +489,7 @@ export const zhCN = {
         cancelled: "已取消",
       },
     },
+    imageModelRequired: "所选模型未开启图片输入。请选择支持图片的模型或前往设置开启。",
     errors: {
       network: "无法连接本地服务，草稿已保留。",
       retryFrozen: "发送结果尚未确认，草稿和本次模型选择已冻结；请重试原请求。",
@@ -480,7 +497,8 @@ export const zhCN = {
       byCode: {
         INVALID_INPUT: "消息或地图上下文无效，请检查后重新发送。",
         MODEL_UNVERIFIED: "所选模型尚未通过当前配置的完整验证，请重新选择。",
-        UNSUPPORTED_CAPABILITY: "所选模型不支持本次推理参数或 Agent 工具能力。",
+        MODEL_IMAGE_LIMIT: "图片超过模型或整次请求的限制，请调整图片配置或压缩对话历史。",
+        UNSUPPORTED_CAPABILITY: "所选模型不支持本次图片、推理参数或 Agent 工具能力。",
         SESSION_ARCHIVED: "此会话已归档，恢复后才能发送消息。",
         WORKSPACE_REMOVED: "此工作空间已移除，不能继续发送消息。",
         RUN_CONFLICT: "当前会话已有未完成运行，请先处理该运行。",

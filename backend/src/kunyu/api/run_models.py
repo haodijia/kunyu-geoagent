@@ -3,6 +3,7 @@ from typing import Literal
 
 from pydantic import BaseModel, JsonValue
 
+from kunyu.domain.model_images import ModelImageInput
 from kunyu.domain.runs import Run, RunDetails, RunModelSnapshot, ToolCall
 
 
@@ -74,6 +75,7 @@ class StepModelResponse(BaseModel):
     max_tokens_field: Literal["max_tokens", "max_completion_tokens"]
     include_usage: bool
     max_output_tokens: int
+    image_input: ModelImageInput
 
     @classmethod
     def from_domain(cls, snapshot: RunModelSnapshot) -> "StepModelResponse":
@@ -89,6 +91,7 @@ class StepModelResponse(BaseModel):
             max_tokens_field=snapshot.max_tokens_field.value,
             include_usage=snapshot.include_usage,
             max_output_tokens=snapshot.max_output_tokens,
+            image_input=snapshot.image_input,
         )
 
 

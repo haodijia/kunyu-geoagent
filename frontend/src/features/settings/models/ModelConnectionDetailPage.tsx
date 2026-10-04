@@ -24,6 +24,7 @@ import {
 import { connectionErrorMessage, connectionStatus, providerErrorLabel } from "./model";
 import { providerName } from "./provider-copy";
 import { ProviderLogo } from "./ProviderLogo";
+import { ModelImageInputSettings } from "./ModelImageInputSettings";
 import { ModelRetryPolicySettings } from "./ModelRetryPolicySettings";
 
 const content = zhCN.modelConnections;
@@ -290,6 +291,13 @@ export function ModelConnectionDetailPage() {
               {connection.is_default ? content.detail.defaultConnection : content.detail.setDefaultConnection}
             </Button>
           </div>
+        </ModelDetailSection>
+
+        <ModelDetailSection title={content.images.title} description={content.images.description}>
+          <ModelImageInputSettings entries={availableEntries.filter((entry) => entry.enabled)} disabled={busyAction !== null}
+            onSave={(modelId, input) => perform("image-input", () => refreshConnection(
+              () => modelConnectionsApi.setImageInput(connection.id, modelId, input)
+            ), content.saved)} />
         </ModelDetailSection>
 
         <ModelRetryPolicySettings connection={connection} disabled={busyAction !== null}

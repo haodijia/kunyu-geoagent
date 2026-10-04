@@ -15,6 +15,8 @@ from pydantic import (
     model_validator,
 )
 
+from kunyu.domain.model_images import ModelImageInput
+
 type NonNegativeInt = Annotated[int, Field(ge=0)]
 from kunyu.agent.runtime.assistant_stream import AssistantStreamRecord
 from kunyu.agent.runtime.content import ContentBlock, ReplayEnvelope
@@ -193,6 +195,7 @@ class ModelSnapshotPayload(EventPayload):
     include_usage: bool
     max_output_tokens: PositiveInt
     retry_policy: RetryPolicy
+    image_input: ModelImageInput = ModelImageInput()
 
 
 class RequestFailurePayload(EventPayload):
