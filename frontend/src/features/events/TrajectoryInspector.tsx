@@ -26,7 +26,8 @@ import css from "./TrajectoryInspector.module.css";
 import ledger from "./TrajectoryLedger.module.css";
 import { AttachmentStrip } from "@/features/attachments/AttachmentStrip";
 import { collectImageOffloads } from "@/features/attachments/image-offloads";
-import { parseToolContent, toolContentImages } from "@/features/agent/tool-content";
+import { parseToolContent, toolContentImages, toolContentText } from "@/features/agent/tool-content";
+import { ReadResult } from "@/features/agent/ReadResult";
 import { useSessionWorkspace } from "@/features/sessions/SessionWorkspaceContext";
 import { useSessionEvents } from "./SessionEventContext";
 const content = zhCN.trajectory;
@@ -193,7 +194,7 @@ export function TrajectoryInspector({ record, onClose, onWidthChange }: Props) {
           </div>
         )}
         {tab === "input" && <TrajectoryPayload value={record.input} tree />}
-        {tab === "output" && <><ToolResultImages record={record} /><TrajectoryPayload value={record.output} tree /></>}
+        {tab === "output" && <><ToolResultPresentation record={record} /><TrajectoryPayload value={record.output} tree /></>}
         {tab === "raw" && <TrajectoryPayload value={record.raw} />}
         {tab === "source" && <TrajectoryPayload value={record.source} tree />}
         {tab === "systemPrompt" && (
@@ -346,7 +347,7 @@ function Summary({
               label={content.result}
               onOpen={() => onOpen("output")}
             >
-              <ToolResultImages record={record} />
+              <ToolResultPresentation record={record} />
               <TrajectoryPayload value={record.output} tree />
             </DetailSection>
           )}
@@ -361,12 +362,16 @@ function Summary({
     </>
   );
 }
-function ToolResultImages({ record }: { readonly record: TrajectoryRecord }) {
+function ToolResultPresentation({ record }: { readonly record: TrajectoryRecord }) {
   const session = useSessionWorkspace();
   const { records } = useSessionEvents();
   const offloads = useMemo(() => collectImageOffloads(records), [records]);
   const output = record.output;
   if (record.kind !== "tool" || output === null || typeof output !== "object" || !("content" in output)) return null;
+  if (record.source.tool_name === "read") {
+    if (!("result" in output)) throw new Error("Read result has no presentation metadata.");
+    return <ReadResult value={output.result} text={toolContentText(parseToolContent(output.content))} />;
+  }
   const images = toolContentImages(parseToolContent(output.content));
   if (images.length === 0) return null;
   const id = record.source.tool_call_id;

@@ -44,6 +44,10 @@ type Attachment = Annotated[
 ]
 
 
+def attachment_path(ref: Attachment) -> str:
+    return f"/attachments/{ref.id}/{ref.name}"
+
+
 class AttachmentError(RuntimeError):
     def __init__(self, code: str, message: str, status: int = 422) -> None:
         self.code = code

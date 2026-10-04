@@ -7,6 +7,7 @@ from collections.abc import Mapping
 from kunyu.agent.runtime.content import TextBlock
 from kunyu.agent.runtime.image_offload import offloaded_image_text
 from kunyu.agent.runtime.input_content import FileInputBlock, ImageInputBlock
+from kunyu.domain.attachments import attachment_path
 from kunyu.integrations.model.connection import invalid_request
 from kunyu.integrations.model.request_images import RequestImage
 
@@ -22,10 +23,10 @@ def input_block(
     if isinstance(block, FileInputBlock):
         return {
             "type": "text",
-            "text": "Attached file (use file_read with this attachment_id): "
+            "text": "Attached file (use read with this file_path): "
             + json.dumps(
                 {
-                    "attachment_id": block.attachment.id,
+                    "file_path": attachment_path(block.attachment),
                     "name": block.attachment.name,
                     "bytes": block.attachment.bytes,
                 },

@@ -3,6 +3,7 @@ import {
   ChevronRight,
   Circle,
   Image,
+  FileText,
   ListTodo,
   LoaderCircle,
   PenLine,
@@ -21,6 +22,7 @@ import { CopyButton } from "@/features/messages/CopyButton";
 import type { GeneratingTool } from "@/features/events/stream-presentation";
 
 import { TodoItems } from "./TodoItems";
+import { ReadResult } from "./ReadResult";
 import { parseTodos } from "./todos";
 import { parseToolContent, toolContentImages, toolContentText } from "./tool-content";
 import { AttachmentStrip } from "@/features/attachments/AttachmentStrip";
@@ -260,6 +262,8 @@ function ToolCallRow({
               </div>
               <TodoItems items={todoResultItems(tool.result)} />
             </div>
+          ) : tool.name === "read" ? (
+            <ReadResult value={tool.result} text={toolContentText(resultContent)} />
           ) : (
             <ToolDetail label={tool.name === "skill" ? zhCN.skills.instructions : content.output}>
               {formatToolResult(tool)}
@@ -380,7 +384,7 @@ export function toolLabel(name: string): string {
 
 function ToolKindIcon({ name }: { readonly name: string }) {
   const Icon =
-    name === "read_image" ? Image : name === "todo_write" ? ListTodo : name === "memory_read"
+    name === "read" ? FileText : name === "read_image" ? Image : name === "todo_write" ? ListTodo : name === "memory_read"
       ? Search
       : name === "memory_write"
         ? PenLine
