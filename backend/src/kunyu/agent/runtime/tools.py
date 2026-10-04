@@ -17,6 +17,7 @@ if TYPE_CHECKING:
 
 class ToolRiskLevel(Enum):
     L0 = "l0"
+    L1 = "l1"
     L2 = "l2"
 
 
@@ -61,6 +62,10 @@ class ToolValidationError(ValueError):
 
 class ToolExecutionError(RuntimeError):
     """A registered tool could not produce a valid result."""
+
+    def __init__(self, message: str, *, code: str = "TOOL_EXECUTION_FAILED") -> None:
+        self.code = code
+        super().__init__(message)
 
 
 class ToolConfirmationRequiredError(ToolExecutionError):

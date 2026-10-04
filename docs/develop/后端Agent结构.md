@@ -21,7 +21,7 @@ Agent 架构必须对齐本地 `deepseek-harness` 源码的服务、插件、作
 | `core/tools` | `runtime/tools.py`、`runner_tools.py`、`tools/registry.py` | 工具注册与实现分开；模型 Schema 来自实际注册；有界并行/独占调度；风险策略与确认接缝 |
 | `packages/context` | `agent/context.py`、`persistence/agent_context.py` | 注入正文成为有顺序的持久会话内容，后续步骤及轮次按原位置重放 |
 | `skill/skill`、`skill/skill-filesystem`、`skill/tool-skill` | `skills/registry.py`、`filesystem.py`、`context.py`、`tools/skills.py` | 注册表、来源、调用工具分开；目录仅注入名称和简介；选择后加载正文；区分模型/用户调用权限；持久目录替换与显式用户调用 |
-| `packages/fs/fs`、`fs-local`、`tool-fs` 的 `read` | `domain/filesystem.py`、`integrations/filesystem.py`、`plugins/filesystem.py`、`tools/files.py`、`read_render.py` | 独立文件系统服务与工具插件；路径作用域、UTF-8 流式读取、实际行号、窗口边界和续读说明 |
+| `packages/fs/fs`、`fs-local`、`fs-observation-policy`、`tool-fs` | `domain/filesystem.py`、`integrations/filesystem.py`、`filesystem_io.py`、`agent/filesystem.py`、`plugins/filesystem.py`、文件工具 | 文件系统与观察策略分开；路径作用域、版本守卫、原子发布、行窗口与应用结果 diff |
 
 这是 Python 的对应实现，没有引入 Cordis 的 TypeScript 运行时。已实现文本／思考／工具内容块、图片／文件输入、图文工具结果与 replay 核心；仍未实现 surface 替换/压缩、PTC、多 Agent 委派、profile 配置装载及插件市场，不能宣称完整功能等价。中断恢复仍采用本项目的显式恢复与持久确认契约。
 
@@ -37,7 +37,7 @@ backend/src/kunyu/agent/
 │   ├── infrastructure.py # SQLite 事件/仓储与模型提供者
 │   ├── core.py           # 作用域、提示词、工具、确认与轮次服务
 │   ├── memory.py         # 两个记忆工具的贡献插件
-│   ├── filesystem.py     # 独立文件系统提供者与 read 工具贡献
+│   ├── filesystem.py     # 文件系统提供者、观察策略与 read/write/edit 工具贡献
 │   └── loop.py           # 默认驱动提供者与每次执行的 Runner 插件
 ├── session_agent.py      # 对外 Agent API、注册表与会话 Context
 ├── inbox.py              # 持久 next-step/next-turn 输入、领取与丢弃
@@ -47,6 +47,7 @@ backend/src/kunyu/agent/
 ├── hooks.py              # 会话 Agent 融合调用、作用域中间件与通知注册
 ├── notifications.py      # 非否决状态、输入及助手流通知
 ├── retry.py              # Provider 策略执行、持久退避与取消排空
+├── filesystem.py         # 文件观察通知、写入/编辑意图槽与会话观察策略
 ├── commands/             # 作用域命令注册、计划/权限、压缩和执行日志
 ├── prompts/system.md     # 用户维护的系统指令
 ├── runtime/              # 模型/工具契约、循环、类型事件、Reducer
@@ -55,6 +56,9 @@ backend/src/kunyu/agent/
 │   ├── memory.py         # 记忆 Schema、描述、执行和确认事务处理器
 │   ├── files.py          # 按路径与行号读取，授权来自当前模型历史
 │   ├── read_render.py    # 有界行窗口、语言和模型读取正文
+│   ├── file_mutations.py # write/edit 参数、守卫和模型结果
+│   ├── file_diff.py      # 与 jsdiff 9 一致的上下文 hunk
+│   ├── files_shared.py   # 当前历史挂载与可取消线程排空
 │   ├── registry.py       # 作用域工具贡献、写处理器与风险策略
 │   └── shared.py         # 参数、归属与结果校验
 └── skills/
@@ -141,9 +145,9 @@ DeepSeek 新连接默认 `deepseek_messages` 与 `https://api.deepseek.com/anthr
 3. 调用 `TOOLS.register(owner, name, ToolRegistration(builder, write_handler))`，贡献随 owner 释放。
 4. 在产品组合的 `plugins` 参数中启用插件；会话专属扩展通过 `install_plugin(agent.ctx, plugin)` 安装。
 
-默认启用 `MemoryToolsPlugin` 的 `memory_read`、`memory_write`，`SkillToolsPlugin` 的 `skill`、`skill_resource`，`TodoToolsPlugin` 的 `todo_write`，`FilesystemToolsPlugin` 的 `read`，以及 `AttachmentToolsPlugin` 的 `read_image`。模型提供者和循环提供者可分别通过 `model_plugin`、`loop_plugin` 显式替换。没有旧路径、静态插件包装或工具名分支兼容层。
+默认启用 `MemoryToolsPlugin` 的 `memory_read`、`memory_write`，`SkillToolsPlugin` 的 `skill`、`skill_resource`，`TodoToolsPlugin` 的 `todo_write`，`FilesystemToolsPlugin` 的 `read`、`write`、`edit`，以及 `AttachmentToolsPlugin` 的 `read_image`。模型提供者和循环提供者可分别通过 `model_plugin`、`loop_plugin` 显式替换。没有旧路径、静态插件包装或工具名分支兼容层。
 
-L0 工具可直接执行；L2 本地写入必须注册同名事务处理器。确认服务保留精确参数快照，批准后调用处理器；业务修改、确认和工具结果同一事务提交，失败一起回滚。远程业务应另建持久作业与监督流程。
+L0 工具可直接执行；L1 工作区文件工具为独占调用，在 workspace-write 权限下直接执行，计划／read-only 模式拒绝。L2 记忆写入必须注册同名事务处理器。确认服务保留精确参数快照，批准后调用处理器；数据库业务修改、确认和工具结果同一事务提交，失败一起回滚。远程业务应另建持久作业与监督流程。
 
 工具批次按 deepseek-harness 的屏障与并发池执行：连续的 L0 并行工具最多同时运行四个，独占工具等池排空后执行。开始事实先持久提交，再调用工具；结果按模型发出的顺序提交。批次预留工具次数与活动时间，结束时按实际用量结算；取消会停止补充任务、等待已启动任务退出，并将未完成调用标记为取消。恢复重新执行安全的只读调用，保留已经结算的结果。
 
@@ -250,13 +254,27 @@ Provider 重试探针通过 normal 次数/错误筛选、指数退避、空回�
 
 `MessageInputPayload` 将引用贯穿用户消息、双队列和步骤决策。步骤不能引入原输入不拥有的引用；重建投影保留引用。模型历史使用独立 `ImageInputBlock` / `FileInputBlock`，助手输出仍只接受 text／reasoning／tool-call。`RunImageResolver` 仅物化当前运行实际可见的图片，HTTP 适配器根据明确协议编码；请求头 journal 保留元数据而不保存 base64。
 
-`FilesystemPlugin` 提供独立 `fs` 服务，`FilesystemToolsPlugin` 消费服务并贡献 L0 并行工具 `read({file_path, offset?, limit?})`。旧字符分页工具已移除。相对路径以 `/workspace` 为根，映射数据库同目录的 `workspaces/<workspace_id>/files`；只读取普通文件，逐级目录描述符禁止跟随符号链接，拒绝越界路径、目录和管道。当前插件不创建文件或目录。
+`FilesystemPlugin` 提供独立 `fs` 与观察接缝，`FilesystemToolsPlugin` 消费服务并贡献 `read`、`write`、`edit`。旧字符分页工具已移除。相对路径以 `/workspace` 为根，映射数据库同目录的 `workspaces/<workspace_id>/files`；逐级目录描述符禁止跟随符号链接，拒绝越界路径、目录和管道。写入可创建父目录，新目录为 0700、新文件为 0600；替换保留原 POSIX 权限。
 
 文件附件的模型文字句柄包含精确 `/attachments/<UUID>/<name>` 路径。这是只读挂载标识，不是服务端原生路径；读取权限来自当前运行实际模型历史，读取字节时再次核对同会话不可变收据。未准入草稿、未来队列和压缩边界以前的附件不自动授予读取权限。
 
-`read` 使用 1 基行号，默认 offset=1、limit=2000，上限 2000 行；每行保留最多 2000 个 UTF-16 单元，选中内容最多 50 KiB UTF-8。文件系统按 64 KiB 分块解码，去除初始 UTF-8 BOM，前 8192 字节发现 NUL 或任意位置 UTF-8 解码失败均报 `FS_NOT_TEXT`；取消报 `FS_ABORTED`。窗口达到上限后继续有界扫描，保存精确总行数；空文件与 CRLF 按 harness 语义处理。模型正文使用 `<path>`／`<type>`／`<content>` 包装和续读 offset，展示数据独立保存路径、实际行号、总行数、截断标记及可选语言。
+`read` 使用 1 基行号，默认 offset=1、limit=2000，上限 2000 行；每行保留最多 2000 个 UTF-16 单元，选中内容最多 50 KiB UTF-8。先 stat 校验普通文件与取得版本；小于 10 MiB 的文件整读，大小未知或达到阈值时流式处理。解码按 64 KiB 分块，去除初始 UTF-8 BOM，前 8192 字节发现 NUL 或任意位置 UTF-8 解码失败均报 `FS_NOT_TEXT`；取消报 `FS_ABORTED`。窗口达到上限后继续扫描，保存精确总行数；空文件与 CRLF 按 harness 语义处理。模型正文使用 `<path>`／`<type>`／`<content>` 包装和续读 offset，展示数据独立保存路径、实际行号、总行数、截断标记及可选语言。
 
-对话工具行默认折叠，展开后显示实际行号、读取范围和下一 offset；轨迹概述与结果页复用同一组件。持久重建和页面刷新保留读取窗口。文件观察事件、写入／编辑／搜索、工作区图片读取、PDF／Office 专用读取器与真实供应商图片能力探测仍待实现。
+对话工具行默认折叠，展开后显示实际行号、读取范围和下一 offset；轨迹概述与结果页复用同一组件。持久重建和页面刷新保留读取窗口。搜索、工作区图片读取、PDF／Office 专用读取器与真实供应商图片能力探测仍待实现。
+
+## 文件观察、原子修改与变更卡片
+
+`FilesystemObservationPlugin` 单独注册同步观察通知与写入／编辑的单决策槽，不提供文件 IO 服务。观察状态以实际会话 Context 为弱引用所有者，按提供者目标身份保存 present/version 或 absent；不同会话不共享，插件释放清空。读到缺失路径记录 absent，成功读到窗口才记录 present；成功写入或编辑立即更新 present。观察通知只更新状态，不参与 IO 事务；监听器报错会记录日志，同步约定被违反也明确记录。
+
+未观察或确认不存在的目标产生 create-if-absent；已观察存在的目标产生 replace-if-version。编辑未观察报 `FS_NOT_OBSERVED`，已确认不存在报 `FS_NOT_FOUND`；缺失或版本失配先于文本匹配报 `FS_STALE_VERSION`。本地版本由 dev/ino/size/mtime_ns/ctime_ns 组成，工具与策略把它当作不透明值。版本状态按 harness 的活会话生命周期保存，不从历史 journal 恢复；重启后覆盖已有文件必须重新读取。
+
+提供者按目标 FIFO 排空并序列化修改，在锁内校验类型和版本。写入通过同目录私有 UUID 暂存目录与固定 content 文件，独占创建、保留权限、fsync、取消检查后发布；创建使用 hard-link no-replace，替换使用 rename。发布前再次校验版本；外部进程的替换仍存在版本检查与 rename 之间的竞态，进程内修改和创建碰撞有原子保护。暂存链接清理后才取得最终版本，避免 ctime 导致随后的编辑误判。
+
+`edit({file_path, old_string, new_string, replace_all?})` 做非重叠字面替换，默认必须唯一；缺失匹配报 `FS_EDIT_NOT_FOUND`，多匹配报 `FS_AMBIGUOUS_EDIT`。匹配前将 CRLF 规范化为 LF，写回恢复前 4096 UTF-16 单元采样的行尾风格；二进制或无效 UTF-8 拒绝编辑。`write` 接收完整文本，包括空文件；可展示的覆盖前文本基线必须小于 10 MiB，二进制或越过基线边界时记录 before=null，展示明确保存的新全文。
+
+模型只收到 harness 的创建／更新包装或编辑成功说明；JSON 展示结果独立保存 operation 与真实应用的三行上下文 hunks。`file_diff.py` 移植 jsdiff 9 的 Myers 路径、平局规则和 hunk 合并边界，保留原 BSD-3-Clause 许可证；前端复用同版本 diff 包展示上下文与增删行数，不从当前文件重新构造历史。对话与轨迹共用 Mu 风格变更卡片和浅色／深色语义颜色，页面刷新与重建恢复原应用结果。
+
+`ToolExecutionError` 携带明确 code，Runner 将文件错误码原样提交，模型能识别重新读取的修复说明；不把它们统一改成普通执行失败。可取消线程在每块和发布前检查信号，取消处理等待线程退出再释放运行。文件发布与会话 journal 属于不同存储事务：取消／进程退出发生在发布与工具结果提交之间时可能留下已修改文件；恢复时版本或创建守卫会要求重新读取，不盲目覆盖。
 
 
 ## 模型图片声明与请求投影

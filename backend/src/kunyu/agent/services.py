@@ -11,6 +11,7 @@ if TYPE_CHECKING:
 
     from kunyu.agent.adapters import StoredRunExecutionProvider
     from kunyu.agent.commands.registry import CommandRegistry
+    from kunyu.agent.filesystem import FilesystemHooks
     from kunyu.agent.hooks import AgentHookRegistry
     from kunyu.agent.runtime.context import (
         ContextPreparationRegistry,
@@ -38,6 +39,7 @@ if TYPE_CHECKING:
     from kunyu.persistence.workspace_memory import SQLAlchemyWorkspaceMemoryRepository
 
 FILESYSTEM: ServiceKey[Filesystem] = ServiceKey("fs")
+FILESYSTEM_HOOKS: ServiceKey[FilesystemHooks] = ServiceKey("fs.hooks")
 DATABASE: ServiceKey[Database] = ServiceKey("database")
 ATTACHMENTS: ServiceKey[SQLAlchemyAttachmentStore] = ServiceKey("sessions.attachments")
 SCOPES: ServiceKey[AgentScopes] = ServiceKey("agent_scopes")

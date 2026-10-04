@@ -1,21 +1,24 @@
 """Model-facing, line-numbered reads over the bound filesystem service."""
 
-import asyncio
 from collections.abc import Mapping
 from contextlib import closing
 from threading import Event
 
 from pydantic import Field
 
-from kunyu.agent.context import build_model_history
+from kunyu.agent.filesystem import FilesystemHooks
 from kunyu.agent.runtime.content import TextBlock
-from kunyu.agent.runtime.input_content import FileInputBlock
 from kunyu.agent.runtime.tools import (
     ToolCall,
-    ToolExecutionError,
     ToolResult,
     ToolRiskLevel,
     ToolSpec,
+)
+from kunyu.agent.scope import AgentScopes
+from kunyu.agent.tools.files_shared import (
+    filesystem_operation,
+    filesystem_scope,
+    tool_filesystem_error,
 )
 from kunyu.agent.tools.read_render import (
     READ_LIMIT,
@@ -34,8 +37,9 @@ from kunyu.domain.agent_context import RunContextRepository
 from kunyu.domain.filesystem import (
     Filesystem,
     FilesystemError,
-    FilesystemScope,
-    ReadTarget,
+    FsInfo,
+    FsObservation,
+    FsTarget,
 )
 
 
@@ -47,9 +51,15 @@ class _ReadArguments(ToolArguments):
 
 class ReadTool:
     def __init__(
-        self, run_id: str, contexts: RunContextRepository, filesystem: Filesystem
+        self,
+        run_id: str,
+        contexts: RunContextRepository,
+        filesystem: Filesystem,
+        hooks: FilesystemHooks,
+        scopes: AgentScopes,
     ) -> None:
         self._run_id, self._contexts, self._filesystem = run_id, contexts, filesystem
+        self._hooks, self._scopes = hooks, scopes
         self.spec = ToolSpec(
             name="read",
             description="Read a UTF-8 text file and return line-numbered content. Paths resolve relative to /workspace; admitted file attachments use their exact /attachments path. Offset is the 1-based first line, default 1. Limit defaults to 2000 lines. Results cap each line to 2000 UTF-16 characters and selected text to 50 KiB; use the reported offset to continue. Binary files require a dedicated reader.",
@@ -66,31 +76,49 @@ class ReadTool:
         require_bound_call(call, self._run_id, self.spec.name)
         arguments = validate_model(self.spec.name, _ReadArguments, call.arguments)
         source = load_source(self._contexts, self._run_id)
-        scope = FilesystemScope(
-            source.workspace.id,
-            source.session.id,
-            tuple(
-                block.attachment
-                for message in build_model_history(source)
-                for block in message.content
-                if isinstance(block, FileInputBlock)
-            ),
-        )
-        cancelled = Event()
+        actor = self._scopes.for_session(source.session.id)
+        path = arguments.file_path
         try:
-            target = self._filesystem.resolve(arguments.file_path, scope)
-            return await asyncio.to_thread(self._read, target, arguments, cancelled)
+            target = self._filesystem.resolve(path, filesystem_scope(source))
+            path = target.display_path
+            info = await filesystem_operation(
+                lambda cancelled: self._filesystem.stat(target, cancelled)
+            )
+            if info is None:
+                self._hooks.observe(target, FsObservation("absent"), actor)
+                raise FilesystemError(
+                    "FS_NOT_FOUND", f'cannot read "{path}": not found'
+                )
+            if info.kind != "file":
+                raise FilesystemError(
+                    "FS_NOT_REGULAR_FILE", f'cannot read "{path}": not a regular file'
+                )
+            result = await filesystem_operation(
+                lambda cancelled: self._read(target, info, arguments, cancelled)
+            )
+            self._hooks.observe(target, FsObservation("present", info.version), actor)
+            return result
         except FilesystemError as error:
-            raise ToolExecutionError(f"{error.code}: {error}") from error
-        finally:
-            cancelled.set()
+            raise tool_filesystem_error(error, path) from error
 
     def _read(
-        self, target: ReadTarget, arguments: _ReadArguments, cancelled: Event
+        self,
+        target: FsTarget,
+        info: FsInfo,
+        arguments: _ReadArguments,
+        cancelled: Event,
     ) -> ToolResult:
-        with closing(self._filesystem.stream_text(target, cancelled)) as chunks:
+        if info.size is None or info.size >= 10 * 1024 * 1024:
+            with closing(self._filesystem.stream_text(target, cancelled)) as chunks:
+                window = build_window(
+                    chunks, arguments.offset, arguments.limit, target.display_path
+                )
+        else:
             window = build_window(
-                chunks, arguments.offset, arguments.limit, target.display_path
+                (self._filesystem.read_text(target, cancelled),),
+                arguments.offset,
+                arguments.limit,
+                target.display_path,
             )
         value = {
             "path": target.display_path,

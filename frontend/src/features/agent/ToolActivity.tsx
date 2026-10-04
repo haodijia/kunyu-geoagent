@@ -23,6 +23,7 @@ import type { GeneratingTool } from "@/features/events/stream-presentation";
 
 import { TodoItems } from "./TodoItems";
 import { ReadResult } from "./ReadResult";
+import { FileMutationResult } from "./FileMutationResult";
 import { parseTodos } from "./todos";
 import { parseToolContent, toolContentImages, toolContentText } from "./tool-content";
 import { AttachmentStrip } from "@/features/attachments/AttachmentStrip";
@@ -264,6 +265,8 @@ function ToolCallRow({
             </div>
           ) : tool.name === "read" ? (
             <ReadResult value={tool.result} text={toolContentText(resultContent)} />
+          ) : tool.name === "write" || tool.name === "edit" ? (
+            <FileMutationResult value={tool.result} text={toolContentText(resultContent)} />
           ) : (
             <ToolDetail label={tool.name === "skill" ? zhCN.skills.instructions : content.output}>
               {formatToolResult(tool)}
@@ -384,7 +387,7 @@ export function toolLabel(name: string): string {
 
 function ToolKindIcon({ name }: { readonly name: string }) {
   const Icon =
-    name === "read" ? FileText : name === "read_image" ? Image : name === "todo_write" ? ListTodo : name === "memory_read"
+    name === "write" || name === "edit" ? PenLine : name === "read" ? FileText : name === "read_image" ? Image : name === "todo_write" ? ListTodo : name === "memory_read"
       ? Search
       : name === "memory_write"
         ? PenLine
