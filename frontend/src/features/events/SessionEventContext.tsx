@@ -17,6 +17,7 @@ import {
 import { zhCN } from "@/locales/zh-CN";
 
 import { LiveAssistantStream, type ActiveAssistant } from "./live-assistant";
+import { projectPlanEvents, type PlanState } from "./plan";
 
 const INITIAL_RECONNECT_DELAY_MS = 500;
 const MAX_RECONNECT_DELAY_MS = 8_000;
@@ -25,6 +26,7 @@ export type EventStreamStatus =
   "connecting" | "connected" | "reconnecting" | "failed";
 
 interface SessionEventState {
+  readonly plan: PlanState | null;
   readonly events: readonly SessionEvent[];
   readonly records: readonly TrajectoryEventProjection[];
   readonly activeAssistant: ActiveAssistant | null;
@@ -45,6 +47,7 @@ export function SessionEventProvider({
 }: SessionEventProviderProps) {
   const [records, setRecords] = useState<TrajectoryEventProjection[]>([]);
   const [events, setEvents] = useState<SessionEvent[]>([]);
+  const [plan, setPlan] = useState<PlanState | null>(null);
   const [status, setStatus] = useState<EventStreamStatus>("connecting");
   const [error, setError] = useState<string | null>(null);
   const lastSequenceRef = useRef(0);
@@ -56,9 +59,11 @@ export function SessionEventProvider({
     const cancelStream = () => controller.abort();
     window.addEventListener("beforeunload", cancelStream);
     const assistant = new LiveAssistantStream();
+    let planState: PlanState = { active: false, pending: null };
     lastSequenceRef.current = 0;
     setActiveAssistant(null);
     setEvents([]);
+    setPlan(null);
     setRecords([]);
 
     async function connect() {
@@ -107,6 +112,8 @@ export function SessionEventProvider({
                 lastSequenceRef.current = event.sequence;
               }
               if (incoming.length > 0) {
+                planState = projectPlanEvents(planState, incoming);
+                setPlan(planState);
                 setEvents((current) => [...current, ...incoming].slice(-256));
                 setRecords((current) => [...current, ...projected]);
               }
@@ -160,7 +167,7 @@ export function SessionEventProvider({
 
   return (
     <SessionEventContext
-      value={{ events, records, activeAssistant, error, status }}
+      value={{ events, records, plan, activeAssistant, error, status }}
     >
       {children}
     </SessionEventContext>

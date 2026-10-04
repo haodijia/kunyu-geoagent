@@ -1,52 +1,64 @@
-"""Read session controls from authoritative events; export the same log."""
+"""Read session controls using the authoritative runtime projection."""
 
-from dataclasses import replace
+from sqlalchemy import case, select
+from sqlalchemy.orm import Session
 
-from sqlalchemy import select
-
-from kunyu.agent.runtime.events import (
-    HistoryCompactedPayload,
-    PermissionChangedPayload,
-    PlanChangedPayload,
-)
+from kunyu.agent.runtime.control_projection import CONTROL_BOUNDARIES, ControlProjection
+from kunyu.agent.runtime.events import validate_event_draft
 from kunyu.domain.commands import SessionControls
 from kunyu.persistence.database import Database
 from kunyu.persistence.models import SessionEventRecord
 
 
-def read_session_controls(database: Database, session_id: str) -> SessionControls:
-    state = SessionControls()
-    with database.sessions() as session:
-        records = session.scalars(
-            select(SessionEventRecord)
-            .where(
-                SessionEventRecord.session_id == session_id,
-                SessionEventRecord.event_type.in_(
-                    ("plan/changed", "permission/changed", "history/compacted")
-                ),
+def session_controls(transaction: Session, session_id: str) -> SessionControls:
+    records = transaction.execute(
+        select(
+            SessionEventRecord.event_type,
+            SessionEventRecord.run_id,
+            SessionEventRecord.occurred_at,
+            case(
+                (SessionEventRecord.event_type.in_(CONTROL_BOUNDARIES), None),
+                else_=SessionEventRecord.payload,
+            ).label("payload"),
+        )
+        .where(
+            SessionEventRecord.session_id == session_id,
+            SessionEventRecord.event_type.in_(
+                (
+                    "plan/changed",
+                    "plan/selected",
+                    "permission/changed",
+                    "history/compacted",
+                    "agent/step/decision",
+                    "request.header",
+                    "run.created",
+                    "run.completed",
+                    "run.failed",
+                    "run.cancelled",
+                )
+            ),
+        )
+        .order_by(SessionEventRecord.sequence)
+    ).all()
+    projection = ControlProjection()
+    for record in records:
+        if record.event_type in CONTROL_BOUNDARIES:
+            projection.accept_boundary(record.event_type, record.run_id)
+            continue
+        projection.accept(
+            validate_event_draft(
+                {
+                    "session_id": session_id,
+                    "run_id": record.run_id,
+                    "event_type": record.event_type,
+                    "payload": record.payload,
+                    "occurred_at": record.occurred_at,
+                }
             )
-            .order_by(SessionEventRecord.sequence)
-        ).all()
-        for record in records:
-            if record.event_type == "plan/changed":
-                state = replace(
-                    state,
-                    plan_active=PlanChangedPayload.model_validate(
-                        record.payload
-                    ).active,
-                )
-            elif record.event_type == "permission/changed":
-                state = replace(
-                    state,
-                    permission=PermissionChangedPayload.model_validate(
-                        record.payload
-                    ).preset,
-                )
-            elif record.event_type == "history/compacted":
-                payload = HistoryCompactedPayload.model_validate(record.payload)
-                state = replace(
-                    state,
-                    summary=payload.summary,
-                    compacted_through=payload.through_sequence,
-                )
-    return state
+        )
+    return projection.state
+
+
+def read_session_controls(database: Database, session_id: str) -> SessionControls:
+    with database.sessions() as transaction:
+        return session_controls(transaction, session_id)

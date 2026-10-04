@@ -475,6 +475,11 @@ export const zhCN = {
     retrySend: "使用原请求标识重试发送",
     sendFailed: "发送失败，请确认本地服务正在运行后重试。",
     attempt: (attempt: number) => `第 ${attempt} 次尝试`,
+    planMode: {
+      label: "计划",
+      exit: "退出计划模式",
+      pending: "计划模式将在下一个接受的模型步骤生效；点击取消切换",
+    },
     planBar: {
       title: "任务计划",
       expand: "展开任务计划",

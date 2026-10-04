@@ -5,6 +5,7 @@ from collections.abc import Iterable
 from dataclasses import replace
 from typing import Literal
 
+from kunyu.agent.runtime.control_projection import ControlProjection
 from kunyu.agent.runtime.events import (
     TERMINAL_RUN_STATES,
     AgentEvent,
@@ -45,6 +46,7 @@ def reduce_session(events: Iterable[AgentEvent]) -> ReducedSession:
     todos = None
     todos_run_id = None
     image_offloads = ImageOffloadProjection()
+    controls = ControlProjection()
 
     for envelope in events:
         if envelope.sequence != expected_sequence:
@@ -263,10 +265,11 @@ def reduce_session(events: Iterable[AgentEvent]) -> ReducedSession:
                     )
 
         try:
+            controls.accept(event)
             image_offloads.accept(event, envelope.sequence)
         except ValueError as error:
             raise SessionReductionError(
-                f"Image projection at event {envelope.sequence} is invalid: {error}"
+                f"Session projection at event {envelope.sequence} is invalid: {error}"
             ) from error
 
         if envelope.run_id is not None:
@@ -328,6 +331,7 @@ def reduce_session(events: Iterable[AgentEvent]) -> ReducedSession:
 
     return ReducedSession(
         session_id=session_id,
+        controls=controls.state,
         user_messages=tuple(
             sorted(user_messages.values(), key=lambda item: item.created_sequence)
         ),
