@@ -6,6 +6,7 @@ from typing import Literal
 
 from kunyu.agent.runtime.assistant_stream import AssistantStreamAccumulator
 from kunyu.agent.runtime.block_assembler import BlockAssembler
+from kunyu.agent.runtime.content import content_codepoints
 from kunyu.agent.runtime.events import (
     AssistantCompletedEvent,
     AssistantCompletedPayload,
@@ -56,7 +57,13 @@ class ModelAttempt:
         return self.assembler.finish
 
 
-def model_settlement_events(
+@dataclass(frozen=True, slots=True)
+class ModelSettlement:
+    events: tuple[EventDraft, ...]
+    output_codepoints: int
+
+
+def model_settlement(
     run: ReducedRun,
     attempt: ModelAttempt,
     elapsed_milliseconds: int,
@@ -65,7 +72,7 @@ def model_settlement_events(
     outcome: ModelOutcome,
     error_code: str | None,
     assistant_finish: AssistantFinish | None,
-) -> list[EventDraft]:
+) -> ModelSettlement:
     elapsed_milliseconds = min(
         attempt.reserved_milliseconds, max(0, elapsed_milliseconds)
     )
@@ -110,6 +117,11 @@ def model_settlement_events(
             )
         )
     usage = attempt.usage or TokenUsage()
+    blocks = attempt.assembler.blocks(
+        interrupted=outcome not in {"stop", "tool_calls", "length"}
+        or error_code == "OUTPUT_LIMIT",
+        output_limit=attempt.output_limit,
+    )
     events.append(
         ModelAttemptFinishedEvent(
             session_id=run.session_id,
@@ -129,11 +141,7 @@ def model_settlement_events(
                 ),
                 stream=attempt.stream.snapshot(),
                 stream_origin="model",
-                blocks=attempt.assembler.blocks(
-                    interrupted=outcome not in {"stop", "tool_calls", "length"}
-                    or error_code == "OUTPUT_LIMIT",
-                    output_limit=attempt.output_limit,
-                ),
+                blocks=blocks,
                 replay_state=attempt.assembler.replay_state
                 if outcome in {"stop", "tool_calls", "length"}
                 and error_code != "OUTPUT_LIMIT"
@@ -142,7 +150,13 @@ def model_settlement_events(
             occurred_at=now,
         )
     )
-    return events
+    return ModelSettlement(
+        events=tuple(events),
+        output_codepoints=max(
+            attempt.buffer.content_length + attempt.reasoning_buffer.content_length,
+            content_codepoints(blocks),
+        ),
+    )
 
 
 def delta_event(

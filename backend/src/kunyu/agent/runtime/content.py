@@ -87,5 +87,13 @@ def content_text(blocks: tuple[ContentBlock, ...], *, reasoning: bool = False) -
     return "".join(block.text for block in blocks if isinstance(block, kind))
 
 
+def content_codepoints(blocks: tuple[ContentBlock, ...]) -> int:
+    return sum(
+        len(block.text)
+        for block in blocks
+        if isinstance(block, (TextBlock, ReasoningBlock))
+    )
+
+
 def text_content(text: str) -> tuple[ContentBlock, ...]:
     return (TextBlock(text=text),)

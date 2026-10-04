@@ -16,6 +16,7 @@ from kunyu.agent.runtime.content import (
     ReasoningBlock,
     TextBlock,
     ToolCallBlock,
+    content_codepoints,
     content_text,
 )
 from kunyu.agent.runtime.events import (
@@ -624,7 +625,7 @@ def _finish_model_attempt(
     for position, timed in enumerate(outputs):
         output = timed.output
         try:
-            assembler.push(output)
+            accepted = assembler.push(output)
         except (TypeError, ValueError) as error:
             if not (
                 payload.outcome == "error"
@@ -633,6 +634,8 @@ def _finish_model_attempt(
             ):
                 raise RunReductionError("Invalid model block stream.") from error
             break
+        if not accepted:
+            continue
         if isinstance(output, (TextDelta, ReasoningDelta)):
             kind = "reasoning" if isinstance(output, ReasoningDelta) else "text"
             observed.setdefault((kind, output.index), []).append(output.text)
@@ -640,7 +643,7 @@ def _finish_model_attempt(
         elif isinstance(output, BlockEnd) and isinstance(
             output.block, (TextBlock, ReasoningBlock)
         ):
-            if (output.block.type, output.index) not in observed:
+            if not "".join(observed.get((output.block.type, output.index), [])):
                 delivered[output.block.type].append(output.block.text)
     text, reasoning = "".join(delivered["text"]), "".join(delivered["reasoning"])
     valid_prefix = (
@@ -663,6 +666,10 @@ def _finish_model_attempt(
         + len(assistant.content)
         + len(assistant.reasoning_content)
     )
+    if assembler.output_codepoints > limit and payload.error_code != "OUTPUT_LIMIT":
+        raise RunReductionError(
+            "Canonical model content exceeds the remaining output budget."
+        )
     try:
         expected = assembler.blocks(interrupted=interrupted, output_limit=limit)
     except ValueError as error:
@@ -736,6 +743,12 @@ def _finish_model_attempt(
         raise RunReductionError(
             "Model outcome active time differs from the run budget."
         )
+    # Provider closure may replace a short preview with longer final content.
+    # Charge the larger of the accepted delivery and final representation, so
+    # normalization cannot refund generation or grant extra next-step capacity.
+    delivered_codepoints = len(assistant.content) + len(assistant.reasoning_content)
+    final_codepoints = content_codepoints(payload.blocks)
+    state.budget.output_codepoints += max(0, final_codepoints - delivered_codepoints)
     assistant.blocks = payload.blocks
     assistant.replay_state = payload.replay_state
     assistant.content = content_text(payload.blocks)
