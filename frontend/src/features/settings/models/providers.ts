@@ -1,4 +1,4 @@
-import type { MaxTokensField, ModelAuthMode, ModelProviderType } from "./api";
+import type { MaxTokensField, ModelAuthMode, ModelProtocol, ModelProviderType } from "./api";
 
 export type ProviderCategory = "recommended" | "api" | "aggregators" | "local";
 export type ProviderCatalogId =
@@ -25,6 +25,7 @@ export type ProviderCatalogId =
 export interface ProviderCatalogEntry {
   readonly id: ProviderCatalogId;
   readonly providerType: ModelProviderType;
+  readonly protocol: ModelProtocol;
   readonly category: Exclude<ProviderCategory, "recommended">;
   readonly recommended: boolean;
   readonly baseUrl: string;
@@ -35,7 +36,7 @@ export interface ProviderCatalogEntry {
 
 export const providerCatalog = [
   entry("openai", "openai", "api", true, "https://api.openai.com/v1"),
-  entry("deepseek", "deepseek", "api", true, "https://api.deepseek.com"),
+  entry("deepseek", "deepseek", "api", true, "https://api.deepseek.com/anthropic"),
   entry("moonshot", "moonshot", "api", true, "https://api.moonshot.cn/v1"),
   entry("zai", "zai", "api", true, "https://api.z.ai/api/paas/v4"),
   entry("zai-coding-plan", "zai", "api", true, "https://api.z.ai/api/coding/paas/v4"),
@@ -67,6 +68,7 @@ function entry(
   return {
     id,
     providerType,
+    protocol: providerType === "deepseek" ? "deepseek_messages" : "openai_compatible",
     category,
     recommended,
     baseUrl,

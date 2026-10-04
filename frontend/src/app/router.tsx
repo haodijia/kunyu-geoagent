@@ -80,10 +80,6 @@ export const router = createHashRouter([
               );
               return { Component: MapView };
             }
-          },
-          {
-            path: "*",
-            element: <Navigate to="overview" replace />
           }
         ]
       },

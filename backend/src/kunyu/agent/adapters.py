@@ -10,8 +10,8 @@ from kunyu.domain.model_connections import (
     ModelProtocol,
     ModelProviderType,
 )
-from kunyu.integrations.model.openai_compatible_adapter import (
-    OpenAICompatibleModelConfig,
+from kunyu.integrations.model.connection import (
+    ModelConnectionConfig,
 )
 from kunyu.persistence.model_connections import SQLAlchemyModelConnectionRepository
 from kunyu.persistence.runs import SQLAlchemyEventStore
@@ -21,9 +21,7 @@ class StoredRunExecutionProvider:
     def __init__(self, events: SQLAlchemyEventStore) -> None:
         self._events = events
 
-    async def get(
-        self, run_id: str
-    ) -> RunExecution[OpenAICompatibleModelConfig] | None:
+    async def get(self, run_id: str) -> RunExecution[ModelConnectionConfig] | None:
         run = self._events.get_reduced_run(run_id)
         if run is None:
             return None
@@ -32,13 +30,9 @@ class StoredRunExecutionProvider:
         )
         return RunExecution(run=run, adapter_config=self.prepare(snapshot))
 
-    def prepare(self, snapshot: ModelSnapshotPayload) -> OpenAICompatibleModelConfig:
-        if snapshot.protocol != ModelProtocol.OPENAI_COMPATIBLE.value:
-            raise ModelAdapterError(
-                ModelErrorCode.UNSUPPORTED_CAPABILITY,
-                "The request uses an unsupported model protocol.",
-            )
-        return OpenAICompatibleModelConfig(
+    def prepare(self, snapshot: ModelSnapshotPayload) -> ModelConnectionConfig:
+        return ModelConnectionConfig(
+            protocol=ModelProtocol(snapshot.protocol),
             connection_id=snapshot.connection_id,
             config_revision=snapshot.connection_revision,
             base_url=snapshot.base_url,

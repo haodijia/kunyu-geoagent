@@ -306,6 +306,7 @@ def _visible_assistant_step(
                 ModelMessage(
                     role=ModelRole.ASSISTANT,
                     content=assistant.blocks,
+                    source_model=assistant.source_model,
                 ),
             )
         return None
@@ -333,6 +334,7 @@ def _visible_assistant_step(
                 role=ModelRole.ASSISTANT,
                 content=assistant.blocks,
                 replay_state=assistant.replay_state,
+                source_model=assistant.source_model,
             ),
         )
     if not _complete_tool_batch(calls):
@@ -350,6 +352,7 @@ def _visible_assistant_step(
         role=ModelRole.ASSISTANT,
         content=assistant.blocks,
         replay_state=assistant.replay_state,
+        source_model=assistant.source_model,
     )
     results = tuple(
         ModelMessage(
@@ -366,6 +369,7 @@ def _visible_assistant_step(
                 )
             ),
             tool_call_id=call.provider_call_id,
+            is_error=call.status != "completed",
         )
         for call in calls
     )

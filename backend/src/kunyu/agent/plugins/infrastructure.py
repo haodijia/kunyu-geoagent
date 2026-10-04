@@ -3,8 +3,8 @@
 from kunyu.agent import services as s
 from kunyu.agent.adapters import SnapshotCredentialResolver, StoredRunExecutionProvider
 from kunyu.agent.scope import Context
-from kunyu.integrations.model.openai_compatible_adapter import (
-    OpenAICompatibleModelAdapter,
+from kunyu.integrations.model.adapter import (
+    HTTPModelAdapter,
 )
 from kunyu.persistence.agent_context import SQLAlchemyRunContextRepository
 from kunyu.persistence.agent_projections import SQLAlchemyAgentProjectionService
@@ -42,14 +42,14 @@ class PersistencePlugin:
 
 
 class ModelPlugin:
-    name = "openai-compatible-model"
+    name = "http-model"
     requires = (s.HTTP_CLIENT, s.CONNECTIONS)
     provides = (s.MODEL,)
 
     async def apply(self, context: Context) -> None:
         context.provide(
             s.MODEL,
-            OpenAICompatibleModelAdapter(
+            HTTPModelAdapter(
                 context.require(s.HTTP_CLIENT),
                 SnapshotCredentialResolver(context.require(s.CONNECTIONS)),
             ),

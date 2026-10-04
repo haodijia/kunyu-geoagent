@@ -168,7 +168,7 @@ class BudgetUsagePayload(EventPayload):
 class ModelSnapshotPayload(EventPayload):
     connection_id: str
     provider_type: str
-    protocol: Literal["openai_compatible"]
+    protocol: Literal["openai_compatible", "deepseek_messages"]
     base_url: str
     auth_mode: Literal["api_key", "none"]
     model_id: str

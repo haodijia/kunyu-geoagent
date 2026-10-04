@@ -4,6 +4,7 @@ from datetime import UTC, datetime
 
 from kunyu.application.connection_locks import ConnectionOperationLocks
 from kunyu.application.model_catalog_rules import (
+    apply_protocol_reasoning,
     find_entry,
     merge_discovery,
     new_catalog_entry,
@@ -33,9 +34,9 @@ from kunyu.domain.model_connections import (
     ModelConnectionRepository,
     ModelCredentialRepository,
 )
-from kunyu.integrations.model.openai_compatible import (
+from kunyu.integrations.model.provider_client import (
     ModelCheckOutcome,
-    OpenAICompatibleClient,
+    ModelProviderClient,
     ProviderConfig,
     ProviderRequestError,
 )
@@ -90,7 +91,7 @@ class ModelCatalogService:
         connection_repository: ModelConnectionRepository,
         credential_repository: ModelCredentialRepository,
         locks: ConnectionOperationLocks,
-        provider: OpenAICompatibleClient,
+        provider: ModelProviderClient,
         run_lifecycle: RunLifecycleService,
         *,
         clock: Callable[[], datetime] | None = None,
@@ -197,7 +198,9 @@ class ModelCatalogService:
             updated = self._connections.update(
                 replace(
                     connection,
-                    catalog=catalog,
+                    catalog=tuple(
+                        apply_protocol_reasoning(connection, entry) for entry in catalog
+                    ),
                     check_generation=connection.check_generation + 1,
                     updated_at=now,
                 )
@@ -362,7 +365,9 @@ class ModelCatalogService:
                         last_success_at=discovered_at,
                         error_code=None,
                     ),
-                    catalog=catalog,
+                    catalog=tuple(
+                        apply_protocol_reasoning(connection, entry) for entry in catalog
+                    ),
                     check_generation=connection.check_generation + 1,
                     updated_at=discovered_at,
                 )
@@ -478,6 +483,7 @@ class ModelCatalogService:
                 "The model connection credential is not configured."
             )
         return ProviderConfig(
+            protocol=connection.protocol,
             provider_type=connection.provider_type,
             base_url=connection.base_url,
             auth_mode=connection.auth_mode,

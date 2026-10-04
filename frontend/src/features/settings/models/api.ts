@@ -1,6 +1,6 @@
 import { requestJson } from "@/api/client";
 
-export type ModelProtocol = "openai_compatible";
+export type ModelProtocol = "openai_compatible" | "deepseek_messages";
 export type ModelProviderType =
   | "openai"
   | "deepseek"
@@ -26,7 +26,7 @@ export type ModelCheckStatus = "unchecked" | "passed" | "failed";
 export type CatalogAvailability = "available" | "unavailable";
 export type CatalogSource = "fetched" | "manual";
 export type CapabilityStatus = "unknown" | "supported" | "unsupported";
-export type CapabilitySource = "unknown" | "provider_metadata" | "validation";
+export type CapabilitySource = "unknown" | "provider_metadata" | "protocol" | "validation";
 export type DiscoveryStatus = "idle" | "pending" | "succeeded" | "failed" | "interrupted";
 export type ManagementStatus = "ready";
 
@@ -112,6 +112,7 @@ export type UpdateModelConnectionInput = Partial<
   Pick<
     ModelConnection,
     | "display_name"
+    | "protocol"
     | "base_url"
     | "auth_mode"
     | "enabled"

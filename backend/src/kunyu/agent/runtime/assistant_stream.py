@@ -68,6 +68,8 @@ class UsageChunk(StreamValue):
     input_tokens: TokenCount | None
     output_tokens: TokenCount | None
     total_tokens: TokenCount | None
+    cache_read_input_tokens: TokenCount | None = None
+    cache_creation_input_tokens: TokenCount | None = None
 
 
 class FinishChunk(StreamValue):
@@ -169,6 +171,8 @@ def snapshot_chunk(output: ModelOutput) -> StreamChunk:
             input_tokens=output.input_tokens,
             output_tokens=output.output_tokens,
             total_tokens=output.total_tokens,
+            cache_read_input_tokens=output.cache_read_input_tokens,
+            cache_creation_input_tokens=output.cache_creation_input_tokens,
         )
     if isinstance(output, ModelFinish):
         return FinishChunk(reason=output.reason, replay_state=output.replay_state)
@@ -191,7 +195,13 @@ def chunk_output(chunk: StreamChunk) -> ModelOutput:
     if isinstance(chunk, BlockEndChunk):
         return BlockEnd(chunk.index, chunk.block)
     if isinstance(chunk, UsageChunk):
-        return TokenUsage(chunk.input_tokens, chunk.output_tokens, chunk.total_tokens)
+        return TokenUsage(
+            chunk.input_tokens,
+            chunk.output_tokens,
+            chunk.total_tokens,
+            chunk.cache_read_input_tokens,
+            chunk.cache_creation_input_tokens,
+        )
     if isinstance(chunk, FinishChunk):
         return ModelFinish(chunk.reason, chunk.replay_state)
     raise TypeError("Unknown stored model stream chunk.")

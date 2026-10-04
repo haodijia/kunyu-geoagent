@@ -10,7 +10,7 @@ from kunyu.domain.model_connections import (
     DiscoveryStatus,
     ModelConnection,
 )
-from kunyu.integrations.model.openai_compatible import ProviderRequestError
+from kunyu.integrations.model.provider_client import ProviderRequestError
 
 logger = logging.getLogger(__name__)
 

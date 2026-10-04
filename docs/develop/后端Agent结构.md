@@ -22,7 +22,7 @@ Agent 架构必须对齐本地 `deepseek-harness` 源码的服务、插件、作
 | `packages/context` | `agent/context.py`、`persistence/agent_context.py` | 注入正文成为有顺序的持久会话内容，后续步骤及轮次按原位置重放 |
 | `skill/skill`、`skill/skill-filesystem`、`skill/tool-skill` | `skills/registry.py`、`filesystem.py`、`context.py`、`tools/skills.py` | 注册表、来源、调用工具分开；目录仅注入名称和简介；选择后加载正文；区分模型/用户调用权限；持久目录替换与显式用户调用 |
 
-这是 Python 的对应实现，没有引入 Cordis 的 TypeScript 运行时。已实现文本／思考／工具三类 block 和 replay 核心；仍未实现附件块、DeepSeek Messages 原生签名回放、surface 替换/压缩、PTC、多 Agent 委派、profile 配置装载及插件市场，不能宣称完整功能等价。中断恢复仍采用本项目的显式恢复与持久确认契约。
+这是 Python 的对应实现，没有引入 Cordis 的 TypeScript 运行时。已实现文本／思考／工具三类 block 和 replay 核心；仍未实现附件块、surface 替换/压缩、PTC、多 Agent 委派、profile 配置装载及插件市场，不能宣称完整功能等价。中断恢复仍采用本项目的显式恢复与持久确认契约。
 
 ## 目录与运行链路
 
@@ -100,7 +100,7 @@ backend/src/kunyu/agent/
 
 前端从同一 opening 加载历史与活动前缀，不再先分页读取历史再开启另一条流。`LiveAssistantStream` 校验连续 revision、块 index、消息身份与具名结算；缺口触发重新连接和完整前缀替换，不继续追加失去边界的碎片。暂态前缀保留到已匹配的 end，committed 后回到持久投影，abandoned 则撤销暂态内容。重连包括全部精确时间，不用合并 delta 猜测运行中内容。
 
-对话和轨迹使用同一实时前缀显示文字、思考和首 token 时间；思考与正文按字符码点共同遵守剩余输出预算。工具生成行复用 Mu 工具行、图标与详情组件，明确标记“正在生成参数”，不会创建或执行占位工具调用。完整模型调用结算后才显示真实工具生命周期。运行中的轨迹“输出流”也可打开，结算后读取嵌入流、内容块与 replay；附件块及供应商签名协议仍待对齐。
+对话和轨迹使用同一实时前缀显示文字、思考和首 token 时间；思考与正文按字符码点共同遵守剩余输出预算。工具生成行复用 Mu 工具行、图标与详情组件，明确标记“正在生成参数”，不会创建或执行占位工具调用。完整模型调用结算后才显示真实工具生命周期。运行中的轨迹“输出流”也可打开，结算后读取嵌入流、内容块与 replay；附件块仍待对齐。
 
 迁移 `0006` 只将旧事件中已知的合并正文／思考块写入流，标记 `stream_origin=buffered`，不编造原始工具碎片、用量块或 token 时间。历史消息正文与状态保持原值，旧流不用于精确首 token 延迟。
 
@@ -110,9 +110,23 @@ backend/src/kunyu/agent/
 
 `BlockAssembler` 是块、用量、结束和回放的唯一组装来源；紧凑记录保留实际观察事实。第一个 block-end 是权威内容，可以替换预览文字、思考、工具身份及参数；重复开始、重复关闭与关闭后碎片不改变组装结果，运行边界记录警告，原始观察仍保留。未闭合块的 delta 类型改变、重复用量及终止后输出仍明确报错。Reducer 展开并验证同一语法，结算后用规范块替换正文及思考投影。最终内容变长时补计字符预算，按已交付预览与规范文本／思考总量的较大值收费，缩短不退款；失败／取消预算快照和前端下一步剩余额度来自同一结算结果。权威闭合本身超预算时保留预算内的规范前缀并失败，不能以短预览绕过上限。没有结算的进程中断仅保留已提交 delta 对应的文本／思考块，不编造遗失的原始边界、签名或工具调用。
 
-取消、异常和字符预算耗尽只保留安全文本／思考，不回放工具或 replay。模型 length 结束丢弃工具块，并同时裁剪 replay 的对应条目；条目数量与首次出现块数不一致时丢弃整个 envelope，运行边界记录警告。ReplayEnvelope 的响应及嵌套条目都不可变，记录序列化为普通 JSON，历史回传保留原值。当前 Chat Completions 不支持 Messages 的签名字段，不向请求虚构签名。
+取消、异常和字符预算耗尽只保留安全文本／思考，不回放工具或 replay。模型 length 结束丢弃工具块，并同时裁剪 replay 的对应条目；条目数量与首次出现块数不一致时丢弃整个 envelope，运行边界记录警告。ReplayEnvelope 的响应及嵌套条目都不可变，记录序列化为普通 JSON，历史回传保留原值。Chat Completions 仅编码其支持的历史字段；原生 Messages 保留并回传真实思考签名，不向请求虚构签名。
 
 对话按块顺序复用 Markdown、Mu 思考行与工具组件，连续工具保留已有分组。闭合内容立即替换实时预览，迟到碎片不会撤销权威内容或遮断后续有效块；只有真实文本／思考／工具 delta 提供首 token 时间，仅结束块的内容不编造 token 边界。实时前缀与结算内容采用相同首次出现顺序及码点预算；轨迹上下文先从块提取正文，详情保留完整结构。迁移 `0007` 重编号旧文本／思考／工具索引，以原观察时间转换已知完整调用；有碎片时保留原参数字符串，并校验与旧完整对象一致。buffered 来源的调用仅来自已提交 tool.requested，不编造原始工具流；旧请求快照也转换为块，不保留运行时旧格式分支。
+
+## 模型协议与签名回放
+
+`integrations/model/adapter.py` 统一 HTTP 生命周期、凭据读取、SSE 分帧和稳定错误；`connection.py` 提供不可变配置与 URL 校验。`openai_chat_request.py`／`openai_chat_stream.py` 和 `deepseek_messages_request.py`／`deepseek_messages_stream.py` 分别承担两种显式协议的编码、解析，不在失败后切换协议或地址。旧 `openai_compatible_adapter.py` 和 `openai_compatible.py` 已移除。
+
+DeepSeek 新连接默认 `deepseek_messages` 与 `https://api.deepseek.com/anthropic`，请求追加 `/v1/messages`；已含 `/v1` 时不重复追加。模型请求使用 `x-api-key` 和 `anthropic-version: 2023-06-01`。官方模型目录仍从根 `/models` 获取，使用该目录接口的 Bearer 认证；自定义 Messages 目录使用配置地址的 `/v1/models`。`provider_client.py` 的文本与工具检查直接使用非流式 Messages，关闭思考并验证真实块及工具参数。DeepSeek 与自定义连接可在设置页切换协议；改动增加修订，清除旧检查与推理声明，队列和运行占用时拒绝更改。既有连接保持其显式配置。
+
+原生思考档位为 off／low／high／max，默认 high。声明来自所选协议，目录来源记录为 `protocol`；请求编码为 thinking 与 output_config.effort。新 Messages 运行使用 harness 的 256000 输出 Token 上限与 300 秒流空闲超时，应用现有运行调用数、工具数、字符和活动时间预算仍生效。
+
+解析器严格校验 message_start、块开始／碎片／闭合、stop_reason 和 message_stop；供应商稀疏索引按首次出现顺序映射到连续逻辑索引。完整初始工具 input 与分片 JSON 分开处理；长度截断的工具和对应 replay 由核心组装器同时裁剪。流错误、未闭合、无终止结果和非法输入均明确报错。缓存读写 Token 保留在原始用量块，总量包含缓存计数，不凭缺失字段推测。
+
+助手生成时从当次 request.header 冻结 `source_model`，同一 Run 后续切换模型也不改写旧身份。ReplayEnvelope 使用 kind=deepseek-messages、version=1、请求模型及按块 signature 元数据；请求验证其来源模型、块数量和类型，同模型回传签名，跨模型保留正文与思考但不携带原签名。伪造或不匹配的原生 replay 直接报错。工具历史编码为 tool_use／用户 tool_result，携带真实 is_error，合并相邻角色并要求立即返回完整批次；非法历史参数不会替换为空对象。
+
+迁移 `0008` 扩展连接、运行快照和推理声明约束，不重写历史事件。已填充的 0007 库升级后保留全部记录和 journal，完整投影重建通过。临时 HTTP 供应商与实际默认 ModelPlugin 验证设置保存、原生检查、工具执行、签名续接、对话刷新及轨迹；离屏 Electron 验证桌面与深色 600px 窄屏。未知会话子路径的旧重定向循环已移除。
 
 ## 扩展 Tool
 

@@ -36,6 +36,7 @@ MAX_DISPLAY_NAME_LENGTH = 200
 MAX_BASE_URL_LENGTH = 2_048
 MAX_MODEL_ID_LENGTH = 256
 EXECUTION_FIELDS = {
+    "protocol",
     "base_url",
     "auth_mode",
     "max_tokens_field",
@@ -97,7 +98,7 @@ class ModelConnectionService:
         include_usage: bool,
         retry_policy: RetryPolicy = DEFAULT_RETRY_POLICY,
     ) -> ModelConnection:
-        if protocol is not ModelProtocol.OPENAI_COMPATIBLE:
+        if not isinstance(protocol, ModelProtocol):
             raise InvalidModelConnectionError("Unsupported model protocol.")
         if not isinstance(provider_type, ModelProviderType):
             raise InvalidModelConnectionError("Unsupported model provider.")
@@ -177,6 +178,7 @@ class ModelConnectionService:
         values: dict[str, object] = dict(changes)
         for field in (
             "display_name",
+            "protocol",
             "base_url",
             "auth_mode",
             "enabled",
@@ -194,6 +196,8 @@ class ModelConnectionService:
             values["retry_policy"] = RETRY_POLICY.validate_python(
                 values["retry_policy"]
             )
+        if "protocol" in values and not isinstance(values["protocol"], ModelProtocol):
+            raise InvalidModelConnectionError("Unsupported model protocol.")
         if "base_url" in values:
             values["base_url"] = _normalize_base_url(values["base_url"])
         if "auth_mode" in values and not isinstance(values["auth_mode"], ModelAuthMode):
@@ -264,7 +268,14 @@ class ModelConnectionService:
                 )
             values["revision"] = current.revision + 1
             values["catalog"] = tuple(
-                _invalidate_entry(entry, current.revision + 1)
+                replace(
+                    _invalidate_entry(entry, current.revision + 1),
+                    reasoning_efforts=(),
+                    reasoning_default=None,
+                    reasoning_source=CapabilitySource.UNKNOWN,
+                )
+                if "protocol" in values and values["protocol"] != current.protocol
+                else _invalidate_entry(entry, current.revision + 1)
                 for entry in current.catalog
             )
             if "auth_mode" in values:
