@@ -7,14 +7,16 @@ import { useFileDrafts, type FileDraft } from "./useFileDrafts";
 import { FileEditConfirm, type FileEditAction } from "./FileEditConfirm";
 import { useFileWatch } from "./useFileWatch";
 
+export interface PdfView { readonly page: number; readonly zoom: "fit" | number; }
 export type PreviewTab = { readonly id: string; readonly path: string; readonly revision: number } & (
-  { readonly kind: "file"; readonly line?: number } | { readonly kind: "diff"; readonly toolId: string }
+  { readonly kind: "file"; readonly line?: number; readonly pdf?: PdfView } | { readonly kind: "diff"; readonly toolId: string }
 );
 interface PreviewState { readonly tabs: readonly PreviewTab[]; readonly activeId: string | null; readonly width: number; }
 interface PreviewActions extends PreviewState {
   readonly maximized: boolean;
   readonly split: boolean;
   setSplit(enabled: boolean): void;
+  setPdfView(id: string, view: PdfView): void;
   openFile(path: string, line?: number): void;
   openDiff(toolId: string, path: string): void;
   select(id: string): void;
@@ -40,6 +42,12 @@ interface PreviewActions extends PreviewState {
 }
 const PreviewContext = createContext<PreviewActions | null>(null);
 
+function validPdfView(value: unknown): value is PdfView {
+  if (typeof value !== "object" || value === null || !("page" in value) || !("zoom" in value)) return false;
+  return typeof value.page === "number" && Number.isSafeInteger(value.page) && value.page >= 1
+    && (value.zoom === "fit" || (typeof value.zoom === "number" && Number.isFinite(value.zoom) && value.zoom >= 25 && value.zoom <= 400));
+}
+
 function readState(key: string): PreviewState {
   const stored = sessionStorage.getItem(key);
   if (stored === null) return { tabs: [], activeId: null, width: 50 };
@@ -47,7 +55,7 @@ function readState(key: string): PreviewState {
   if (!Array.isArray(state.tabs) || !(state.activeId === null || typeof state.activeId === "string")
     || !Number.isFinite(state.width) || state.width < 20 || state.width > 80
     || state.tabs.some(tab => typeof tab.path !== "string" || typeof tab.id !== "string" || !Number.isSafeInteger(tab.revision)
-      || !(tab.kind === "file" ? tab.id === `file:${tab.path}` && (tab.line === undefined || (Number.isSafeInteger(tab.line) && tab.line >= 1)) : tab.kind === "diff" && typeof tab.toolId === "string" && tab.id === `diff:${tab.toolId}`))
+      || !(tab.kind === "file" ? tab.id === `file:${tab.path}` && (tab.line === undefined || (Number.isSafeInteger(tab.line) && tab.line >= 1)) && (tab.pdf === undefined || validPdfView(tab.pdf)) : tab.kind === "diff" && typeof tab.toolId === "string" && tab.id === `diff:${tab.toolId}`))
     || new Set(state.tabs.map(tab => tab.id)).size !== state.tabs.length
     || (state.activeId !== null && !state.tabs.some(tab => tab.id === state.activeId))) throw new Error("Invalid persisted file preview state.");
   return state;
@@ -86,7 +94,7 @@ export function FilePreviewProvider({ sessionId, children }: { readonly sessionI
     const index = current.tabs.findIndex(item => item.id === tab.id);
     const tabs = [...current.tabs];
     if (index === -1) tabs.push(tab);
-    else tabs[index] = { ...tab, revision: tabs[index]!.revision + (edits.drafts[tab.path] === undefined ? 1 : 0) };
+    else tabs[index] = { ...tab, ...(tabs[index]!.kind === "file" && "pdf" in tabs[index]! ? { pdf: tabs[index]!.pdf } : {}), revision: tabs[index]!.revision + (edits.drafts[tab.path] === undefined ? 1 : 0) };
     return { ...current, tabs, activeId: tab.id };
   });
   function finish(action: FileEditAction) {
@@ -126,7 +134,14 @@ export function FilePreviewProvider({ sessionId, children }: { readonly sessionI
     // All saves finished before a close can discard any editor state.
     finish(pending);
   }
-  return <PreviewContext value={{ ...state, maximized, split, setSplit, loaded, watchErrors, drafts: edits.drafts, saving: edits.saving, saveErrors: edits.errors, storageError: edits.storageError, edit: edits.edit, save, recordLoaded, recordInfo, recordWatchError, registerWatch,
+  const setPdfView = useCallback((id: string, view: PdfView) => setState(current => {
+    const tab = current.tabs.find(item => item.id === id);
+    if (tab?.kind !== "file") throw new Error("PDF view requires an open file tab.");
+    if (!validPdfView(view)) throw new Error("Invalid PDF viewing preference.");
+    if (tab.pdf?.page === view.page && tab.pdf.zoom === view.zoom) return current;
+    return { ...current, tabs: current.tabs.map(item => item.id === id ? { ...item, pdf: view } : item) };
+  }), []);
+  return <PreviewContext value={{ ...state, setPdfView, maximized, split, setSplit, loaded, watchErrors, drafts: edits.drafts, saving: edits.saving, saveErrors: edits.errors, storageError: edits.storageError, edit: edits.edit, save, recordLoaded, recordInfo, recordWatchError, registerWatch,
     hasUpdate: path => infos[path] !== undefined && loaded[path]?.version != null && (infos[path] === null || infos[path]!.kind !== "file" || infos[path]!.version !== loaded[path]!.version),
     retryWatch: path => { const retry = retries.current.get(path); if (retry === undefined) throw new Error("The file watch is not registered."); retry(); },
     openFile: (path, line) => { const normalized = workspaceFilePath(path); open({ kind: "file", id: `file:${normalized}`, path: normalized, line, revision: 0 }); },
