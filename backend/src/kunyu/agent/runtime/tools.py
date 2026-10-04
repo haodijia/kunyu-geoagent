@@ -1,9 +1,14 @@
 """Validated tool call and policy boundaries."""
 
+from __future__ import annotations
+
 from collections.abc import Mapping
 from dataclasses import dataclass
 from enum import Enum
-from typing import Literal, Protocol
+from typing import TYPE_CHECKING, Literal, Protocol
+
+if TYPE_CHECKING:
+    from kunyu.agent.runtime.events import EventDraft
 
 
 class ToolRiskLevel(Enum):
@@ -32,6 +37,7 @@ class ToolCall:
 @dataclass(frozen=True)
 class ToolResult:
     content: str
+    events: tuple[EventDraft, ...] = ()
 
 
 class ToolRegistryError(RuntimeError):

@@ -149,7 +149,9 @@ function contextRecord(
   }
   const done = events.find((event) => event.eventType === "command/done");
   const isCommand = first.eventType === "command/run";
-  const content = isCommand
+  const content = first.eventType === "todo/write"
+    ? `${zhCN.conversation.tools.names.todo_write} ${safeString(first.payload.todos)}`
+    : isCommand
     ? `/${String(first.payload.name)}${stringValue(first.payload.raw_input) ?? ""}`
     : (stringValue(first.payload.content) ??
       stringValue(first.payload.summary) ??

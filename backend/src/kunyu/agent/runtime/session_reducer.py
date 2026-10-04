@@ -15,6 +15,7 @@ from kunyu.agent.runtime.events import (
     QueueReorderedEvent,
     SessionCreatedEvent,
     StepDecisionEvent,
+    TodoWriteEvent,
     UserMessageAppendedEvent,
     validate_event_draft,
 )
@@ -40,6 +41,8 @@ def reduce_session(events: Iterable[AgentEvent]) -> ReducedSession:
     queue_mode: Literal["auto", "manual"] = "auto"
     dispatch_message_id: str | None = None
     run_events: dict[str, list[AgentEvent]] = defaultdict(list)
+    todos = None
+    todos_run_id = None
 
     for envelope in events:
         if envelope.sequence != expected_sequence:
@@ -81,6 +84,16 @@ def reduce_session(events: Iterable[AgentEvent]) -> ReducedSession:
             raise SessionReductionError(
                 "Session events cannot precede session.created."
             )
+
+        if event.event_type == "run.started" and envelope.run_id != todos_run_id:
+            todos = None
+            todos_run_id = envelope.run_id
+        elif isinstance(event, TodoWriteEvent):
+            if envelope.run_id != todos_run_id:
+                raise SessionReductionError(
+                    "Todo snapshot belongs to a different current turn."
+                )
+            todos = tuple(event.payload.todos)
 
         if isinstance(event, UserMessageAppendedEvent):
             message_id = event.payload.message_id
@@ -301,6 +314,8 @@ def reduce_session(events: Iterable[AgentEvent]) -> ReducedSession:
         next_turn=tuple(next_turn),
         queue_mode=queue_mode,
         dispatch_message_id=dispatch_message_id,
+        todos=todos,
+        todos_run_id=todos_run_id,
     )
 
 

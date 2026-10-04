@@ -6,6 +6,7 @@ from typing import Literal
 
 from kunyu.agent.runtime.events import InboxMessagePayload
 from kunyu.agent.runtime.run_state import ReducedRun
+from kunyu.agent.runtime.todos import TodoItem
 
 
 class SessionReductionError(ValueError):
@@ -36,3 +37,5 @@ class ReducedSession:
     next_turn: tuple[InboxMessagePayload, ...] = ()
     queue_mode: Literal["auto", "manual"] = "auto"
     dispatch_message_id: str | None = None
+    todos: tuple[TodoItem, ...] | None = None
+    todos_run_id: str | None = None
