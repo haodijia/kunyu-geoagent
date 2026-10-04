@@ -43,7 +43,7 @@ from kunyu.agent.runtime.model_attempt import (
     ModelAttempt,
     ModelOutcome,
     delta_event,
-    model_settlement_events,
+    model_settlement,
 )
 from kunyu.agent.runtime.models import (
     BlockEnd,
@@ -378,17 +378,15 @@ class ModelStepExecutor[AdapterConfigT]:
     ) -> str:
         await self._commit(
             run,
-            tuple(
-                model_settlement_events(
-                    run,
-                    attempt,
-                    elapsed,
-                    now=self._clock(),
-                    outcome="error",
-                    error_code=code,
-                    assistant_finish=None,
-                )
-            ),
+            model_settlement(
+                run,
+                attempt,
+                elapsed,
+                now=self._clock(),
+                outcome="error",
+                error_code=code,
+                assistant_finish=None,
+            ).events,
         )
         run = (await self._require_execution(run.run_id)).run
         action = await self._hooks.request_error(
@@ -452,9 +450,17 @@ class ModelStepExecutor[AdapterConfigT]:
                 output = timed.output
                 self._hooks.assistant_output(run, timed)
                 try:
-                    attempt.assembler.push(output)
+                    accepted = attempt.assembler.push(output)
                 except (TypeError, ValueError) as error:
                     raise _ModelOutputError(str(error)) from error
+                if not accepted:
+                    logger.warning(
+                        "Ignored redundant %s for model block %s in run %s",
+                        type(output).__name__,
+                        output.index,
+                        run.run_id,
+                    )
+                    continue
                 due = attempt.buffer.flush_if_due()
                 if due is not None:
                     await self._commit_delta(run, attempt, due)
@@ -466,7 +472,9 @@ class ModelStepExecutor[AdapterConfigT]:
                 if isinstance(output, BlockEnd) and isinstance(
                     output.block, (TextBlock, ReasoningBlock)
                 ):
-                    observed = attempt.assembler.observed_text(output.index)
+                    observed = attempt.assembler.observed_text(
+                        output.index, output.block.type
+                    )
                     if not observed and output.block.text:
                         output = (
                             ReasoningDelta(output.index, output.block.text)
@@ -513,6 +521,8 @@ class ModelStepExecutor[AdapterConfigT]:
                     terminal_seen = True
                 else:
                     raise _ModelOutputError("Unknown model output.")
+                if attempt.assembler.output_codepoints > attempt.output_limit:
+                    raise _OutputBudgetError
         finally:
             close = getattr(stream, "aclose", None)
             if close is not None:
@@ -541,7 +551,7 @@ class ModelStepExecutor[AdapterConfigT]:
         if finish is ModelFinishReason.STOP:
             if calls:
                 raise _ModelOutputError("Stop output has invalid content.")
-            if attempt.buffer.content_length == 0:
+            if not content_text(attempt.assembler.blocks()).strip():
                 raise ModelAdapterError(
                     ModelErrorCode.EMPTY_RESPONSE,
                     "The provider returned an empty response.",
@@ -574,7 +584,7 @@ class ModelStepExecutor[AdapterConfigT]:
         else:
             raise _ModelOutputError("The model finish result is invalid.")
 
-        events = model_settlement_events(
+        settlement = model_settlement(
             run,
             attempt,
             elapsed_milliseconds,
@@ -583,6 +593,7 @@ class ModelStepExecutor[AdapterConfigT]:
             error_code=None,
             assistant_finish=finish.value,
         )
+        events = list(settlement.events)
         now = self._clock()
         if finish is ModelFinishReason.TOOL_CALLS:
             events.extend(
@@ -655,7 +666,7 @@ class ModelStepExecutor[AdapterConfigT]:
         summary: str,
         assistant_finish: AssistantFinish | None = None,
     ) -> None:
-        events = model_settlement_events(
+        settlement = model_settlement(
             run,
             attempt,
             elapsed_milliseconds,
@@ -664,6 +675,7 @@ class ModelStepExecutor[AdapterConfigT]:
             error_code=error_code,
             assistant_finish=assistant_finish,
         )
+        events = list(settlement.events)
         events.append(
             RunTerminalEvent(
                 session_id=run.session_id,
@@ -676,8 +688,7 @@ class ModelStepExecutor[AdapterConfigT]:
                         run,
                         reserved_milliseconds=attempt.reserved_milliseconds,
                         elapsed_milliseconds=elapsed_milliseconds,
-                        content_length=attempt.buffer.content_length
-                        + attempt.reasoning_buffer.content_length,
+                        content_length=settlement.output_codepoints,
                         usage=attempt.usage,
                     ),
                 ),
@@ -692,7 +703,7 @@ class ModelStepExecutor[AdapterConfigT]:
         attempt: ModelAttempt,
         elapsed_milliseconds: int,
     ) -> None:
-        events = model_settlement_events(
+        settlement = model_settlement(
             run,
             attempt,
             elapsed_milliseconds,
@@ -701,6 +712,7 @@ class ModelStepExecutor[AdapterConfigT]:
             error_code="RUN_INTERRUPTED",
             assistant_finish=None,
         )
+        events = list(settlement.events)
         events.append(
             RunProgressEvent(
                 session_id=run.session_id,
@@ -718,8 +730,7 @@ class ModelStepExecutor[AdapterConfigT]:
                         run,
                         reserved_milliseconds=attempt.reserved_milliseconds,
                         elapsed_milliseconds=elapsed_milliseconds,
-                        content_length=attempt.buffer.content_length
-                        + attempt.reasoning_buffer.content_length,
+                        content_length=settlement.output_codepoints,
                         usage=attempt.usage,
                     ),
                 ),

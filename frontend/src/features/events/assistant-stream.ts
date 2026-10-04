@@ -129,9 +129,7 @@ export function assistantStreamFirstTokenTime(
         ((chunk.type === "text-delta" || chunk.type === "reasoning-delta") &&
           chunk.text !== "") ||
         (chunk.type === "tool-call-delta" &&
-          (chunk.name !== null || chunk.arguments_delta !== "")) ||
-        (chunk.type === "block-end" &&
-          (chunk.block.type === "tool-call" || chunk.block.text !== ""))
+          (chunk.name !== null || chunk.arguments_delta !== ""))
       )
         return record.time;
     } else {
@@ -169,10 +167,12 @@ export function assistantStreamText(
   stream: readonly AssistantStreamRecord[],
 ): string {
   const observed = new Set<number>();
+  const closed = new Set<number>();
   let result = "";
   for (const { chunk } of timedChunks(stream)) {
+    if ("index" in chunk && closed.has(chunk.index)) continue;
     if (chunk.type === "text-delta") {
-      observed.add(chunk.index);
+      if (chunk.text !== "") observed.add(chunk.index);
       result += chunk.text;
     } else if (
       chunk.type === "block-end" &&
@@ -180,6 +180,7 @@ export function assistantStreamText(
       !observed.has(chunk.index)
     )
       result += chunk.block.text;
+    if (chunk.type === "block-end") closed.add(chunk.index);
   }
   return result;
 }

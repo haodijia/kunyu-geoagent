@@ -27,7 +27,6 @@ export function streamPresentation(
     arguments: string;
     started: number | null;
     finished: number | null;
-    observed: boolean;
   };
   const partials = new Map<number, Partial>();
   function ensure(index: number, kind: Partial["kind"]) {
@@ -41,7 +40,6 @@ export function streamPresentation(
         arguments: "",
         started: null,
         finished: null,
-        observed: false,
       };
       partials.set(index, partial);
     }
@@ -52,42 +50,38 @@ export function streamPresentation(
   // Show only the accepted prefix; the durable outcome carries the protocol error.
   for (const { time, chunk } of timedChunks(stream)) {
     if (chunk.type === "block-start") {
-      if (partials.has(chunk.index)) break;
+      if (partials.has(chunk.index)) continue;
       ensure(chunk.index, chunk.block_type);
     } else if (
       chunk.type === "text-delta" ||
       chunk.type === "reasoning-delta"
     ) {
+      if (partials.get(chunk.index)?.finished != null) continue;
       const partial = ensure(
         chunk.index,
         chunk.type === "text-delta" ? "text" : "reasoning",
       );
-      if (partial === null || partial.finished !== null) break;
-      partial.observed = true;
+      if (partial === null) break;
       partial.text += chunk.text;
       if (chunk.text !== "" && partial.started === null) partial.started = time;
     } else if (chunk.type === "tool-call-delta") {
+      if (partials.get(chunk.index)?.finished != null) continue;
       const partial = ensure(chunk.index, "tool-call");
-      if (partial === null || partial.finished !== null) break;
-      partial.observed = true;
+      if (partial === null) break;
       partial.id = chunk.id;
       if (chunk.name !== null) partial.name = chunk.name;
       partial.arguments += chunk.arguments_delta;
     } else if (chunk.type === "block-end") {
-      const partial = ensure(chunk.index, chunk.block.type);
-      if (partial === null || partial.finished !== null) break;
+      if (partials.get(chunk.index)?.finished != null) continue;
+      if (!partials.has(chunk.index)) ensure(chunk.index, chunk.block.type);
+      const partial = partials.get(chunk.index)!;
+      if (partial.kind !== chunk.block.type) partial.started = null;
+      partial.kind = chunk.block.type;
       if (chunk.block.type === "tool-call") {
-        if (
-          (partial.id !== null && partial.id !== chunk.block.id) ||
-          (partial.name !== null && partial.name !== chunk.block.name) ||
-          (partial.observed && partial.arguments !== chunk.block.arguments)
-        )
-          break;
         partial.id = chunk.block.id;
         partial.name = chunk.block.name;
         partial.arguments = chunk.block.arguments;
       } else {
-        if (partial.observed && partial.text !== chunk.block.text) break;
         partial.text = chunk.block.text;
         if (partial.started === null && partial.text !== "")
           partial.started = time;

@@ -292,8 +292,6 @@ def first_token_time(stream: tuple[AssistantStreamRecord, ...]) -> int | None:
                 and chunk.text
                 or isinstance(chunk, ToolDeltaChunk)
                 and (chunk.arguments_delta or chunk.name is not None)
-                or isinstance(chunk, BlockEndChunk)
-                and (chunk.block.type == "tool-call" or chunk.block.text)
             ):
                 return record.time
         else:

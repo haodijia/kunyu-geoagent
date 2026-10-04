@@ -1,5 +1,6 @@
 import type { SessionEvent } from "./api";
 import type { TrajectoryEventProjection } from "./projection";
+import { contentText, parseContentBlocks } from "./content-blocks";
 import {
   assistantStreamChunkCount,
   parseAssistantStream,
@@ -236,15 +237,38 @@ export function assistantOutputLimit(
   maximum: number,
   records: readonly TrajectoryEventProjection[],
 ): number {
-  const used = records.reduce(
-    (count, record) =>
-      record.runId === active.run_id &&
-      record.messageId !== active.attempt_id &&
-      (record.eventType === "message.assistant.delta" ||
-        record.eventType === "message.assistant.reasoning.delta") &&
-      typeof record.payload.text === "string"
-        ? count + Array.from(record.payload.text).length
-        : count,
+  const delivered = new Map<string, number>();
+  const final = new Map<string, number>();
+  for (const record of records) {
+    if (
+      record.runId !== active.run_id ||
+      record.messageId === null ||
+      record.messageId === active.attempt_id
+    )
+      continue;
+    if (
+      record.eventType === "message.assistant.delta" ||
+      record.eventType === "message.assistant.reasoning.delta"
+    ) {
+      if (typeof record.payload.text !== "string")
+        throw new Error("Assistant delivery must contain text.");
+      delivered.set(
+        record.messageId,
+        (delivered.get(record.messageId) ?? 0) +
+          Array.from(record.payload.text).length,
+      );
+    } else if (record.eventType === "model.attempt.finished") {
+      const blocks = parseContentBlocks(record.payload.blocks);
+      final.set(
+        record.messageId,
+        Array.from(contentText(blocks)).length +
+          Array.from(contentText(blocks, true)).length,
+      );
+    }
+  }
+  const identities = new Set([...delivered.keys(), ...final.keys()]);
+  const used = [...identities].reduce(
+    (count, id) => count + Math.max(delivered.get(id) ?? 0, final.get(id) ?? 0),
     0,
   );
   return Math.max(0, maximum - used);
