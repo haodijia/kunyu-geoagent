@@ -36,6 +36,7 @@ from kunyu.agent.runtime.runner_tools import ToolBatchExecutor
 from kunyu.agent.runtime.runner_types import (
     ConfirmationRequester,
     EventCommitError,
+    QuestionRequester,
     RunExecution,
     RunExecutionProvider,
     RunnerConfig,
@@ -69,6 +70,7 @@ class Runner[AdapterConfigT](AgentRuntime):
         tools: ToolRegistryProvider,
         policy: PolicyGate,
         confirmations: ConfirmationRequester,
+        questions: QuestionRequester,
         hooks: LoopHooks,
         *,
         config: RunnerConfig | None = None,
@@ -92,6 +94,7 @@ class Runner[AdapterConfigT](AgentRuntime):
             tools,
             policy,
             confirmations,
+            questions,
             self._config,
             operation_id_factory,
             self._clock,
@@ -161,10 +164,10 @@ class Runner[AdapterConfigT](AgentRuntime):
     async def _drive(self, run_id: str) -> None:
         execution = await self._require_execution(run_id)
         run = execution.run
-        if (
-            run.state in TERMINAL_RUN_STATES
-            or run.state is RunState.WAITING_CONFIRMATION
-        ):
+        if run.state in TERMINAL_RUN_STATES or run.state in {
+            RunState.WAITING_CONFIRMATION,
+            RunState.WAITING_INPUT,
+        }:
             return
         if run.state is not RunState.READY:
             raise RunnerConflictError(
@@ -214,6 +217,7 @@ class Runner[AdapterConfigT](AgentRuntime):
                 continue
             if run.state in TERMINAL_RUN_STATES or run.state in {
                 RunState.WAITING_CONFIRMATION,
+                RunState.WAITING_INPUT,
                 RunState.INTERRUPTED,
             }:
                 return

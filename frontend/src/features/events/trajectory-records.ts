@@ -109,6 +109,19 @@ function contextRecord(
   context: RecordContext,
 ): TrajectoryRecord {
   const first = events[0]!;
+  if (first.eventType === "question.requested") {
+    const resolved = events.find((event) => event.eventType === "question.resolved");
+    const request = first.payload.request;
+    if (typeof request !== "object" || request === null || !("questions" in request) || !Array.isArray(request.questions)) throw new Error("Invalid human-question record.");
+    const status = stringValue(resolved?.payload.decision) ?? "waiting_input";
+    const text = request.questions.map((item) => item.question).join(" · ");
+    return baseRecord(events, {
+      turn: turnFor(first, context), text, searchText: `${text} ${safeString(request)} ${safeString(resolved?.payload.answer ?? null)}`,
+      status, startedAt: first.occurredAt, completedAt: resolved?.occurredAt ?? null, isError: false,
+      source: { kind: "question", question_id: first.entityId, tool_call_id: first.payload.tool_call_id, run_id: first.runId },
+      input: sanitizeTrajectoryValue(request), output: resolved === undefined ? null : sanitizeTrajectoryValue(resolved.payload),
+    });
+  }
   if (first.eventType === "llm/retry") {
     const started = events.find(
       (event) => event.eventType === "llm/retry-started",

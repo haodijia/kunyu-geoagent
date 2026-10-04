@@ -142,6 +142,7 @@ class SessionAgent:
                 in {
                     RunState.INTERRUPTED,
                     RunState.WAITING_CONFIRMATION,
+                    RunState.WAITING_INPUT,
                 }
             ):
                 return

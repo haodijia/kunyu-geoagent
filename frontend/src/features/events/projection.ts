@@ -59,6 +59,9 @@ export function projectSessionEvent(
   if (event.event_type === "context.injected" || event.event_type === "agent/inbox/spliced" || event.event_type === "agent/step/decision" || event.event_type.startsWith("agent/queue/")) {
     return projection(event, "context", event.id);
   }
+  if (event.event_type === "question.requested" || event.event_type === "question.resolved") {
+    return projection(event, "context", requiredString(event, "question_id"));
+  }
   if (event.event_type === "request.header") {
     const step = requiredInteger(event, "step");
     const attempt = requiredInteger(event, "attempt");

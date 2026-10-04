@@ -16,6 +16,7 @@ from kunyu.agent.runtime.events import (
     RunState,
     StepDecisionPayload,
 )
+from kunyu.agent.runtime.questions import QuestionAnswers, QuestionSet
 from kunyu.agent.runtime.tool_content import ToolContentBlock
 
 type AssistantStatus = Literal[
@@ -107,6 +108,19 @@ class ReducedStepDecision:
 
 
 @dataclass(frozen=True, slots=True)
+class ReducedQuestion:
+    question_id: str
+    tool_call_id: str
+    request: QuestionSet
+    status: Literal["pending", "answered", "dismissed", "cancelled"]
+    answer: QuestionAnswers | None
+    created_at: datetime
+    updated_at: datetime
+    created_sequence: int
+    updated_sequence: int
+
+
+@dataclass(frozen=True, slots=True)
 class ReducedRun:
     run_id: str
     session_id: str
@@ -135,6 +149,8 @@ class ReducedRun:
     decisions: tuple[ReducedStepDecision, ...] = ()
     request_snapshot: ModelSnapshotPayload | None = None
     admitted_steps: frozenset[int] = frozenset()
+    pending_question_id: str | None = None
+    questions: tuple[ReducedQuestion, ...] = ()
 
 
 @dataclass(slots=True)
@@ -240,6 +256,8 @@ class _State:
     queue_sequence: int | None = None
     pending_confirmation_id: str | None = None
     pending_confirmation_tool_id: str | None = None
+    pending_question_id: str | None = None
+    questions: dict[str, ReducedQuestion] = field(default_factory=dict)
     pause_reason: str | None = None
     decisions: list[ReducedStepDecision] = field(default_factory=list)
     request_snapshot: ModelSnapshotPayload | None = None

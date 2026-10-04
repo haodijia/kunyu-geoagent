@@ -5,7 +5,7 @@ from builtins import BaseExceptionGroup
 from uuid import uuid4
 
 from kunyu.agent import services as s
-from kunyu.agent.adapters import ServiceConfirmationRequester
+from kunyu.agent.adapters import ServiceConfirmationRequester, ServiceQuestionRequester
 from kunyu.agent.context import ScopedAgentContextProvider
 from kunyu.agent.kernel import install_plugin
 from kunyu.agent.queue_interactions import (
@@ -34,6 +34,7 @@ class RunnerPlugin:
         s.TOOLS,
         s.POLICY,
         s.CONFIRMATIONS,
+        s.QUESTIONS,
     )
     provides = (s.RUNNER,)
 
@@ -54,6 +55,7 @@ class RunnerPlugin:
                 context.require(s.TOOLS),
                 context.require(s.POLICY),
                 ServiceConfirmationRequester(context.require(s.CONFIRMATIONS)),
+                ServiceQuestionRequester(context.require(s.QUESTIONS)),
                 context.require(s.HOOKS).bind(
                     context.require(s.SESSION_AGENT),
                     context.require(s.SESSION_AGENT).ctx,
@@ -141,6 +143,7 @@ class AgentLoopPlugin:
         s.TOOLS,
         s.POLICY,
         s.CONFIRMATIONS,
+        s.QUESTIONS,
         s.ACCEPTANCE,
         s.LIFECYCLE,
         s.LIFECYCLE_REPOSITORY,
@@ -162,6 +165,7 @@ class AgentLoopPlugin:
             context.require(s.LIFECYCLE_REPOSITORY),
             context.require(s.CONFIRMATIONS),
             context.require(s.ACCEPTANCE),
+            context.require(s.QUESTIONS),
             interaction_config=self._queue_interactions,
         )
         context.provide(s.RUNTIME, runtime)

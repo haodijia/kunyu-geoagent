@@ -4,6 +4,7 @@ from kunyu.agent.runtime.events import ModelSnapshotPayload
 from kunyu.agent.runtime.models import ModelAdapterError, ModelErrorCode
 from kunyu.agent.runtime.runner_types import ConfirmationRequester, RunExecution
 from kunyu.application.confirmations import ConfirmationService
+from kunyu.application.questions import UserQuestionService
 from kunyu.domain.model_connections import (
     MaxTokensField,
     ModelAuthMode,
@@ -75,3 +76,11 @@ class SnapshotCredentialResolver:
                 "The model credential is not configured.",
             )
         return api_key
+
+
+class ServiceQuestionRequester:
+    def __init__(self, service: UserQuestionService) -> None:
+        self._service = service
+
+    async def request(self, run_id: str, tool_call_id: str) -> None:
+        self._service.request(run_id, tool_call_id)

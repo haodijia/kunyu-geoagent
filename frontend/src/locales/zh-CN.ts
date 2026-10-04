@@ -1,4 +1,13 @@
 export const zhCN = {
+  questions: {
+    loading: "正在读取待回答的问题…", loadFailed: "无法读取待回答的问题，请重试。", retry: "重试", cancelRun: "停止运行",
+    customLabel: "自定义回答", customPlaceholder: "输入你的回答…", recommended: "推荐",
+    previous: "上一题", nextQuestion: "下一题", continue: "下一步", submit: "提交回答", submitting: "提交中…", skip: "跳过",
+    minimize: "收起问题", expand: "展开问题", dismiss: "关闭问题", dismissHint: "关闭问题并自行发消息", submitFailed: "提交回答失败，请重试。",
+    incomplete: "请回答或跳过每个问题。", unanswered: "请先选择选项或输入回答。",
+    draftReadFailed: "无法恢复回答草稿，请清除后重新回答。", draftWriteFailed: "无法保存回答草稿，内容未更新，请检查存储后重试。", resetDraft: "清除回答草稿",
+    asked: "询问用户", answered: "用户已回答", dismissed: "用户已关闭问题", cancelled: "问题已取消", waiting: "等待用户回答",
+  },
   pdfPreview: {
     controls: "PDF 阅读控制", page: "PDF 页码", previous: "上一页", next: "下一页", zoom: "PDF 缩放", fitWidth: "适应宽度", retry: "重新渲染",
     rendering: (page: number) => `正在渲染第 ${page} 页…`, pageImage: (page: number) => `PDF 第 ${page} 页`, renderFailed: (page: number) => `第 ${page} 页渲染失败。`,
@@ -512,6 +521,7 @@ export const zhCN = {
       names: {
         memory_read: "搜索工作区记忆",
         memory_write: "保存工作区记忆",
+        ask_user_question: "询问用户",
         skill: "加载技能",
         skill_resource: "读取技能资源",
         todo_write: "更新任务列表",
@@ -644,6 +654,9 @@ export const zhCN = {
     injectedContext: "下一步注入上下文",
     unknownTool: "未知工具",
     statuses: {
+      waiting_input: "等待用户回答",
+      answered: "已回答",
+      dismissed: "已关闭",
       pending: "等待执行",
       running: "执行中",
       streaming: "生成中",

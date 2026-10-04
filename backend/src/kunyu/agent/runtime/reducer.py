@@ -2,6 +2,7 @@
 
 import json
 from collections.abc import Iterable
+from dataclasses import replace
 from datetime import datetime
 from typing import Literal, Protocol
 
@@ -34,6 +35,8 @@ from kunyu.agent.runtime.events import (
     ConfirmationResolvedEvent,
     EventDraft,
     ModelAttemptFinishedEvent,
+    QuestionRequestedEvent,
+    QuestionResolvedEvent,
     RequestHeaderEvent,
     ResumePhase,
     RetryScheduledEvent,
@@ -59,6 +62,7 @@ from kunyu.agent.runtime.run_state import (
     ReducedAssistant,
     ReducedBudget,
     ReducedConfirmation,
+    ReducedQuestion,
     ReducedRun,
     ReducedStepDecision,
     ReducedToolCall,
@@ -159,6 +163,12 @@ def reduce_run(events: Iterable[AgentEvent]) -> ReducedRun:
             raise RunReductionError(
                 "A resolved confirmation must commit its tool result or terminal run."
             )
+    if state.state is RunState.WAITING_INPUT:
+        question = _pending_question(state)
+        if question.status != "pending":
+            raise RunReductionError(
+                "A resolved question must commit its tool result or terminal run."
+            )
     return _freeze(state)
 
 
@@ -252,6 +262,10 @@ def _apply(state: _State, event: EventDraft, sequence: int) -> None:
         _complete_tool(state, event, sequence)
     elif isinstance(event, ToolFailedEvent):
         _fail_tool(state, event, sequence)
+    elif isinstance(event, QuestionRequestedEvent):
+        _request_question(state, event, sequence)
+    elif isinstance(event, QuestionResolvedEvent):
+        _resolve_question(state, event, sequence)
     elif isinstance(event, ConfirmationRequestedEvent):
         _request_confirmation(state, event, sequence)
     elif isinstance(event, ConfirmationResolvedEvent):
@@ -454,7 +468,10 @@ def _reserve_budget(state: _State, event: BudgetReservedEvent) -> None:
     allowed_states = (
         {RunState.MODEL_RUNNING}
         if payload.operation_type == "model"
-        else {RunState.TOOL_RUNNING, RunState.WAITING_CONFIRMATION}
+        else {
+            RunState.TOOL_RUNNING,
+            RunState.WAITING_CONFIRMATION,
+        }
     )
     if state.state not in allowed_states:
         raise RunReductionError(
@@ -851,7 +868,11 @@ def _progress_tool(state: _State, event: ToolProgressEvent, sequence: int) -> No
     if event.event_type == "tool.started":
         approved = _approved_pending_confirmation(state)
         if (
-            state.state not in {RunState.TOOL_RUNNING, RunState.WAITING_CONFIRMATION}
+            state.state
+            not in {
+                RunState.TOOL_RUNNING,
+                RunState.WAITING_CONFIRMATION,
+            }
             or tool.status not in {"pending", "cancelled"}
             or (
                 state.state is RunState.WAITING_CONFIRMATION
@@ -903,6 +924,8 @@ def _complete_tool(state: _State, event: ToolCompletedEvent, sequence: int) -> N
     tool.content = event.payload.content
     tool.updated_at = event.occurred_at
     tool.updated_sequence = sequence
+    if state.state is RunState.WAITING_INPUT:
+        _finish_question_tool(state, tool)
     if state.state is RunState.WAITING_CONFIRMATION:
         approved = _approved_pending_confirmation(state)
         if approved is None or approved.tool_call_id != tool.tool_call_id:
@@ -931,11 +954,18 @@ def _fail_tool(state: _State, event: ToolFailedEvent, sequence: int) -> None:
     tool.error_summary = event.payload.error_summary
     tool.updated_at = event.occurred_at
     tool.updated_sequence = sequence
+    if state.state is RunState.WAITING_INPUT:
+        _finish_question_tool(state, tool)
 
 
 def _finish_tool_cursor(state: _State, tool: _ToolCall, next_tool_index: int) -> None:
     if (
-        state.state not in {RunState.TOOL_RUNNING, RunState.WAITING_CONFIRMATION}
+        state.state
+        not in {
+            RunState.TOOL_RUNNING,
+            RunState.WAITING_CONFIRMATION,
+            RunState.WAITING_INPUT,
+        }
         or tool.status != "running"
     ):
         raise RunReductionError("Only a running tool can produce a result.")
@@ -957,6 +987,95 @@ def _require_reservation(
     reservation = next(iter(state.reservations.values()))
     if reservation.operation_type != operation_type:
         raise RunReductionError("Budget reservation does not match the execution type.")
+
+
+def _pending_question(state: _State) -> ReducedQuestion:
+    question = state.questions.get(state.pending_question_id)
+    if question is None:
+        raise RunReductionError("Waiting input requires its exact question.")
+    return question
+
+
+def _request_question(
+    state: _State, event: QuestionRequestedEvent, sequence: int
+) -> None:
+    payload = event.payload
+    tool = _tool(state, payload.tool_call_id)
+    if (
+        state.state is not RunState.TOOL_RUNNING
+        or state.reservations
+        or state.pending_question_id is not None
+        or tool.status != "running"
+        or tool.execution != "exclusive"
+        or tool.batch_index != state.next_tool_index
+        or payload.question_id in state.questions
+        or (tool.step, tool.attempt) != (state.step, state.attempt)
+    ):
+        raise RunReductionError(
+            "Human question must own the current started exclusive tool."
+        )
+    state.questions[payload.question_id] = ReducedQuestion(
+        question_id=payload.question_id,
+        tool_call_id=payload.tool_call_id,
+        request=payload.request,
+        status="pending",
+        answer=None,
+        created_at=event.occurred_at,
+        updated_at=event.occurred_at,
+        created_sequence=sequence,
+        updated_sequence=sequence,
+    )
+    state.pending_question_id = payload.question_id
+    state.pause_reason = "Waiting for the user's answer."
+    state.queue_sequence = None
+    _transition(state, RunState.WAITING_INPUT)
+
+
+def _resolve_question(
+    state: _State, event: QuestionResolvedEvent, sequence: int
+) -> None:
+    question = _pending_question(state)
+    payload = event.payload
+    if (
+        state.state is not RunState.WAITING_INPUT
+        or question.question_id != payload.question_id
+        or question.status != "pending"
+    ):
+        raise RunReductionError("Human decision must own the pending question exactly.")
+    answer = payload.answer
+    if answer is not None:
+        try:
+            normalized = answer.for_questions(question.request)
+        except ValueError as error:
+            raise RunReductionError(str(error)) from error
+        if normalized != answer:
+            raise RunReductionError("Question answer must be canonical.")
+    state.questions[question.question_id] = replace(
+        question,
+        status=payload.decision,
+        answer=answer,
+        updated_at=event.occurred_at,
+        updated_sequence=sequence,
+    )
+
+
+def _finish_question_tool(state: _State, tool: _ToolCall) -> None:
+    question = _pending_question(state)
+    if question.tool_call_id != tool.tool_call_id or question.status not in {
+        "answered",
+        "dismissed",
+    }:
+        raise RunReductionError("Tool settlement requires its resolved human question.")
+    state.pending_question_id = None
+    state.pause_reason = None
+    state.resume_phase = (
+        ResumePhase.TOOL
+        if state.next_tool_index < len(_attempt_tools(state))
+        else ResumePhase.MODEL
+    )
+    state.requires_resume = False
+    state.queue_sequence = None
+    _transition(state, RunState.READY)
 
 
 def _request_confirmation(
@@ -1130,6 +1249,15 @@ def _finish_run(state: _State, event: RunTerminalEvent, sequence: int) -> None:
             tool.error_summary = payload.reason if target is RunState.FAILED else None
             tool.updated_at = event.occurred_at
             tool.updated_sequence = sequence
+    for identity, question in tuple(state.questions.items()):
+        if question.status == "pending":
+            state.questions[identity] = replace(
+                question,
+                status="cancelled",
+                updated_at=event.occurred_at,
+                updated_sequence=sequence,
+            )
+    state.pending_question_id = None
     state.pending_confirmation_id = None
     state.pending_confirmation_tool_id = None
     state.requires_resume = False
@@ -1299,6 +1427,8 @@ def _freeze(state: _State) -> ReducedRun:
         requires_resume=state.requires_resume,
         queue_sequence=state.queue_sequence,
         pending_confirmation_id=state.pending_confirmation_id,
+        pending_question_id=state.pending_question_id,
+        questions=tuple(state.questions.values()),
         pause_reason=state.pause_reason,
         model_snapshot=state.model_snapshot,
         request_snapshot=state.request_snapshot,

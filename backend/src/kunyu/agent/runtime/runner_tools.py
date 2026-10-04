@@ -25,6 +25,7 @@ from kunyu.agent.runtime.events import (
 from kunyu.agent.runtime.run_state import ReducedRun, ReducedToolCall
 from kunyu.agent.runtime.runner_types import (
     ConfirmationRequester,
+    QuestionRequester,
     RunExecutionProvider,
     RunnerConfig,
     ToolRegistryProvider,
@@ -79,6 +80,7 @@ class ToolBatchExecutor[AdapterConfigT]:
         tools: ToolRegistryProvider,
         policy: PolicyGate,
         confirmations: ConfirmationRequester,
+        questions: QuestionRequester,
         config: RunnerConfig,
         operation_id_factory: Callable[[], str],
         clock: Callable[[], datetime],
@@ -90,6 +92,7 @@ class ToolBatchExecutor[AdapterConfigT]:
         self._tools = tools
         self._policy = policy
         self._confirmations = confirmations
+        self._questions = questions
         self._config = config
         self._operation_id_factory = operation_id_factory
         self._clock = clock
@@ -132,6 +135,41 @@ class ToolBatchExecutor[AdapterConfigT]:
                 if outcome != "completed":
                     return outcome
                 continue
+            if prepared.tool.spec.interaction:
+                if current.budget.tool_calls >= current.budget.max_tool_calls:
+                    await self._fail_run(
+                        current, "TOOL_CALL_LIMIT", "Tool call budget exhausted."
+                    )
+                    return "failed"
+                if (
+                    current.budget.active_milliseconds
+                    >= current.budget.max_active_milliseconds
+                ):
+                    await self._fail_run(
+                        current, "ACTIVE_TIME_LIMIT", "Active-time budget exhausted."
+                    )
+                    return "failed"
+                try:
+                    await self._questions.request(
+                        current.run_id, persisted.tool_call_id
+                    )
+                except (
+                    ToolExecutionError,
+                    ToolValidationError,
+                    ValidationError,
+                ) as error:
+                    outcome = await self._reject(
+                        current,
+                        persisted,
+                        error.code
+                        if isinstance(error, ToolExecutionError)
+                        else "TOOL_CALL_INVALID",
+                        str(error),
+                    )
+                    if outcome != "completed":
+                        return outcome
+                    continue
+                return "waiting"
             group = self._parallel_group(current, calls, registry)
             if not group:
                 group = (prepared,)

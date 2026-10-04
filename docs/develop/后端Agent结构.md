@@ -18,6 +18,7 @@ Agent 架构必须对齐本地 `deepseek-harness` 源码的服务、插件、作
 | `api/session-controller/src/history.ts`、`assistant-stream.ts`、`client/sessions/assistant-stream.ts` | `api/session_follow.py`、`notifications.py`、前端 `events/live-assistant.ts` | 统一 opening、连续持久事件、cursorless 原始帧与精确重连前缀；结算替换暂态 |
 | `core/session` | `runtime/events.py`、`session_reducer.py`、`persistence/` | 追加日志为事实源，确定性重放得到查询投影 |
 | `core/system-prompt` | `runtime/context.py`、`plugins/core.py`、`prompts/system.md` | 有序、带作用域的提示词段注册；指令正文由用户维护 |
+| `interaction/user-questions`、`interaction/tool-ask-user` | `runtime/questions.py`、`plugins/questions.py`、`application/questions.py`、`tools/questions.py` | 日志持有问题与决定，独占工具等待释放执行槽，原子结算后继续当前工具批次 |
 | `core/tools` | `runtime/tools.py`、`runner_tools.py`、`tools/registry.py` | 工具注册与实现分开；模型 Schema 来自实际注册；有界并行/独占调度；风险策略与确认接缝 |
 | `packages/context` | `agent/context.py`、`persistence/agent_context.py` | 注入正文成为有顺序的持久会话内容，后续步骤及轮次按原位置重放 |
 | `skill/skill`、`skill/skill-filesystem`、`skill/tool-skill` | `skills/registry.py`、`filesystem.py`、`context.py`、`tools/skills.py` | 注册表、来源、调用工具分开；目录仅注入名称和简介；选择后加载正文；区分模型/用户调用权限；持久目录替换与显式用户调用 |
@@ -96,7 +97,7 @@ backend/src/kunyu/agent/
 
 `hooks.status/inbox_inserted/inbox_claimed/inbox_discarded/assistant_stream.register(owner, name, handler)` 提供参考项目的五类非否决通知。所有通知绑定实际 SessionAgent 和其作用域，最近同名贡献覆盖祖先，兄弟会话隔离。同步异常与异步拒绝分别记录，后续观察者继续执行；异步任务由注册 owner 持有，释放时取消并等待结束。输入通知为每个观察者复制内容/地图/轮次快照，助手帧及工具参数为不可变快照，观察者不能改写模型输出或其他观察者的输入。
 
-`SessionAgent.status` 仅表示实际驱动的 `idle/running`，进入可取消执行时切换为 running，驱动及其执行作用域排空后切换为 idle，不对重复状态发通知。确认等待和显式中断停止本次驱动后为 idle，具体 Run 状态继续由持久事件查询。作用域关闭时，本地已释放观察者不再调用，仍存活的全局观察者可以收到最后的取消结算与 idle。
+`SessionAgent.status` 仅表示实际驱动的 `idle/running`，进入可取消执行时切换为 running，驱动及其执行作用域排空后切换为 idle，不对重复状态发通知。确认等待、用户回答等待和显式中断停止本次驱动后为 idle，具体 Run 状态继续由持久事件查询。作用域关闭时，本地已释放观察者不再调用，仍存活的全局观察者可以收到最后的取消结算与 idle。
 
 `persistence/event_publications.py` 在最外层事务提交后发布事件批次；保存点提交只合并等待发布内容，保存点回滚仅丢弃所属内容，外层回滚不发布。重入提交按批次顺序发布。输入通知按真实 splice 的插入、领取或丢弃身份生成，幂等受理不重复通知，历史重放不发送新通知。
 
@@ -145,7 +146,7 @@ DeepSeek 新连接默认 `deepseek_messages` 与 `https://api.deepseek.com/anthr
 3. 调用 `TOOLS.register(owner, name, ToolRegistration(builder, write_handler))`，贡献随 owner 释放。
 4. 在产品组合的 `plugins` 参数中启用插件；会话专属扩展通过 `install_plugin(agent.ctx, plugin)` 安装。
 
-默认启用 `MemoryToolsPlugin` 的 `memory_read`、`memory_write`，`SkillToolsPlugin` 的 `skill`、`skill_resource`，`TodoToolsPlugin` 的 `todo_write`，`FilesystemToolsPlugin` 的 `read`、`write`、`edit`，以及 `AttachmentToolsPlugin` 的 `read_image`。模型提供者和循环提供者可分别通过 `model_plugin`、`loop_plugin` 显式替换。没有旧路径、静态插件包装或工具名分支兼容层。
+默认启用 `MemoryToolsPlugin` 的 `memory_read`、`memory_write`，`SkillToolsPlugin` 的 `skill`、`skill_resource`，`TodoToolsPlugin` 的 `todo_write`，`FilesystemToolsPlugin` 的 `read`、`write`、`edit`，`UserQuestionsPlugin` 的 `ask_user_question`，以及 `AttachmentToolsPlugin` 的 `read_image`。模型提供者和循环提供者可分别通过 `model_plugin`、`loop_plugin` 显式替换。没有旧路径、静态插件包装或工具名分支兼容层。
 
 L0 工具可直接执行；L1 工作区文件工具为独占调用，在 workspace-write 权限下直接执行，计划／read-only 模式拒绝。L2 记忆写入必须注册同名事务处理器。确认服务保留精确参数快照，批准后调用处理器；数据库业务修改、确认和工具结果同一事务提交，失败一起回滚。远程业务应另建持久作业与监督流程。
 
@@ -369,3 +370,14 @@ PDF 的 `/pdf?path=...&version=...` 复用相同会话文件作用域，只接�
 `usePreviewScrollSync` 使用目标适配接口，按整个可滚动区间的百分比双向同步，不声称按相同文本行或元素定位。源码直接提供真实 CodeMirror scrollDOM，Markdown 提供实际滚动元素。帧锁和预期回声抑制循环；关闭分屏与卸载取消帧任务。虚拟文本跳转后使用 CodeMirror requestMeasure 重新校准估算高度带来的位置变化，用户滚轮、触摸、指针或键盘操作立即接管。编辑器布局变化后测量并广播真实比例，窗口缩放与分屏宽度变化也重新同步。
 
 HtmlPreview 保留 allow-scripts、无同源权限的隔离 iframe 和原有 CSP；不开放网络、宿主 DOM 或本地文件。随文档生成独立消息通道，父页仅接收当前 iframe 的有限滚动消息，并校验来源、通道、消息类型和 0–1 有限百分比；只发送滚动位置命令。文档替换与卸载清理订阅，旧文档消息不能驱动当前编辑器。本地 HTML 资源与桌面 webview 等仍待单独对齐。
+
+
+## 用户问题与继续运行
+
+`runtime/questions.py` 统一问题、选项、回答和计划审阅意图类型。`ask_user_question` 使用模型参数 `questions`，每题具有 `id/question/header/options/multi_select`；答案返回 `answers`，保留每题 `id/selected/custom`。推荐标记只改变展示，不预选、不改写原选项标签。所有题目必须逐一回答或跳过，跳过以空 `selected` 表示；单选不能同时带选项与自由输入，多选可补充文字。提交规范化顺序、去除自由输入首尾空白，并遵守 16 KiB 结果上限。
+
+交互工具声明 `interaction=True`、独占执行和 L0，通过 `ToolRegistration.question_handler` 提供问题及回答结算，不进入普通工具超时执行。`application/questions.py` 原子提交预算预留、工具开始、准备成本结算和 `question.requested`，进入 `waiting_input` 时没有活动预算预留。等待释放 Runner／scheduler 槽，不消耗人类等待时间；重启保留原问题及待执行批次。
+
+回答或关闭经 scheduler 锁和 SQLite 写事务检查原调用、当前问题及决定，原子提交 `question.resolved`、工具结果和 `run.queued`。相同决定重复提交不重新排队，不同决定冲突；非法或迟到答案不改写日志。关闭产生 `ASK_CANCELLED` 工具结果，供模型停止等待用户发言；停止整个运行同时记录问题取消。后续工具先完成原批次，再开始下一模型步骤。数据库迁移 `0013` 更新运行状态约束和单会话未完成运行索引，问题内容和状态仅从会话日志投影，无额外问题表。
+
+前端 `features/questions` 复用 Mu 输入区的宽度、背景、边框和字体，问题卡替换普通输入区，保留外层对话草稿。题号、选项、自由输入和跳过状态保存到本窗口 `sessionStorage`，恢复失败显式要求清除，保存失败保持已保存版本并展示错误。网络失败保留答案，可重复提交同一问题。对话工具行区分人类等待和正在执行，轨迹按问题 ID 聚合请求和决定。计划审阅工具与专用计划预览尚待接入。
