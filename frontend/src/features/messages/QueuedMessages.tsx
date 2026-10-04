@@ -31,7 +31,7 @@ type QueueAction =
 export function QueuedMessages({ onDraftLockChange }: { readonly onDraftLockChange: (locked: boolean) => void }) {
   const session = useSessionWorkspace();
   const { records } = useSessionEvents();
-  const { messagesQuery, draft, restoreDraft, requestFrozen, mutation: submission } = useSessionMessages();
+  const { messagesQuery, draft, attachmentState, restoreDraft, requestFrozen, mutation: submission } = useSessionMessages();
   const queryClient = useQueryClient();
   const containerRef = useRef<HTMLDivElement>(null);
   const [narrow, setNarrow] = useState(false);
@@ -162,7 +162,7 @@ export function QueuedMessages({ onDraftLockChange }: { readonly onDraftLockChan
         }}>
           <SortableContext items={messages.map((message) => message.id)} strategy={verticalListSortingStrategy}>
             <div ref={containerRef} data-command-queue-list="true" data-drag-axis="vertical" data-drag-bounds="queue" className={`flex flex-col gap-1 overflow-y-auto overscroll-contain p-1.5 ${narrow ? "max-h-[min(48vh,320px)]" : "max-h-[min(36vh,320px)]"}`}>
-              {messages.map((message) => <QueuedMessageRow key={message.id} message={message} disabled={disabled} editDisabled={draft.trim().length > 0 || requestFrozen} narrow={narrow}
+              {messages.map((message) => <QueuedMessageRow key={message.id} message={message} disabled={disabled} editDisabled={draft.trim().length > 0 || attachmentState.attachments.length > 0 || attachmentState.pending || attachmentState.retryAvailable || requestFrozen} narrow={narrow}
                 onEdit={() => { onDraftLockChange(true); mutation.mutate({ kind: "edit", message }); }} onRemove={() => mutation.mutate({ kind: "remove", message })} onSend={() => mutation.mutate({ kind: "send", message })} />)}
             </div>
           </SortableContext>

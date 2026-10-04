@@ -7,6 +7,7 @@ dependencies = [
     "alembic>=1.16,<2",
     "fastapi>=0.141.1",
     "httpx>=0.28.1",
+    "pillow>=12,<13",
     "platformdirs>=4.11.12",
     "pydantic>=2.13.5",
     "pyyaml>=6,<7",

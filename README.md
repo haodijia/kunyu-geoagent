@@ -67,6 +67,7 @@ Agent 系统提示词可直接编辑 [system.md](backend/src/kunyu/agent/prompts
 
   ![地图研判原型](docs/ui-mockups/session-map-v3.png)
 
+- **对话附件** — 支持拖拽、粘贴、图片预览、文件下载和带附件的发送队列；图片作为模型输入，UTF-8 文件由 `file_read` 分页读取。
 - **原生 Messages** — DeepSeek 默认使用 Messages，保留思考签名和工具结果续接；DeepSeek 与自定义连接可在设置中选择协议。
 - **任务进度** — Agent 通过 `todo_write` 更新完整任务计划，对话输入框上方显示当前轮次进度，刷新后可恢复。
 

@@ -5,10 +5,9 @@ Revises: None
 """
 
 from collections.abc import Sequence
+from pathlib import Path
 
 from alembic import op
-
-from kunyu.persistence.models import Base
 
 revision: str = "0001"
 down_revision: str | None = None
@@ -17,9 +16,11 @@ depends_on: str | Sequence[str] | None = None
 
 
 def upgrade() -> None:
-    Base.metadata.create_all(bind=op.get_bind())
+    schema = Path(__file__).with_name("0001_schema.sql").read_text(encoding="utf-8")
+    for statement in schema.split(";"):
+        if statement.strip():
+            op.get_bind().exec_driver_sql(statement)
 
 
 def downgrade() -> None:
-    for table in reversed(Base.metadata.sorted_tables):
-        table.drop(bind=op.get_bind(), checkfirst=True)
+    raise RuntimeError("The development database baseline cannot be downgraded.")

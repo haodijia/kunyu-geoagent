@@ -1,4 +1,5 @@
 import { create } from "zustand";
+import type { Attachment } from "@/features/attachments/api";
 
 import {
   createMapContext,
@@ -25,6 +26,8 @@ export interface SessionModelSelection {
 
 interface AppUiState {
   readonly analysisModeBySession: Readonly<Record<string, AnalysisMode>>;
+  readonly composerAttachmentsBySession: Readonly<Record<string, readonly Attachment[]>>;
+  readonly setComposerAttachments: (sessionId: string, attachments: readonly Attachment[]) => void;
   readonly composerDraftBySession: Readonly<Record<string, string>>;
   readonly composerQueuedBySession: Readonly<Record<string, boolean>>;
   readonly mapContextBySession: Readonly<Record<string, MapContext>>;
@@ -36,7 +39,7 @@ interface AppUiState {
   readonly initializeMapContext: (sessionId: string, workspaceId: string) => void;
   readonly setAnalysisMode: (sessionId: string, mode: AnalysisMode) => void;
   readonly setComposerDraft: (sessionId: string, draft: string) => void;
-  readonly restoreComposerDraft: (sessionId: string, draft: string, map: MapContext, model: SessionModelSelection) => void;
+  readonly restoreComposerDraft: (sessionId: string, draft: string, map: MapContext, model: SessionModelSelection, attachments: readonly Attachment[]) => void;
   readonly setMapViewport: (
     sessionId: string,
     workspaceId: string,
@@ -55,6 +58,8 @@ interface AppUiState {
 export const useAppUiStore = create<AppUiState>((set) => ({
   analysisModeBySession: {},
   composerDraftBySession: {},
+  composerAttachmentsBySession: {},
+  setComposerAttachments: (sessionId, attachments) => set((state) => ({ composerAttachmentsBySession: { ...state.composerAttachmentsBySession, [sessionId]: attachments } })),
   composerQueuedBySession: {},
   mapContextBySession: {},
   modelSelectionBySession: {},
@@ -68,6 +73,7 @@ export const useAppUiStore = create<AppUiState>((set) => ({
         [sessionId]: ""
       },
       composerQueuedBySession: { ...state.composerQueuedBySession, [sessionId]: false },
+      composerAttachmentsBySession: { ...state.composerAttachmentsBySession, [sessionId]: [] },
     })),
   initializeMapContext: (sessionId, workspaceId) =>
     set((state) => {
@@ -94,16 +100,17 @@ export const useAppUiStore = create<AppUiState>((set) => ({
         ...state.composerDraftBySession,
         [sessionId]: draft
       },
-      composerQueuedBySession: { ...state.composerQueuedBySession, [sessionId]: draft.trim().length > 0 && state.composerQueuedBySession[sessionId] === true },
+      composerQueuedBySession: { ...state.composerQueuedBySession, [sessionId]: (draft.trim().length > 0 || (state.composerAttachmentsBySession[sessionId]?.length ?? 0) > 0) && state.composerQueuedBySession[sessionId] === true },
     })),
-  restoreComposerDraft: (sessionId, draft, map, model) => set((state) => {
+  restoreComposerDraft: (sessionId, draft, map, model, attachments) => set((state) => {
     const existing = state.composerDraftBySession[sessionId];
-    if (existing !== undefined && existing.trim().length > 0) {
+    if ((existing !== undefined && existing.trim().length > 0) || (state.composerAttachmentsBySession[sessionId]?.length ?? 0) > 0) {
       throw new Error("A queued draft cannot replace existing composer input.");
     }
     return {
       composerDraftBySession: { ...state.composerDraftBySession, [sessionId]: draft },
       composerQueuedBySession: { ...state.composerQueuedBySession, [sessionId]: true },
+      composerAttachmentsBySession: { ...state.composerAttachmentsBySession, [sessionId]: attachments },
       mapContextBySession: { ...state.mapContextBySession, [sessionId]: map },
       modelSelectionBySession: { ...state.modelSelectionBySession, [sessionId]: model },
     };

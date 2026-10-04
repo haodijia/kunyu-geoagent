@@ -268,6 +268,15 @@ export const zhCN = {
     mapEmptyDescription: "会话产生空间数据后，相关图层将在这里显示。",
   },
   conversation: {
+    attachments: {
+      scrollLeft: "向左滚动附件", scrollRight: "向右滚动附件", add: "添加附件", list: "附件", uploading: "正在上传附件…", drop: "松开以添加附件",
+      preview: (name: string) => `预览 ${name}`, remove: (name: string) => `移除 ${name}`, download: (name: string) => `下载 ${name}`,
+      downloadLabel: "下载", close: "关闭预览", retry: "重试上传", dismiss: "取消此次上传",
+      tooMany: "每条消息最多添加 8 个附件。", tooLarge: "单个附件最多 16 MB，每条消息合计最多 32 MB。",
+      uploadFailed: "附件上传失败，请重试或取消此次上传。", readFailed: "无法读取所选文件，请重新选择。",
+      previewFailed: "预览失败", downloadFailed: "附件下载失败。",
+      errors: { INVALID_IMAGE: "图片无法读取，或内容与文件类型不符。", INVALID_ATTACHMENT: "附件内容或名称无效。", IMAGE_TOO_LARGE: "图片尺寸过大，请缩小后上传。", ATTACHMENT_TOO_LARGE: "附件超过大小限制。", SESSION_ARCHIVED: "已归档会话不能添加附件。" },
+    },
     modelRetry: {
       waiting: (retry: number, maximum: number | null, seconds: number) => `连接暂时中断，${seconds} 秒后重试 · ${retry}${maximum === null ? "" : `/${maximum}`}`,
       connecting: (retry: number, maximum: number | null) => `正在重新连接 · ${retry}${maximum === null ? "" : `/${maximum}`}`,

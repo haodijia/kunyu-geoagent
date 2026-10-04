@@ -4,6 +4,7 @@ from sqlalchemy import func, select
 
 from kunyu.domain.events import AgentEvent
 from kunyu.domain.messages import Message, MessageRole, MessageStatus
+from kunyu.persistence.attachments import REFERENCE
 from kunyu.persistence.database import Database
 from kunyu.persistence.models import (
     MessageRecord,
@@ -66,6 +67,7 @@ def _message_to_domain(record: MessageRecord) -> Message:
         sequence=record.sequence,
         role=cast(MessageRole, record.role),
         content=record.content,
+        attachments=tuple(REFERENCE.validate_python(ref) for ref in record.attachments),
         run_id=record.run_id,
         step=record.step,
         attempt=record.attempt,

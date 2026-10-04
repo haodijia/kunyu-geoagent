@@ -20,7 +20,7 @@ interface QueuedMessageRowProps {
 
 export function QueuedMessageRow({ message, disabled, editDisabled, narrow, onEdit, onRemove, onSend }: QueuedMessageRowProps) {
   const { attributes, listeners, setNodeRef, setActivatorNodeRef, transform, transition, isDragging } = useSortable({ id: message.id, disabled });
-  const preview = message.content.replace(/\s+/g, " ").trim();
+  const preview = [message.content.replace(/\s+/g, " ").trim(), ...message.attachments.map((ref) => ref.name)].filter(Boolean).join(" · ");
   return (
     <div ref={setNodeRef} style={{ transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.58 : 1, zIndex: isDragging ? 2 : undefined, position: "relative" }}>
       <div

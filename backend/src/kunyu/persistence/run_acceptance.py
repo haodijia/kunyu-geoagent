@@ -37,6 +37,7 @@ from kunyu.domain.run_acceptance import (
 from kunyu.domain.runs import NONTERMINAL_RUN_STATE_VALUES, RunDetails
 from kunyu.persistence import run_records
 from kunyu.persistence.agent_projections import SQLAlchemyAgentProjectionService
+from kunyu.persistence.attachments import REFERENCE, resolve_references
 from kunyu.persistence.database import Database
 from kunyu.persistence.models import (
     MessageIdempotencyRecord,
@@ -202,6 +203,11 @@ class SQLAlchemyRunAcceptanceRepository:
                             InboxMessagePayload(
                                 message_id=message_id,
                                 content=request.content,
+                                attachments=resolve_references(
+                                    database_session,
+                                    request.session_id,
+                                    request.attachment_ids,
+                                ),
                                 map_context=request.map_context,
                                 turn=QueuedTurnPayload(
                                     run_id=run_id,
@@ -382,6 +388,11 @@ class SQLAlchemyRunAcceptanceRepository:
                                     InboxMessagePayload(
                                         message_id=message_id,
                                         content=request.content,
+                                        attachments=resolve_references(
+                                            database_session,
+                                            request.session_id,
+                                            request.attachment_ids,
+                                        ),
                                         map_context=request.map_context,
                                     )
                                 ],
@@ -542,6 +553,7 @@ def _message_to_domain(record: MessageRecord) -> Message:
         sequence=record.sequence,
         role=cast(MessageRole, record.role),
         content=record.content,
+        attachments=tuple(REFERENCE.validate_python(ref) for ref in record.attachments),
         run_id=record.run_id,
         step=record.step,
         attempt=record.attempt,

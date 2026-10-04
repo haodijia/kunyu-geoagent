@@ -9,6 +9,7 @@ from kunyu.agent.runtime.content import (
     ToolCallBlock,
     content_text,
 )
+from kunyu.agent.runtime.input_content import FileInputBlock, ImageInputBlock
 from kunyu.agent.runtime.models import (
     ModelMessage,
     ModelRequest,
@@ -16,6 +17,7 @@ from kunyu.agent.runtime.models import (
 )
 from kunyu.agent.runtime.tools import ToolSpec
 from kunyu.domain.model_connections import ModelProviderType
+from kunyu.integrations.model.attachment_projection import input_block
 from kunyu.integrations.model.connection import (
     ModelConnectionConfig,
     invalid_request,
@@ -25,10 +27,14 @@ from kunyu.integrations.model.connection import (
 
 def encode_request(
     request: ModelRequest[ModelConnectionConfig],
+    images: Mapping[str, bytes] | None = None,
 ) -> bytes:
     config = request.adapter_config
     validate_request(request, maximum_output_tokens=4_096)
-    messages = [_serialize_message(message) for message in request.messages]
+    messages = [
+        _serialize_message(message, images if images is not None else {})
+        for message in request.messages
+    ]
     if config.provider_type is ModelProviderType.DEEPSEEK and request.tools:
         for message, serialized in zip(request.messages, messages, strict=True):
             if message.role is ModelRole.ASSISTANT:
@@ -80,16 +86,33 @@ def encode_request(
         raise invalid_request("The model request is not JSON serializable.") from error
 
 
-def _serialize_message(message: ModelMessage) -> dict[str, object]:
+def _serialize_message(
+    message: ModelMessage, images: Mapping[str, bytes]
+) -> dict[str, object]:
     if (
         not isinstance(message.role, ModelRole)
         or not isinstance(message.content, tuple)
         or any(
-            not isinstance(block, (TextBlock, ReasoningBlock, ToolCallBlock))
+            not isinstance(
+                block,
+                (
+                    TextBlock,
+                    ReasoningBlock,
+                    ToolCallBlock,
+                    ImageInputBlock,
+                    FileInputBlock,
+                ),
+            )
             for block in message.content
         )
     ):
         raise invalid_request("The model message content blocks are invalid.")
+    attachments = any(
+        isinstance(block, (ImageInputBlock, FileInputBlock))
+        for block in message.content
+    )
+    if attachments and message.role is not ModelRole.USER:
+        raise invalid_request("Only user input may contain attachment blocks.")
     calls = tuple(
         block for block in message.content if isinstance(block, ToolCallBlock)
     )
@@ -103,7 +126,11 @@ def _serialize_message(message: ModelMessage) -> dict[str, object]:
         )
     payload: dict[str, object] = {
         "role": message.role.value,
-        "content": content_text(message.content),
+        "content": [
+            input_block(block, images, native=False) for block in message.content
+        ]
+        if attachments
+        else content_text(message.content),
     }
     if message.role is ModelRole.TOOL:
         if (

@@ -1,6 +1,7 @@
 import { ArrowDown, LoaderCircle, MessageCircle } from "lucide-react";
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 
+import { AttachmentStrip } from "@/features/attachments/AttachmentStrip";
 import { Button } from "@/components/ui/button";
 
 import type { MessageStatus, SessionMessage } from "@/features/messages/api";
@@ -216,8 +217,9 @@ export function MessageList({
             }
           >
             {message.role === "user" ? (
-              <div className="max-w-full rounded-[8px] bg-[var(--message-user-bg)] px-2.5 py-2 text-[13px] leading-5 whitespace-pre-wrap text-foreground [overflow-wrap:anywhere]">
-                <UserSkillText text={message.content} skills={skillsByMessage.get(message.id) ?? new Map()} />
+              <div className="max-w-full [--attachment-surface:var(--message-user-bg)] rounded-[8px] bg-[var(--message-user-bg)] px-2.5 py-2 text-[13px] leading-5 whitespace-pre-wrap text-foreground [overflow-wrap:anywhere]">
+                {message.content.length > 0 && <UserSkillText text={message.content} skills={skillsByMessage.get(message.id) ?? new Map()} />}
+                <AttachmentStrip sessionId={message.session_id} attachments={message.attachments} />
               </div>
             ) : (
               <>

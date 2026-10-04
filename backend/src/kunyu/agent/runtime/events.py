@@ -20,6 +20,7 @@ from kunyu.agent.runtime.assistant_stream import AssistantStreamRecord
 from kunyu.agent.runtime.content import ContentBlock, ReplayEnvelope
 from kunyu.agent.runtime.retry_policy import RetryPolicy
 from kunyu.agent.runtime.todos import TodoList
+from kunyu.domain.attachments import MAX_ATTACHMENTS, MAX_BATCH_BYTES, Attachment
 
 type PositiveInt = Annotated[int, Field(gt=0)]
 
@@ -92,10 +93,24 @@ class SessionCreatedPayload(EventPayload):
     title: str
 
 
-class UserMessageAppendedPayload(EventPayload):
+class MessageInputPayload(EventPayload):
+    content: str = Field(max_length=32_768)
+    attachments: tuple[Attachment, ...] = Field(default=(), max_length=MAX_ATTACHMENTS)
+
+    @model_validator(mode="after")
+    def valid_input(self) -> Self:
+        if not self.content.strip() and not self.attachments:
+            raise ValueError("Message requires text or attachments.")
+        if len({ref.id for ref in self.attachments}) != len(self.attachments):
+            raise ValueError("Message attachment identities must be unique.")
+        if sum(ref.bytes for ref in self.attachments) > MAX_BATCH_BYTES:
+            raise ValueError("Message attachments exceed the byte limit.")
+        return self
+
+
+class UserMessageAppendedPayload(MessageInputPayload):
     message_id: str
     role: Literal["user"]
-    content: str
     run_id: str | None
 
 
@@ -225,9 +240,8 @@ class QueuedTurnPayload(EventPayload):
     budget_limits: BudgetLimitsPayload
 
 
-class InboxMessagePayload(EventPayload):
+class InboxMessagePayload(MessageInputPayload):
     message_id: str = Field(min_length=1, max_length=64)
-    content: str = Field(min_length=1, max_length=32_768)
     map_context: dict[str, JsonValue]
     turn: QueuedTurnPayload | None = None
 
@@ -303,9 +317,8 @@ class RequestHeaderPayload(EventPayload):
     tools: list[dict[str, JsonValue]]
 
 
-class StepMessagePayload(EventPayload):
+class StepMessagePayload(MessageInputPayload):
     message_id: str = Field(min_length=1, max_length=64)
-    content: str = Field(min_length=1, max_length=32_768)
 
 
 class StepDecisionPayload(EventPayload):

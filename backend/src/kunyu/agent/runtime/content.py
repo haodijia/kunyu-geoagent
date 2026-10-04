@@ -82,7 +82,7 @@ class ReplayEnvelope(ContentValue):
         return _json_data(value)
 
 
-def content_text(blocks: tuple[ContentBlock, ...], *, reasoning: bool = False) -> str:
+def content_text(blocks: tuple[ContentValue, ...], *, reasoning: bool = False) -> str:
     kind = ReasoningBlock if reasoning else TextBlock
     return "".join(block.text for block in blocks if isinstance(block, kind))
 

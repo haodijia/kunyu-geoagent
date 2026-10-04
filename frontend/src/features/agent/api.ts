@@ -1,3 +1,4 @@
+import type { Attachment } from "@/features/attachments/api";
 import { requestJson } from "@/api/client";
 import type {
   MaxTokensField,
@@ -34,6 +35,7 @@ export function clearAgentQueue(sessionId: string): Promise<void> {
 export interface QueuedAgentDraft {
   readonly message_id: string;
   readonly content: string;
+  readonly attachments: readonly Attachment[];
   readonly map_context: TurnMapContext;
   readonly turn: { readonly model_snapshot: StepModelSnapshot } | null;
 }

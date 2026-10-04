@@ -1,10 +1,12 @@
-import { ArrowUp, LoaderCircle, MapPinned, RotateCw, Settings2, Slash, Square } from "lucide-react";
+import { ArrowUp, LoaderCircle, MapPinned, Paperclip, RotateCw, Settings2, Slash, Square } from "lucide-react";
 import {
   useEffect, useId, useRef, useState,
   type ChangeEvent, type FormEvent, type KeyboardEvent,
 } from "react";
 import { Link } from "react-router-dom";
 
+import { AttachmentStrip } from "@/features/attachments/AttachmentStrip";
+import type { useComposerAttachments } from "@/features/attachments/useComposerAttachments";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { zhCN } from "@/locales/zh-CN";
@@ -18,6 +20,8 @@ const MAX_TEXTAREA_HEIGHT = 120;
 
 interface ConversationComposerProps {
   readonly contextLabel: string;
+  readonly sessionId: string;
+  readonly attachmentState: ReturnType<typeof useComposerAttachments>;
   readonly draft: string;
   readonly queuedDraft: boolean;
   readonly error: string | null;
@@ -51,7 +55,7 @@ interface ConversationComposerProps {
 }
 
 export function ConversationComposer({
-  contextLabel, draft, queuedDraft, error, draftFrozen, modelDisabled, modelGroups,
+  contextLabel, sessionId, attachmentState, draft, queuedDraft, error, draftFrozen, modelDisabled, modelGroups,
   pending, interactionLocked, running, stopPending, reasoningOptions, selectedModel,
   defaultReasoningEffort,
   selectedReasoningEffort, sendDisabled, showModelSettings, commands,
@@ -59,6 +63,9 @@ export function ConversationComposer({
   commandCatalogPending, commandCatalogError,
   onCommand, onDraftChange, onModelChange, onReasoningEffortChange, onSubmit, onQueue, onStop,
 }: ConversationComposerProps) {
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const dragDepth = useRef(0);
+  const [draggingFiles, setDraggingFiles] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const formRef = useRef<HTMLFormElement>(null);
   const commandMenuId = useId();
@@ -70,7 +77,8 @@ export function ConversationComposer({
   const menuOpen = matchingCommands !== null && dismissedDraft !== draft && !inputLocked;
   const activeCommand = matchingCommands?.[activeIndex];
   const queueable = !isCommand || commands.some((item) => item.kind === "skill" && item.name === parseComposerCommand(draft)?.name && item.unavailableReason === null);
-  const canSend = draft.trim().length > 0 && !pending && !commandPending && !interactionLocked &&
+  const attachmentsTooLarge = attachmentState.attachments.reduce((sum, ref) => sum + ref.bytes, 0) > 32 * 1024 * 1024;
+  const canSend = !attachmentsTooLarge && (draft.trim().length > 0 || attachmentState.attachments.length > 0) && !attachmentState.pending && !attachmentState.retryAvailable && !pending && !commandPending && !interactionLocked &&
     (isCommand ? !draftFrozen : !sendDisabled);
 
   useEffect(() => {
@@ -166,6 +174,18 @@ export function ConversationComposer({
         ref={formRef}
         className="chat-surface-fluid composer-panel relative rounded-[20px] border border-[var(--mu-input-border)] bg-[var(--mu-composer-bg)] px-3.5 py-2.5 transition-[border-color,box-shadow] duration-200"
         onSubmit={handleSubmit}
+        onDragEnter={(event) => {
+          if (!event.dataTransfer.types.includes("Files")) return;
+          event.preventDefault(); dragDepth.current += 1;
+          if (!inputLocked && !attachmentState.pending && !attachmentState.retryAvailable) setDraggingFiles(true);
+        }}
+        onDragOver={(event) => { if (event.dataTransfer.types.includes("Files")) { event.preventDefault(); event.dataTransfer.dropEffect = inputLocked ? "none" : "copy"; } }}
+        onDragLeave={(event) => { if (event.dataTransfer.types.includes("Files")) { dragDepth.current = Math.max(0, dragDepth.current - 1); if (dragDepth.current === 0) setDraggingFiles(false); } }}
+        onDrop={(event) => {
+          if (!event.dataTransfer.types.includes("Files")) return;
+          event.preventDefault(); dragDepth.current = 0; setDraggingFiles(false);
+          if (!inputLocked) void attachmentState.addFiles(Array.from(event.dataTransfer.files));
+        }}
       >
         {menuOpen && matchingCommands !== null && (
           <ComposerCommandMenu
@@ -178,6 +198,12 @@ export function ConversationComposer({
             onSelect={selectCommand}
           />
         )}
+        <input ref={fileInputRef} type="file" multiple className="hidden" tabIndex={-1} aria-label={content.attachments.add} onChange={(event) => {
+          const files = Array.from(event.target.files ?? []); event.target.value = "";
+          if (!inputLocked) void attachmentState.addFiles(files);
+        }} />
+        <AttachmentStrip sessionId={sessionId} attachments={attachmentState.attachments} disabled={inputLocked || attachmentState.pending} onRemove={attachmentState.remove} />
+        {draggingFiles && <div className="pointer-events-none absolute inset-0 z-20 flex items-center justify-center rounded-[20px] border-2 border-dashed border-foreground/30 bg-[var(--mu-composer-bg)]/95 text-[13px] text-foreground">{content.attachments.drop}</div>}
         <Textarea
           ref={textareaRef}
           role="combobox"
@@ -191,12 +217,17 @@ export function ConversationComposer({
           placeholder={queuedDraft ? content.queue.editPlaceholder : running ? content.steeringPlaceholder : content.composerPlaceholder}
           disabled={inputLocked}
           rows={1}
+          onPaste={(event) => {
+            if (event.clipboardData.files.length === 0) return;
+            event.preventDefault(); if (!inputLocked) void attachmentState.addFiles(Array.from(event.clipboardData.files));
+          }}
           onChange={handleChange}
           onKeyDown={handleKeyDown}
           aria-label={content.composerLabel}
         />
         <div className="mt-2 flex min-h-8 items-center justify-between gap-2">
           <div className="flex min-w-0 items-center gap-1">
+            <Button type="button" size="icon" variant="ghost" className="size-7 rounded-full text-muted-foreground" disabled={inputLocked || attachmentState.pending || attachmentState.retryAvailable || attachmentState.attachments.length >= 8} aria-label={content.attachments.add} title={content.attachments.add} onClick={() => fileInputRef.current?.click()}><Paperclip className="size-3.5" /></Button>
             <Button
               type="button" size="icon" variant="ghost" className="size-7 rounded-full text-muted-foreground"
               disabled={inputLocked || (draft.trim().length > 0 && !isCommand)}
@@ -251,6 +282,9 @@ export function ConversationComposer({
             )}
           </div>
         </div>
+        {attachmentsTooLarge && <p role="alert" className="mt-2 text-xs text-destructive">{content.attachments.tooLarge}</p>}
+        {attachmentState.pending && <p role="status" className="mt-2 flex items-center gap-1.5 text-xs text-muted-foreground"><LoaderCircle className="size-3 animate-spin" />{content.attachments.uploading}</p>}
+        {attachmentState.error !== null && <div className="mt-2 flex flex-wrap items-center gap-2 text-xs"><span role="alert" className="text-destructive">{attachmentState.error}</span>{attachmentState.retryAvailable && <Button type="button" size="sm" variant="ghost" className="h-6 px-1.5" disabled={inputLocked} onClick={attachmentState.retry}>{content.attachments.retry}</Button>}<Button type="button" size="sm" variant="ghost" className="h-6 px-1.5" disabled={inputLocked} onClick={attachmentState.dismissError}>{content.attachments.dismiss}</Button></div>}
         {commandFeedback !== null && (
           <p role={commandFeedback.kind === "error" ? "alert" : "status"} className={`mt-2 text-xs leading-5 ${commandFeedback.kind === "error" ? "text-destructive" : "text-muted-foreground"}`}>
             {commandFeedback.text}

@@ -9,6 +9,7 @@ import {
 } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
+import { useComposerAttachments } from "@/features/attachments/useComposerAttachments";
 import { ApiError } from "@/api/client";
 import { useAppUiStore } from "@/app/store";
 import {
@@ -61,6 +62,7 @@ export interface UsableModel {
 interface FrozenSubmission {
   readonly idempotencyKey: string;
   readonly content: string;
+  readonly attachmentIds: readonly string[];
   readonly delivery: "followup" | "steer" | "queue";
   readonly connectionId: string;
   readonly modelId: string;
@@ -70,6 +72,7 @@ interface FrozenSubmission {
 
 function useMessages(sessionId: string, workspaceId: string) {
   const queryClient = useQueryClient();
+  const attachmentState = useComposerAttachments(sessionId);
   const draft = useAppUiStore((state) => state.composerDraftBySession[sessionId] ?? "");
   const queuedDraft = useAppUiStore((state) => state.composerQueuedBySession[sessionId] === true);
   const mapContext = useAppUiStore(
@@ -306,10 +309,11 @@ function useMessages(sessionId: string, workspaceId: string) {
       mutation.mutate(frozen);
       return;
     }
-    if (!draft.trim() || selectedModel === undefined) return;
+    if ((!draft.trim() && attachmentState.attachments.length === 0) || attachmentState.blocked() || attachmentState.attachments.reduce((sum, ref) => sum + ref.bytes, 0) > 32 * 1024 * 1024 || selectedModel === undefined) return;
     const submission: FrozenSubmission = {
       idempotencyKey: crypto.randomUUID(),
       content: draft,
+      attachmentIds: attachmentState.attachments.map((ref) => ref.id),
       delivery: delivery ?? (queuedDraft ? "followup" : agentTurnsQuery.data?.some(
         (turn) => !["completed", "failed", "cancelled"].includes(turn.state)
       )
@@ -327,6 +331,7 @@ function useMessages(sessionId: string, workspaceId: string) {
 
   return {
     draft,
+    attachmentState,
     queuedDraft,
     mapContext,
     messagesQuery,
@@ -347,13 +352,13 @@ function useMessages(sessionId: string, workspaceId: string) {
       setComposerDraft(sessionId, value);
     },
     restoreDraft: (queued: QueuedAgentDraft) => {
-      if (requestFrozen || mutation.isPending) throw new Error("The composer already has an unresolved submission.");
+      if (requestFrozen || mutation.isPending || attachmentState.blocked()) throw new Error("The composer already has an unresolved submission.");
       if (queued.turn === null || queued.map_context.workspace_id !== workspaceId) throw new Error("Queued draft context does not belong to this workspace.");
       const model = queued.turn.model_snapshot;
       mutation.reset();
       restoreComposerDraft(sessionId, queued.content, mapContextFromSnapshot(queued.map_context), {
         connectionId: model.connection_id, modelId: model.model_id, reasoningEffort: model.reasoning_effort,
-      });
+      }, queued.attachments);
     },
     changeModel: (value: string) => {
       if (requestFrozen) return;

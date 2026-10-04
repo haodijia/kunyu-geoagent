@@ -236,7 +236,7 @@ function userRecord(
   const message = context.messages.get(first.entityId);
   const content =
     message?.role === "user"
-      ? message.content
+      ? [message.content, ...message.attachments.map((ref) => ref.name)].filter(Boolean).join(" · ")
       : (stringValue(first.payload.content) ?? "");
   return baseRecord(events, {
     turn: context.messageTurns.get(first.entityId) ?? null,
@@ -247,7 +247,7 @@ function userRecord(
     startedAt: first.occurredAt,
     isError: false,
     source: { role: "user", message_id: first.entityId, run_id: first.runId },
-    input: content,
+    input: message?.role === "user" ? { content: message.content, attachments: message.attachments } : content,
     output: null,
   });
 }

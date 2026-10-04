@@ -6,6 +6,7 @@ from enum import StrEnum
 from typing import Protocol
 
 from kunyu.agent.runtime.content import ContentBlock, ContentBlockType, ReplayEnvelope
+from kunyu.agent.runtime.input_content import MessageContentBlock
 from kunyu.agent.runtime.tools import ToolSpec
 
 
@@ -74,7 +75,7 @@ class ModelToolCallDelta:
 @dataclass(frozen=True, slots=True)
 class ModelMessage:
     role: ModelRole
-    content: tuple[ContentBlock, ...]
+    content: tuple[MessageContentBlock, ...]
     tool_call_id: str | None = None
     context_source: str | None = None
     replay_state: ReplayEnvelope | None = None
