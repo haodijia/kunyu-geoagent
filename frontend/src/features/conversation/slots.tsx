@@ -5,7 +5,7 @@ import {
   ToolActivity,
   GeneratingToolActivity,
 } from "@/features/agent/ToolActivity";
-import type { GeneratingTool } from "@/features/events/live-assistant";
+import type { GeneratingTool } from "@/features/events/stream-presentation";
 import type { Confirmation } from "@/features/confirmations/api";
 
 interface ConversationSlots {

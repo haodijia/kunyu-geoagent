@@ -1,5 +1,6 @@
 """Deterministically derive one run projection from its committed event log."""
 
+import json
 from collections.abc import Iterable
 from datetime import datetime
 from typing import Literal, Protocol
@@ -8,7 +9,14 @@ from kunyu.agent.runtime.assistant_stream import (
     FinishChunk,
     RawChunk,
     UsageChunk,
-    stream_text,
+    expand_assistant_stream,
+)
+from kunyu.agent.runtime.block_assembler import BlockAssembler
+from kunyu.agent.runtime.content import (
+    ReasoningBlock,
+    TextBlock,
+    ToolCallBlock,
+    content_text,
 )
 from kunyu.agent.runtime.events import (
     ALLOWED_RUN_TRANSITIONS,
@@ -42,6 +50,7 @@ from kunyu.agent.runtime.events import (
     UserMessageAppendedEvent,
     validate_event_draft,
 )
+from kunyu.agent.runtime.models import BlockEnd, ReasoningDelta, TextDelta
 from kunyu.agent.runtime.retry_policy import NormalRetryPolicy, retry_policy_key
 from kunyu.agent.runtime.run_state import (
     AssistantStatus,
@@ -559,6 +568,15 @@ def _append_delta(
         assistant.reasoning_content += payload.text
     else:
         assistant.content += payload.text
+    block_type = ReasoningBlock if reasoning else TextBlock
+    if assistant.blocks and isinstance(assistant.blocks[-1], block_type):
+        previous = assistant.blocks[-1]
+        assistant.blocks = (
+            *assistant.blocks[:-1],
+            block_type(text=previous.text + payload.text),
+        )
+    else:
+        assistant.blocks = (*assistant.blocks, block_type(text=payload.text))
     assistant.updated_at = event.occurred_at
     assistant.updated_sequence = sequence
     state.budget.output_codepoints += len(payload.text)
@@ -599,20 +617,70 @@ def _finish_model_attempt(
         raise RunReductionError(
             "Attempt settlement must identify its assistant message."
         )
-    text = stream_text(payload.stream)
-    reasoning = stream_text(payload.stream, reasoning=True)
-    if payload.error_code == "OUTPUT_LIMIT":
-        valid_prefix = text.startswith(assistant.content) and reasoning.startswith(
-            assistant.reasoning_content
-        )
-    else:
-        valid_prefix = (text, reasoning) == (
-            assistant.content,
-            assistant.reasoning_content,
-        )
+    assembler = BlockAssembler()
+    observed: dict[tuple[str, int], list[str]] = {}
+    delivered: dict[str, list[str]] = {"text": [], "reasoning": []}
+    outputs = expand_assistant_stream(payload.stream)
+    for position, timed in enumerate(outputs):
+        output = timed.output
+        try:
+            assembler.push(output)
+        except (TypeError, ValueError) as error:
+            if not (
+                payload.outcome == "error"
+                and payload.error_code == "PROVIDER_PROTOCOL"
+                and position == len(outputs) - 1
+            ):
+                raise RunReductionError("Invalid model block stream.") from error
+            break
+        if isinstance(output, (TextDelta, ReasoningDelta)):
+            kind = "reasoning" if isinstance(output, ReasoningDelta) else "text"
+            observed.setdefault((kind, output.index), []).append(output.text)
+            delivered[kind].append(output.text)
+        elif isinstance(output, BlockEnd) and isinstance(
+            output.block, (TextBlock, ReasoningBlock)
+        ):
+            if (output.block.type, output.index) not in observed:
+                delivered[output.block.type].append(output.block.text)
+    text, reasoning = "".join(delivered["text"]), "".join(delivered["reasoning"])
+    valid_prefix = (
+        text.startswith(assistant.content)
+        and reasoning.startswith(assistant.reasoning_content)
+        if payload.error_code == "OUTPUT_LIMIT"
+        else (text, reasoning) == (assistant.content, assistant.reasoning_content)
+    )
     if not valid_prefix:
         raise RunReductionError(
             "Attempt stream does not match the delivered assistant prefix."
+        )
+    interrupted = (
+        payload.outcome not in {"stop", "tool_calls", "length"}
+        or payload.error_code == "OUTPUT_LIMIT"
+    )
+    limit = (
+        state.budget.max_output_codepoints
+        - state.budget.output_codepoints
+        + len(assistant.content)
+        + len(assistant.reasoning_content)
+    )
+    try:
+        expected = assembler.blocks(interrupted=interrupted, output_limit=limit)
+    except ValueError as error:
+        raise RunReductionError("Incomplete canonical model blocks.") from error
+    # Buffered provenance represents historical journal facts, including tool calls
+    # recorded separately. It never claims native chunk timing for those calls.
+    actual = (
+        payload.blocks
+        if payload.stream_origin == "model"
+        else tuple(
+            block for block in payload.blocks if not isinstance(block, ToolCallBlock)
+        )
+    )
+    if actual != expected or payload.replay_state != (
+        None if interrupted else assembler.replay_state
+    ):
+        raise RunReductionError(
+            "Attempt content or replay metadata differs from its stream."
         )
     if payload.stream_origin == "model":
         usage = [
@@ -668,6 +736,10 @@ def _finish_model_attempt(
         raise RunReductionError(
             "Model outcome active time differs from the run budget."
         )
+    assistant.blocks = payload.blocks
+    assistant.replay_state = payload.replay_state
+    assistant.content = content_text(payload.blocks)
+    assistant.reasoning_content = content_text(payload.blocks, reasoning=True)
     assistant.model_outcome = payload.outcome
     if payload.outcome in {"error", "length", "content_filter"}:
         assistant.status = "failed"
@@ -707,6 +779,18 @@ def _request_tool(state: _State, event: ToolRequestedEvent, sequence: int) -> No
         raise RunReductionError(
             "Provider tool call identifiers must be unique per attempt."
         )
+    blocks = tuple(
+        block for block in assistant.blocks if isinstance(block, ToolCallBlock)
+    )
+    if payload.batch_index >= len(blocks):
+        raise RunReductionError("Tool request has no canonical model block.")
+    block = blocks[payload.batch_index]
+    if (block.id, block.name, json.loads(block.arguments)) != (
+        payload.provider_call_id,
+        payload.name,
+        payload.arguments,
+    ):
+        raise RunReductionError("Tool request differs from its canonical model block.")
     state.tools[payload.tool_call_id] = _ToolCall(
         tool_call_id=payload.tool_call_id,
         provider_call_id=payload.provider_call_id,
@@ -1204,6 +1288,8 @@ def _freeze(state: _State) -> ReducedRun:
                 attempt=item.attempt,
                 content=item.content,
                 reasoning_content=item.reasoning_content,
+                blocks=item.blocks,
+                replay_state=item.replay_state,
                 status=item.status,
                 finish_reason=item.finish_reason,
                 created_at=item.created_at,

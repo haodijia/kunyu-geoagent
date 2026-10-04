@@ -3,6 +3,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from kunyu.agent.inbox import SessionInbox
+from kunyu.agent.runtime.content import ToolCallBlock, text_content
 from kunyu.agent.runtime.context import (
     AgentContext,
     ContextPreparationRegistry,
@@ -10,7 +11,7 @@ from kunyu.agent.runtime.context import (
     PromptSectionRegistry,
 )
 from kunyu.agent.runtime.events import EventStore, StepMessagePayload
-from kunyu.agent.runtime.models import ModelMessage, ModelRole, ModelToolCall
+from kunyu.agent.runtime.models import ModelMessage, ModelRole
 from kunyu.agent.runtime.run_state import ReducedAssistant, ReducedRun, ReducedToolCall
 from kunyu.agent.scope import Context
 from kunyu.domain.agent_context import (
@@ -79,11 +80,11 @@ class ScopedAgentContextProvider:
             messages=(
                 ModelMessage(
                     role=ModelRole.SYSTEM,
-                    content=self._prompts.render(source, self._scope),
+                    content=text_content(self._prompts.render(source, self._scope)),
                 ),
                 ModelMessage(
                     role=ModelRole.USER,
-                    content=_scope_prompt(source),
+                    content=text_content(_scope_prompt(source)),
                     context_source="workspace",
                 ),
                 *build_model_history(source),
@@ -132,12 +133,16 @@ def build_model_history(source: RunContextSource) -> tuple[ModelMessage, ...]:
     steps = [
         _HistoryStep(
             sequence=message.created_sequence,
-            messages=(ModelMessage(role=ModelRole.USER, content=message.content),)
+            messages=(
+                ModelMessage(
+                    role=ModelRole.USER, content=text_content(message.content)
+                ),
+            )
             + (
                 (
                     ModelMessage(
                         role=ModelRole.USER,
-                        content=_json_text(message.map_context),
+                        content=text_content(_json_text(message.map_context)),
                         context_source="steering-map",
                     ),
                 )
@@ -178,13 +183,17 @@ def build_model_history(source: RunContextSource) -> tuple[ModelMessage, ...]:
                 model_message
                 for message in decision.payload.messages
                 for model_message in (
-                    ModelMessage(ModelRole.USER, message.content),
+                    ModelMessage(ModelRole.USER, text_content(message.content)),
                     *(
                         (
                             ModelMessage(
                                 ModelRole.USER,
-                                _json_text(
-                                    original_messages[message.message_id].map_context
+                                text_content(
+                                    _json_text(
+                                        original_messages[
+                                            message.message_id
+                                        ].map_context
+                                    )
                                 ),
                                 context_source="steering-map",
                             ),
@@ -216,7 +225,7 @@ def build_model_history(source: RunContextSource) -> tuple[ModelMessage, ...]:
             messages=(
                 ModelMessage(
                     role=ModelRole.USER,
-                    content=item.content,
+                    content=text_content(item.content),
                     context_source=item.producer,
                 ),
             ),
@@ -247,7 +256,9 @@ def build_model_history(source: RunContextSource) -> tuple[ModelMessage, ...]:
         return visible
     return (
         ModelMessage(
-            ModelRole.USER, source.controls.summary, context_source="compaction"
+            ModelRole.USER,
+            text_content(source.controls.summary),
+            context_source="compaction",
         ),
         *visible,
     )
@@ -290,12 +301,11 @@ def _visible_assistant_step(
     if assistant.status == "failed":
         return None
     if assistant.status in {"interrupted", "cancelled"}:
-        if assistant.content:
+        if assistant.blocks:
             return (
                 ModelMessage(
                     role=ModelRole.ASSISTANT,
-                    content=assistant.content,
-                    reasoning_content=assistant.reasoning_content,
+                    content=assistant.blocks,
                 ),
             )
         return None
@@ -321,37 +331,39 @@ def _visible_assistant_step(
         return (
             ModelMessage(
                 role=ModelRole.ASSISTANT,
-                content=assistant.content,
-                reasoning_content=assistant.reasoning_content,
+                content=assistant.blocks,
+                replay_state=assistant.replay_state,
             ),
         )
     if not _complete_tool_batch(calls):
         return None
     model_calls = tuple(
-        ModelToolCall(
-            call_id=call.provider_call_id,
-            name=call.name,
-            arguments=call.arguments,
-        )
-        for call in calls
+        block for block in assistant.blocks if isinstance(block, ToolCallBlock)
     )
+    if [
+        (block.id, block.name, json.loads(block.arguments)) for block in model_calls
+    ] != [(call.provider_call_id, call.name, call.arguments) for call in calls]:
+        raise RunContextIntegrityError(
+            "Canonical assistant blocks differ from the committed tool batch."
+        )
     assistant_message = ModelMessage(
         role=ModelRole.ASSISTANT,
-        content=assistant.content,
-        tool_calls=model_calls,
-        reasoning_content=assistant.reasoning_content,
+        content=assistant.blocks,
+        replay_state=assistant.replay_state,
     )
     results = tuple(
         ModelMessage(
             role=ModelRole.TOOL,
-            content=_json_text(
-                call.result
-                if call.status == "completed"
-                else {
-                    "status": call.status,
-                    "error_code": call.error_code,
-                    "error_summary": call.error_summary,
-                }
+            content=text_content(
+                _json_text(
+                    call.result
+                    if call.status == "completed"
+                    else {
+                        "status": call.status,
+                        "error_code": call.error_code,
+                        "error_summary": call.error_summary,
+                    }
+                )
             ),
             tool_call_id=call.provider_call_id,
         )

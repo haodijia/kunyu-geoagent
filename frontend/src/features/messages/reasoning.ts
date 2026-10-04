@@ -1,3 +1,7 @@
+import {
+  contentText,
+  parseContentBlocks,
+} from "@/features/events/content-blocks";
 import type { TrajectoryEventProjection } from "@/features/events/projection";
 import {
   parseAssistantStream,
@@ -25,12 +29,10 @@ export function collectMessageReasoning(
         parseAssistantStream(record.payload.stream),
         record.occurredAt,
       );
-      if (settled !== null) {
-        if (record.payload.error_code === "OUTPUT_LIMIT") {
-          if (thought !== undefined)
-            thoughts.set(record.messageId, { ...settled, text: thought.text });
-        } else thoughts.set(record.messageId, settled);
-      }
+      const text = contentText(parseContentBlocks(record.payload.blocks), true);
+      if (settled !== null && text !== "")
+        thoughts.set(record.messageId, { ...settled, text });
+      else thoughts.delete(record.messageId);
     } else if (record.eventType === "message.assistant.reasoning.delta") {
       const text = record.payload.text;
       if (typeof text !== "string")

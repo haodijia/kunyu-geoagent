@@ -1,6 +1,7 @@
 """One model step, including durable streaming settlement and request retries."""
 
 import asyncio
+import json
 import logging
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
@@ -9,7 +10,12 @@ from typing import Literal
 
 from pydantic import JsonValue, TypeAdapter
 
-from kunyu.agent.runtime.assistant_stream import model_json_data
+from kunyu.agent.runtime.content import (
+    ReasoningBlock,
+    TextBlock,
+    ToolCallBlock,
+    content_text,
+)
 from kunyu.agent.runtime.context import AgentContext, ContextProvider
 from kunyu.agent.runtime.events import (
     AssistantStartedEvent,
@@ -40,6 +46,8 @@ from kunyu.agent.runtime.model_attempt import (
     model_settlement_events,
 )
 from kunyu.agent.runtime.models import (
+    BlockEnd,
+    BlockStart,
     ModelAdapter,
     ModelAdapterError,
     ModelErrorCode,
@@ -48,7 +56,6 @@ from kunyu.agent.runtime.models import (
     ModelMessage,
     ModelRequest,
     ModelRole,
-    ModelToolCall,
     ModelToolCallDelta,
     ReasoningDelta,
     TextDelta,
@@ -76,30 +83,24 @@ logger = logging.getLogger(__name__)
 
 def _system_prompt(messages: tuple[ModelMessage, ...]) -> str:
     return "\n\n".join(
-        message.content for message in messages if message.role is ModelRole.SYSTEM
+        content_text(message.content)
+        for message in messages
+        if message.role is ModelRole.SYSTEM
     )
 
 
 def _message_snapshot(message: ModelMessage) -> dict[str, JsonValue]:
-    value: dict[str, JsonValue] = {
+    value = {
         "role": message.role.value,
-        "content": message.content,
+        "content": [block.model_dump(mode="json") for block in message.content],
+        "replay_state": None
+        if message.replay_state is None
+        else message.replay_state.model_dump(mode="json"),
     }
-    if message.reasoning_content is not None:
-        value["reasoning_content"] = message.reasoning_content
     if message.context_source is not None:
         value["source"] = {"kind": "context", "producer": message.context_source}
     if message.tool_call_id is not None:
         value["tool_call_id"] = message.tool_call_id
-    if message.tool_calls:
-        value["tool_calls"] = [
-            {
-                "call_id": call.call_id,
-                "name": call.name,
-                "arguments": dict(call.arguments),
-            }
-            for call in message.tool_calls
-        ]
     return value
 
 
@@ -223,7 +224,8 @@ class ModelStepExecutor[AdapterConfigT]:
                 interval_seconds=self._config.delta_flush_interval_seconds,
                 codepoint_limit=self._config.delta_flush_codepoints,
             ),
-            tool_calls=[],
+            output_limit=run.budget.max_output_codepoints
+            - run.budget.output_codepoints,
             reasoning_buffer=DeltaBuffer(
                 0,
                 clock=self._monotonic_clock,
@@ -449,6 +451,10 @@ class ModelStepExecutor[AdapterConfigT]:
                     ) from error
                 output = timed.output
                 self._hooks.assistant_output(run, timed)
+                try:
+                    attempt.assembler.push(output)
+                except (TypeError, ValueError) as error:
+                    raise _ModelOutputError(str(error)) from error
                 due = attempt.buffer.flush_if_due()
                 if due is not None:
                     await self._commit_delta(run, attempt, due)
@@ -457,6 +463,16 @@ class ModelStepExecutor[AdapterConfigT]:
                     await self._commit_delta(
                         run, attempt, reasoning_due, reasoning=True
                     )
+                if isinstance(output, BlockEnd) and isinstance(
+                    output.block, (TextBlock, ReasoningBlock)
+                ):
+                    observed = attempt.assembler.observed_text(output.index)
+                    if not observed and output.block.text:
+                        output = (
+                            ReasoningDelta(output.index, output.block.text)
+                            if isinstance(output.block, ReasoningBlock)
+                            else TextDelta(output.index, output.block.text)
+                        )
                 if isinstance(output, (TextDelta, ReasoningDelta)):
                     reasoning = isinstance(output, ReasoningDelta)
                     buffer = attempt.reasoning_buffer if reasoning else attempt.buffer
@@ -481,24 +497,19 @@ class ModelStepExecutor[AdapterConfigT]:
                         )
                 elif isinstance(output, ModelToolCallDelta):
                     pass  # Fragments are recorded; only complete calls may execute.
-                elif isinstance(output, ModelToolCall):
-                    if any(
-                        call.call_id == output.call_id
-                        for call in attempt.tool_calls or ()
-                    ):
-                        raise _ModelOutputError("Duplicate provider tool-call ID.")
-                    if attempt.finish is not None:
-                        raise _ModelOutputError("Tool call followed finish result.")
-                    assert attempt.tool_calls is not None
-                    attempt.tool_calls.append(output)
+                elif isinstance(output, (BlockStart, BlockEnd)):
+                    pass  # The canonical assembler owns block lifecycle.
                 elif isinstance(output, TokenUsage):
-                    if attempt.usage is not None:
-                        raise _ModelOutputError("Usage was reported more than once.")
-                    attempt.usage = output
+                    pass
                 elif isinstance(output, ModelFinish):
-                    if attempt.finish is not None:
-                        raise _ModelOutputError("Finish was reported more than once.")
-                    attempt.finish = output.reason
+                    if (
+                        output.replay_state is not None
+                        and attempt.assembler.replay_state is None
+                    ):
+                        logger.warning(
+                            "Discarded unaligned provider replay metadata for run %s",
+                            run.run_id,
+                        )
                     terminal_seen = True
                 else:
                     raise _ModelOutputError("Unknown model output.")
@@ -517,7 +528,16 @@ class ModelStepExecutor[AdapterConfigT]:
         elapsed_milliseconds: int,
     ) -> str:
         finish = attempt.finish
-        calls = tuple(attempt.tool_calls or ())
+        try:
+            calls = tuple(
+                block
+                for block in attempt.assembler.blocks()
+                if isinstance(block, ToolCallBlock)
+            )
+        except ValueError as error:
+            raise _ModelOutputError(
+                "The model returned incomplete content blocks."
+            ) from error
         if finish is ModelFinishReason.STOP:
             if calls:
                 raise _ModelOutputError("Stop output has invalid content.")
@@ -592,21 +612,30 @@ class ModelStepExecutor[AdapterConfigT]:
     def _plan_tool_batch(
         self,
         registry: ToolRegistry,
-        calls: tuple[ModelToolCall, ...],
+        calls: tuple[ToolCallBlock, ...],
     ) -> tuple[_PlannedToolCall, ...]:
         validated: list[_PlannedToolCall] = []
+        identities: set[str] = set()
         for call in calls:
+            if call.id in identities:
+                raise _ModelOutputError("Duplicate provider tool-call ID.")
+            identities.add(call.id)
             tool = registry.get(call.name)
             # Preserve model arguments verbatim. Validation is a tool result, so the
             # next model step can correct the call without losing the assistant frame.
-            arguments = _JSON_OBJECT_ADAPTER.validate_python(
-                model_json_data(call.arguments)
-            )
+            try:
+                arguments = _JSON_OBJECT_ADAPTER.validate_python(
+                    json.loads(call.arguments, parse_constant=_reject_json_constant)
+                )
+            except (ValueError, TypeError) as error:
+                raise _ModelOutputError(
+                    "Tool arguments must be a JSON object."
+                ) from error
             tool_call_id = self._tool_call_id_factory()
             validated.append(
                 _PlannedToolCall(
                     tool_call_id=tool_call_id,
-                    provider_call_id=call.call_id,
+                    provider_call_id=call.id,
                     name=call.name,
                     arguments=arguments,
                     execution="exclusive" if tool is None else tool.spec.execution,
@@ -711,3 +740,7 @@ class ModelStepExecutor[AdapterConfigT]:
             run,
             (delta_event(run, attempt, batch, self._clock(), reasoning=reasoning),),
         )
+
+
+def _reject_json_constant(value: str) -> None:
+    raise ValueError(f"Non-finite JSON constant: {value}")

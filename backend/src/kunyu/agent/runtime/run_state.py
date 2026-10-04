@@ -7,6 +7,7 @@ from typing import Literal
 
 from pydantic import JsonValue
 
+from kunyu.agent.runtime.content import ContentBlock, ReplayEnvelope
 from kunyu.agent.runtime.events import (
     BudgetLimitsPayload,
     ModelSnapshotPayload,
@@ -55,6 +56,8 @@ class ReducedAssistant:
     created_sequence: int
     updated_sequence: int
     reasoning_content: str = ""
+    blocks: tuple[ContentBlock, ...] = ()
+    replay_state: ReplayEnvelope | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -155,6 +158,8 @@ class _Assistant:
     created_sequence: int
     content: str = ""
     reasoning_content: str = ""
+    blocks: tuple[ContentBlock, ...] = ()
+    replay_state: ReplayEnvelope | None = None
     status: AssistantStatus = "streaming"
     finish_reason: Literal["stop", "tool_calls"] | None = None
     model_outcome: str | None = None

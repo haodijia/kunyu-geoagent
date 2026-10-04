@@ -2,13 +2,20 @@ import json
 from dataclasses import dataclass, field
 from typing import Any
 
+from kunyu.agent.runtime.content import (
+    ReasoningBlock,
+    ReplayEnvelope,
+    TextBlock,
+    ToolCallBlock,
+)
 from kunyu.agent.runtime.models import (
+    BlockEnd,
+    BlockStart,
     ModelAdapterError,
     ModelErrorCode,
     ModelFinish,
     ModelFinishReason,
     ModelOutput,
-    ModelToolCall,
     ModelToolCallDelta,
     ReasoningDelta,
     TextDelta,
@@ -33,6 +40,9 @@ class OpenAIChatStreamParser:
 
     def __init__(self) -> None:
         self._text_parts: list[str] = []
+        self._reasoning_parts: list[str] = []
+        self._indexes: dict[tuple[str, int], int] = {}
+        self._response: dict[str, object] = {}
         self._tool_calls: dict[int, _PartialToolCall] = {}
         self._usage: TokenUsage | None = None
         self._finish_reason: ModelFinishReason | None = None
@@ -56,6 +66,13 @@ class OpenAIChatStreamParser:
         if not isinstance(payload, dict) or "error" in payload:
             raise _protocol_error("The provider stream contained an invalid event.")
 
+        for key in ("id", "model", "created", "system_fingerprint"):
+            if key in payload:
+                if key in self._response and self._response[key] != payload[key]:
+                    raise _protocol_error(
+                        "Provider response metadata changed within a stream."
+                    )
+                self._response[key] = payload[key]
         outputs: list[ModelOutput] = []
         if "usage" in payload and payload["usage"] is not None:
             if self._usage is not None:
@@ -88,13 +105,16 @@ class OpenAIChatStreamParser:
             if not isinstance(reasoning, str):
                 raise _protocol_error("The provider reasoning delta is invalid.")
             if reasoning:
-                outputs.append(ReasoningDelta(reasoning))
+                logical = self._open("reasoning", 0, outputs)
+                self._reasoning_parts.append(reasoning)
+                outputs.append(ReasoningDelta(logical, reasoning))
         if content is not None:
             if not isinstance(content, str):
                 raise _protocol_error("The provider text delta is invalid.")
             if content:
+                logical = self._open("text", 0, outputs)
                 self._text_parts.append(content)
-                outputs.append(TextDelta(content))
+                outputs.append(TextDelta(logical, content))
         if "tool_calls" in delta:
             outputs.extend(self._append_tool_calls(delta["tool_calls"]))
 
@@ -106,14 +126,22 @@ class OpenAIChatStreamParser:
                 raise _protocol_error(
                     "The provider returned an unsupported finish_reason."
                 ) from error
+            outputs.extend(self._close_blocks(self._finish_reason))
         return tuple(outputs)
+
+    def _open(self, kind, provider_index, outputs):
+        key = (kind, provider_index)
+        if key not in self._indexes:
+            self._indexes[key] = len(self._indexes)
+            outputs.append(BlockStart(self._indexes[key], kind))
+        return self._indexes[key]
 
     def end(self) -> tuple[ModelOutput, ...]:
         if self._complete:
             return ()
         return self._finish()
 
-    def _append_tool_calls(self, value: Any) -> tuple[ModelToolCallDelta, ...]:
+    def _append_tool_calls(self, value: Any) -> tuple[ModelOutput, ...]:
         outputs = []
         if not isinstance(value, list):
             raise _protocol_error("The provider tool-call delta is invalid.")
@@ -125,6 +153,7 @@ class OpenAIChatStreamParser:
                 raise _protocol_error("The provider tool-call index is invalid.")
             if index >= MAX_TOOL_CALLS:
                 raise _protocol_error("The provider returned too many tool calls.")
+            logical = self._open("tool-call", index, outputs)
             call = self._tool_calls.setdefault(index, _PartialToolCall())
             call_id = item.get("id")
             if call_id is not None:
@@ -141,7 +170,7 @@ class OpenAIChatStreamParser:
                 raise _protocol_error("The provider tool-call type is invalid.")
             function = item.get("function")
             if function is None:
-                outputs.append(ModelToolCallDelta(index, identity, None, ""))
+                outputs.append(ModelToolCallDelta(logical, identity, None, ""))
                 continue
             if not isinstance(function, dict):
                 raise _protocol_error("The provider tool-call function is invalid.")
@@ -165,7 +194,7 @@ class OpenAIChatStreamParser:
                 )
             outputs.append(
                 ModelToolCallDelta(
-                    index,
+                    logical,
                     identity,
                     full_name if name is not None else None,
                     arguments if arguments is not None else "",
@@ -189,51 +218,64 @@ class OpenAIChatStreamParser:
                     ModelErrorCode.EMPTY_RESPONSE,
                     "The provider returned an empty response.",
                 )
-        elif reason is ModelFinishReason.TOOL_CALLS:
-            outputs.extend(self._assemble_tool_calls())
-        outputs.append(ModelFinish(reason))
+        outputs.append(
+            ModelFinish(
+                reason,
+                ReplayEnvelope(
+                    response={
+                        "kind": "openai-chat-completions",
+                        "version": 1,
+                        "native": self._response,
+                    }
+                ),
+            )
+        )
         self._complete = True
         return tuple(outputs)
 
-    def _assemble_tool_calls(self) -> tuple[ModelToolCall, ...]:
-        if not self._tool_calls:
-            raise _protocol_error(
-                "The provider ended with tool_calls but returned no calls."
-            )
-        indexes = sorted(self._tool_calls)
-        if indexes != list(range(len(indexes))):
-            raise _protocol_error("The provider tool-call indexes are incomplete.")
-        calls: list[ModelToolCall] = []
-        call_ids: set[str] = set()
-        for index in indexes:
-            partial = self._tool_calls[index]
-            call_id = "".join(partial.call_id_parts)
-            name = "".join(partial.name_parts)
-            raw_arguments = "".join(partial.argument_parts)
-            if (
-                not call_id.strip()
-                or len(call_id) > MAX_TOOL_IDENTIFIER_LENGTH
-                or not name.strip()
-                or len(name) > MAX_TOOL_IDENTIFIER_LENGTH
-            ):
-                raise _protocol_error("The provider returned an incomplete tool call.")
-            if call_id in call_ids:
-                raise _protocol_error("The provider returned duplicate tool-call IDs.")
-            if len(raw_arguments.encode("utf-8")) > MAX_TOOL_ARGUMENT_BYTES:
-                raise _protocol_error("The provider tool arguments were too large.")
-            try:
-                arguments = json.loads(raw_arguments)
-            except ValueError as error:
-                raise _protocol_error(
-                    "The provider returned invalid tool arguments."
-                ) from error
-            if not isinstance(arguments, dict):
-                raise _protocol_error(
-                    "The provider tool arguments must be a JSON object."
+    def _close_blocks(self, reason: ModelFinishReason) -> tuple[ModelOutput, ...]:
+        if reason is ModelFinishReason.TOOL_CALLS:
+            indexes = sorted(self._tool_calls)
+            if not indexes or indexes != list(range(len(indexes))):
+                raise _protocol_error("The provider tool-call indexes are incomplete.")
+        calls: set[str] = set()
+        outputs = []
+        for (kind, provider_index), index in self._indexes.items():
+            if kind == "text":
+                block = TextBlock(text="".join(self._text_parts))
+            elif kind == "reasoning":
+                block = ReasoningBlock(text="".join(self._reasoning_parts))
+            else:
+                partial = self._tool_calls[provider_index]
+                identity, name = (
+                    "".join(partial.call_id_parts),
+                    "".join(partial.name_parts),
                 )
-            call_ids.add(call_id)
-            calls.append(ModelToolCall(call_id, name, arguments))
-        return tuple(calls)
+                arguments = "".join(partial.argument_parts)
+                if not identity.strip() or not name.strip():
+                    if reason is ModelFinishReason.TOOL_CALLS:
+                        raise _protocol_error(
+                            "The provider returned an incomplete tool call."
+                        )
+                    continue
+                if identity in calls:
+                    raise _protocol_error(
+                        "The provider returned duplicate tool-call IDs."
+                    )
+                calls.add(identity)
+                if reason is ModelFinishReason.TOOL_CALLS:
+                    try:
+                        parsed = json.loads(arguments)
+                        if not isinstance(parsed, dict):
+                            raise TypeError("Tool arguments must be an object.")
+                        json.dumps(parsed, allow_nan=False)
+                    except (ValueError, TypeError) as error:
+                        raise _protocol_error(
+                            "The provider returned invalid tool arguments."
+                        ) from error
+                block = ToolCallBlock(id=identity, name=name, arguments=arguments)
+            outputs.append(BlockEnd(index, block))
+        return tuple(outputs)
 
 
 def _parse_usage(value: Any) -> TokenUsage:

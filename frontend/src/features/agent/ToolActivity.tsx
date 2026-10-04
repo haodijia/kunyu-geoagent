@@ -16,7 +16,7 @@ import type { Confirmation } from "@/features/confirmations/api";
 import { zhCN } from "@/locales/zh-CN";
 import { useSessionEvents } from "@/features/events/SessionEventContext";
 import { CopyButton } from "@/features/messages/CopyButton";
-import type { GeneratingTool } from "@/features/events/live-assistant";
+import type { GeneratingTool } from "@/features/events/stream-presentation";
 
 const content = zhCN.conversation.tools;
 
