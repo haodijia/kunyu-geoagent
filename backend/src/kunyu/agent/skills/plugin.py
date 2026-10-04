@@ -50,20 +50,21 @@ class SkillToolsPlugin:
     provides = ()
 
     async def apply(self, context: Context) -> None:
+        registrations = {}
         for name, resource in (("skill", False), ("skill_resource", True)):
-            context.require(s.TOOLS).register(
-                context,
-                name,
-                ToolRegistration(
-                    partial(
-                        SkillTool,
-                        contexts=context.require(s.CONTEXTS),
-                        skills=context.require(s.SKILLS),
-                        scopes=context.require(s.SCOPES),
-                        resource=resource,
-                    )
-                ),
+            registration = ToolRegistration(
+                partial(
+                    SkillTool,
+                    contexts=context.require(s.CONTEXTS),
+                    skills=context.require(s.SKILLS),
+                    scopes=context.require(s.SCOPES),
+                    resource=resource,
+                )
             )
+            registrations[name] = registration
+            context.require(s.TOOLS).register(context, name, registration)
         context.require(s.CONTEXT_PREPARERS).register(
-            context, "skills", prepare_skill_context
+            context,
+            "skills",
+            partial(prepare_skill_context, registration=registrations["skill"]),
         )

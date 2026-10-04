@@ -23,6 +23,8 @@ def render_catalog(entries: list[dict[str, str]]) -> str:
         "This is the complete current skill catalog and replaces earlier catalogs. "
         "Skills are task instructions, not executable tools. When a task names or "
         "clearly matches a skill, call skill with its exact name before following it. "
+        "A directly invoked skill already supplies its full <skill_content> instructions; "
+        "follow them without calling skill again for that skill. "
         "Read referenced text resources with skill_resource only when needed.\n"
         "<available_skills>\n" + "\n".join(lines) + "\n</available_skills>\n"
         "</system-reminder>"

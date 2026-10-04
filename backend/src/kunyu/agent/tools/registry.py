@@ -58,6 +58,9 @@ class ToolRegistryFactory:
     ) -> None:
         self._entries.register(owner, name, registration)
 
+    def registration_for_run(self, name: str, run_id: str) -> ToolRegistration | None:
+        return self._entries.view(self._resolve_scope(run_id)).get(name)
+
     def for_run(self, run_id: str) -> ToolRegistry:
         entries = self._entries.view(self._resolve_scope(run_id))
         tools = []
@@ -75,7 +78,7 @@ class ToolRegistryFactory:
         return registry
 
     def require_write_handler(self, name: str, run_id: str) -> ConfirmedWriteHandler:
-        entry = self._entries.view(self._resolve_scope(run_id)).get(name)
+        entry = self.registration_for_run(name, run_id)
         if entry is None or entry.write_handler is None:
             raise ToolExecutionError(
                 f"Tool '{name}' has no confirmed local write handler."

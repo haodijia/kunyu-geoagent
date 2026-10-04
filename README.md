@@ -67,7 +67,7 @@ Agent 系统提示词可直接编辑 [system.md](backend/src/kunyu/agent/prompts
 
   ![地图研判原型](docs/ui-mockups/session-map-v3.png)
 
-- **任务进度** — Agent 通过 `todo_write` 更新完整任务计划，对话输入框上方显示当前轮次进度，刷新后可恢复；模型连接继续使用 Chat Completions。
+- **任务进度** — Agent 通过 `todo_write` 更新完整任务计划，对话输入框上方显示当前轮次进度，刷新后可恢复。
 
 - **可追溯成果** — 将地图、指标、任务详情、核查清单和报告组织为可定位来源与计算过程的业务成果
 
