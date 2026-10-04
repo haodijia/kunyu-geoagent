@@ -42,6 +42,20 @@ class FsInfo:
 
 
 @dataclass(frozen=True, slots=True)
+class FsDirectoryEntry:
+    name: str
+    type: Literal["file", "directory", "other"]
+    size: int | None
+
+
+@dataclass(frozen=True, slots=True)
+class FsDirectoryListing:
+    path: str
+    entries: tuple[FsDirectoryEntry, ...]
+    truncated: bool
+
+
+@dataclass(frozen=True, slots=True)
 class FsObservation:
     kind: Literal["present", "absent"]
     version: str | None = None
@@ -96,6 +110,10 @@ class Filesystem(Protocol):
     def resolve(self, file_path: str, scope: FilesystemScope) -> FsTarget: ...
 
     def stat(self, target: FsTarget, cancelled: Event) -> FsInfo | None: ...
+
+    def list_directory(
+        self, target: FsTarget, cancelled: Event
+    ) -> FsDirectoryListing: ...
 
     def read_text(self, target: FsTarget, cancelled: Event) -> str: ...
 

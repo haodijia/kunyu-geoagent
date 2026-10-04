@@ -5,10 +5,12 @@ import { createPortal } from "react-dom";
 import { ConversationSkillsIndicator } from "@/features/skills/ConversationSkillsIndicator";
 import { SessionModeSwitcher } from "@/features/sessions/SessionModeSwitcher";
 import { useSessionWorkspace } from "@/features/sessions/SessionWorkspaceContext";
+import { FileExplorerToggle } from "@/features/files/FileExplorer";
 
 interface TitlebarTargets {
   readonly mode: HTMLElement;
   readonly title: HTMLElement;
+  readonly actions: HTMLElement;
 }
 
 export function SessionTitlebar() {
@@ -18,10 +20,11 @@ export function SessionTitlebar() {
   useEffect(() => {
     const title = document.getElementById("session-titlebar-title-slot");
     const mode = document.getElementById("session-titlebar-mode-slot");
-    if (title === null || mode === null) {
+    const actions = document.getElementById("session-titlebar-actions-slot");
+    if (title === null || mode === null || actions === null) {
       throw new Error("Session titlebar slots are required.");
     }
-    setTargets({ mode, title });
+    setTargets({ mode, title, actions });
   }, []);
 
   if (targets === null) {
@@ -39,6 +42,7 @@ export function SessionTitlebar() {
         targets.title
       )}
       {createPortal(<SessionModeSwitcher />, targets.mode)}
+      {createPortal(<FileExplorerToggle />, targets.actions)}
     </>
   );
 }

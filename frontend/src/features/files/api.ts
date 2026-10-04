@@ -31,3 +31,18 @@ export function readFileImage(sessionId: string, preview: FilePreview, signal: A
 export function downloadFile(sessionId: string, path: string): Promise<Blob> {
   return requestBlob(endpoint(sessionId, "download", path));
 }
+
+export interface DirectoryEntry { readonly name: string; readonly type: "file" | "directory" | "other"; readonly size: number | null; }
+export interface DirectoryListing { readonly path: string; readonly entries: readonly DirectoryEntry[]; readonly truncated: boolean; }
+
+export async function listDirectory(sessionId: string, path: string, signal: AbortSignal): Promise<DirectoryListing> {
+  const value = await requestJson<DirectoryListing>(endpoint(sessionId, "list", path), { signal });
+  if (value.path !== path || !Array.isArray(value.entries) || typeof value.truncated !== "boolean"
+    || value.entries.some(entry => typeof entry.name !== "string" || entry.name === "" || /[\/\x00]/.test(entry.name) || [".", ".."].includes(entry.name)
+      || !["file", "directory", "other"].includes(entry.type)
+      || !(entry.size === null || (entry.type === "file" && Number.isSafeInteger(entry.size) && entry.size >= 0)))
+    || new Set(value.entries.map(entry => entry.name)).size !== value.entries.length) throw new Error("Invalid directory listing payload.");
+  return value;
+}
+
+export const directoryQueryKey = (sessionId: string, path?: string) => path === undefined ? ["workspace-files", sessionId] as const : ["workspace-files", sessionId, path] as const;
