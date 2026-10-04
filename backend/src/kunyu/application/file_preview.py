@@ -14,6 +14,7 @@ from kunyu.domain.filesystem import (
     Filesystem,
     FilesystemError,
     FilesystemScope,
+    FsDirectoryListing,
     FsInfo,
     FsTarget,
 )
@@ -191,6 +192,9 @@ class FilePreviewService:
         return FilePreview(
             target.display_path, info.version, info.size, kind, state, threshold, text
         )
+
+    def list_directory(self, session_id: str, path: str) -> FsDirectoryListing:
+        return self._filesystem.list_directory(self._target(session_id, path), Event())
 
     def image(self, session_id: str, path: str, version: str) -> tuple[str, bytes]:
         target = self._target(session_id, path)

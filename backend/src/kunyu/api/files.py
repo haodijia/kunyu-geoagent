@@ -39,6 +39,20 @@ class FilePreviewResponse(BaseModel):
     text: str | None
 
 
+class DirectoryEntryResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    name: str
+    type: Literal["file", "directory", "other"]
+    size: int | None
+
+
+class DirectoryListingResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    path: str
+    entries: list[DirectoryEntryResponse]
+    truncated: bool
+
+
 def get_file_service(
     request: Request, database: Annotated[Database, Depends(get_database)]
 ) -> FilePreviewService:
@@ -87,6 +101,16 @@ def preview_file(
 ) -> FilePreviewResponse:
     with file_errors(session_id):
         return FilePreviewResponse.model_validate(service.preview(session_id, path))
+
+
+@router.get("/list", response_model=DirectoryListingResponse)
+def list_directory(
+    session_id: str, path: PathQuery, service: FilesDependency
+) -> DirectoryListingResponse:
+    with file_errors(session_id):
+        return DirectoryListingResponse.model_validate(
+            service.list_directory(session_id, path)
+        )
 
 
 @router.get("/image")

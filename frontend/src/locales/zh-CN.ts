@@ -1,4 +1,9 @@
 export const zhCN = {
+  fileExplorer: {
+    title: "文件", root: "工作区", toggle: "切换文件面板", close: "关闭文件面板", resize: "调整文件面板宽度",
+    refresh: "刷新文件", collapse: "全部折叠", loading: "正在读取目录…", empty: "此目录为空。",
+    truncated: "此目录仅显示前 2000 项。", other: "符号链接及特殊文件无法打开。",
+  },
   filePreview: {
     title: "文件预览", tabs: "打开的文件", close: "关闭预览", closeTab: (name: string) => `关闭 ${name}`, resize: "调整预览宽度",
     source: "源码", preview: "预览", split: "分屏", viewMode: "文件视图", diff: "变更", html: "HTML 预览",
@@ -7,7 +12,7 @@ export const zhCN = {
     line: (path: string, line: number) => `查看 ${path} 第 ${line} 行`, invalidLink: "文件链接无效。",
     unsupported: "暂不支持预览此文件类型，可下载文件查看。", failed: "文件读取失败。", diffMissing: "未找到这次工具调用的已保存变更。",
     oversized: (bytes: number, limit: number) => `文件大小 ${bytes.toLocaleString()} 字节，超过预览上限 ${limit.toLocaleString()} 字节。可下载完整文件查看。`,
-    errors: { FS_NOT_FOUND: "文件已不存在。", FS_STALE_VERSION: "文件已发生变化，请刷新预览。", FS_OUT_OF_SCOPE: "文件路径不在当前工作区中。", FS_PERMISSION_DENIED: "无权读取该文件。", FS_NOT_TEXT: "此文件不是有效的 UTF-8 文本，可下载查看。", FS_NOT_REGULAR_FILE: "此路径不是可预览的普通文件。", FILE_READ_FAILED: "文件读取失败，请重试。" },
+    errors: { FS_NOT_DIRECTORY: "此路径不是可展开的目录。", FS_IO_ERROR: "无法读取文件系统，请检查目录权限后刷新。", FS_NOT_FOUND: "文件已不存在。", FS_STALE_VERSION: "文件已发生变化，请刷新预览。", FS_OUT_OF_SCOPE: "文件路径不在当前工作区中。", FS_PERMISSION_DENIED: "无权读取该文件。", FS_NOT_TEXT: "此文件不是有效的 UTF-8 文本，可下载查看。", FS_NOT_REGULAR_FILE: "此路径不是可预览的普通文件。", FILE_READ_FAILED: "文件读取失败，请重试。" },
   },
   api: {
     runtimeUnavailable: "桌面运行时连接不可用。",

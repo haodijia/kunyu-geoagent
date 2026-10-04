@@ -15,16 +15,19 @@ from kunyu.domain.attachments import AttachmentError, FileAttachment, attachment
 from kunyu.domain.filesystem import (
     FilesystemError,
     FilesystemScope,
+    FsDirectoryListing,
     FsEditRequest,
     FsInfo,
     FsMutationOutcome,
     FsTarget,
     FsWriteIntent,
 )
+from kunyu.integrations.filesystem_directory import list_workspace_directory
 from kunyu.integrations.filesystem_io import (
     atomic_write,
     check_cancelled,
     io_error,
+    open_directory,
     open_file,
     open_parent,
     probe_at,
@@ -74,9 +77,7 @@ class MountedFilesystem:
             file_path if file_path.startswith("/") else f"/workspace/{file_path}"
         )
         if path == "/workspace":
-            raise FilesystemError(
-                "FS_NOT_REGULAR_FILE", 'cannot read "/workspace": not a regular file'
-            )
+            return FsTarget(path, scope, "workspace", (), None)
         if not path.startswith("/workspace/"):
             raise FilesystemError(
                 "FS_OUT_OF_SCOPE",
@@ -166,6 +167,9 @@ class MountedFilesystem:
             ref = self._attachment(target)
             return FsInfo(f"attachment:{ref.id}:{ref.bytes}", "file", ref.bytes)
         try:
+            if not target.parts:
+                with open_directory(self._root, target, cancelled) as directory:
+                    return FsInfo(version_of(os.fstat(directory)), "directory", None)
             with open_parent(self._root, target, cancelled=cancelled) as parent:
                 info = probe_at(parent, target.parts[-1])
             check_cancelled(cancelled, "stat")
@@ -185,6 +189,9 @@ class MountedFilesystem:
             return None
         except OSError as error:
             raise io_error(error, target.display_path, "stat") from error
+
+    def list_directory(self, target: FsTarget, cancelled: Event) -> FsDirectoryListing:
+        return list_workspace_directory(self._root, target, cancelled)
 
     def read_text(self, target: FsTarget, cancelled: Event) -> str:
         return "".join(self.stream_text(target, cancelled))
@@ -379,6 +386,10 @@ class MountedFilesystem:
 
     @staticmethod
     def _require_writable(target: FsTarget) -> None:
+        if target.kind == "workspace" and not target.parts:
+            raise FilesystemError(
+                "FS_NOT_REGULAR_FILE", 'cannot modify "/workspace": not a regular file'
+            )
         if target.kind != "workspace" or (
             target.parts and target.parts[0].casefold() == SEARCH_DIRECTORY
         ):

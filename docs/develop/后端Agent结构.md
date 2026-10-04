@@ -319,8 +319,12 @@ Canonical `content` 与 `paths`／按文件分组的 `matches` 展示元数据�
 
 ## 人类文件预览与下载
 
-`application.file_preview.FilePreviewService` 处理完整预览和原件下载，`api.files` 只负责鉴权接口与错误映射。复用 `Filesystem.stream_bytes` 的目录描述符／no-follow 读取；工作区取实际会话归属，文件附件要求同会话精确收据与名称，恢复文件继续按会话隔离。人类预览允许查看尚未送入模型的文件附件，但不触发 Agent observation，不改变模型从实际历史取得的文件授权。
+`application.file_preview.FilePreviewService` 处理目录列表、完整预览和原件下载，`api.files` 只负责鉴权接口与错误映射。复用文件系统提供者的目录描述符／no-follow 读取；工作区取实际会话归属，文件附件要求同会话精确收据与名称，恢复文件继续按会话隔离。人类预览允许查看尚未送入模型的文件附件，但不触发 Agent observation，不改变模型从实际历史取得的文件授权。
 
 `GET /api/v1/sessions/{session_id}/files/preview?path=...` 先 stat 返回不透明版本、源字节数与类型。文本最多 1 MiB，图片源最多 20 MiB，不支持类型与超限仅返回明确状态，不读取内容。文本整读后验证版本和实际长度，严格 UTF-8 解码并去除 BOM，保留 CRLF；不返回截断文本。`/image` 要求对应版本，复用图片规范化，可能缩小大图或取首帧；`/download` 读取原始字节，提前打开文件再发送响应头，精确长度并在断开或取消时关闭生成器／描述符。API 原件下载使用流式响应；当前前端下载通过鉴权 Blob，仍会在 renderer 中持有整个下载文件。
 
-前端 `features/files` 统一管理预览标签、宽度、查看器与入口。文件标签按规范化路径去重，刷新重新读取当前版本；变更标签按真实 tool_call_id 定位 journal 投影的原始 hunks，避免把后续编辑当作历史变更。会话存储只保留标签描述与宽度；源码按需加载 CodeMirror 语言包，并保持只读与虚拟化。Markdown 文件链接可按当前文件目录解析并定位行号；HTML 在独立 sandbox iframe 内，仅允许内联脚本和样式，CSP 禁止网络。尚未提供文件浏览树、用户保存、文件监视、PDF／Office 与 HTML 本地资源加载。
+前端 `features/files` 统一管理目录树、预览标签、宽度、查看器与入口。文件标签按规范化路径去重，刷新重新读取当前版本；变更标签按真实 tool_call_id 定位 journal 投影的原始 hunks，避免把后续编辑当作历史变更。会话存储只保留标签描述与宽度；源码按需加载 CodeMirror 语言包，并保持只读与虚拟化。Markdown 文件链接可按当前文件目录解析并定位行号；HTML 在独立 sandbox iframe 内，仅允许内联脚本和样式，CSP 禁止网络。尚未提供用户保存、原生文件监视、PDF／Office 与 HTML 本地资源加载。
+
+`GET /api/v1/sessions/{session_id}/files/list?path=...` 只列当前工作区目录的一层。Filesystem 新增目录列表契约，`filesystem_directory` 负责有界扫描；根目录按需建立托管存储，缺失用户目录不会被创建。支持普通隐藏文件，排除内部搜索恢复目录及 UUID 原子写入暂存目录；类型来自 no-follow stat，链接与特殊文件标记 other，不可打开。后端稳定名称顺序截取前 2000 项并标记 truncated，扫描只保留上限加一的候选名称；选中条目在 stat 前消失则明确报 FS_STALE_VERSION。根目录作为真实 directory 解析，read/write/edit 继续拒绝它作为文件。
+
+文件树位于预览面板外侧，按工作区保存展开路径、开关偏好及 260px 默认／220–500px 宽度，不缓存列表。按需加载各级目录，并以目录优先、自然名称排序展示。成功的 write/edit 完成事件通过真实 tool_call_id 与 requested 名称关联，使活动目录重新读取；手动刷新覆盖根和已展开目录，关闭的目录在下次打开时重新读取。外部变更目前需要手动刷新，尚未实现 harness 的目录观察服务。

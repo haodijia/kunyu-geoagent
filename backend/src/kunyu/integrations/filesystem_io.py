@@ -35,28 +35,31 @@ def io_error(error: OSError, path: str, verb: str) -> FilesystemError:
     return FilesystemError(code, f'cannot {verb} "{path}": {error.strerror}')
 
 
-@contextmanager
-def open_parent(
-    root: Path,
-    target: FsTarget,
-    *,
-    create: bool = False,
-    cancelled: Event | None = None,
-) -> Iterator[int]:
+def require_workspace_target(target: FsTarget) -> None:
     if (
         target.kind != "workspace"
         or target.attachment is not None
         or re.fullmatch(r"[A-Za-z0-9_-]{1,64}", target.scope.workspace_id) is None
-        or not target.parts
         or any(
             part in {"", ".", ".."} or "/" in part or "\x00" in part
             for part in target.parts
         )
-        or target.display_path != "/workspace/" + "/".join(target.parts)
+        or target.display_path
+        != "/workspace" + ("/" + "/".join(target.parts) if target.parts else "")
     ):
         raise FilesystemError(
             "FS_INVALID_TARGET", "The workspace target is not a resolved file path."
         )
+
+
+@contextmanager
+def _open_path(
+    root: Path,
+    target: FsTarget,
+    parts: tuple[str, ...],
+    create: bool,
+    cancelled: Event | None,
+) -> Iterator[int]:
     descriptors = []
     try:
         descriptor = os.open(root, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
@@ -65,7 +68,7 @@ def open_parent(
             "workspaces",
             target.scope.workspace_id,
             "files",
-            *target.parts[:-1],
+            *parts,
         ):
             if cancelled is not None:
                 check_cancelled(cancelled, "write" if create else "read")
@@ -82,6 +85,42 @@ def open_parent(
     finally:
         for descriptor in reversed(descriptors):
             os.close(descriptor)
+
+
+@contextmanager
+def open_parent(
+    root: Path,
+    target: FsTarget,
+    *,
+    create: bool = False,
+    cancelled: Event | None = None,
+) -> Iterator[int]:
+    require_workspace_target(target)
+    if not target.parts:
+        raise FilesystemError(
+            "FS_NOT_REGULAR_FILE", 'cannot read "/workspace": not a regular file'
+        )
+    with _open_path(root, target, target.parts[:-1], create, cancelled) as descriptor:
+        yield descriptor
+
+
+@contextmanager
+def open_directory(root: Path, target: FsTarget, cancelled: Event) -> Iterator[int]:
+    require_workspace_target(target)
+    try:
+        # Provision only the managed root, never a missing user directory.
+        with _open_path(
+            root, target, target.parts, not target.parts, cancelled
+        ) as descriptor:
+            yield descriptor
+    except FileNotFoundError as error:
+        raise FilesystemError(
+            "FS_NOT_FOUND", f'cannot list "{target.display_path}": not found'
+        ) from error
+    except NotADirectoryError as error:
+        raise FilesystemError(
+            "FS_NOT_DIRECTORY", f'cannot list "{target.display_path}": not a directory'
+        ) from error
 
 
 def probe_at(parent: int, name: str) -> os.stat_result | None:

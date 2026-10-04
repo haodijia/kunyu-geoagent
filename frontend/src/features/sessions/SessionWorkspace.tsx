@@ -17,6 +17,8 @@ import { SessionWorkspaceProvider } from "@/features/sessions/SessionWorkspaceCo
 import { zhCN } from "@/locales/zh-CN";
 import { FilePreviewProvider } from "@/features/files/FilePreviewContext";
 import { FilePreviewLayout } from "@/features/files/FilePreviewLayout";
+import { FileExplorerProvider } from "@/features/files/FileExplorerContext";
+import { FileExplorerLayout } from "@/features/files/FileExplorer";
 
 const content = zhCN.sessionWorkspace;
 
@@ -117,12 +119,14 @@ function SessionWorkspaceContent({
           workspaceId={sessionQuery.data.workspace_id}
         >
         <FilePreviewProvider key={sessionQuery.data.id} sessionId={sessionQuery.data.id}>
+        <FileExplorerProvider sessionId={sessionQuery.data.id} workspaceId={sessionQuery.data.workspace_id}>
         <section className="flex h-full min-h-0 flex-col bg-background">
           <SessionTitlebar />
           <div className="min-h-0 flex-1 overflow-hidden">
-            <FilePreviewLayout><Outlet /></FilePreviewLayout>
+            <FileExplorerLayout><FilePreviewLayout><Outlet /></FilePreviewLayout></FileExplorerLayout>
           </div>
         </section>
+        </FileExplorerProvider>
         </FilePreviewProvider>
         </SessionMessagesProvider>
       </SessionEventProvider>

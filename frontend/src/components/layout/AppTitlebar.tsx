@@ -67,7 +67,8 @@ export function AppTitlebar({
         className="absolute top-1/2 -translate-x-1/2 -translate-y-1/2 transition-[left] duration-200 ease-out [-webkit-app-region:no-drag]"
         style={{ left: `calc((100% + ${sidebarCollapsed ? 56 : sidebarWidth}px) / 2)` }}
       />
-      <div className="ml-auto mr-4 flex shrink-0 items-center gap-5 text-muted-foreground [-webkit-app-region:no-drag] max-[640px]:hidden">
+      <div id="session-titlebar-actions-slot" className="ml-auto mr-2 flex shrink-0 items-center text-muted-foreground [-webkit-app-region:no-drag]" />
+      <div className="mr-4 flex shrink-0 items-center gap-5 text-muted-foreground [-webkit-app-region:no-drag] max-[640px]:hidden">
         <span
           className="flex size-8 items-center justify-center"
           role="img"
