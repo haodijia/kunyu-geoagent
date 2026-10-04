@@ -16,7 +16,6 @@ from kunyu.agent.runtime.tools import (
 )
 from kunyu.agent.scope import AgentScopes
 from kunyu.agent.tools.files_shared import (
-    filesystem_operation,
     filesystem_scope,
     tool_filesystem_error,
 )
@@ -41,6 +40,7 @@ from kunyu.domain.filesystem import (
     FsObservation,
     FsTarget,
 )
+from kunyu.integrations.filesystem_operation import filesystem_operation
 
 
 class _ReadArguments(ToolArguments):

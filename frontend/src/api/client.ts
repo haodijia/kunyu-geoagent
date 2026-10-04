@@ -42,11 +42,12 @@ export async function requestJson<ResponseBody>(
 export async function* streamEvents(
   path: string,
   signal?: AbortSignal,
-  onOpen?: () => void
+  onOpen?: () => void,
+  init: RequestInit = {}
 ): AsyncGenerator<ServerSentEvent> {
   const response = await request(
     path,
-    { method: "GET", signal },
+    { method: "GET", ...init, signal },
     "text/event-stream"
   );
   if (response.body === null) {

@@ -1,7 +1,7 @@
 """Human file previews are scoped to the session, independent of Agent observation."""
 
 import logging
-from collections.abc import AsyncGenerator, Callable, Generator
+from collections.abc import AsyncGenerator, Callable, Generator, Sequence
 from dataclasses import dataclass
 from pathlib import PurePosixPath
 from threading import Event
@@ -18,8 +18,10 @@ from kunyu.domain.filesystem import (
     FsInfo,
     FsTarget,
     FsWatchFrame,
+    FsWriteIntent,
 )
 from kunyu.domain.sessions import SessionRepository
+from kunyu.integrations.search_storage import SEARCH_DIRECTORY
 from kunyu.persistence.attachments import SQLAlchemyAttachmentStore
 
 logger = logging.getLogger(__name__)
@@ -65,6 +67,7 @@ class FilePreview:
     state: Literal["ready", "oversized", "unsupported"]
     threshold_bytes: int | None
     text: str | None
+    editable: bool
 
 
 @dataclass(frozen=True, slots=True)
@@ -191,14 +194,85 @@ class FilePreviewService:
                     "FS_NOT_TEXT", "This file is not valid UTF-8 text."
                 ) from error
         return FilePreview(
-            target.display_path, info.version, info.size, kind, state, threshold, text
+            target.display_path,
+            info.version,
+            info.size,
+            kind,
+            state,
+            threshold,
+            text,
+            state == "ready"
+            and kind in {"code", "markdown", "html"}
+            and target.kind == "workspace"
+            and target.parts[0].casefold() != SEARCH_DIRECTORY,
+        )
+
+    def save(
+        self, session_id: str, path: str, text: str, version: str, cancelled: Event
+    ) -> FilePreview:
+        target = self._target(session_id, path)
+        if target.kind != "workspace" or (
+            target.parts and target.parts[0].casefold() == SEARCH_DIRECTORY
+        ):
+            raise FilesystemError("FS_READ_ONLY", "This file mount is read-only.")
+        if not target.parts:
+            raise FilesystemError(
+                "FS_NOT_REGULAR_FILE", "The workspace root is not an editable file."
+            )
+        try:
+            size = len(text.encode("utf-8"))
+        except UnicodeEncodeError as error:
+            raise FilesystemError(
+                "FS_NOT_TEXT", "The edited text is not valid UTF-8."
+            ) from error
+        if "\x00" in text:
+            raise FilesystemError("FS_NOT_TEXT", "Text files cannot contain NUL bytes.")
+        if size > TEXT_LIMIT:
+            raise FilesystemError(
+                "FS_TOO_LARGE", "The edited text exceeds the preview size limit."
+            )
+        info = self._filesystem.stat(target, cancelled)
+        if info is None or info.version != version:
+            raise FilesystemError(
+                "FS_STALE_VERSION", "The file changed; the edited text was not saved."
+            )
+        preview = self.preview(session_id, target.display_path)
+        if preview.version != version:
+            raise FilesystemError(
+                "FS_STALE_VERSION", "The file changed; the edited text was not saved."
+            )
+        if not preview.editable:
+            raise FilesystemError(
+                "FS_NOT_TEXT", "Only complete text previews can be edited."
+            )
+        outcome = self._filesystem.write_text(
+            target, text, FsWriteIntent("replace_if_version", version), cancelled
+        )
+        return FilePreview(
+            target.display_path,
+            outcome.version,
+            size,
+            preview.kind,
+            "ready",
+            TEXT_LIMIT,
+            text,
+            True,
         )
 
     def list_directory(self, session_id: str, path: str) -> FsDirectoryListing:
         return self._filesystem.list_directory(self._target(session_id, path), Event())
 
-    def watch(self, session_id: str, path: str) -> AsyncGenerator[FsWatchFrame, None]:
-        return self._filesystem.watch(self._target(session_id, path))
+    def watch(
+        self, session_id: str, paths: Sequence[str]
+    ) -> dict[str, AsyncGenerator[FsWatchFrame, None]]:
+        targets = [self._target(session_id, path) for path in paths]
+        if len({target.display_path for target in targets}) != len(targets):
+            raise FilesystemError(
+                "FS_INVALID_PATH", "Duplicate watch paths are not allowed."
+            )
+        return {
+            target.display_path: self._filesystem.watch(target) for target in targets
+        }
 
     def image(self, session_id: str, path: str, version: str) -> tuple[str, bytes]:
         target = self._target(session_id, path)

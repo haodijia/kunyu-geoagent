@@ -16,7 +16,6 @@ from kunyu.agent.runtime.tools import (
     ToolSpec,
 )
 from kunyu.agent.tools.files_shared import (
-    filesystem_operation,
     filesystem_scope,
     tool_filesystem_error,
 )
@@ -39,6 +38,7 @@ from kunyu.agent.tools.shared import (
 )
 from kunyu.domain.agent_context import RunContextRepository
 from kunyu.domain.filesystem import FilesystemError
+from kunyu.integrations.filesystem_operation import filesystem_operation
 from kunyu.integrations.search_storage import SEARCH_DIRECTORY, WorkspaceSearchStorage
 from kunyu.integrations.subprocess import LocalSubprocess
 

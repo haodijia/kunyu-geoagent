@@ -1,33 +1,20 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 
-import { streamFileChanges, type FileWatchFrame } from "./api";
-import { filePreviewError } from "./preview-status";
+import { type FileWatchFrame } from "./api";
+import { useFileWatchRegistry, type WatchUpdate } from "./FileWatchContext";
 
 export function useFileWatch(sessionId: string, path: string, enabled: boolean, onFrame: (frame: FileWatchFrame) => void) {
   const callback = useRef(onFrame);
   callback.current = onFrame;
-  const [generation, setGeneration] = useState(0);
-  const [error, setError] = useState<string | null>(null);
-  const [status, setStatus] = useState<"connecting" | "connected" | "failed" | "disabled">("connecting");
+  const registry = useFileWatchRegistry(sessionId);
+  const [state, setState] = useState<WatchUpdate>({ status: "connecting", error: null });
   useEffect(() => {
-    if (!enabled) { setStatus("disabled"); setError(null); return; }
-    const controller = new AbortController();
-    const cancel = () => controller.abort();
-    window.addEventListener("beforeunload", cancel);
-    setStatus("connecting"); setError(null);
-    void (async () => {
-      try {
-        for await (const frame of streamFileChanges(sessionId, path, controller.signal)) {
-          if (controller.signal.aborted) return;
-          setStatus("connected"); callback.current(frame);
-        }
-      } catch (error) {
-        if (controller.signal.aborted) return;
-        console.error("[files] Watch failed.", { sessionId, path, error });
-        setStatus("failed"); setError(filePreviewError(error));
-      }
-    })();
-    return () => { controller.abort(); window.removeEventListener("beforeunload", cancel); };
-  }, [sessionId, path, enabled, generation]);
-  return { status, error, retry: useCallback(() => setGeneration(current => current + 1), []) };
+    if (!enabled) return;
+    return registry.subscribe(path, update => {
+      setState({ status: update.status, error: update.error });
+      if (update.frame !== undefined) callback.current(update.frame);
+    });
+  }, [registry, path, enabled]);
+  const retry = useCallback(() => registry.retry(path), [registry, path]);
+  return { status: enabled ? state.status : "disabled", error: enabled ? state.error : null, retry };
 }

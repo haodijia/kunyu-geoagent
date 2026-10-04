@@ -1,5 +1,6 @@
-"""A file watch response owns its generation even before body iteration begins."""
+"""One session transport owns and drains independent native file watchers."""
 
+import asyncio
 import json
 import logging
 from collections.abc import AsyncGenerator, AsyncIterator
@@ -22,32 +23,55 @@ class FileWatchResponse(StreamingResponse):
     def __init__(
         self,
         session_id: str,
-        iterator: AsyncGenerator[FsWatchFrame, None],
-        first: FsWatchFrame,
+        sources: dict[str, AsyncGenerator[FsWatchFrame, None]],
     ) -> None:
-        self._iterator = iterator
+        self._sources = sources
+        self._session_id = session_id
+        self._queue: asyncio.Queue[str | None] = asyncio.Queue(maxsize=128)
 
         async def content() -> AsyncIterator[str]:
-            yield frame(first.kind, asdict(first))
-            try:
-                async for item in iterator:
-                    yield frame(item.kind, asdict(item))
-            except Exception as error:
-                logger.exception(
-                    "File watch failed for session %s, path %s", session_id, first.path
-                )
-                code = (
-                    error.code
-                    if isinstance(error, FilesystemError)
-                    else "FS_WATCH_FAILED"
-                )
-                yield frame("error", {"code": code, "message": str(error)})
+            remaining = len(sources)
+            while remaining:
+                item = await self._queue.get()
+                if item is None:
+                    remaining -= 1
+                else:
+                    yield item
 
         super().__init__(
             content(),
             media_type="text/event-stream",
             headers={"Cache-Control": "no-store", "X-Accel-Buffering": "no"},
         )
+
+    async def _pump(
+        self, path: str, source: AsyncGenerator[FsWatchFrame, None]
+    ) -> None:
+        try:
+            async for item in source:
+                await self._queue.put(frame(item.kind, asdict(item)))
+        except Exception as error:
+            logger.exception(
+                "File watch failed for session %s, path %s", self._session_id, path
+            )
+            code = (
+                error.code if isinstance(error, FilesystemError) else "FS_WATCH_FAILED"
+            )
+            await self._queue.put(
+                frame(
+                    "error",
+                    {
+                        "kind": "error",
+                        "path": path,
+                        "code": code,
+                        "message": str(error),
+                    },
+                )
+            )
+        finally:
+            with CancelScope(shield=True):
+                await source.aclose()
+        await self._queue.put(None)
 
     async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
         try:
@@ -57,9 +81,13 @@ class FileWatchResponse(StreamingResponse):
                     await self.stream_response(send)
                     tasks.cancel_scope.cancel()
 
+                for path, source in self._sources.items():
+                    tasks.start_soon(self._pump, path, source)
                 tasks.start_soon(stream)
                 await self.listen_for_disconnect(receive)
                 tasks.cancel_scope.cancel()
         finally:
             with CancelScope(shield=True):
-                await self._iterator.aclose()
+                await self.body_iterator.aclose()
+                for source in self._sources.values():
+                    await source.aclose()

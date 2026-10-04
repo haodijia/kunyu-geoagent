@@ -1,4 +1,4 @@
-import { ApiError, requestBlob, requestJson, streamEvents } from "@/api/client";
+import { requestBlob, requestJson, streamEvents } from "@/api/client";
 
 export interface FilePreview {
   readonly path: string;
@@ -8,6 +8,7 @@ export interface FilePreview {
   readonly state: "ready" | "oversized" | "unsupported";
   readonly threshold_bytes: number | null;
   readonly text: string | null;
+  readonly editable: boolean;
 }
 
 const endpoint = (sessionId: string, action: string, path: string) => `/api/v1/sessions/${encodeURIComponent(sessionId)}/files/${action}?path=${encodeURIComponent(path)}`;
@@ -15,6 +16,7 @@ const endpoint = (sessionId: string, action: string, path: string) => `/api/v1/s
 export async function readFilePreview(sessionId: string, path: string, signal: AbortSignal): Promise<FilePreview> {
   const value = await requestJson<FilePreview>(endpoint(sessionId, "preview", path), { signal });
   if (typeof value.path !== "string" || typeof value.version !== "string" || !value.version
+    || typeof value.editable !== "boolean" || (value.editable && (value.state !== "ready" || !["code", "markdown", "html"].includes(value.kind)))
     || !Number.isSafeInteger(value.bytes) || value.bytes < 0
     || !["markdown", "html", "code", "image", "unsupported"].includes(value.kind)
     || !["ready", "oversized", "unsupported"].includes(value.state)
@@ -50,22 +52,38 @@ export const directoryQueryKey = (sessionId: string, path?: string) => path === 
 export interface FileInfo { readonly version: string; readonly kind: "file" | "directory" | "other"; readonly size: number | null; }
 export interface FileWatchFrame { readonly path: string; readonly kind: "ready" | "change"; readonly info: FileInfo | null; }
 
-export async function* streamFileChanges(sessionId: string, path: string, signal: AbortSignal): AsyncGenerator<FileWatchFrame> {
-  let ready = false;
-  for await (const event of streamEvents(endpoint(sessionId, "changes", path), signal)) {
+export interface FileWatchFailure { readonly path: string; readonly kind: "error"; readonly code: string; readonly message: string; }
+export type FileWatchEvent = FileWatchFrame | FileWatchFailure;
+
+export async function* streamFileChanges(sessionId: string, paths: readonly string[], signal: AbortSignal): AsyncGenerator<FileWatchEvent> {
+  const states = new Map<string, "connecting" | "connected" | "failed">(paths.map(path => [path, "connecting"]));
+  for await (const event of streamEvents(`/api/v1/sessions/${encodeURIComponent(sessionId)}/files/changes`, signal, undefined, { method: "POST", body: JSON.stringify({ paths }) })) {
     const value = JSON.parse(event.data) as unknown;
+    if (typeof value !== "object" || value === null || !("path" in value) || typeof value.path !== "string"
+      || !states.has(value.path) || states.get(value.path) === "failed") throw new Error("Invalid file watch frame.");
     if (event.event === "file.error") {
-      if (typeof value !== "object" || value === null || !("code" in value) || typeof value.code !== "string" || !("message" in value) || typeof value.message !== "string") throw new Error("Invalid file watch failure.");
-      throw new ApiError(503, value.message, { error: value });
+      const failure = value as FileWatchFailure;
+      if (failure.kind !== "error" || typeof failure.code !== "string" || !failure.code || typeof failure.message !== "string") throw new Error("Invalid file watch failure.");
+      states.set(value.path, "failed");
+      yield failure;
+      continue;
     }
-    if (typeof value !== "object" || value === null) throw new Error("Invalid file watch frame.");
     const frame = value as FileWatchFrame;
-    if (frame.path !== path || !(frame.kind === "ready" || frame.kind === "change") || event.event !== `file.${frame.kind}`
-      || (frame.kind === "ready" ? ready : !ready)
+    if (!(frame.kind === "ready" || frame.kind === "change") || event.event !== `file.${frame.kind}`
+      || (frame.kind === "ready" ? states.get(frame.path) !== "connecting" : states.get(frame.path) !== "connected")
       || !(frame.info === null || (typeof frame.info === "object" && frame.info !== undefined && typeof frame.info.version === "string" && frame.info.version !== "" && ["file", "directory", "other"].includes(frame.info.kind)
         && (frame.info.size === null || (frame.info.kind === "file" && Number.isSafeInteger(frame.info.size) && frame.info.size >= 0))))) throw new Error("Invalid file watch frame.");
-    ready = true;
+    states.set(frame.path, "connected");
     yield frame;
   }
-  if (!signal.aborted) throw new Error("The file watch ended; reconnect to resume notifications.");
+  if (!signal.aborted && [...states.values()].some(state => state !== "failed")) throw new Error("The file watch ended; reconnect to resume notifications.");
+}
+
+export async function saveFile(sessionId: string, path: string, text: string, version: string, signal: AbortSignal): Promise<FilePreview> {
+  const value = await requestJson<FilePreview>(endpoint(sessionId, "content", path), { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ text, version }), signal });
+  if (value.path !== path || value.text !== text || typeof value.version !== "string" || !value.version
+    || value.editable !== true || value.state !== "ready" || !["code", "markdown", "html"].includes(value.kind)
+    || !Number.isSafeInteger(value.bytes) || value.bytes !== new TextEncoder().encode(text).length
+    || value.threshold_bytes !== 1024 * 1024) throw new Error("Invalid saved file preview payload.");
+  return value;
 }
