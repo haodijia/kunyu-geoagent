@@ -15,7 +15,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { SettingsPageHeader, SettingsPageWrapper } from "@/features/settings/SettingsPage";
 import { zhCN } from "@/locales/zh-CN";
-import { modelConnectionsApi, type ModelConnection } from "./api";
+import { modelConnectionsApi, type ModelConnection, type ModelProtocol } from "./api";
 import {
   EnabledModelSelector,
   ModelDetailSection,
@@ -118,7 +118,7 @@ export function ModelConnectionDetailPage() {
     ?? availableEntries.find((entry) => entry.enabled)?.model_id
     ?? availableEntries[0]?.model_id
     ?? "";
-  const showsEndpoint = connection.provider_type === "custom"
+  const showsEndpoint = connection.provider_type === "deepseek" || connection.provider_type === "custom"
     || connection.provider_type === "ollama"
     || connection.provider_type === "lm_studio"
     || connection.provider_type === "localai";
@@ -153,6 +153,21 @@ export function ModelConnectionDetailPage() {
         ) : null}
 
         <ModelDetailSection title={content.detail.credentials} description={content.detail.credentialsHelp}>
+          {connection.provider_type === "deepseek" || connection.provider_type === "custom" ? (
+            <label className="provider-form-field">
+              <span>{content.detail.protocol}</span>
+              <select value={connection.protocol} disabled={busyAction !== null} onChange={(event) => {
+                const protocol = event.target.value as ModelProtocol;
+                const official = connection.base_url === "https://api.deepseek.com" || connection.base_url === "https://api.deepseek.com/anthropic";
+                void perform("protocol", () => modelConnectionsApi.update(connection.id, {
+                  protocol, max_tokens_field: "max_tokens", include_usage: false,
+                  ...(official ? { base_url: protocol === "deepseek_messages" ? "https://api.deepseek.com/anthropic" : "https://api.deepseek.com" } : {}),
+                }));
+              }}>
+                {Object.entries(content.protocols).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
+              </select>
+            </label>
+          ) : null}
           {connection.auth_mode === "api_key" ? (
             <ModelExpandableRow
               label={content.detail.modelKey}

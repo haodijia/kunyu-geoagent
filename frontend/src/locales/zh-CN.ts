@@ -140,6 +140,7 @@ export const zhCN = {
       category: "供应商分类",
       empty: "没有匹配的供应商",
     },
+    protocols: { openai_compatible: "Chat Completions", deepseek_messages: "DeepSeek Messages" },
     create: {
       connect: (name: string) => `连接 ${name}`,
       subtitle: "凭据仅保存在本机，保存后会自动获取模型列表。",
@@ -147,6 +148,7 @@ export const zhCN = {
       apiKeyPlaceholder: "输入或粘贴 API Key",
       name: "显示名称",
       endpoint: "服务地址",
+      protocol: "连接协议",
       save: "保存供应商",
       saving: "正在保存…",
     },
@@ -163,6 +165,7 @@ export const zhCN = {
       keySaved: "模型密钥已保存",
       noCredential: "此连接无需访问凭据。",
       endpoint: "服务地址",
+      protocol: "连接协议",
       edit: "编辑",
       models: "模型",
       modelsHelp: "选择允许使用的模型，并验证文本与工具调用能力。",

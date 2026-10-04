@@ -55,7 +55,7 @@ from kunyu.domain.model_connections import (
     ModelProtocol,
     ModelProviderType,
 )
-from kunyu.integrations.model.openai_compatible import (
+from kunyu.integrations.model.provider_client import (
     ProviderErrorCode,
     ProviderRequestError,
 )
@@ -70,7 +70,7 @@ class CreateModelConnectionRequest(BaseModel):
 
     display_name: str = Field(min_length=1, max_length=200)
     provider_type: ModelProviderType
-    protocol: Literal[ModelProtocol.OPENAI_COMPATIBLE]
+    protocol: ModelProtocol
     base_url: str = Field(min_length=1, max_length=2_048)
     auth_mode: ModelAuthMode
     max_tokens_field: MaxTokensField
@@ -82,6 +82,7 @@ class UpdateModelConnectionRequest(BaseModel):
     model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
 
     display_name: str | None = Field(default=None, min_length=1, max_length=200)
+    protocol: ModelProtocol | None = None
     base_url: str | None = Field(default=None, min_length=1, max_length=2_048)
     auth_mode: ModelAuthMode | None = None
     enabled: bool | None = None

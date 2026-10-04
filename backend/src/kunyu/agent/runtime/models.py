@@ -78,6 +78,8 @@ class ModelMessage:
     tool_call_id: str | None = None
     context_source: str | None = None
     replay_state: ReplayEnvelope | None = None
+    source_model: str | None = None
+    is_error: bool | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -108,6 +110,8 @@ class TokenUsage:
     input_tokens: int | None = None
     output_tokens: int | None = None
     total_tokens: int | None = None
+    cache_read_input_tokens: int | None = None
+    cache_creation_input_tokens: int | None = None
 
 
 @dataclass(frozen=True, slots=True)

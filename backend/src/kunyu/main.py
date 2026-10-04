@@ -23,7 +23,7 @@ from kunyu.application.model_catalog import ModelCatalogService
 from kunyu.application.model_discovery_tasks import ModelDiscoveryTasks
 from kunyu.application.skills import SkillManagementService
 from kunyu.desktop import DesktopConfigurationError, run_desktop
-from kunyu.integrations.model.openai_compatible import OpenAICompatibleClient
+from kunyu.integrations.model.provider_client import ModelProviderClient
 from kunyu.persistence.database import Database
 from kunyu.persistence.model_connections import SQLAlchemyModelConnectionRepository
 from kunyu.persistence.sessions import SQLAlchemySessionRepository
@@ -53,7 +53,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
             repository,
             repository,
             locks,
-            OpenAICompatibleClient(http_client),
+            ModelProviderClient(http_client),
             agent_runtime.lifecycle,
         )
         discovery_tasks = ModelDiscoveryTasks(catalog_service)

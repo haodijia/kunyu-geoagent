@@ -46,6 +46,7 @@ class ReducedBudget:
 @dataclass(frozen=True, slots=True)
 class ReducedAssistant:
     message_id: str
+    source_model: str
     step: int
     attempt: int
     content: str
@@ -152,6 +153,7 @@ class _Budget:
 @dataclass(slots=True)
 class _Assistant:
     message_id: str
+    source_model: str
     step: int
     attempt: int
     created_at: datetime

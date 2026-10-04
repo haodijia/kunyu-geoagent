@@ -11,9 +11,10 @@ from kunyu.domain.model_connections import (
     ModelCatalogEntry,
     ModelCheck,
     ModelConnection,
+    ModelProtocol,
     ModelProviderType,
 )
-from kunyu.integrations.model.openai_compatible import DiscoveredModel
+from kunyu.integrations.model.provider_client import DiscoveredModel
 
 
 def merge_discovery(
@@ -193,3 +194,16 @@ def ordered_sources(sources: tuple[CatalogSource, ...]) -> tuple[CatalogSource, 
 
 def unchecked() -> ModelCheck:
     return ModelCheck(CheckStatus.UNCHECKED, None, None)
+
+
+def apply_protocol_reasoning(
+    connection: ModelConnection, entry: ModelCatalogEntry
+) -> ModelCatalogEntry:
+    if connection.protocol is ModelProtocol.DEEPSEEK_MESSAGES:
+        return replace(
+            entry,
+            reasoning_efforts=("off", "low", "high", "max"),
+            reasoning_default="high",
+            reasoning_source=CapabilitySource.PROTOCOL,
+        )
+    return entry

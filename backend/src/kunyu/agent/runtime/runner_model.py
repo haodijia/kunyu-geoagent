@@ -99,8 +99,12 @@ def _message_snapshot(message: ModelMessage) -> dict[str, JsonValue]:
     }
     if message.context_source is not None:
         value["source"] = {"kind": "context", "producer": message.context_source}
+    if message.source_model is not None:
+        value["source"] = {"kind": "model", "model": message.source_model}
     if message.tool_call_id is not None:
         value["tool_call_id"] = message.tool_call_id
+    if message.is_error is not None:
+        value["is_error"] = message.is_error
     return value
 
 

@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { SettingsPageHeader, SettingsPageWrapper } from "@/features/settings/SettingsPage";
 import { zhCN } from "@/locales/zh-CN";
-import { modelConnectionsApi, type ModelProviderType } from "./api";
+import { modelConnectionsApi, type ModelProtocol, type ModelProviderType } from "./api";
 import { connectionErrorMessage } from "./model";
 import { displayForProvider } from "./provider-copy";
 import { ProviderLogo } from "./ProviderLogo";
@@ -26,6 +26,7 @@ export function ModelConnectionCreatePage() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [name, setName] = useState(display.name);
+  const [protocol, setProtocol] = useState<ModelProtocol>(selectedProvider.protocol);
   const [baseUrl, setBaseUrl] = useState(selectedProvider.baseUrl);
   const [apiKey, setApiKey] = useState("");
   const [createdConnectionId, setCreatedConnectionId] = useState<string | null>(null);
@@ -48,10 +49,10 @@ export function ModelConnectionCreatePage() {
         const connection = await modelConnectionsApi.create({
           display_name: name,
           provider_type: selectedProvider.providerType,
-          protocol: "openai_compatible",
+          protocol,
           base_url: baseUrl,
           auth_mode: selectedProvider.authMode,
-          max_tokens_field: selectedProvider.maxTokensField,
+          max_tokens_field: protocol === "deepseek_messages" ? "max_tokens" : selectedProvider.maxTokensField,
           include_usage: selectedProvider.includeUsage
         });
         connectionId = connection.id;
@@ -84,6 +85,13 @@ export function ModelConnectionCreatePage() {
         />
 
         <form className="provider-setup-form" onSubmit={(event) => void submit(event)}>
+          {selectedProvider.providerType === "custom" ? (
+            <FormField label={content.create.protocol}>
+              <select value={protocol} disabled={busy || createdConnectionId !== null} onChange={(event) => setProtocol(event.target.value as ModelProtocol)}>
+                {Object.entries(content.protocols).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
+              </select>
+            </FormField>
+          ) : null}
           {customSetup ? (
             <>
               {requiresApiKey ? (

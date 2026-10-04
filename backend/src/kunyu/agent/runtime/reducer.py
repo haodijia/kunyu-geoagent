@@ -552,6 +552,11 @@ def _start_assistant(
         raise RunReductionError("A model attempt can only own one assistant message.")
     state.assistants[payload.message_id] = _Assistant(
         message_id=payload.message_id,
+        source_model=(
+            state.model_snapshot
+            if state.request_snapshot is None
+            else state.request_snapshot
+        ).model_id,
         step=payload.step,
         attempt=payload.attempt,
         created_at=event.occurred_at,
@@ -1316,6 +1321,7 @@ def _freeze(state: _State) -> ReducedRun:
         assistants=tuple(
             ReducedAssistant(
                 message_id=item.message_id,
+                source_model=item.source_model,
                 step=item.step,
                 attempt=item.attempt,
                 content=item.content,

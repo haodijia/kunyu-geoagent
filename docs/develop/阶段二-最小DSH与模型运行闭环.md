@@ -49,7 +49,7 @@
 | maka-agent 的某些自定义中继创建失败提示及前端触发发现 | 发现错误必须可见；自动发现由后端拥有，页面卸载不取消已保存连接的发现。 |
 | DSH 的通用 surface、并行工具、Provider 重试与推理 replay 数据 | 只保留串行工具、显式轮次与可重建历史；不自动重试模型，不保存隐藏推理。需要隐藏推理回传的协议模式本阶段明确不支持。 |
 | DSH 的持久层和 approval 服务 | 补充参考 `packages/session/session-persistence/src/{index,handle,storage-contract}.ts`、`packages/interaction/user-approval/src/{index,types}.ts`；借鉴日志连续性、确认范围与取消边界。本项目的 SQLite 原子写入、拒绝结束 Run、确认跨重启与显式恢复是本地契约，不宣称直接等价。 |
-| maka-agent 的非 OpenAI-compatible 供应商和账号登录 | 当前后端只有 OpenAI-compatible Chat Completions；供应商目录只提供能落到该协议的官方、聚合、本地和自定义入口。目录预设不改变运行协议，账号 OAuth 留到后续阶段。 |
+| maka-agent 的非 OpenAI-compatible 供应商和账号登录 | 当前支持显式 Chat Completions 与 DeepSeek Messages；DeepSeek 预设使用 Messages，自定义连接可选两者，账号 OAuth 留到后续阶段。 |
 
 以上路径按本地参考源码核对；不在文档或文件名添加源码 hash。P2-18 按“保留行为通过/有意差异符合本文/未完成”分别记录，不以修正有意差异为验收条件。
 
@@ -123,7 +123,7 @@
 
 ModelConnection 保存稳定 ID、显示名、`provider_type`、协议类型、Base URL、认证方式、启用状态、默认标记、配置修订号、default_model_id（可空）、已启用模型 ID 集合及模型目录。`provider_type` 是供应商展示和图标的持久标识，不从显示名或 URL 推断；运行协议仍由独立 protocol 字段决定。目录条目保存 Provider 返回的精确 model_id、可选显示名、发现来源、发现时间，以及能被可靠确认的 Tool Call 和 reasoning_effort 能力；未知能力标记为 unknown，不能推断为支持。不向不支持或能力未知的模型发送推理参数。
 
-- 本阶段协议类型仅 openai_compatible；认证方式显式为 api_key 或 none，none 只适用于用户明确配置的免密服务。
+- 协议类型为 openai_compatible 或 deepseek_messages；认证方式显式为 api_key 或 none，none 只适用于用户明确配置的免密服务。
 - reasoning_effort 为 null 或该模型支持的枚举值；不得把统一的 standard/high 标签不加转换地发给所有服务。
 - 参考 maka-agent 的 `discoverConnectionModels → fetchProviderModels`：后端读取当前连接和凭据，向该连接 Base URL 对应的 OpenAI-compatible `GET /models` 发起受限请求，解析 `data[].id`，去空白、去重并限制 ID 长度和条目数。请求、响应格式、认证或空目录异常均返回脱敏错误；不猜测模型名。
 - 保存连接且凭据就绪后自动触发一次发现；Base URL 或凭据更新后使旧目录不再可选，并对新配置重新发现。设置页提供“刷新模型列表”；刷新失败不覆盖同一修订号下已有的有效目录，但显示失败和上次成功时间。首次发现失败时连接保持“无可选模型”，不把内置名称当作真实发现结果。
@@ -238,7 +238,7 @@ api/application/domain/persistence 中分别增加模型连接、Run、确认、
 
 ### 4.9 模型适配、验证与目录并发
 
-首期固定 Chat Completions wire protocol：Base URL 为包含可选路径前缀的绝对 http/https 地址，去掉尾部 `/` 后追加 `/models` 或 `/chat/completions`；不猜测或补 `/v1`。禁止 userinfo、query、fragment；不跟随重定向发送凭据。认证为 Bearer API Key 或显式 none。不支持 Responses 协议、任意额外请求参数及需要隐藏推理回传的模式；不支持时明确报错。
+Chat Completions wire protocol：Base URL 为包含可选路径前缀的绝对 http/https 地址，去掉尾部 `/` 后追加 `/models` 或 `/chat/completions`；不猜测或补 `/v1`。禁止 userinfo、query、fragment；不跟随重定向发送凭据。认证为 Bearer API Key 或显式 none。DeepSeek Messages 使用配置地址的 /v1/messages、x-api-key、原生块和真实签名；不在失败后改用其他协议。当前不支持 Responses 或任意额外请求参数，原生协议详情见[后端 Agent 结构](后端Agent结构.md#模型协议与签名回放)。
 
 P2-04B 必须扩展已交付的 `kunyu.agent.runtime.models`：
 
@@ -246,7 +246,7 @@ P2-04B 必须扩展已交付的 `kunyu.agent.runtime.models`：
 - 当前模型输出使用 BlockStart、带索引的 TextDelta／ReasoningDelta／ModelToolCallDelta、BlockEnd 和可空 TokenUsage（内容块与 replay 详见《后端Agent结构》），必须有一次终止结果：`stop / tool_calls / length / content_filter`。网络、认证、无终止事件、非法 JSON 等通过稳定异常契约报告，不能把迭代结束直接视为成功。
 - `stop` 且有正文、无工具才可完成 Run；`tool_calls` 必须有非空且完整合法的批次；`length` 和 `content_filter` 保留已提交正文并失败。空正常回复、重复 call_id、结束原因与内容矛盾均为协议错误。`[DONE]` 不能代替 finish_reason；获得完整终止记录之前不执行工具。
 - 标准请求仅发送 model/messages/stream/tools/tool_choice/max_tokens/max_completion_tokens/stream_options/reasoning_effort 中本次适用的字段；输出上限字段由显式 `max_tokens_field=max_tokens|max_completion_tokens` 配置。用量开关 `include_usage` 显式配置，true 时发送 stream_options.include_usage=true，默认 false，不因请求失败自动改参。上述配置进入连接修订及 Run 快照。
-- reasoning_effort 首期只支持标准同名 wire 字段。可靠元数据映射由后端显式 Provider 配置提供，声明精确模型、枚举和来源；无元数据时保持 unknown、UI 只提供 null，不靠模型名称推断，也不开放任意 JSON 参数编辑。
+- Chat Completions 的 reasoning_effort 使用标准同名 wire 字段；DeepSeek Messages 使用 thinking 和 output_config.effort，声明精确的 off／low／high／max 和默认 high。可靠元数据映射由后端显式 Provider 配置提供，声明精确模型、枚举和来源；无元数据时保持 unknown、UI 只提供 null，不靠模型名称推断，也不开放任意 JSON 参数编辑。
 
 每个 `(connection_id, config_revision, model_id)` 保存 `text_check`、`tool_check`（unchecked/passed/failed）、各自 checked_at、脱敏 error_code，以及 reasoning 能力及来源。`POST test` 必填 model_id 与 `mode=text|tools`：text 执行一次有界真实文本调用；tools 先完成文本检查，再用一个无副作用的探测函数验证结构化调用，探测不注册业务 Tool、不写 WorkspaceMemory，未收到预期调用就判定工具验证失败。真实验证产生的费用/用量按可得数据展示。
 
@@ -340,7 +340,7 @@ API JSON 使用 snake_case；已有 MapContext 在 API 边界显式映射，前�
 
 | 操作 | 请求与响应补充 |
 | --- | --- |
-| 创建连接 | `{display_name, provider_type, protocol:"openai_compatible", base_url, auth_mode, max_tokens_field, include_usage}`；provider_type 使用后端闭合枚举，只负责供应商身份和图标；不在该接口接收密钥。201 ConnectionDTO，初始 default_model_id=null、enabled=true、is_default=false。 |
+| 创建连接 | `{display_name, provider_type, protocol:"openai_compatible"|"deepseek_messages", base_url, auth_mode, max_tokens_field, include_usage}`；provider_type 使用后端闭合枚举，只负责供应商身份和图标；不在该接口接收密钥。201 ConnectionDTO，初始 default_model_id=null、enabled=true、is_default=false。 |
 | PATCH 连接 | 只允许 display_name/base_url/auth_mode/enabled/enabled_model_ids/default_model_id/max_tokens_field/include_usage 及 is_default=false；显式字段白名单、整项校验后原子保存。 |
 | 凭据 | PUT `{api_key}`，非空且最长 8,192 字符；DELETE 无正文。200 ConnectionDTO；密钥不回显。 |
 | 发现 / 手工添加 | POST discover-models `{}`，200 `{revision,generation,entries,discovered_at}`；失败为稳定错误。manual-models `{model_id}` 返回 201 CatalogEntry；已有 fetched 条目则为其增加 manual 来源，不复制记录；已有 manual 来源返回 409。手工条目删除使用 `DELETE /model-connections/{id}/manual-models?model_id=...`，查询参数 model_id 必须 URL 编码以支持含 `/` 的模型名；有 fetched 来源时只移除 manual 来源。 |

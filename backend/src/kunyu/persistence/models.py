@@ -301,7 +301,8 @@ class RunModelSnapshotRecord(Base):
     __tablename__ = "run_model_snapshots"
     __table_args__ = (
         CheckConstraint(
-            "protocol = 'openai_compatible'", name="ck_run_snapshots_protocol"
+            "protocol IN ('openai_compatible', 'deepseek_messages')",
+            name="ck_run_snapshots_protocol",
         ),
         CheckConstraint(
             "auth_mode IN ('api_key', 'none')", name="ck_run_snapshots_auth_mode"
@@ -492,7 +493,7 @@ class ModelConnectionRecord(Base):
     __tablename__ = "model_connections"
     __table_args__ = (
         CheckConstraint(
-            "protocol = 'openai_compatible'",
+            "protocol IN ('openai_compatible', 'deepseek_messages')",
             name="ck_model_connections_protocol",
         ),
         CheckConstraint(
@@ -618,7 +619,7 @@ class ModelCatalogEntryRecord(Base):
             name="ck_model_catalog_tool_capability_source",
         ),
         CheckConstraint(
-            "reasoning_source IN ('unknown', 'provider_metadata')",
+            "reasoning_source IN ('unknown', 'provider_metadata', 'protocol')",
             name="ck_model_catalog_reasoning_source",
         ),
         Index("ix_model_catalog_connection_revision", "connection_id", "revision"),

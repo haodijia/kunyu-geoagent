@@ -20,7 +20,7 @@ from kunyu.agent.runtime.events import (
 from kunyu.agent.runtime.session_reducer import reduce_session
 from kunyu.agent.runtime.session_state import ReducedSession
 from kunyu.domain.messages import Message, MessageRole, MessageStatus
-from kunyu.domain.model_connections import ModelAuthMode
+from kunyu.domain.model_connections import ModelAuthMode, ModelProtocol
 from kunyu.domain.run_acceptance import (
     CredentialUnavailableError,
     IdempotencyConflictError,
@@ -177,7 +177,9 @@ class SQLAlchemyRunAcceptanceRepository:
                 connection_revision=connection.revision,
                 max_tokens_field=connection.max_tokens_field,
                 include_usage=connection.include_usage,
-                max_output_tokens=MAX_MODEL_OUTPUT_TOKENS,
+                max_output_tokens=256_000
+                if connection.protocol == ModelProtocol.DEEPSEEK_MESSAGES
+                else MAX_MODEL_OUTPUT_TOKENS,
                 retry_policy=connection.retry_policy,
             )
             budget_limits = BudgetLimitsPayload(

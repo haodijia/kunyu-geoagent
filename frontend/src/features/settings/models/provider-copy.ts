@@ -33,7 +33,7 @@ export const providerCopy: Record<ProviderCatalogId, ProviderCopy> = {
   ollama: { name: "Ollama", description: "本机运行 · 离线可用", badge: "本地" },
   "lm-studio": { name: "LM Studio", description: "本机 LM Studio 模型服务", badge: "本地" },
   localai: { name: "LocalAI", description: "本机 OpenAI 兼容模型服务", badge: "本地" },
-  custom: { name: "自定义中转站", description: "OpenAI Chat Completions 兼容服务", badge: "中转" }
+  custom: { name: "自定义模型服务", description: "配置服务地址和连接协议", badge: "中转" }
 };
 
 export const providerName: Record<ModelProviderType, string> = {
@@ -54,7 +54,7 @@ export const providerName: Record<ModelProviderType, string> = {
   ollama: "Ollama",
   lm_studio: "LM Studio",
   localai: "LocalAI",
-  custom: "OpenAI Compatible"
+  custom: "自定义模型服务"
 };
 
 export function displayForProvider(provider: ProviderCatalogEntry): ProviderCopy {

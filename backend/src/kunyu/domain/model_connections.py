@@ -8,6 +8,7 @@ from kunyu.agent.runtime.retry_policy import RetryPolicy
 
 class ModelProtocol(StrEnum):
     OPENAI_COMPATIBLE = "openai_compatible"
+    DEEPSEEK_MESSAGES = "deepseek_messages"
 
 
 class ModelProviderType(StrEnum):
@@ -83,6 +84,7 @@ class CapabilityStatus(StrEnum):
 class CapabilitySource(StrEnum):
     UNKNOWN = "unknown"
     PROVIDER_METADATA = "provider_metadata"
+    PROTOCOL = "protocol"
     VALIDATION = "validation"
 
 

@@ -4,14 +4,17 @@ from dataclasses import dataclass
 from enum import StrEnum
 from time import monotonic
 from typing import Any
+from urllib.parse import urlsplit, urlunsplit
 
 import httpx
 
 from kunyu.domain.model_connections import (
     MaxTokensField,
     ModelAuthMode,
+    ModelProtocol,
     ModelProviderType,
 )
+from kunyu.integrations.model.connection import messages_root
 
 MODEL_OPERATION_TIMEOUT_SECONDS = 30
 MAX_PROVIDER_RESPONSE_BYTES = 2 * 1024 * 1024
@@ -37,6 +40,7 @@ class ProviderRequestError(RuntimeError):
 
 @dataclass(frozen=True, slots=True)
 class ProviderConfig:
+    protocol: ModelProtocol
     provider_type: ModelProviderType
     base_url: str
     auth_mode: ModelAuthMode
@@ -60,8 +64,10 @@ class ModelCheckOutcome:
     latency_ms: int
 
 
-class OpenAICompatibleClient:
+class ModelProviderClient:
     def __init__(self, client: httpx.AsyncClient) -> None:
+        if client.follow_redirects:
+            raise ValueError("The model HTTP client must not follow redirects.")
         self._client = client
 
     async def discover_models(
@@ -69,7 +75,7 @@ class OpenAICompatibleClient:
     ) -> tuple[DiscoveredModel, ...]:
         payload = await self._request_json(
             "GET",
-            f"{config.base_url}/models",
+            _models_url(config),
             config=config,
         )
         if not isinstance(payload, dict) or not isinstance(payload.get("data"), list):
@@ -164,6 +170,9 @@ class OpenAICompatibleClient:
         )
 
     async def _check_text_request(self, config: ProviderConfig, model_id: str) -> None:
+        if config.protocol is ModelProtocol.DEEPSEEK_MESSAGES:
+            await self._check_messages(config, model_id, tool=False)
+            return
         payload = await self._request_json(
             "POST",
             f"{config.base_url}/chat/completions",
@@ -191,6 +200,9 @@ class OpenAICompatibleClient:
             raise _protocol_error("The provider returned an invalid text completion.")
 
     async def _check_tool_request(self, config: ProviderConfig, model_id: str) -> None:
+        if config.protocol is ModelProtocol.DEEPSEEK_MESSAGES:
+            await self._check_messages(config, model_id, tool=True)
+            return
         payload = await self._request_json(
             "POST",
             f"{config.base_url}/chat/completions",
@@ -263,6 +275,78 @@ class OpenAICompatibleClient:
         if arguments != {"token": PROBE_TOKEN}:
             raise _protocol_error("The model returned invalid tool arguments.")
 
+    async def _check_messages(
+        self, config: ProviderConfig, model_id: str, *, tool: bool
+    ) -> None:
+        body = {
+            "model": model_id,
+            "stream": False,
+            "max_tokens": CHECK_MAX_TOKENS,
+            "thinking": {"type": "disabled"},
+            "messages": [
+                {
+                    "role": "user",
+                    "content": (
+                        f"Call {PROBE_TOOL_NAME} with token '{PROBE_TOKEN}'."
+                        if tool
+                        else "Reply with a short plain-text acknowledgement."
+                    ),
+                }
+            ],
+        }
+        if tool:
+            body["tools"] = [
+                {
+                    "name": PROBE_TOOL_NAME,
+                    "description": "Checks structured tool-call support.",
+                    "input_schema": {
+                        "type": "object",
+                        "properties": {
+                            "token": {"type": "string", "const": PROBE_TOKEN}
+                        },
+                        "required": ["token"],
+                        "additionalProperties": False,
+                    },
+                }
+            ]
+            body["tool_choice"] = {"type": "auto"}
+        payload = await self._request_json(
+            "POST",
+            f"{messages_root(config.base_url)}/messages",
+            config=config,
+            json_body=body,
+        )
+        if (
+            not isinstance(payload, dict)
+            or payload.get("type") != "message"
+            or payload.get("role") != "assistant"
+            or not isinstance(payload.get("content"), list)
+        ):
+            raise _protocol_error("The provider returned an invalid Messages response.")
+        blocks = payload["content"]
+        if any(not isinstance(block, dict) for block in blocks):
+            raise _protocol_error("The provider returned invalid Messages blocks.")
+        if not tool:
+            if payload.get("stop_reason") != "end_turn" or not any(
+                block.get("type") == "text"
+                and isinstance(block.get("text"), str)
+                and block["text"].strip()
+                for block in blocks
+            ):
+                raise _protocol_error("The provider returned an invalid text response.")
+            return
+        calls = [block for block in blocks if block.get("type") == "tool_use"]
+        if payload.get("stop_reason") != "tool_use" or len(calls) != 1:
+            raise _protocol_error("The model did not return the required tool batch.")
+        call = calls[0]
+        if (
+            not isinstance(call.get("id"), str)
+            or not call["id"].strip()
+            or call.get("name") != PROBE_TOOL_NAME
+            or call.get("input") != {"token": PROBE_TOKEN}
+        ):
+            raise _protocol_error("The model returned invalid tool input.")
+
     async def _request_json(
         self,
         method: str,
@@ -273,13 +357,21 @@ class OpenAICompatibleClient:
     ) -> Any:
         if json_body is not None and config.provider_type is ModelProviderType.DEEPSEEK:
             json_body["thinking"] = {"type": "disabled"}
+        native_auth = config.protocol is ModelProtocol.DEEPSEEK_MESSAGES and not (
+            method == "GET" and urlsplit(config.base_url).hostname == "api.deepseek.com"
+        )
         headers = {"Accept": "application/json"}
+        if native_auth:
+            headers["anthropic-version"] = "2023-06-01"
         if json_body is not None:
             headers["Content-Type"] = "application/json"
         if config.auth_mode is ModelAuthMode.API_KEY:
             if config.api_key is None:
                 raise _protocol_error("The model connection credential is missing.")
-            headers["Authorization"] = f"Bearer {config.api_key}"
+            if native_auth:
+                headers["x-api-key"] = config.api_key
+            else:
+                headers["Authorization"] = f"Bearer {config.api_key}"
         try:
             async with asyncio.timeout(MODEL_OPERATION_TIMEOUT_SECONDS):
                 async with self._client.stream(
@@ -315,6 +407,15 @@ class OpenAICompatibleClient:
             return json.loads(body)
         except (UnicodeDecodeError, ValueError) as error:
             raise _protocol_error("The provider returned invalid JSON.") from error
+
+
+def _models_url(config: ProviderConfig) -> str:
+    if config.protocol is ModelProtocol.OPENAI_COMPATIBLE:
+        return f"{config.base_url}/models"
+    parsed = urlsplit(config.base_url)
+    if parsed.hostname == "api.deepseek.com":
+        return urlunsplit((parsed.scheme, parsed.netloc, "/models", "", ""))
+    return f"{messages_root(config.base_url)}/models"
 
 
 async def _read_bounded_body(response: httpx.Response) -> bytes:
