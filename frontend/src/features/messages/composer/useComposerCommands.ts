@@ -50,7 +50,7 @@ export function useComposerCommands({
     }))),
   ];
 
-  async function execute(line: string) {
+  async function execute(line: string, options: { readonly preserveDraft?: boolean } = {}) {
     if (locked || executingRef.current) return;
     setFeedback(null);
     const parsed = parseComposerCommand(line);
@@ -98,7 +98,7 @@ export function useComposerCommands({
         link.click();
         setTimeout(() => URL.revokeObjectURL(url), 1000);
       }
-      if (currentDraftRef.current === submittedDraft) {
+      if (!options.preserveDraft && currentDraftRef.current === submittedDraft) {
         if (command.name === "plan" && parsed.rawInput.trim() !== "" && parsed.rawInput.trim() !== "off") clearComposerDraft(session.id);
         else changeDraft("");
       }

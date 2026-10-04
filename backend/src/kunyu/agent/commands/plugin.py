@@ -1,10 +1,10 @@
 """Compose only commands backed by installed Kunyu capabilities."""
 
-from dataclasses import replace
 from datetime import UTC, datetime
 
 from kunyu.agent import services as s
 from kunyu.agent.commands.compaction import compact_history
+from kunyu.agent.commands.plan import narrate_plan_selection, plan_command, plan_policy
 from kunyu.agent.commands.registry import (
     CommandDefinition,
     CommandInvocation,
@@ -18,56 +18,9 @@ from kunyu.agent.runtime.events import (
     FeedbackRecordedPayload,
     PermissionChangedEvent,
     PermissionChangedPayload,
-    PlanChangedEvent,
-    PlanChangedPayload,
 )
 from kunyu.agent.scope import Context
-from kunyu.domain.agent_context import RunContextSource
 from kunyu.persistence.commands import read_session_controls
-
-
-def _plan_policy(source: object) -> str:
-    if not isinstance(source, RunContextSource):
-        raise TypeError("Plan policy requires a run context.")
-    if not source.controls.plan_active:
-        return ""
-    return (
-        "Plan mode is active. Investigate and propose a concrete plan. "
-        "Use read-only tools; do not execute writes or change persistent workspace data. "
-        "Ask the user to review the plan and use /plan off before implementation."
-    )
-
-
-async def _plan(invocation: CommandInvocation) -> CommandResult:
-    agent = invocation.agent
-    text = invocation.raw_input.strip()
-    active = text != "off"
-    if text and active and invocation.message is None:
-        return CommandResult("error", "请先选择可用模型，再提交计划需求。")
-    agent.ctx.require(s.PROJECTIONS).commit(
-        EventBatch(
-            agent.session_id,
-            None,
-            (
-                PlanChangedEvent(
-                    session_id=agent.session_id,
-                    event_type="plan/changed",
-                    payload=PlanChangedPayload(active=active),
-                    occurred_at=datetime.now(UTC),
-                ),
-            ),
-        )
-    )
-    if text and active:
-        assert invocation.message is not None
-        request = replace(invocation.message, content=text)
-        await agent.steer(request)
-    return CommandResult(
-        "success",
-        "已进入计划模式，从下一个模型步骤起生效。使用 /plan off 退出。"
-        if active
-        else "已退出计划模式，从下一个模型步骤起生效。",
-    )
 
 
 async def _permission(invocation: CommandInvocation) -> CommandResult:
@@ -141,6 +94,7 @@ class CommandsPlugin:
         s.EXECUTIONS,
         s.MODEL,
         s.PROMPTS,
+        s.HOOKS,
     )
     provides = (s.COMMANDS,)
 
@@ -149,7 +103,11 @@ class CommandsPlugin:
         context.provide(s.COMMANDS, registry)
         definitions = (
             CommandDefinition(
-                "kunyu/plan-mode", "plan", "进入或退出计划模式", _plan, "[off|计划需求]"
+                "kunyu/plan-mode",
+                "plan",
+                "进入或退出计划模式",
+                plan_command,
+                "[off|计划需求]",
             ),
             CommandDefinition(
                 "kunyu/permission-presets",
@@ -182,5 +140,9 @@ class CommandsPlugin:
         for definition in definitions:
             registry.register(context, definition)
         context.require(s.PROMPTS).register(
-            context, PromptSection("plan:policy", 30, _plan_policy)
+            context, PromptSection("plan:policy", 30, plan_policy)
+        )
+
+        context.require(s.HOOKS).pre_step.register(
+            context, "plan:selection", narrate_plan_selection
         )

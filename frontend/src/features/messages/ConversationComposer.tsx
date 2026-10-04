@@ -14,6 +14,7 @@ import { ComposerCommandMenu } from "./composer/ComposerCommandMenu";
 import { ComposerModelPicker, type ComposerModelGroup, type ModelPickerPane } from "./composer/ComposerModelPicker";
 import { filterComposerCommands, parseComposerCommand, type ComposerCommandDescriptor } from "./composer/commands";
 import { DraftBoxIcon } from "./composer/DraftBoxIcon";
+import { ComposerPlanChip } from "./composer/ComposerPlanChip";
 
 const content = zhCN.conversation;
 const MAX_TEXTAREA_HEIGHT = 120;
@@ -46,6 +47,7 @@ interface ConversationComposerProps {
   readonly modelPickerPane: ModelPickerPane | null;
   readonly onModelPickerPaneChange: (pane: ModelPickerPane | null) => void;
   readonly onCommand: (line: string) => Promise<void>;
+  readonly onExitPlan: () => void;
   readonly onDraftChange: (draft: string) => void;
   readonly onModelChange: (value: string) => void;
   readonly onReasoningEffortChange: (value: string) => void;
@@ -61,7 +63,7 @@ export function ConversationComposer({
   selectedReasoningEffort, sendDisabled, showModelSettings, commands,
   commandPending, commandFeedback, modelPickerPane, onModelPickerPaneChange,
   commandCatalogPending, commandCatalogError,
-  onCommand, onDraftChange, onModelChange, onReasoningEffortChange, onSubmit, onQueue, onStop,
+  onCommand, onExitPlan, onDraftChange, onModelChange, onReasoningEffortChange, onSubmit, onQueue, onStop,
 }: ConversationComposerProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const dragDepth = useRef(0);
@@ -245,6 +247,7 @@ export function ConversationComposer({
             </span>
           </div>
           <div className="flex min-w-0 items-center justify-end gap-1">
+            <ComposerPlanChip locked={inputLocked} onExit={onExitPlan} />
               <Button type="button" size="icon" variant="ghost" className="size-7 rounded-full text-muted-foreground"
                 disabled={!canSend || !queueable || draftFrozen} aria-label={content.queue.add} title={content.queue.add} onClick={onQueue}
               ><DraftBoxIcon size={15} /></Button>

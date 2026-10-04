@@ -538,6 +538,11 @@ class PlanChangedEvent(_SessionEventDraft):
     payload: PlanChangedPayload
 
 
+class PlanSelectedEvent(_SessionEventDraft):
+    event_type: Literal["plan/selected"]
+    payload: PlanChangedPayload
+
+
 class PermissionChangedEvent(_SessionEventDraft):
     event_type: Literal["permission/changed"]
     payload: PermissionChangedPayload
@@ -692,6 +697,7 @@ type EventDraft = Annotated[
     | CommandRunEvent
     | CommandDoneEvent
     | PlanChangedEvent
+    | PlanSelectedEvent
     | PermissionChangedEvent
     | FeedbackRecordedEvent
     | HistoryCompactedEvent

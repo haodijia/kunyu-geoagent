@@ -8,6 +8,7 @@ from kunyu.agent.runtime.events import ImageOffloadTarget, InboxMessagePayload
 from kunyu.agent.runtime.run_state import ReducedRun
 from kunyu.agent.runtime.todos import TodoItem
 from kunyu.domain.attachments import Attachment
+from kunyu.domain.commands import SessionControls
 
 
 class SessionReductionError(ValueError):
@@ -35,6 +36,7 @@ class ReducedSession:
     session_id: str
     user_messages: tuple[ReducedUserMessage, ...]
     runs: tuple[ReducedRun, ...]
+    controls: SessionControls = field(default_factory=SessionControls)
     next_step: tuple[str, ...] = ()
     next_turn: tuple[InboxMessagePayload, ...] = ()
     queue_mode: Literal["auto", "manual"] = "auto"

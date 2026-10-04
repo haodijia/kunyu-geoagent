@@ -158,6 +158,7 @@ export function SessionComposer() {
       commandPending={commandState.pending}
       commandFeedback={commandState.feedback}
       onCommand={commandState.execute}
+      onExitPlan={() => void commandState.execute("/plan off", { preserveDraft: true })}
       modelPickerPane={modelPickerPane}
       onModelPickerPaneChange={setModelPickerPane}
       onSubmit={() => sendMessage()}
