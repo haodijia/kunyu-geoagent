@@ -17,6 +17,9 @@ import { assistantOutputLimit } from "@/features/events/live-assistant";
 
 import { streamPresentation } from "@/features/events/stream-presentation";
 import { collectMessageBlocks } from "./message-blocks";
+import { collectSessionSkills } from "@/features/skills/session-skills";
+import { UserSkillText } from "@/features/skills/UserSkillText";
+
 import { AssistantContent } from "./AssistantContent";
 
 const content = zhCN.conversation;
@@ -45,7 +48,8 @@ export function MessageList({
   messages,
   turns,
 }: MessageListProps) {
-  const { records, activeAssistant } = useSessionEvents();
+  const { events, records, activeAssistant } = useSessionEvents();
+  const skillsByMessage = useMemo(() => collectSessionSkills(events).byMessage, [events]);
   const live = useMemo(() => {
     if (activeAssistant === null) return null;
     const turn = turns.find((turn) => turn.id === activeAssistant.run_id);
@@ -213,7 +217,7 @@ export function MessageList({
           >
             {message.role === "user" ? (
               <div className="max-w-full rounded-[8px] bg-[var(--message-user-bg)] px-2.5 py-2 text-[13px] leading-5 whitespace-pre-wrap text-foreground [overflow-wrap:anywhere]">
-                {message.content}
+                <UserSkillText text={message.content} skills={skillsByMessage.get(message.id) ?? new Map()} />
               </div>
             ) : (
               <>

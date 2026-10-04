@@ -145,7 +145,9 @@ L0 工具可直接执行；L2 本地写入必须注册同名事务处理器。�
 
 来源实现放 `agent/skills/`，模型调用工具放 `agent/tools/skills.py`，内置指令放 `agent/skills/bundled/<name>/SKILL.md` 与相邻资源。用户技能保存在应用数据目录的 `skills/`，工作区技能保存在 `workspaces/<workspace_id>/skills/`，也会发现 `~/.agents/skills`。
 
-`ContextPreparationRegistry` 在每次模型步骤组装历史前运行带作用域的异步贡献。技能消费者重新发现目录，比较实际名称和简介列表；变化时追加 `context.injected` 完整替换，全部移除时记录空目录，不计算文件 hash。目录事件携带 `producer=skill-catalog` 和实际条目。`/技能名` 解析 pre-step 接纳的消息，支持处理器改写后的输入，每条消息按用户权限加载一次；正文、来源、消息身份、Run 和 step 以 `producer=skill-invocation` 持久保存。正文只在所属步骤实际发送后进入后续历史。恢复同一 Run 时重放原文，不随文件编辑重写历史。
+`ContextPreparationRegistry` 在每次模型步骤组装历史前运行带作用域的异步贡献。技能消费者重新发现目录，比较实际名称和简介列表；变化时追加 `context.injected` 完整替换，不计算文件 hash。目录只在原 `skill` 注册实例可见时发布，同名工具遮蔽发布空目录；压缩后不可见的目录会重新发布。目录事件携带 `producer=skill-catalog` 和实际条目。
+
+`/技能名` 扫描当前步骤已接纳的真实用户消息，使用空白边界，支持消息任意位置的多个名称；按首次出现顺序与用户权限加载，同一步重试、恢复及重复名称不重复加载。处理器追加的上下文消息不能授予用户调用权限。正文、来源、消息身份、Run 和 step 以 `producer=skill-invocation` 持久保存；所属步骤实际发送后进入后续历史。前端从步骤接纳及实际加载事件生成消息标记，标题栏汇总用户与模型加载的技能；指令预览使用历史快照，不随文件编辑重写。
 
 模型使用 `skill({name})` 加载正文，实际结果进入已有工具完成事件；`skill_resource({name,path})` 按需读取技能目录内的 UTF-8 资源。用户专用技能的资源仅在当前 Run 显式调用后开放。资源不允许绝对路径或越界符号链接，不执行脚本、不安装依赖。详细使用、格式、来源和接口见[Agent 技能](Agent技能.md)。远程来源、文件 watcher、插件市场和脚本执行尚未实现。
 

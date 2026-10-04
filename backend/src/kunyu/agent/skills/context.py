@@ -11,20 +11,35 @@ from kunyu.agent.runtime.events import (
 )
 from kunyu.agent.scope import Context
 from kunyu.agent.skills.render import catalog_entries, render_catalog, render_skill
+from kunyu.agent.tools.registry import ToolRegistration
 from kunyu.agent.tools.shared import load_source
 
+SKILL_GESTURE = re.compile(r"(?:^|\s)/([a-z0-9]+(?:-[a-z0-9]+)*)(?=\s|$)")
 
-async def prepare_skill_context(run_id: str, scope: Context) -> None:
+
+async def prepare_skill_context(
+    run_id: str, scope: Context, *, registration: ToolRegistration
+) -> None:
     source = load_source(scope.require(s.CONTEXTS), run_id)
     registry = scope.require(s.SKILLS)
     skills = await registry.list(scope, workspace_id=source.workspace.id)
-    entries = catalog_entries(tuple(skill for skill in skills if skill.model_invocable))
+    tool_visible = (
+        scope.require(s.TOOLS).registration_for_run("skill", run_id) is registration
+    )
+    entries = (
+        catalog_entries(tuple(skill for skill in skills if skill.model_invocable))
+        if tool_visible
+        else []
+    )
     catalogs = [
         item for item in source.injected_context if item.producer == "skill-catalog"
     ]
     payloads = []
-    if (catalogs and catalogs[-1].metadata["entries"] != entries) or (
-        not catalogs and entries
+    visible_catalogs = [
+        item for item in catalogs if item.sequence > source.controls.compacted_through
+    ]
+    if (visible_catalogs and visible_catalogs[-1].metadata["entries"] != entries) or (
+        not visible_catalogs and (entries or catalogs)
     ):
         payloads.append(
             ContextInjectedPayload(
@@ -33,29 +48,33 @@ async def prepare_skill_context(run_id: str, scope: Context) -> None:
                 metadata={"entries": entries, "run_id": run_id},
             )
         )
+    direct_messages = {
+        message.message_id: message for message in source.reduced_session.user_messages
+    }
     messages = tuple(
-        message
+        direct_messages[message.message_id]
         for decision in source.run.decisions
-        if decision.payload.kind == "enter"
+        if decision.payload.kind == "enter" and decision.payload.step == source.run.step
         for message in decision.payload.messages
+        if message.message_id in decision.payload.input_ids
     )
+    invoked = {
+        item.metadata["name"]
+        for item in source.injected_context
+        if item.producer == "skill-invocation"
+        and item.metadata["run_id"] == run_id
+        and item.metadata["step"] == source.run.step
+    }
+    available = {skill.name for skill in skills if skill.user_invocable}
     for message in messages:
-        command = re.match(r"^/([a-z0-9]+(?:-[a-z0-9]+)*)(?:\s|$)", message.content)
-        already_invoked = any(
-            item.producer == "skill-invocation"
-            and item.metadata.get("message_id") == message.message_id
-            for item in source.injected_context
-        )
-        if (
-            command
-            and not already_invoked
-            and any(
-                skill.name == command[1] and skill.user_invocable for skill in skills
-            )
-        ):
+        for match in SKILL_GESTURE.finditer(message.content):
+            name = match[1]
+            if name in invoked or name not in available:
+                continue
             definition = await registry.get(
-                scope, command[1], workspace_id=source.workspace.id, invocation="user"
+                scope, name, workspace_id=source.workspace.id, invocation="user"
             )
+            invoked.add(name)
             payloads.append(
                 ContextInjectedPayload(
                     content=render_skill(definition),

@@ -58,6 +58,9 @@ export const zhCN = {
     cancel: "取消",
   },
   skills: {
+    loadedCount: (count: number) => `已加载技能 (${count})`,
+    loadedSnapshot: "本次加载的指令快照",
+    loadedList: "已加载技能",
     title: "技能",
     description: "用任务指令和参考资料扩展 Agent。模型按需加载技能，也可在会话中使用 /技能名 主动调用。",
     create: "新建技能",
