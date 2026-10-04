@@ -113,12 +113,16 @@ class ToolPolicyGate:
             return PolicyDecision.DENY
         if risk_level is ToolRiskLevel.L0:
             return PolicyDecision.ALLOW
-        if risk_level is ToolRiskLevel.L2:
+        if risk_level in {ToolRiskLevel.L1, ToolRiskLevel.L2}:
             source = self._contexts.get(call.run_id)
             if source is None:
                 raise ToolExecutionError("The tool run context is unavailable.")
             controls = read_session_controls(self._database, source.session.id)
             if controls.plan_active or controls.permission == "read-only":
                 return PolicyDecision.DENY
-            return PolicyDecision.CONFIRM
+            return (
+                PolicyDecision.ALLOW
+                if risk_level is ToolRiskLevel.L1
+                else PolicyDecision.CONFIRM
+            )
         raise AssertionError("Unhandled tool risk level.")

@@ -304,7 +304,9 @@ class ToolBatchExecutor[AdapterConfigT]:
             return _Invocation(
                 elapsed_milliseconds(started, self._monotonic_ns()),
                 self._clock(),
-                error_code="TOOL_EXECUTION_FAILED",
+                error_code=error.code
+                if isinstance(error, ToolExecutionError)
+                else "TOOL_EXECUTION_FAILED",
                 error_summary=summary(str(error)),
             )
         except Exception:

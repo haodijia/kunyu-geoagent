@@ -28,6 +28,7 @@ import { AttachmentStrip } from "@/features/attachments/AttachmentStrip";
 import { collectImageOffloads } from "@/features/attachments/image-offloads";
 import { parseToolContent, toolContentImages, toolContentText } from "@/features/agent/tool-content";
 import { ReadResult } from "@/features/agent/ReadResult";
+import { FileMutationResult } from "@/features/agent/FileMutationResult";
 import { useSessionWorkspace } from "@/features/sessions/SessionWorkspaceContext";
 import { useSessionEvents } from "./SessionEventContext";
 const content = zhCN.trajectory;
@@ -371,6 +372,10 @@ function ToolResultPresentation({ record }: { readonly record: TrajectoryRecord 
   if (record.source.tool_name === "read") {
     if (!("result" in output)) throw new Error("Read result has no presentation metadata.");
     return <ReadResult value={output.result} text={toolContentText(parseToolContent(output.content))} />;
+  }
+  if (record.source.tool_name === "write" || record.source.tool_name === "edit") {
+    if (!("result" in output)) throw new Error("File mutation result has no presentation metadata.");
+    return <FileMutationResult value={output.result} text={toolContentText(parseToolContent(output.content))} />;
   }
   const images = toolContentImages(parseToolContent(output.content));
   if (images.length === 0) return null;
