@@ -1,4 +1,4 @@
-import { ArrowLeftRight, Download, FileText, Maximize2, Minimize2, RefreshCw, X } from "lucide-react";
+import { ArrowLeftRight, Download, FileText, Maximize2, Minimize2, RefreshCw, TriangleAlert, X } from "lucide-react";
 import { useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { toast } from "sonner";
 
@@ -24,6 +24,7 @@ export function FilePreviewLayout({ children }: { readonly children: ReactNode }
   const root = useRef<HTMLDivElement>(null);
   const [downloading, setDownloading] = useState(false);
   const tab = preview.tabs.find(item => item.id === preview.activeId);
+  const updated = tab?.kind === "file" && preview.hasUpdate(tab.path);
   async function download() {
     if (tab === undefined || tab.kind !== "file" || downloading) return;
     setDownloading(true);
@@ -55,7 +56,11 @@ export function FilePreviewLayout({ children }: { readonly children: ReactNode }
         <span className="min-w-0 truncate text-[11px] text-secondary-foreground" title={tab.path}>{tab.path}</span>
         <div className="flex shrink-0 items-center gap-1">
           <CopyButton text={tab.path} />
-          {tab.kind === "file" && <><Button variant="ghost" size="icon" className="size-6" aria-label={content.refresh} onClick={preview.refresh}><RefreshCw className="size-3" /></Button><Button variant="ghost" size="icon" className="size-6" disabled={downloading} aria-label={content.download} onClick={() => void download()}><Download className="size-3" /></Button></>}
+          {tab.kind === "file" && <>
+            {preview.watchErrors[tab.path] != null && <Button variant="ghost" size="icon" className="size-6 text-destructive" aria-label={content.watchFailed} title={preview.watchErrors[tab.path]!} onClick={() => preview.retryWatch(tab.path)}><TriangleAlert className="size-3" /></Button>}
+            {preview.loaded[tab.path]?.refreshable !== false && <Button variant="ghost" size="icon" className={`size-6 ${updated ? "text-amber-600 dark:text-amber-400" : ""}`} aria-label={updated ? content.updated : content.refresh} title={updated ? content.updated : content.refresh} data-preview-refresh-state={updated ? "updated" : "idle"} onClick={preview.refresh}><RefreshCw className="size-3" /></Button>}
+            <Button variant="ghost" size="icon" className="size-6" disabled={downloading} aria-label={content.download} onClick={() => void download()}><Download className="size-3" /></Button>
+          </>}
           <Button variant="ghost" size="icon" className="size-6" aria-label={preview.maximized ? content.restore : content.maximize} onClick={preview.toggleMaximized}>{preview.maximized ? <Minimize2 className="size-3" /> : <Maximize2 className="size-3" />}</Button>
         </div>
       </div>

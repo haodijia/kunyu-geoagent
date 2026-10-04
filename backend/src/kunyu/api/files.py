@@ -16,6 +16,7 @@ from starlette.types import Receive, Scope, Send
 from kunyu.agent import services as s
 from kunyu.api.dependencies import get_database
 from kunyu.api.errors import ApiError
+from kunyu.api.file_follow import FileWatchResponse
 from kunyu.application.file_preview import FileDownload, FilePreviewService
 from kunyu.domain.attachments import AttachmentError
 from kunyu.domain.filesystem import FilesystemError
@@ -78,7 +79,10 @@ def file_errors(session_id: str) -> Iterator[None]:
     except FilesystemError as error:
         logger.warning("File delivery failed for session %s: %s", session_id, error)
         status = (
-            404
+            503
+            if error.code
+            in {"FS_WATCH_UNSUPPORTED", "FS_WATCH_FAILED", "FS_WATCH_CLOSED"}
+            else 404
             if error.code in {"FS_NOT_FOUND", "SESSION_NOT_FOUND"}
             else 403
             if error.code
@@ -111,6 +115,28 @@ def list_directory(
         return DirectoryListingResponse.model_validate(
             service.list_directory(session_id, path)
         )
+
+
+@router.get("/changes")
+async def watch_file(
+    session_id: str, path: PathQuery, service: FilesDependency
+) -> Response:
+    iterator = None
+    with file_errors(session_id):
+        try:
+            iterator = await run_in_threadpool(service.watch, session_id, path)
+            try:
+                first = await anext(iterator)
+            except StopAsyncIteration as error:
+                raise FilesystemError(
+                    "FS_WATCH_CLOSED", "The filesystem service is closing."
+                ) from error
+            return FileWatchResponse(session_id, iterator, first)
+        except BaseException:
+            if iterator is not None:
+                with CancelScope(shield=True):
+                    await iterator.aclose()
+            raise
 
 
 @router.get("/image")

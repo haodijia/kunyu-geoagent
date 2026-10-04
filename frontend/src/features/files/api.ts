@@ -1,4 +1,4 @@
-import { requestBlob, requestJson } from "@/api/client";
+import { ApiError, requestBlob, requestJson, streamEvents } from "@/api/client";
 
 export interface FilePreview {
   readonly path: string;
@@ -46,3 +46,26 @@ export async function listDirectory(sessionId: string, path: string, signal: Abo
 }
 
 export const directoryQueryKey = (sessionId: string, path?: string) => path === undefined ? ["workspace-files", sessionId] as const : ["workspace-files", sessionId, path] as const;
+
+export interface FileInfo { readonly version: string; readonly kind: "file" | "directory" | "other"; readonly size: number | null; }
+export interface FileWatchFrame { readonly path: string; readonly kind: "ready" | "change"; readonly info: FileInfo | null; }
+
+export async function* streamFileChanges(sessionId: string, path: string, signal: AbortSignal): AsyncGenerator<FileWatchFrame> {
+  let ready = false;
+  for await (const event of streamEvents(endpoint(sessionId, "changes", path), signal)) {
+    const value = JSON.parse(event.data) as unknown;
+    if (event.event === "file.error") {
+      if (typeof value !== "object" || value === null || !("code" in value) || typeof value.code !== "string" || !("message" in value) || typeof value.message !== "string") throw new Error("Invalid file watch failure.");
+      throw new ApiError(503, value.message, { error: value });
+    }
+    if (typeof value !== "object" || value === null) throw new Error("Invalid file watch frame.");
+    const frame = value as FileWatchFrame;
+    if (frame.path !== path || !(frame.kind === "ready" || frame.kind === "change") || event.event !== `file.${frame.kind}`
+      || (frame.kind === "ready" ? ready : !ready)
+      || !(frame.info === null || (typeof frame.info === "object" && frame.info !== undefined && typeof frame.info.version === "string" && frame.info.version !== "" && ["file", "directory", "other"].includes(frame.info.kind)
+        && (frame.info.size === null || (frame.info.kind === "file" && Number.isSafeInteger(frame.info.size) && frame.info.size >= 0))))) throw new Error("Invalid file watch frame.");
+    ready = true;
+    yield frame;
+  }
+  if (!signal.aborted) throw new Error("The file watch ended; reconnect to resume notifications.");
+}

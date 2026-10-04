@@ -1,7 +1,7 @@
 """Human file previews are scoped to the session, independent of Agent observation."""
 
 import logging
-from collections.abc import Callable, Generator
+from collections.abc import AsyncGenerator, Callable, Generator
 from dataclasses import dataclass
 from pathlib import PurePosixPath
 from threading import Event
@@ -17,6 +17,7 @@ from kunyu.domain.filesystem import (
     FsDirectoryListing,
     FsInfo,
     FsTarget,
+    FsWatchFrame,
 )
 from kunyu.domain.sessions import SessionRepository
 from kunyu.persistence.attachments import SQLAlchemyAttachmentStore
@@ -195,6 +196,9 @@ class FilePreviewService:
 
     def list_directory(self, session_id: str, path: str) -> FsDirectoryListing:
         return self._filesystem.list_directory(self._target(session_id, path), Event())
+
+    def watch(self, session_id: str, path: str) -> AsyncGenerator[FsWatchFrame, None]:
+        return self._filesystem.watch(self._target(session_id, path))
 
     def image(self, session_id: str, path: str, version: str) -> tuple[str, bytes]:
         target = self._target(session_id, path)

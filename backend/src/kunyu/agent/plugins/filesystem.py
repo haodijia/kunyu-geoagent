@@ -18,12 +18,15 @@ class FilesystemPlugin:
     provides = (s.FILESYSTEM, s.FILESYSTEM_HOOKS)
 
     async def apply(self, context: Context) -> None:
-        context.provide(s.FILESYSTEM_HOOKS, FilesystemHooks())
-        context.provide(
-            s.FILESYSTEM,
-            MountedFilesystem(
-                context.require(s.DATABASE).path.parent, context.require(s.ATTACHMENTS)
-            ),
+        hooks = FilesystemHooks()
+        filesystem = MountedFilesystem(
+            context.require(s.DATABASE).path.parent, context.require(s.ATTACHMENTS)
+        )
+        context.provide(s.FILESYSTEM_HOOKS, hooks)
+        context.provide(s.FILESYSTEM, filesystem)
+        context.effect(filesystem.watches.close)
+        hooks.observed.register(
+            context, "workspace-file-changes", filesystem.watches.observed
         )
 
 

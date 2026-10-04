@@ -6,7 +6,7 @@ import posixpath
 import re
 import stat
 from collections import deque
-from collections.abc import Generator, Iterator
+from collections.abc import AsyncGenerator, Generator, Iterator
 from contextlib import contextmanager
 from pathlib import Path
 from threading import Event, Lock
@@ -20,6 +20,7 @@ from kunyu.domain.filesystem import (
     FsInfo,
     FsMutationOutcome,
     FsTarget,
+    FsWatchFrame,
     FsWriteIntent,
 )
 from kunyu.integrations.filesystem_directory import list_workspace_directory
@@ -33,6 +34,7 @@ from kunyu.integrations.filesystem_io import (
     probe_at,
     version_of,
 )
+from kunyu.integrations.filesystem_watch import FilesystemWatches
 from kunyu.integrations.search_storage import SEARCH_DIRECTORY, search_artifact_parts
 from kunyu.persistence.attachments import SQLAlchemyAttachmentStore
 
@@ -49,6 +51,7 @@ class MountedFilesystem:
         self._attachments = attachments
         self._locks_guard = Lock()
         self._locks: dict[tuple[str, str], deque[Event]] = {}
+        self.watches = FilesystemWatches(self._root, self.stat)
 
     def resolve(self, file_path: str, scope: FilesystemScope) -> FsTarget:
         if (
@@ -195,6 +198,9 @@ class MountedFilesystem:
 
     def read_text(self, target: FsTarget, cancelled: Event) -> str:
         return "".join(self.stream_text(target, cancelled))
+
+    def watch(self, target: FsTarget) -> AsyncGenerator[FsWatchFrame, None]:
+        return self.watches.follow(target)
 
     def _attachment(self, target: FsTarget) -> FileAttachment:
         if (
