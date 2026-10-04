@@ -44,6 +44,7 @@ from kunyu.agent.runtime.events import (
     RunState,
     RunTerminalEvent,
     StepDecisionEvent,
+    TodoWriteEvent,
     ToolCompletedEvent,
     ToolFailedEvent,
     ToolProgressEvent,
@@ -69,6 +70,7 @@ from kunyu.agent.runtime.run_state import (
     _State,
     _ToolCall,
 )
+from kunyu.agent.runtime.todos import TODO_LIST_ADAPTER
 
 
 def reduce_run(events: Iterable[AgentEvent]) -> ReducedRun:
@@ -229,6 +231,23 @@ def _apply(state: _State, event: EventDraft, sequence: int) -> None:
         _request_tool(state, event, sequence)
     elif isinstance(event, ToolProgressEvent):
         _progress_tool(state, event, sequence)
+    elif isinstance(event, TodoWriteEvent):
+        tool = state.tools.get(event.payload.tool_call_id)
+        if (
+            state.state is not RunState.TOOL_RUNNING
+            or tool is None
+            or tool.status != "running"
+            or tool.name != "todo_write"
+        ):
+            raise RunReductionError(
+                "Todo snapshot requires its running todo_write call."
+            )
+        try:
+            expected_todos = TODO_LIST_ADAPTER.validate_python(tool.arguments["todos"])
+        except (ValueError, KeyError) as error:
+            raise RunReductionError("Todo call arguments are invalid.") from error
+        if event.payload.todos != expected_todos:
+            raise RunReductionError("Todo snapshot differs from the validated call.")
     elif isinstance(event, ToolCompletedEvent):
         _complete_tool(state, event, sequence)
     elif isinstance(event, ToolFailedEvent):

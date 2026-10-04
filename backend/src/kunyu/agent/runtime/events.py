@@ -19,6 +19,7 @@ type NonNegativeInt = Annotated[int, Field(ge=0)]
 from kunyu.agent.runtime.assistant_stream import AssistantStreamRecord
 from kunyu.agent.runtime.content import ContentBlock, ReplayEnvelope
 from kunyu.agent.runtime.retry_policy import RetryPolicy
+from kunyu.agent.runtime.todos import TodoList
 
 type PositiveInt = Annotated[int, Field(gt=0)]
 
@@ -591,6 +592,16 @@ class ToolProgressEvent(_RunEventDraft):
     payload: ToolProgressPayload
 
 
+class TodoWritePayload(EventPayload):
+    tool_call_id: str
+    todos: TodoList
+
+
+class TodoWriteEvent(_RunEventDraft):
+    event_type: Literal["todo/write"]
+    payload: TodoWritePayload
+
+
 class ToolCompletedEvent(_RunEventDraft):
     event_type: Literal["tool.completed"]
     payload: ToolCompletedPayload
@@ -653,6 +664,7 @@ type EventDraft = Annotated[
     | ToolRequestedEvent
     | ToolProgressEvent
     | ToolCompletedEvent
+    | TodoWriteEvent
     | ToolFailedEvent
     | ConfirmationRequestedEvent
     | ConfirmationResolvedEvent

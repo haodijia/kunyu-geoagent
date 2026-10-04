@@ -2,6 +2,7 @@ import {
   ChevronDown,
   ChevronRight,
   Circle,
+  ListTodo,
   LoaderCircle,
   PenLine,
   Search,
@@ -17,6 +18,9 @@ import { zhCN } from "@/locales/zh-CN";
 import { useSessionEvents } from "@/features/events/SessionEventContext";
 import { CopyButton } from "@/features/messages/CopyButton";
 import type { GeneratingTool } from "@/features/events/stream-presentation";
+
+import { TodoItems } from "./TodoItems";
+import { parseTodos } from "./todos";
 
 const content = zhCN.conversation.tools;
 
@@ -241,14 +245,16 @@ function ToolCallRow({
               {formatDetail(tool.arguments)}
             </ToolDetail>
           ) : null}
-          {tool.result !== null ? (
-            <ToolDetail
-              label={
-                tool.name === "skill"
-                  ? zhCN.skills.instructions
-                  : content.output
-              }
-            >
+          {tool.result !== null ? tool.name === "todo_write" ? (
+            <div className="mb-2">
+              <div className="mb-1 flex items-center justify-between text-[11px] text-secondary-foreground">
+                <span>{content.output}</span>
+                <CopyButton text={formatToolResult(tool)} />
+              </div>
+              <TodoItems items={todoResultItems(tool.result)} />
+            </div>
+          ) : (
+            <ToolDetail label={tool.name === "skill" ? zhCN.skills.instructions : content.output}>
               {formatToolResult(tool)}
             </ToolDetail>
           ) : null}
@@ -366,7 +372,7 @@ export function toolLabel(name: string): string {
 
 function ToolKindIcon({ name }: { readonly name: string }) {
   const Icon =
-    name === "memory_read"
+    name === "todo_write" ? ListTodo : name === "memory_read"
       ? Search
       : name === "memory_write"
         ? PenLine
@@ -417,4 +423,10 @@ function formatToolResult(tool: ToolCall): string {
     return result.content;
   }
   return formatDetail(result);
+}
+
+function todoResultItems(result: ToolCall["result"]) {
+  if (typeof result !== "object" || result === null || Array.isArray(result) || !("todos" in result))
+    throw new Error("Todo tool result has no task list.");
+  return parseTodos(result.todos);
 }

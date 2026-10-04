@@ -2,6 +2,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
 
 import { messageQueryKeys } from "@/features/messages/api";
+import { ConversationPlanBar } from "@/features/agent/ConversationPlanBar";
 import { cancelAgent, agentQueryKeys } from "@/features/agent/api";
 import { useSessionWorkspace } from "@/features/sessions/SessionWorkspaceContext";
 import { zhCN } from "@/locales/zh-CN";
@@ -127,6 +128,10 @@ export function SessionComposer() {
   return (
     <>
     <QueuedMessages onDraftLockChange={setQueueEditing} />
+    <ConversationPlanBar
+      runId={activeTurn?.id ?? null}
+      processing={activeTurn !== undefined && activeTurn.state !== "interrupted" && !(activeTurn.state === "ready" && activeTurn.requires_resume)}
+    />
     <ConversationComposer
       contextLabel={zhCN.conversation.mapViewport(
         longitude.toFixed(4),

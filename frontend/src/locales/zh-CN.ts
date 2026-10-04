@@ -414,6 +414,12 @@ export const zhCN = {
     retrySend: "使用原请求标识重试发送",
     sendFailed: "发送失败，请确认本地服务正在运行后重试。",
     attempt: (attempt: number) => `第 ${attempt} 次尝试`,
+    planBar: {
+      title: "任务计划",
+      expand: "展开任务计划",
+      collapse: "收起任务计划",
+      progress: (completed: number, total: number) => `${completed} / ${total} 已完成`,
+    },
     tools: {
       title: "工具调用",
       generating: "正在生成参数",
@@ -442,6 +448,7 @@ export const zhCN = {
         memory_write: "保存工作区记忆",
         skill: "加载技能",
         skill_resource: "读取技能资源",
+        todo_write: "更新任务列表",
       },
       status: {
         pending: "等待执行",

@@ -123,13 +123,21 @@ backend/src/kunyu/agent/
 3. 调用 `TOOLS.register(owner, name, ToolRegistration(builder, write_handler))`，贡献随 owner 释放。
 4. 在产品组合的 `plugins` 参数中启用插件；会话专属扩展通过 `install_plugin(agent.ctx, plugin)` 安装。
 
-默认启用 `MemoryToolsPlugin` 的 `memory_read`、`memory_write`，以及 `SkillToolsPlugin` 的 `skill`、`skill_resource`。模型提供者和循环提供者可分别通过 `model_plugin`、`loop_plugin` 显式替换。没有旧路径、静态插件包装或工具名分支兼容层。
+默认启用 `MemoryToolsPlugin` 的 `memory_read`、`memory_write`，`SkillToolsPlugin` 的 `skill`、`skill_resource`，以及 `TodoToolsPlugin` 的 `todo_write`。模型提供者和循环提供者可分别通过 `model_plugin`、`loop_plugin` 显式替换。没有旧路径、静态插件包装或工具名分支兼容层。
 
 L0 工具可直接执行；L2 本地写入必须注册同名事务处理器。确认服务保留精确参数快照，批准后调用处理器；业务修改、确认和工具结果同一事务提交，失败一起回滚。远程业务应另建持久作业与监督流程。
 
 工具批次按 deepseek-harness 的屏障与并发池执行：连续的 L0 并行工具最多同时运行四个，独占工具等池排空后执行。开始事实先持久提交，再调用工具；结果按模型发出的顺序提交。批次预留工具次数与活动时间，结束时按实际用量结算；取消会停止补充任务、等待已启动任务退出，并将未完成调用标记为取消。恢复重新执行安全的只读调用，保留已经结算的结果。
 
 模型提供的参数在调用事件中原样保存，校验在执行边界进行。未知工具、参数错误、权限拒绝、资源不存在和执行超时均记录真实 `tool.failed` 结果，后续模型请求可以读取错误并修正；这些结果不会直接终止 Run。协议错误、预算耗尽和持久化错误仍结束运行。完整的工具批次包括已完成与已失败调用，不包括仍在运行或等待执行的调用。
+
+## 任务列表
+
+`TodoToolsPlugin` 通过现有作用域工具注册器提供 `todo_write`，使用 `{todos: [{content, status}]}` 整表替换当前 Agent 任务列表，没有任务 ID 或局部更新。状态为 pending／in_progress／completed；内容去除首尾空白，拒绝空项、重复内容、额外字段及多个同时执行的任务。当前产品执行顺序任务，尚未装配并行 Agent；空列表表示清除计划。工具在计划／只读模式中可用，更新会话进度而不修改业务数据。
+
+`ToolResult.events` 携带经过校验的同 Run 事件草稿，Runner 仅在工具成功结算时将它们与工具结果一起提交；失败、超时或取消不提前发布快照。`todo/write` 关联实际运行中的工具调用，Reducer 校验快照与规范化参数一致。会话投影保留最新不可变列表和所属 Run；新 Run 首次开始时清空，轮内模型／工具阶段切换不清空，结束后日志和投影保留最终列表。模型通过正常工具结果读取列表和各状态计数。
+
+前端从同一订阅事件恢复当前计划。对齐 Mu 的输入框上方计划栏：与输入框同宽，展示完成数、支持折叠，列表高度最多 min(22vh, 180px)，只显示正在运行的所属轮次。工具详情复用任务列表组件，轨迹保留每次完整替换事实。
 
 ## 扩展 Skill
 
