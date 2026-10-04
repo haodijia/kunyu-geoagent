@@ -323,8 +323,19 @@ Canonical `content` 与 `paths`／按文件分组的 `matches` 展示元数据�
 
 `GET /api/v1/sessions/{session_id}/files/preview?path=...` 先 stat 返回不透明版本、源字节数与类型。文本最多 1 MiB，图片源最多 20 MiB，不支持类型与超限仅返回明确状态，不读取内容。文本整读后验证版本和实际长度，严格 UTF-8 解码并去除 BOM，保留 CRLF；不返回截断文本。`/image` 要求对应版本，复用图片规范化，可能缩小大图或取首帧；`/download` 读取原始字节，提前打开文件再发送响应头，精确长度并在断开或取消时关闭生成器／描述符。API 原件下载使用流式响应；当前前端下载通过鉴权 Blob，仍会在 renderer 中持有整个下载文件。
 
-前端 `features/files` 统一管理目录树、预览标签、宽度、查看器与入口。文件标签按规范化路径去重，刷新重新读取当前版本；变更标签按真实 tool_call_id 定位 journal 投影的原始 hunks，避免把后续编辑当作历史变更。会话存储只保留标签描述与宽度；源码按需加载 CodeMirror 语言包，并保持只读与虚拟化。Markdown 文件链接可按当前文件目录解析并定位行号；HTML 在独立 sandbox iframe 内，仅允许内联脚本和样式，CSP 禁止网络。尚未提供用户保存、原生文件监视、PDF／Office 与 HTML 本地资源加载。
+前端 `features/files` 统一管理目录树、预览标签、宽度、查看器与入口。文件标签按规范化路径去重，刷新重新读取当前版本；变更标签按真实 tool_call_id 定位 journal 投影的原始 hunks，避免把后续编辑当作历史变更。会话存储只保留标签描述与宽度；源码按需加载 CodeMirror 语言包，并保持只读与虚拟化。Markdown 文件链接可按当前文件目录解析并定位行号；HTML 在独立 sandbox iframe 内，仅允许内联脚本和样式，CSP 禁止网络。尚未提供用户保存、PDF／Office 与 HTML 本地资源加载。
 
 `GET /api/v1/sessions/{session_id}/files/list?path=...` 只列当前工作区目录的一层。Filesystem 新增目录列表契约，`filesystem_directory` 负责有界扫描；根目录按需建立托管存储，缺失用户目录不会被创建。支持普通隐藏文件，排除内部搜索恢复目录及 UUID 原子写入暂存目录；类型来自 no-follow stat，链接与特殊文件标记 other，不可打开。后端稳定名称顺序截取前 2000 项并标记 truncated，扫描只保留上限加一的候选名称；选中条目在 stat 前消失则明确报 FS_STALE_VERSION。根目录作为真实 directory 解析，read/write/edit 继续拒绝它作为文件。
 
-文件树位于预览面板外侧，按工作区保存展开路径、开关偏好及 260px 默认／220–500px 宽度，不缓存列表。按需加载各级目录，并以目录优先、自然名称排序展示。成功的 write/edit 完成事件通过真实 tool_call_id 与 requested 名称关联，使活动目录重新读取；手动刷新覆盖根和已展开目录，关闭的目录在下次打开时重新读取。外部变更目前需要手动刷新，尚未实现 harness 的目录观察服务。
+文件树位于预览面板外侧，按工作区保存展开路径、开关偏好及 260px 默认／220–500px 宽度，不缓存列表。按需加载各级目录，并以目录优先、自然名称排序展示。根及展开目录订阅原生变化并自动重新列出；手动刷新覆盖根和已展开目录，关闭的目录在下次打开时重新读取。已移除通过 tool.completed 推断刷新时机的旧实现。
+
+
+## 原生文件变化订阅
+
+`Filesystem.watch` 返回拥有生命周期的异步生成器；`FilesystemWatches` 由文件系统插件装配，同时接收真实 `fs/observed` 通知。先注册 follower，再验证逻辑挂载路径、建立原生监视，随后读当前 metadata 并发送 ready。文件只接收目标变化，目录接收自身及直接子项；合并通知后重新 stat，不读取内容、不记录 Agent observation，也不授予修改权限。不可变附件不订阅变化。
+
+`watchfiles==1.3.0` 的 RustNotify 使用原生 Recommended 后端；构造出的轮询后端明确拒绝，不采用环境变量控制的轮询或重试分支。原生等待使用独立线程，避免长寿命订阅占满默认 IO 线程池；关闭时设置停止信号，排空原生线程与 metadata 读取，再释放描述符。当前目录 IO 依然面向 POSIX。描述符验证和 native path 监视之间不具备系统级竞态隔离；stat／内容访问仍逐级 no-follow。
+
+`GET /api/v1/sessions/{session_id}/files/changes?path=...` 在建立订阅前验证会话归属，在 ready 前不发送响应头。`file.ready`／`file.change` 传输规范化逻辑路径及当前版本／类型／大小或 absent；运行中失败发送终止 `file.error` 并记录错误。响应同时监听断开，关闭生成器，即使正文尚未开始或发送失败；服务关闭也释放 follower。
+
+前端根目录始终订阅，展开目录按挂载生命周期订阅。workspace 文件标签在隐藏预览或切换标签时保留订阅与已加载快照；内容不自动替换，版本差异点亮琥珀色刷新按钮，手动刷新消费新版本。关闭标签清理快照和订阅，会话卸载清理全部缓存；超限／不支持类型隐藏刷新，保留下载。失效订阅明确提示并提供用户重连按钮，没有静默轮询或自动替代机制。

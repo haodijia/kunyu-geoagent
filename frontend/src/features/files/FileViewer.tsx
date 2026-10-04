@@ -8,7 +8,7 @@ import { useSessionWorkspace } from "@/features/sessions/SessionWorkspaceContext
 import { zhCN } from "@/locales/zh-CN";
 import { readFileImage, readFilePreview, type FilePreview } from "./api";
 import { formatFileBytes } from "./file-path";
-import type { PreviewTab } from "./FilePreviewContext";
+import { useFilePreview, type PreviewTab } from "./FilePreviewContext";
 import { filePreviewError, LoadingPreview, PreviewNotice } from "./preview-status";
 
 const SourcePreview = lazy(() => import("./SourcePreview"));
@@ -17,10 +17,15 @@ const content = zhCN.filePreview;
 
 export function FileViewer({ tab }: { readonly tab: Extract<PreviewTab, { kind: "file" }> }) {
   const session = useSessionWorkspace();
-  const query = useQuery({ queryKey: ["file-preview", session.id, tab.path, tab.revision], queryFn: ({ signal }) => readFilePreview(session.id, tab.path, signal), retry: false });
+  const { recordLoaded } = useFilePreview();
+  const query = useQuery({ queryKey: ["file-preview", session.id, tab.path, tab.revision], queryFn: ({ signal }) => readFilePreview(session.id, tab.path, signal), staleTime: Infinity, gcTime: Infinity, retry: false });
   const [mode, setMode] = useState<"source" | "preview">(tab.line === undefined ? "preview" : "source");
   const [split, setSplit] = useState(false);
   useEffect(() => { if (query.error !== null) console.error("[files] Preview failed.", { sessionId: session.id, path: tab.path, error: query.error }); }, [query.error, session.id, tab.path]);
+  useEffect(() => {
+    if (query.data !== undefined && !query.isError) recordLoaded(tab.path, query.data.version, query.data.state === "ready");
+    else if (query.isError) recordLoaded(tab.path, null, true);
+  }, [query.data, query.isError, tab.path, recordLoaded]);
   if (query.isPending) return <LoadingPreview />;
   if (query.isError) return <PreviewNotice text={filePreviewError(query.error)} danger />;
   const preview = query.data;

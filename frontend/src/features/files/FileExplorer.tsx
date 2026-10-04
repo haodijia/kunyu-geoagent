@@ -12,6 +12,7 @@ import { useFileExplorer } from "./FileExplorerContext";
 import { useFilePreview } from "./FilePreviewContext";
 import { filePreviewError } from "./preview-status";
 import styles from "./FileExplorer.module.css";
+import { useFileWatch } from "./useFileWatch";
 
 const content = zhCN.fileExplorer;
 const byName = new Intl.Collator(undefined, { numeric: true, sensitivity: "base" });
@@ -30,6 +31,7 @@ export function FileExplorerLayout({ children }: { readonly children: ReactNode 
   const preview = useFilePreview();
   const active = preview.tabs.find(tab => tab.id === preview.activeId);
   const rootQuery = useQuery({ queryKey: directoryQueryKey(session.id, "/workspace"), queryFn: ({ signal }) => listDirectory(session.id, "/workspace", signal), retry: false });
+  const rootWatch = useFileWatch(session.id, "/workspace", true, () => { void queryClient.invalidateQueries({ queryKey: directoryQueryKey(session.id, "/workspace"), exact: true }); });
   useEffect(() => {
     if (rootQuery.data !== undefined && rootQuery.data.entries.length > 0 && window.innerWidth >= 768) explorer.showWhenPopulated();
   }, [rootQuery.data, explorer.showWhenPopulated]);
@@ -56,6 +58,7 @@ export function FileExplorerLayout({ children }: { readonly children: ReactNode 
           <Tooltip label={content.refresh}><Button variant="ghost" size="icon" className="size-6" disabled={refreshing} aria-label={content.refresh} onClick={() => void refresh()}><RefreshCw className={`size-3.5 ${refreshing ? "animate-spin" : ""}`} /></Button></Tooltip>
           <Tooltip label={content.collapse}><Button variant="ghost" size="icon" className="size-6" aria-label={content.collapse} onClick={explorer.collapseAll}><ListCollapse className="size-3.5" /></Button></Tooltip>
         </div>
+        {rootWatch.error !== null && <div className="border-b border-border px-3 py-2 text-xs text-destructive" role="alert">{content.watchFailed(rootWatch.error)}<button type="button" className="ml-2 underline" onClick={rootWatch.retry}>{content.retryWatch}</button></div>}
         <div className="min-h-0 flex-1 overflow-auto py-1" onKeyDown={event => {
           if (event.key === "Escape") explorer.closePanel();
           if (["ArrowUp", "ArrowDown", "Home", "End"].includes(event.key)) {
@@ -75,12 +78,15 @@ export function FileExplorerLayout({ children }: { readonly children: ReactNode 
 
 function DirectoryLevel({ path, depth }: { readonly path: string; readonly depth: number }) {
   const session = useSessionWorkspace();
+  const queryClient = useQueryClient();
   const query = useQuery({ queryKey: directoryQueryKey(session.id, path), queryFn: ({ signal }) => listDirectory(session.id, path, signal), retry: false });
+  const watch = useFileWatch(session.id, path, path !== "/workspace", () => { void queryClient.invalidateQueries({ queryKey: directoryQueryKey(session.id, path), exact: true }); });
   const entries = useMemo(() => [...(query.data?.entries ?? [])].sort((a, b) => Number(b.type === "directory") - Number(a.type === "directory") || byName.compare(a.name, b.name)), [query.data]);
   useEffect(() => { if (query.error !== null) console.error("[files] Directory listing failed.", { sessionId: session.id, path, error: query.error }); }, [query.error, session.id, path]);
   if (query.isPending) return <li role="none" className={styles.note}><LoaderCircle className="mr-1 inline size-3 animate-spin" />{content.loading}</li>;
   if (query.isError) return <li role="none" className={styles.note}><span role="alert" className="text-destructive">{filePreviewError(query.error)}</span></li>;
   return <>
+    {watch.error !== null && <li role="none" className={styles.note}><span className="text-destructive" role="alert">{content.watchFailed(watch.error)}<button type="button" className="ml-2 underline" onClick={watch.retry}>{content.retryWatch}</button></span></li>}
     {entries.length === 0 && <li role="none" className={styles.note}>{content.empty}</li>}
     {entries.map(entry => <TreeEntry key={entry.name} entry={entry} path={`${path}/${entry.name}`} depth={depth} />)}
     {query.data.truncated && <li role="none" className={styles.note}>{content.truncated}</li>}

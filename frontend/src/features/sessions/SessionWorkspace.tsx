@@ -119,7 +119,7 @@ function SessionWorkspaceContent({
           workspaceId={sessionQuery.data.workspace_id}
         >
         <FilePreviewProvider key={sessionQuery.data.id} sessionId={sessionQuery.data.id}>
-        <FileExplorerProvider sessionId={sessionQuery.data.id} workspaceId={sessionQuery.data.workspace_id}>
+        <FileExplorerProvider workspaceId={sessionQuery.data.workspace_id}>
         <section className="flex h-full min-h-0 flex-col bg-background">
           <SessionTitlebar />
           <div className="min-h-0 flex-1 overflow-hidden">

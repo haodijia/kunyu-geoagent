@@ -1,8 +1,4 @@
-import { useQueryClient } from "@tanstack/react-query";
-import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from "react";
-
-import { useSessionEvents } from "@/features/events/SessionEventContext";
-import { directoryQueryKey } from "./api";
+import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from "react";
 
 interface ExplorerState {
   readonly preference: boolean | null;
@@ -33,31 +29,13 @@ function readState(key: string): ExplorerState {
   return state;
 }
 
-export function FileExplorerProvider({ sessionId, workspaceId, children }: { readonly sessionId: string; readonly workspaceId: string; readonly children: ReactNode }) {
+export function FileExplorerProvider({ workspaceId, children }: { readonly workspaceId: string; readonly children: ReactNode }) {
   const key = `kunyu:files:${workspaceId}`;
   const [state, setState] = useState(() => readState(key));
   const [populated, setPopulated] = useState(false);
   const [selected, setSelected] = useState<string | null>(null);
   const showWhenPopulated = useCallback(() => setPopulated(true), []);
-  const queryClient = useQueryClient();
-  const { events } = useSessionEvents();
-  const sequence = useRef<number | null>(null);
-  const mutations = useRef(new Set<string>());
   useEffect(() => { localStorage.setItem(key, JSON.stringify(state)); }, [key, state]);
-  useEffect(() => {
-    if (events.length === 0) return;
-    const current = events.at(-1)!.sequence;
-    for (const event of events) {
-      if (event.event_type === "tool.requested" && (event.payload.name === "write" || event.payload.name === "edit") && typeof event.payload.tool_call_id === "string") mutations.current.add(event.payload.tool_call_id);
-    }
-    if (sequence.current !== null && events.some(event => event.sequence > sequence.current! && event.event_type === "tool.completed" && typeof event.payload.tool_call_id === "string" && mutations.current.has(event.payload.tool_call_id))) {
-      void queryClient.invalidateQueries({ queryKey: directoryQueryKey(sessionId) });
-    }
-    for (const event of events) {
-      if ((event.event_type === "tool.completed" || event.event_type === "tool.failed") && typeof event.payload.tool_call_id === "string") mutations.current.delete(event.payload.tool_call_id);
-    }
-    sequence.current = current;
-  }, [events, queryClient, sessionId]);
   return <ExplorerContext value={{ ...state, open: state.preference ?? populated, selected,
     togglePanel: () => setState(current => ({ ...current, preference: !(current.preference ?? populated) })),
     closePanel: () => setState(current => ({ ...current, preference: false })),
