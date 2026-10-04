@@ -66,6 +66,7 @@ export class BackendProcessManager {
 
     this.state = "starting";
     this.logs.reset();
+    const { rgPath } = await import("@vscode/ripgrep");
     const sessionToken = randomBytes(32).toString("base64url");
     const repositoryRoot = path.resolve(__dirname, "../../..");
     const child = spawn(
@@ -76,6 +77,7 @@ export class BackendProcessManager {
         env: {
           ...process.env,
           [APP_DATA_DIRECTORY_ENV]: this.appDataDirectory,
+          KUNYU_RIPGREP_PATH: rgPath.replace(/\.asar(?=[\\/])/u, ".asar.unpacked"),
           [SESSION_TOKEN_ENV]: sessionToken
         },
         stdio: ["ignore", "pipe", "pipe"],

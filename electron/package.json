@@ -13,5 +13,8 @@
   "devDependencies": {
     "electron": "44.4.5",
     "typescript": "7.0.2"
+  },
+  "dependencies": {
+    "@vscode/ripgrep": "1.18.0"
   }
 }

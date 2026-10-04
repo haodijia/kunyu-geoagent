@@ -23,6 +23,7 @@ import type { GeneratingTool } from "@/features/events/stream-presentation";
 
 import { TodoItems } from "./TodoItems";
 import { ReadResult } from "./ReadResult";
+import { SearchResult } from "./SearchResult";
 import { FileMutationResult } from "./FileMutationResult";
 import { parseTodos } from "./todos";
 import { parseToolContent, toolContentImages, toolContentText } from "./tool-content";
@@ -265,6 +266,8 @@ function ToolCallRow({
             </div>
           ) : tool.name === "read" ? (
             <ReadResult value={tool.result} text={toolContentText(resultContent)} />
+          ) : tool.name === "glob" || tool.name === "grep" ? (
+            <SearchResult value={tool.result} text={toolContentText(resultContent)} />
           ) : tool.name === "write" || tool.name === "edit" ? (
             <FileMutationResult value={tool.result} text={toolContentText(resultContent)} />
           ) : (
@@ -387,7 +390,7 @@ export function toolLabel(name: string): string {
 
 function ToolKindIcon({ name }: { readonly name: string }) {
   const Icon =
-    name === "write" || name === "edit" ? PenLine : name === "read" ? FileText : name === "read_image" ? Image : name === "todo_write" ? ListTodo : name === "memory_read"
+    name === "write" || name === "edit" ? PenLine : name === "read" ? FileText : name === "read_image" ? Image : name === "todo_write" ? ListTodo : name === "memory_read" || name === "glob" || name === "grep"
       ? Search
       : name === "memory_write"
         ? PenLine

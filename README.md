@@ -53,6 +53,13 @@ npm run dev
 
 关闭 Electron 窗口或终止该命令时，开发服务会统一退出。
 
+Electron 自动向后端注入随应用安装的 `@vscode/ripgrep` 路径。单独启动后端时显式指定同一二进制，不使用系统 `rg`：
+
+```bash
+export KUNYU_RIPGREP_PATH="$(node --input-type=module -e 'import {rgPath} from "./electron/node_modules/@vscode/ripgrep/lib/index.js"; console.log(rgPath)')"
+uv run --project backend python -m kunyu.main
+```
+
 Agent 系统提示词可直接编辑 [system.md](backend/src/kunyu/agent/prompts/system.md)，下一次模型请求生效。记忆工具及上下文代码入口见[记忆工具与上下文](docs/develop/记忆工具与上下文.md)，目录职责及 Tool、Skill 扩展约定见[后端 Agent 结构](docs/develop/后端Agent结构.md)。
 
 在「设置 → 技能」中新建或导入 `SKILL.md` 技能包。会话中使用 `/技能名` 显式调用，或由模型按任务简介加载；内置 `/disaster-assessment` 灾害研判技能。格式、权限、资源读取和来源优先级见[Agent 技能](docs/develop/Agent技能.md)。
@@ -71,6 +78,7 @@ Agent 系统提示词可直接编辑 [system.md](backend/src/kunyu/agent/prompts
 - **原生 Messages** — DeepSeek 默认使用 Messages，保留思考签名和工具结果续接；DeepSeek 与自定义连接可在设置中选择协议。
 - **任务进度** — Agent 通过 `todo_write` 更新完整任务计划，对话输入框上方显示当前轮次进度，刷新后可恢复。
 - **工作区文件** — `write` 创建或替换文本文件，`edit` 做精确文本替换；覆盖与编辑校验本会话已读取的文件版本。对话和轨迹展示实际应用的上下文 diff 与增删行数，计划／只读模式禁止写入。
+- **文件搜索** — `glob` 查找文件，`grep` 使用 ripgrep 正则定位内容；对话和轨迹显示文件列表与实际匹配行号。超过上限时保存完整结果，Agent 可用 `read` 续读，再读取目标文件并编辑。
 
 - **可追溯成果** — 将地图、指标、任务详情、核查清单和报告组织为可定位来源与计算过程的业务成果
 

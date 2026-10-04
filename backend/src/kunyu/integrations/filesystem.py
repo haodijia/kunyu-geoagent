@@ -30,6 +30,7 @@ from kunyu.integrations.filesystem_io import (
     probe_at,
     version_of,
 )
+from kunyu.integrations.search_storage import SEARCH_DIRECTORY, search_artifact_parts
 from kunyu.persistence.attachments import SQLAlchemyAttachmentStore
 
 CHUNK_BYTES = 64 * 1024
@@ -81,9 +82,15 @@ class MountedFilesystem:
                 "FS_OUT_OF_SCOPE",
                 "Paths must stay inside /workspace or reference an admitted /attachments path.",
             )
-        return FsTarget(
-            path, scope, "workspace", tuple(path[len("/workspace/") :].split("/")), None
-        )
+        parts = tuple(path[len("/workspace/") :].split("/"))
+        if parts[0].casefold() == SEARCH_DIRECTORY and not search_artifact_parts(
+            parts, scope
+        ):
+            raise FilesystemError(
+                "FS_PERMISSION_DENIED",
+                "Search recovery artifacts belong to their originating session.",
+            )
+        return FsTarget(path, scope, "workspace", parts, None)
 
     def stream_text(self, target: FsTarget, cancelled: Event) -> Generator[str]:
         decoder = codecs.getincrementaldecoder("utf-8-sig")(errors="strict")
@@ -372,10 +379,12 @@ class MountedFilesystem:
 
     @staticmethod
     def _require_writable(target: FsTarget) -> None:
-        if target.kind != "workspace":
+        if target.kind != "workspace" or (
+            target.parts and target.parts[0].casefold() == SEARCH_DIRECTORY
+        ):
             raise FilesystemError(
                 "FS_PERMISSION_DENIED",
-                f'cannot modify "{target.display_path}": attachment mounts are read-only',
+                f'cannot modify "{target.display_path}": this mount is read-only',
             )
 
     @staticmethod

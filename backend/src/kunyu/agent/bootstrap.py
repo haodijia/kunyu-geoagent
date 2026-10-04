@@ -24,6 +24,7 @@ from kunyu.agent.plugins.image_offload import ImageOffloadPlugin
 from kunyu.agent.plugins.infrastructure import ModelPlugin, PersistencePlugin
 from kunyu.agent.plugins.loop import AgentLoopPlugin
 from kunyu.agent.plugins.memory import MemoryToolsPlugin
+from kunyu.agent.plugins.search import SearchPlugin
 from kunyu.agent.plugins.todo import TodoToolsPlugin
 from kunyu.agent.retry import RetryPlugin
 from kunyu.agent.scheduler import RunScheduler
@@ -90,6 +91,7 @@ async def create_agent_runtime(
         MemoryToolsPlugin(),
         AttachmentToolsPlugin(),
         FilesystemToolsPlugin(),
+        SearchPlugin(),
         TodoToolsPlugin(),
         SkillPlugin(),
         FilesystemSkillsPlugin(),
