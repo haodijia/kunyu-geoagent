@@ -147,6 +147,17 @@ function contextRecord(
       output: started?.payload ?? null,
     });
   }
+  if (first.eventType === "image/offload") {
+    if (!Array.isArray(first.payload.targets)) throw new Error("Invalid image offload record.");
+    const count = first.payload.targets.reduce((sum: number, target: { image_indexes: unknown[] }) => sum + target.image_indexes.length, 0);
+    const text = zhCN.conversation.attachments.offloadSummary(count);
+    const header = [...context.allEvents].reverse().find((event) => event.eventType === "request.header" && event.sequence < first.sequence);
+    return baseRecord(events, {
+      turn: header === undefined ? null : turnFor(header, context), text, searchText: `${text} ${safeString(first.payload.targets)}`,
+      status: "completed", startedAt: first.occurredAt, completedAt: first.occurredAt, isError: false,
+      source: { kind: "context", producer: "image/offload", run_id: header?.runId ?? null, request_sequence: header?.sequence ?? null }, input: first.payload, output: null,
+    });
+  }
   const done = events.find((event) => event.eventType === "command/done");
   const isCommand = first.eventType === "command/run";
   const content = first.eventType === "todo/write"
@@ -336,7 +347,9 @@ function assistantRecord(
       ? content
       : finishReason === "tool_calls"
         ? ""
-        : zhCN.trajectory.emptyAssistant;
+        : attemptFinished?.payload.error_code === "IMAGE_OFFLOAD_REQUIRED"
+          ? zhCN.trajectory.imageOffloadRequired
+          : zhCN.trajectory.emptyAssistant;
   return baseRecord(events, {
     turn: turnFor(first, context),
     text: displayText,

@@ -165,6 +165,31 @@ class HistoryCompactedPayload(EventPayload):
     through_sequence: PositiveInt
 
 
+class ImageOffloadTarget(EventPayload):
+    sequence: int = Field(gt=0, strict=True)
+    message_id: str = Field(min_length=1, max_length=64)
+    image_indexes: tuple[Annotated[int, Field(ge=0, strict=True)], ...] = Field(
+        min_length=1
+    )
+
+    @model_validator(mode="after")
+    def ordered_indexes(self) -> Self:
+        if tuple(sorted(set(self.image_indexes))) != self.image_indexes:
+            raise ValueError("Image indexes must be strictly increasing.")
+        return self
+
+
+class ImageOffloadPayload(EventPayload):
+    targets: tuple[ImageOffloadTarget, ...] = Field(min_length=1)
+
+    @model_validator(mode="after")
+    def unique_sources(self) -> Self:
+        keys = {(item.sequence, item.message_id) for item in self.targets}
+        if len(keys) != len(self.targets):
+            raise ValueError("Image offload sources must be unique.")
+        return self
+
+
 class BudgetLimitsPayload(EventPayload):
     model_calls: PositiveInt
     tool_calls: PositiveInt
@@ -526,6 +551,11 @@ class HistoryCompactedEvent(_SessionEventDraft):
     payload: HistoryCompactedPayload
 
 
+class ImageOffloadEvent(_SessionEventDraft):
+    event_type: Literal["image/offload"]
+    payload: ImageOffloadPayload
+
+
 class RunModelSelectedEvent(_RunEventDraft):
     event_type: Literal["run.model_selected"]
     payload: RunModelSelectedPayload
@@ -663,6 +693,7 @@ type EventDraft = Annotated[
     | PermissionChangedEvent
     | FeedbackRecordedEvent
     | HistoryCompactedEvent
+    | ImageOffloadEvent
     | RunCreatedEvent
     | RunModelSelectedEvent
     | RunProgressEvent

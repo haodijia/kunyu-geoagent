@@ -11,7 +11,8 @@ from kunyu.agent.runtime.context import (
     PromptSectionRegistry,
 )
 from kunyu.agent.runtime.events import EventStore, StepMessagePayload
-from kunyu.agent.runtime.input_content import user_content
+from kunyu.agent.runtime.image_offload import apply_offloads
+from kunyu.agent.runtime.input_content import InputMessageSource, user_content
 from kunyu.agent.runtime.models import ModelMessage, ModelRole
 from kunyu.agent.runtime.run_state import ReducedAssistant, ReducedRun, ReducedToolCall
 from kunyu.agent.scope import Context
@@ -142,6 +143,9 @@ def build_model_history(source: RunContextSource) -> tuple[ModelMessage, ...]:
                 ModelMessage(
                     role=ModelRole.USER,
                     content=user_content(message.content, message.attachments),
+                    input_source=InputMessageSource(
+                        sequence=message.created_sequence, message_id=message.message_id
+                    ),
                 ),
             )
             + (
@@ -192,6 +196,9 @@ def build_model_history(source: RunContextSource) -> tuple[ModelMessage, ...]:
                     ModelMessage(
                         ModelRole.USER,
                         user_content(message.content, message.attachments),
+                        input_source=InputMessageSource(
+                            sequence=decision.sequence, message_id=message.message_id
+                        ),
                     ),
                     *(
                         (
@@ -261,6 +268,7 @@ def build_model_history(source: RunContextSource) -> tuple[ModelMessage, ...]:
         if step.sequence > source.controls.compacted_through
         for message in step.messages
     )
+    visible = apply_offloads(visible, source.reduced_session.offloaded_images)
     if source.controls.summary is None:
         return visible
     return (

@@ -19,6 +19,7 @@ from kunyu.agent.runtime.events import (
     UserMessageAppendedEvent,
     validate_event_draft,
 )
+from kunyu.agent.runtime.image_offload_projection import ImageOffloadProjection
 from kunyu.agent.runtime.reducer import reduce_run
 from kunyu.agent.runtime.run_state import RunReductionError
 from kunyu.agent.runtime.runner_types import model_step_position
@@ -43,6 +44,7 @@ def reduce_session(events: Iterable[AgentEvent]) -> ReducedSession:
     run_events: dict[str, list[AgentEvent]] = defaultdict(list)
     todos = None
     todos_run_id = None
+    image_offloads = ImageOffloadProjection()
 
     for envelope in events:
         if envelope.sequence != expected_sequence:
@@ -260,6 +262,13 @@ def reduce_session(events: Iterable[AgentEvent]) -> ReducedSession:
                         "Step admission cannot introduce unowned attachments."
                     )
 
+        try:
+            image_offloads.accept(event, envelope.sequence)
+        except ValueError as error:
+            raise SessionReductionError(
+                f"Image projection at event {envelope.sequence} is invalid: {error}"
+            ) from error
+
         if envelope.run_id is not None:
             run_events[envelope.run_id].append(envelope)
 
@@ -329,6 +338,7 @@ def reduce_session(events: Iterable[AgentEvent]) -> ReducedSession:
         dispatch_message_id=dispatch_message_id,
         todos=todos,
         todos_run_id=todos_run_id,
+        offloaded_images=tuple(image_offloads.targets),
     )
 
 

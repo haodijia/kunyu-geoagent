@@ -1,6 +1,7 @@
 import { ArrowDown, LoaderCircle, MessageCircle } from "lucide-react";
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 
+import { collectImageOffloads } from "@/features/attachments/image-offloads";
 import { AttachmentStrip } from "@/features/attachments/AttachmentStrip";
 import { Button } from "@/components/ui/button";
 
@@ -50,6 +51,8 @@ export function MessageList({
   turns,
 }: MessageListProps) {
   const { events, records, activeAssistant } = useSessionEvents();
+  const imageOffloads = useMemo(() => collectImageOffloads(events), [events]);
+  const repairedAttempts = useMemo(() => new Set(records.filter((record) => record.eventType === "model.attempt.finished" && record.payload.error_code === "IMAGE_OFFLOAD_REQUIRED").map((record) => record.messageId)), [records]);
   const skillsByMessage = useMemo(() => collectSessionSkills(events).byMessage, [events]);
   const live = useMemo(() => {
     if (activeAssistant === null) return null;
@@ -102,6 +105,8 @@ export function MessageList({
     return [
       ...visibleMessages
         .filter((message) => message.role !== "user" || message.run_id !== null)
+        .filter((message) => !(repairedAttempts.has(message.id) && message.content.length === 0
+          && (reasoningByMessage.get(message.id)?.text.length ?? 0) === 0))
         .map((message) => ({
           kind: "message" as const,
           id: message.id,
@@ -119,7 +124,7 @@ export function MessageList({
           result: results.get(record.entityId),
         })),
     ].sort((left, right) => left.sequence - right.sequence);
-  }, [visibleMessages, records]);
+  }, [visibleMessages, records, repairedAttempts, reasoningByMessage]);
   const endRef = useRef<HTMLDivElement>(null);
   const followStreamRef = useRef(true);
   const [awayFromEnd, setAwayFromEnd] = useState(false);
@@ -219,7 +224,8 @@ export function MessageList({
             {message.role === "user" ? (
               <div className="max-w-full [--attachment-surface:var(--message-user-bg)] rounded-[8px] bg-[var(--message-user-bg)] px-2.5 py-2 text-[13px] leading-5 whitespace-pre-wrap text-foreground [overflow-wrap:anywhere]">
                 {message.content.length > 0 && <UserSkillText text={message.content} skills={skillsByMessage.get(message.id) ?? new Map()} />}
-                <AttachmentStrip sessionId={message.session_id} attachments={message.attachments} />
+                <AttachmentStrip sessionId={message.session_id} attachments={message.attachments} offloadedIds={imageOffloads.get(message.id)} />
+                {imageOffloads.has(message.id) && <p className="text-[11px] text-muted-foreground">{content.attachments.offloadSummary(imageOffloads.get(message.id)!.size)}</p>}
               </div>
             ) : (
               <>

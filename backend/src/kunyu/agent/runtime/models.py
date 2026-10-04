@@ -6,7 +6,7 @@ from enum import StrEnum
 from typing import Protocol
 
 from kunyu.agent.runtime.content import ContentBlock, ContentBlockType, ReplayEnvelope
-from kunyu.agent.runtime.input_content import MessageContentBlock
+from kunyu.agent.runtime.input_content import InputMessageSource, MessageContentBlock
 from kunyu.agent.runtime.tools import ToolSpec
 
 
@@ -28,6 +28,7 @@ class ModelErrorCode(StrEnum):
     INVALID_REQUEST = "MODEL_INVALID_REQUEST"
     UNSUPPORTED_CAPABILITY = "UNSUPPORTED_CAPABILITY"
     IMAGE_LIMIT = "MODEL_IMAGE_LIMIT"
+    IMAGE_OFFLOAD_REQUIRED = "IMAGE_OFFLOAD_REQUIRED"
     CREDENTIAL_UNAVAILABLE = "CREDENTIAL_STORE_UNAVAILABLE"
     PROVIDER_AUTH = "PROVIDER_AUTH"
     PROVIDER_PROTOCOL = "PROVIDER_PROTOCOL"
@@ -47,9 +48,17 @@ class ModelAdapterError(RuntimeError):
         message: str,
         *,
         provider_retry_after_ms: float | None = None,
+        offload_images: int | None = None,
     ) -> None:
+        if offload_images is not None and (
+            code is not ModelErrorCode.IMAGE_OFFLOAD_REQUIRED
+            or type(offload_images) is not int
+            or offload_images < 1
+        ):
+            raise ValueError("Image offload failures require a positive count.")
         self.code = code
         self.provider_retry_after_ms = provider_retry_after_ms
+        self.offload_images = offload_images
         super().__init__(message)
 
 
@@ -82,6 +91,7 @@ class ModelMessage:
     replay_state: ReplayEnvelope | None = None
     source_model: str | None = None
     is_error: bool | None = None
+    input_source: InputMessageSource | None = None
 
 
 @dataclass(frozen=True, slots=True)

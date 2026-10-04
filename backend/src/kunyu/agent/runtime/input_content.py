@@ -11,6 +11,12 @@ from kunyu.domain.attachments import Attachment, FileAttachment, ImageAttachment
 class ImageInputBlock(ContentValue):
     type: Literal["image"] = "image"
     attachment: ImageAttachment
+    offloaded: Literal[True] | None = None
+
+
+class InputMessageSource(ContentValue):
+    sequence: int = Field(gt=0, strict=True)
+    message_id: str = Field(min_length=1, max_length=64)
 
 
 class FileInputBlock(ContentValue):

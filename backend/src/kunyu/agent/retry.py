@@ -18,7 +18,7 @@ from kunyu.agent.runtime.events import (
     RetryStartedEvent,
     RetryStartedPayload,
 )
-from kunyu.agent.runtime.hooks import RequestErrorAction
+from kunyu.agent.runtime.hooks import RequestErrorAction, RequestRetry
 from kunyu.agent.runtime.retry_policy import NormalRetryPolicy, retry_policy_key
 from kunyu.agent.scope import Context
 
@@ -83,7 +83,7 @@ class _RetryExecutor:
             invocation.signal.throw_if_cancelled()
             if self._closed.is_set():
                 return None
-            if downstream == "retry":
+            if isinstance(downstream, RequestRetry):
                 return downstream
         elif failure.code not in policy.retryable_codes:
             return await next()
@@ -189,4 +189,4 @@ class _RetryExecutor:
                 ),
             )
         )
-        return "retry"
+        return RequestRetry()

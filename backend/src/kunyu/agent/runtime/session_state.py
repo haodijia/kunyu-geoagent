@@ -4,7 +4,7 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Literal
 
-from kunyu.agent.runtime.events import InboxMessagePayload
+from kunyu.agent.runtime.events import ImageOffloadTarget, InboxMessagePayload
 from kunyu.agent.runtime.run_state import ReducedRun
 from kunyu.agent.runtime.todos import TodoItem
 from kunyu.domain.attachments import Attachment
@@ -41,3 +41,4 @@ class ReducedSession:
     dispatch_message_id: str | None = None
     todos: tuple[TodoItem, ...] | None = None
     todos_run_id: str | None = None
+    offloaded_images: tuple[ImageOffloadTarget, ...] = ()

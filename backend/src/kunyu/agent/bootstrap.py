@@ -15,6 +15,7 @@ from kunyu.agent.plugins.core import (
     ToolsPlugin,
     TurnServicesPlugin,
 )
+from kunyu.agent.plugins.image_offload import ImageOffloadPlugin
 from kunyu.agent.plugins.infrastructure import ModelPlugin, PersistencePlugin
 from kunyu.agent.plugins.loop import AgentLoopPlugin
 from kunyu.agent.plugins.memory import MemoryToolsPlugin
@@ -75,6 +76,7 @@ async def create_agent_runtime(
         ScopePlugin(),
         model_plugin,
         AgentHooksPlugin(),
+        ImageOffloadPlugin(),
         RetryPlugin(),
         PromptPlugin(),
         ToolsPlugin(),
