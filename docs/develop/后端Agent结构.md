@@ -58,7 +58,7 @@ backend/src/kunyu/agent/
 │   ├── read_render.py    # 有界行窗口、语言和模型读取正文
 │   ├── file_mutations.py # write/edit 参数、守卫和模型结果
 │   ├── file_diff.py      # 与 jsdiff 9 一致的上下文 hunk
-│   ├── files_shared.py   # 当前历史挂载与可取消线程排空
+│   ├── files_shared.py   # 当前历史挂载与模型文件错误说明
 │   ├── registry.py       # 作用域工具贡献、写处理器与风险策略
 │   └── shared.py         # 参数、归属与结果校验
 └── skills/
@@ -317,13 +317,13 @@ Canonical `content` 与 `paths`／按文件分组的 `matches` 展示元数据�
 
 超过条目上限时必须保存完整格式化结果（grep 的每行预览仍有 2000-byte 边界），不提供保存失败后继续成功的分支。存储采用 UUID 目录与固定 `glob-results.txt`／`grep-results.txt`，位于 `/workspace/.kunyu-search/<session>/<UUID>/`。通过 `read` 可分页读取，跨会话读取和模型 write/edit 禁止；搜索排除该内部目录，避免结果再次进入搜索。读取到的路径与普通 workspace 文件共用挂载。搜索不触发文件版本观察：发现文件后仍须 read，再 edit/write。文件发布与 journal 不在一个事务；未提交成功事实的孤立恢复文件不授予模型路径，后续生命周期清理仍待完善。采样与渲染移植保留 DeepSeek MIT 许可证，根目录和 Python 包均携带副本。
 
-## 人类文件预览与下载
+## 人类文件预览、编辑与下载
 
 `application.file_preview.FilePreviewService` 处理目录列表、完整预览和原件下载，`api.files` 只负责鉴权接口与错误映射。复用文件系统提供者的目录描述符／no-follow 读取；工作区取实际会话归属，文件附件要求同会话精确收据与名称，恢复文件继续按会话隔离。人类预览允许查看尚未送入模型的文件附件，但不触发 Agent observation，不改变模型从实际历史取得的文件授权。
 
 `GET /api/v1/sessions/{session_id}/files/preview?path=...` 先 stat 返回不透明版本、源字节数与类型。文本最多 1 MiB，图片源最多 20 MiB，不支持类型与超限仅返回明确状态，不读取内容。文本整读后验证版本和实际长度，严格 UTF-8 解码并去除 BOM，保留 CRLF；不返回截断文本。`/image` 要求对应版本，复用图片规范化，可能缩小大图或取首帧；`/download` 读取原始字节，提前打开文件再发送响应头，精确长度并在断开或取消时关闭生成器／描述符。API 原件下载使用流式响应；当前前端下载通过鉴权 Blob，仍会在 renderer 中持有整个下载文件。
 
-前端 `features/files` 统一管理目录树、预览标签、宽度、查看器与入口。文件标签按规范化路径去重，刷新重新读取当前版本；变更标签按真实 tool_call_id 定位 journal 投影的原始 hunks，避免把后续编辑当作历史变更。会话存储只保留标签描述与宽度；源码按需加载 CodeMirror 语言包，并保持只读与虚拟化。Markdown 文件链接可按当前文件目录解析并定位行号；HTML 在独立 sandbox iframe 内，仅允许内联脚本和样式，CSP 禁止网络。尚未提供用户保存、PDF／Office 与 HTML 本地资源加载。
+前端 `features/files` 统一管理目录树、预览标签、宽度、查看器与入口。文件标签按规范化路径去重，刷新重新读取当前版本；变更标签按真实 tool_call_id 定位 journal 投影的原始 hunks，避免把后续编辑当作历史变更。会话存储分别保存标签描述／宽度和未保存修改；源码按需加载 CodeMirror 语言包，保持虚拟化，工作区普通文本可编辑，附件和内部恢复文件只读。Markdown 文件链接可按当前文件目录解析并定位行号；HTML 在独立 sandbox iframe 内，仅允许内联脚本和样式，CSP 禁止网络。尚未提供 PDF／Office 与 HTML 本地资源加载。
 
 `GET /api/v1/sessions/{session_id}/files/list?path=...` 只列当前工作区目录的一层。Filesystem 新增目录列表契约，`filesystem_directory` 负责有界扫描；根目录按需建立托管存储，缺失用户目录不会被创建。支持普通隐藏文件，排除内部搜索恢复目录及 UUID 原子写入暂存目录；类型来自 no-follow stat，链接与特殊文件标记 other，不可打开。后端稳定名称顺序截取前 2000 项并标记 truncated，扫描只保留上限加一的候选名称；选中条目在 stat 前消失则明确报 FS_STALE_VERSION。根目录作为真实 directory 解析，read/write/edit 继续拒绝它作为文件。
 
@@ -336,6 +336,17 @@ Canonical `content` 与 `paths`／按文件分组的 `matches` 展示元数据�
 
 `watchfiles==1.3.0` 的 RustNotify 使用原生 Recommended 后端；构造出的轮询后端明确拒绝，不采用环境变量控制的轮询或重试分支。原生等待使用独立线程，避免长寿命订阅占满默认 IO 线程池；关闭时设置停止信号，排空原生线程与 metadata 读取，再释放描述符。当前目录 IO 依然面向 POSIX。描述符验证和 native path 监视之间不具备系统级竞态隔离；stat／内容访问仍逐级 no-follow。
 
-`GET /api/v1/sessions/{session_id}/files/changes?path=...` 在建立订阅前验证会话归属，在 ready 前不发送响应头。`file.ready`／`file.change` 传输规范化逻辑路径及当前版本／类型／大小或 absent；运行中失败发送终止 `file.error` 并记录错误。响应同时监听断开，关闭生成器，即使正文尚未开始或发送失败；服务关闭也释放 follower。
+`POST /api/v1/sessions/{session_id}/files/changes` 严格接收 `{paths: [...]}`，最多 128 个不重复的规范化目标，每项最长 4096 字符。在发送响应头前统一验证会话归属和逻辑作用域；原生初始化在响应任务中独立执行，目标级失败通过带 path 的终止 `file.error` 记录和传输，不中断其余目标。`file.ready`／`file.change` 传输规范化逻辑路径及当前版本／类型／大小或 absent。每个响应统一拥有原生生成器、128 帧有界队列及任务组；断开、发送失败和服务关闭排空线程、metadata 读取和生成器，正文尚未开始时也会释放资源。已删除原逐路径 GET 接口。
 
-前端根目录始终订阅，展开目录按挂载生命周期订阅。workspace 文件标签在隐藏预览或切换标签时保留订阅与已加载快照；内容不自动替换，版本差异点亮琥珀色刷新按钮，手动刷新消费新版本。关闭标签清理快照和订阅，会话卸载清理全部缓存；超限／不支持类型隐藏刷新，保留下载。失效订阅明确提示并提供用户重连按钮，没有静默轮询或自动替代机制。
+前端 FileWatchProvider 按目标引用计数，把根、展开目录和保留的文件标签合并到会话的一条 POST 事件流，避免大量长连接阻塞保存和其他请求。目标集合变化重新订阅，通过 ready 的当前 metadata 检查连接切换期间的变化。失败目标保留明确错误，新增其他目标不会自动重试，只有用户明确重连才重新加入。根目录始终订阅，展开目录按挂载生命周期订阅。workspace 文件标签在隐藏预览或切换标签时保留订阅与已加载快照；内容不自动替换，版本差异点亮琥珀色刷新按钮，手动刷新消费新版本。关闭标签清理快照和订阅，会话卸载清理全部缓存；超限／不支持类型隐藏刷新，保留下载。失效订阅明确提示并提供用户重连按钮，没有静默轮询或自动替代机制。
+
+
+## 人类文本编辑与版本校验保存
+
+完整预览返回 `editable`，由工作区挂载、文件类型和完整预览状态决定；附件、内部搜索恢复、图片、不支持类型和超限文件明确不可编辑。`PUT /api/v1/sessions/{session_id}/files/content?path=...` 只接收严格的 `{text, version}`，验证同会话归属、原版本、可编辑状态、UTF-8、无 NUL 和 1 MiB 字节上限，再复用 FIFO 锁及 replace_if_version 原子发布。成功直接返回已提交文本和新版本，保存冲突为 409；删除文件或父目录不会被版本替换操作重新创建。原子发布与外部进程仍存在最后校验至 rename 间的竞态，不宣称系统级事务。
+
+保存属于人类操作，不写 Agent observation，也不回放 journal。原来 tool 私有的 `filesystem_operation` 已移至独立 integration，read／write／edit／搜索与人类保存共用同一停止信号和排空逻辑；取消等待已启动线程退出，不保留旧导出或另一套写入实现。
+
+前端 SourceEditor 替换只读 SourcePreview，支持语法高亮、搜索、折叠、自动换行、撤销／重做及 ⌘／Ctrl+S。保留 CRLF 文件的换行格式，编辑态 Markdown／HTML 分屏直接渲染当前文本。保存按钮位于工具栏最右侧，干净时禁用，有修改时为琥珀色，标签显示未保存圆点。保存期间冻结该文件编辑、刷新及关闭。干净文件再次打开重新读取；有修改文件再次打开仅更新定位信息，保留修改。
+
+未保存文本、原始文本、类型和最初版本按会话存储，切换标签、刷新页面、离开会话可恢复；存储写入失败明确提示并记录，不将编辑标记为已保存。此暂存受 renderer sessionStorage 配额与会话生命周期约束，不等同于写入磁盘。文件已删除或查询失败时仍显示恢复的编辑内容；保存按原版本拒绝覆盖或重建。普通关闭、收起面板、快捷键关闭统一确认；多文件一次汇总，逐个保存全部完成后才关闭／收起，途中失败保持全部标签和剩余编辑。成功保存的前项已写入磁盘，跨文件保存不是单个事务。刷新提供取消／明确放弃编辑并刷新。

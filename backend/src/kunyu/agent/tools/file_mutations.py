@@ -10,7 +10,6 @@ from kunyu.agent.runtime.tools import ToolCall, ToolResult, ToolRiskLevel, ToolS
 from kunyu.agent.scope import AgentScopes
 from kunyu.agent.tools.file_diff import compute_hunk_diffs
 from kunyu.agent.tools.files_shared import (
-    filesystem_operation,
     filesystem_scope,
     tool_filesystem_error,
 )
@@ -28,6 +27,7 @@ from kunyu.domain.filesystem import (
     FsEditRequest,
     FsObservation,
 )
+from kunyu.integrations.filesystem_operation import filesystem_operation
 
 
 class _WriteArguments(ToolArguments):

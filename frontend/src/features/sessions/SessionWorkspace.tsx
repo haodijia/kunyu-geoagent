@@ -15,6 +15,7 @@ import { parseSessionRoute } from "@/features/sessions/routes";
 import { SessionTitlebar } from "@/features/sessions/SessionTitlebar";
 import { SessionWorkspaceProvider } from "@/features/sessions/SessionWorkspaceContext";
 import { zhCN } from "@/locales/zh-CN";
+import { FileWatchProvider } from "@/features/files/FileWatchContext";
 import { FilePreviewProvider } from "@/features/files/FilePreviewContext";
 import { FilePreviewLayout } from "@/features/files/FilePreviewLayout";
 import { FileExplorerProvider } from "@/features/files/FileExplorerContext";
@@ -118,6 +119,7 @@ function SessionWorkspaceContent({
           sessionId={sessionQuery.data.id}
           workspaceId={sessionQuery.data.workspace_id}
         >
+        <FileWatchProvider key={sessionQuery.data.id} sessionId={sessionQuery.data.id}>
         <FilePreviewProvider key={sessionQuery.data.id} sessionId={sessionQuery.data.id}>
         <FileExplorerProvider workspaceId={sessionQuery.data.workspace_id}>
         <section className="flex h-full min-h-0 flex-col bg-background">
@@ -128,6 +130,7 @@ function SessionWorkspaceContent({
         </section>
         </FileExplorerProvider>
         </FilePreviewProvider>
+        </FileWatchProvider>
         </SessionMessagesProvider>
       </SessionEventProvider>
     </SessionWorkspaceProvider>

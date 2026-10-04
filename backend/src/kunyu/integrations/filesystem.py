@@ -260,7 +260,10 @@ class MountedFilesystem:
             with (
                 self._locked(target, cancelled),
                 open_parent(
-                    self._root, target, create=True, cancelled=cancelled
+                    self._root,
+                    target,
+                    create=intent is None or intent.kind == "create_if_absent",
+                    cancelled=cancelled,
                 ) as parent,
             ):
                 existing = probe_at(parent, target.parts[-1])
@@ -305,6 +308,13 @@ class MountedFilesystem:
                     before,
                     content.replace("\r\n", "\n"),
                 )
+        except FileNotFoundError as error:
+            if intent is not None and intent.kind == "replace_if_version":
+                raise FilesystemError(
+                    "FS_STALE_VERSION",
+                    f'cannot write "{target.display_path}": file no longer exists',
+                ) from error
+            raise io_error(error, target.display_path, "write") from error
         except OSError as error:
             raise io_error(error, target.display_path, "write") from error
 
