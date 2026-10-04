@@ -1,8 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
-import { Minus, Plus } from "lucide-react";
 import { useEffect, useState } from "react";
 
-import { Button } from "@/components/ui/button";
+import { ImageLightbox } from "@/features/attachments/ImageLightbox";
 import { useSessionWorkspace } from "@/features/sessions/SessionWorkspaceContext";
 import { zhCN } from "@/locales/zh-CN";
 import { readFileImage, readFilePreview, type FilePreview } from "./api";
@@ -37,17 +36,17 @@ export function FileViewer({ tab }: { readonly tab: Extract<PreviewTab, { kind: 
 function ImagePreview({ sessionId, preview }: { readonly sessionId: string; readonly preview: FilePreview }) {
   const [url, setUrl] = useState<string | null>(null);
   const [error, setError] = useState<unknown>(null);
-  const [zoom, setZoom] = useState(100);
+  const [lightbox, setLightbox] = useState(false);
   useEffect(() => {
     const controller = new AbortController(); let objectUrl: string | null = null;
+    setUrl(null); setError(null); setLightbox(false);
     void readFileImage(sessionId, preview, controller.signal).then(blob => { if (controller.signal.aborted) return; objectUrl = URL.createObjectURL(blob); setUrl(objectUrl); }).catch(error => { if (controller.signal.aborted) return; console.error("[files] Image preview failed.", { sessionId, path: preview.path, error }); setError(error); });
     return () => { controller.abort(); if (objectUrl !== null) URL.revokeObjectURL(objectUrl); };
   }, [sessionId, preview]);
   if (error !== null) return <PreviewNotice text={filePreviewError(error)} danger />;
   if (url === null) return <LoadingPreview />;
-  return <><div className="flex h-8 shrink-0 items-center justify-center gap-3 border-b border-border bg-muted/50 text-xs">
-    <Button variant="ghost" size="icon" className="size-6" aria-label={content.zoomOut} onClick={() => setZoom(value => Math.max(25, value - 25))}><Minus className="size-3" /></Button>
-    <button type="button" onClick={() => setZoom(100)}>{zoom}%</button>
-    <Button variant="ghost" size="icon" className="size-6" aria-label={content.zoomIn} onClick={() => setZoom(value => Math.min(400, value + 25))}><Plus className="size-3" /></Button>
-  </div><div className="min-h-0 flex-1 overflow-auto bg-muted/50 p-4"><img src={url} alt={preview.path} style={{ width: `${zoom}%`, maxWidth: "none" }} onError={() => setError(new Error(content.imageFailed))} /></div></>;
+  const failed = () => { console.error("[files] Image decoding failed.", { sessionId, path: preview.path }); setError(new Error(content.imageFailed)); };
+  return <><div className="flex min-h-0 flex-1 items-center justify-center overflow-auto bg-background p-6"><button type="button" className="flex size-full min-h-0 min-w-0 items-center justify-center" aria-label={zhCN.conversation.attachments.preview(preview.path)} onClick={() => setLightbox(true)}><img src={url} alt={preview.path} className="size-full object-contain" onError={failed} /></button></div>
+    {lightbox && <ImageLightbox src={url} name={preview.path} description={`${preview.bytes} B`} onClose={() => setLightbox(false)} onError={failed} />}
+  </>;
 }

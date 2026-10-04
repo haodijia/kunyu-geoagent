@@ -5,7 +5,14 @@ from collections.abc import Sequence
 from sqlalchemy import delete, select, text
 from sqlalchemy.orm import Session
 
-from kunyu.agent.runtime.events import AgentEvent, EventBatch, validate_event_draft
+from kunyu.agent.runtime.events import (
+    AgentEvent,
+    EventBatch,
+    EventDraft,
+    ToolCompletedEvent,
+    validate_event_draft,
+)
+from kunyu.agent.runtime.input_content import ImageInputBlock
 from kunyu.agent.runtime.run_state import (
     ReducedAssistant,
     ReducedConfirmation,
@@ -14,6 +21,7 @@ from kunyu.agent.runtime.run_state import (
 )
 from kunyu.agent.runtime.session_reducer import reduce_session
 from kunyu.agent.runtime.session_state import ReducedSession, ReducedUserMessage
+from kunyu.domain.attachments import AttachmentError
 from kunyu.domain.confirmations import Confirmation, ConfirmationStatus
 from kunyu.domain.model_connections import (
     MaxTokensField,
@@ -31,6 +39,7 @@ from kunyu.domain.runs import (
     ToolCallStatus,
 )
 from kunyu.persistence import run_records
+from kunyu.persistence.attachments import resolve_references
 from kunyu.persistence.confirmations import confirmation_record
 from kunyu.persistence.database import Database
 from kunyu.persistence.event_publications import (
@@ -72,6 +81,7 @@ class SQLAlchemyAgentProjectionService:
             validate_event_draft(event.model_dump(mode="python"))
             for event in batch.events
         )
+        _validate_tool_receipts(database_session, batch.session_id, validated_events)
         previous_records = _event_records(database_session, batch.session_id)
         next_sequence = len(previous_records) + 1
         new_records = tuple(
@@ -139,10 +149,12 @@ class SQLAlchemyAgentProjectionService:
     def _reduce_persisted_session(
         self, database_session: Session, session_id: str
     ) -> ReducedSession:
-        return reduce_session(
+        events = tuple(
             run_records.event_to_domain(record)
             for record in _event_records(database_session, session_id)
         )
+        _validate_tool_receipts(database_session, session_id, events)
+        return reduce_session(events)
 
     def _replace_session_projections(
         self, database_session: Session, reduced: ReducedSession
@@ -361,3 +373,40 @@ def _confirmation_record(
             updated_sequence=confirmation.updated_sequence,
         )
     )
+
+
+def _validate_tool_receipts(
+    database_session: Session,
+    session_id: str,
+    events: Sequence[EventDraft | AgentEvent],
+) -> None:
+    for event in events:
+        if isinstance(event, AgentEvent) and event.event_type == "tool.completed":
+            event = validate_event_draft(
+                {
+                    "session_id": event.session_id,
+                    "run_id": event.run_id,
+                    "event_type": event.event_type,
+                    "payload": event.payload,
+                    "occurred_at": event.occurred_at,
+                }
+            )
+        if not isinstance(event, ToolCompletedEvent):
+            continue
+        refs = tuple(
+            block.attachment
+            for block in event.payload.content
+            if isinstance(block, ImageInputBlock)
+        )
+        if not refs:
+            continue
+        try:
+            stored = resolve_references(
+                database_session, session_id, tuple(ref.id for ref in refs)
+            )
+        except AttachmentError as error:
+            raise ProjectionConflictError(str(error)) from error
+        if stored != refs:
+            raise ProjectionConflictError(
+                "Tool image receipts differ from durable session-owned objects."
+            )

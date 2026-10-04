@@ -27,6 +27,7 @@ import ledger from "./TrajectoryLedger.module.css";
 import { AttachmentStrip } from "@/features/attachments/AttachmentStrip";
 import { collectImageOffloads } from "@/features/attachments/image-offloads";
 import { parseToolContent, toolContentImages, toolContentText } from "@/features/agent/tool-content";
+import { ImageReadResult } from "@/features/agent/ImageReadResult";
 import { ReadResult } from "@/features/agent/ReadResult";
 import { SearchResult } from "@/features/agent/SearchResult";
 import { FileMutationResult } from "@/features/agent/FileMutationResult";
@@ -383,11 +384,16 @@ function ToolResultPresentation({ record }: { readonly record: TrajectoryRecord 
     if (!("result" in output)) throw new Error("Search result has no presentation metadata.");
     return <SearchResult value={output.result} text={toolContentText(parseToolContent(output.content))} />;
   }
-  const images = toolContentImages(parseToolContent(output.content));
-  if (images.length === 0) return null;
+  const blocks = parseToolContent(output.content);
+  const imageResult = record.source.tool_name === "read_image" ? (() => {
+    if (!("result" in output)) throw new Error("Image read result has no presentation metadata.");
+    return <ImageReadResult value={output.result} text={toolContentText(blocks)} />;
+  })() : null;
+  const images = toolContentImages(blocks);
+  if (images.length === 0) return imageResult;
   const id = record.source.tool_call_id;
   if (typeof id !== "string") throw new Error("Tool image result has no source identity.");
-  return <AttachmentStrip sessionId={session.id} attachments={images} offloadedIds={offloads.get(id)} />;
+  return <>{imageResult}<AttachmentStrip sessionId={session.id} attachments={images} offloadedIds={offloads.get(id)} /></>;
 }
 function Preview({ record }: { record: TrajectoryRecord }) {
   const text =

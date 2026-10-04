@@ -5,7 +5,7 @@ from dataclasses import dataclass
 from threading import Event
 from typing import Literal, Protocol
 
-from kunyu.domain.attachments import FileAttachment
+from kunyu.domain.attachments import Attachment
 
 
 class FilesystemError(RuntimeError):
@@ -18,7 +18,7 @@ class FilesystemError(RuntimeError):
 class FilesystemScope:
     workspace_id: str
     session_id: str
-    attachments: tuple[FileAttachment, ...]
+    attachments: tuple[Attachment, ...]
 
 
 @dataclass(frozen=True, slots=True)
@@ -27,7 +27,7 @@ class FsTarget:
     scope: FilesystemScope
     kind: Literal["workspace", "attachment"]
     parts: tuple[str, ...]
-    attachment: FileAttachment | None
+    attachment: Attachment | None
 
     @property
     def key(self) -> tuple[str, str]:

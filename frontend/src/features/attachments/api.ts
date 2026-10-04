@@ -13,6 +13,7 @@ export type Attachment = {
       readonly height: number;
       readonly original_width: number;
       readonly original_height: number;
+      readonly producer?: { readonly run_id: string; readonly tool_call_id: string };
     }
 );
 
@@ -46,5 +47,10 @@ export function validAttachment(value: unknown): value is Attachment {
   const ref = value as Record<string, unknown>;
   if (typeof ref.id !== "string" || !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/.test(ref.id) || typeof ref.name !== "string" || ref.name.length === 0 || !Number.isSafeInteger(ref.bytes) || (ref.bytes as number) < 0 || (ref.bytes as number) > 16 * 1024 * 1024) return false;
   if (ref.kind === "file") return true;
+  if (ref.producer !== undefined) {
+    if (typeof ref.producer !== "object" || ref.producer === null) return false;
+    const producer = ref.producer as Record<string, unknown>;
+    if (![producer.run_id, producer.tool_call_id].every(value => typeof value === "string" && value.length > 0 && value.length <= 64)) return false;
+  }
   return ref.kind === "image" && ["image/png", "image/jpeg"].includes(String(ref.media_type)) && [ref.width, ref.height, ref.original_width, ref.original_height].every((size) => Number.isSafeInteger(size) && (size as number) > 0);
 }

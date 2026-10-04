@@ -65,7 +65,7 @@ def image_handle(block: ImageInputBlock, images: Mapping[str, RequestImage]) -> 
         "text": "Attached image: "
         + json.dumps(
             {
-                "attachment_id": image.attachment.id,
+                "file_path": attachment_path(image.attachment),
                 "name": image.attachment.name,
                 "width": image.width,
                 "height": image.height,

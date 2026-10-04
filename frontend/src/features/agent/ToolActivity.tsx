@@ -22,6 +22,7 @@ import { CopyButton } from "@/features/messages/CopyButton";
 import type { GeneratingTool } from "@/features/events/stream-presentation";
 
 import { TodoItems } from "./TodoItems";
+import { ImageReadResult } from "./ImageReadResult";
 import { ReadResult } from "./ReadResult";
 import { SearchResult } from "./SearchResult";
 import { FileMutationResult } from "./FileMutationResult";
@@ -266,6 +267,8 @@ function ToolCallRow({
             </div>
           ) : tool.name === "read" ? (
             <ReadResult value={tool.result} text={toolContentText(resultContent)} />
+          ) : tool.name === "read_image" ? (
+            <ImageReadResult value={tool.result} text={toolContentText(resultContent)} />
           ) : tool.name === "glob" || tool.name === "grep" ? (
             <SearchResult value={tool.result} text={toolContentText(resultContent)} />
           ) : tool.name === "write" || tool.name === "edit" ? (
@@ -411,7 +414,6 @@ function toolPreview(arguments_: ToolCall["arguments"]): string | undefined {
     "name",
     "command",
     "file_path",
-    "attachment_id",
     "path",
     "query",
     "pattern",

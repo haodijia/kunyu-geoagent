@@ -9,7 +9,7 @@ from typing import Literal
 from uuid import uuid4
 
 from kunyu.application.attachment_preparation import normalize_image
-from kunyu.domain.attachments import AttachmentError, FileAttachment
+from kunyu.domain.attachments import AttachmentError, ImageAttachment
 from kunyu.domain.filesystem import (
     Filesystem,
     FilesystemError,
@@ -105,11 +105,6 @@ class FilePreviewService:
                     "FS_INVALID_PATH", "Invalid attachment file path."
                 )
             ref = self._attachments.resolve(session_id, (parts[2],))[0]
-            if not isinstance(ref, FileAttachment):
-                raise FilesystemError(
-                    "FS_INVALID_PATH",
-                    "Use the image receipt endpoint to preview image attachments.",
-                )
             attachments = (ref,)
         return self._filesystem.resolve(
             path, FilesystemScope(session.workspace_id, session.id, attachments)
@@ -155,7 +150,9 @@ class FilePreviewService:
         info = self._info(target)
         extension = PurePosixPath(target.display_path).suffix.lower()
         kind = (
-            "markdown"
+            "image"
+            if isinstance(target.attachment, ImageAttachment)
+            else "markdown"
             if extension in {".md", ".markdown"}
             else "html"
             if extension in {".html", ".htm"}
@@ -278,7 +275,9 @@ class FilePreviewService:
         target = self._target(session_id, path)
         info = self._info(target, version)
         extension = PurePosixPath(target.display_path).suffix.lower()
-        if extension not in IMAGE_TYPES:
+        if extension not in IMAGE_TYPES and not isinstance(
+            target.attachment, ImageAttachment
+        ):
             raise FilesystemError(
                 "FS_INVALID_PATH", "This is not a supported image preview path."
             )
@@ -286,6 +285,8 @@ class FilePreviewService:
             raise FilesystemError(
                 "FS_TOO_LARGE", "The image exceeds the preview size limit."
             )
+        if isinstance(target.attachment, ImageAttachment):
+            return target.attachment.media_type, self._read(target, info, IMAGE_LIMIT)
         ref, data = normalize_image(
             str(uuid4()),
             PurePosixPath(path).name,

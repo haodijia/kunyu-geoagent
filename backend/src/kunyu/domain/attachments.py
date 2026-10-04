@@ -29,6 +29,12 @@ class FileAttachment(AttachmentRef):
     kind: Literal["file"] = "file"
 
 
+class ToolImageProducer(BaseModel):
+    model_config = ConfigDict(extra="forbid", frozen=True, strict=True)
+    run_id: str = Field(min_length=1, max_length=64)
+    tool_call_id: str = Field(min_length=1, max_length=64)
+
+
 class ImageAttachment(AttachmentRef):
     bytes: int = Field(strict=True, gt=0, le=MAX_ATTACHMENT_BYTES)
     kind: Literal["image"] = "image"
@@ -37,6 +43,9 @@ class ImageAttachment(AttachmentRef):
     height: int = Field(strict=True, gt=0, le=2048)
     original_width: int = Field(strict=True, gt=0)
     original_height: int = Field(strict=True, gt=0)
+    producer: ToolImageProducer | None = Field(
+        default=None, exclude_if=lambda value: value is None
+    )
 
 
 type Attachment = Annotated[
