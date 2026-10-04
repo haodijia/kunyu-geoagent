@@ -185,7 +185,9 @@ class ToolBatchExecutor[AdapterConfigT]:
             group.append(item)
         return tuple(group)
 
-    async def _reserve(self, run: ReducedRun, count: int) -> tuple[str, int] | None:
+    async def _reserve(
+        self, run: ReducedRun, count: int, requested_milliseconds: int | None = None
+    ) -> tuple[str, int] | None:
         if run.budget.tool_calls + count > run.budget.max_tool_calls:
             await self._fail_run(run, "TOOL_CALL_LIMIT", "Tool call budget exhausted.")
             return None
@@ -196,7 +198,10 @@ class ToolBatchExecutor[AdapterConfigT]:
             )
             return None
         reserved = min(
-            count * self._config.tool_active_time_slice_milliseconds, remaining
+            count * self._config.tool_active_time_slice_milliseconds
+            if requested_milliseconds is None
+            else requested_milliseconds,
+            remaining,
         )
         operation_id = self._operation_id_factory()
         await self._commit(
@@ -237,16 +242,23 @@ class ToolBatchExecutor[AdapterConfigT]:
     async def _execute_group(
         self, run: ReducedRun, group: tuple[_PreparedTool, ...]
     ) -> str:
-        reservation = await self._reserve(run, len(group))
+        slices = {
+            item.call.call_id: item.tool.spec.timeout_ms
+            if item.tool.spec.timeout_ms is not None
+            else self._config.tool_active_time_slice_milliseconds
+            for item in group
+        }
+        requested = sum(slices.values())
+        reservation = await self._reserve(run, len(group), requested)
         if reservation is None:
             return "failed"
         operation_id, reserved = reservation
-        timeout = reserved // len(group)
         semaphore = asyncio.Semaphore(self._config.max_parallel_tool_calls)
 
         async def dispatch(item: _PreparedTool) -> _Invocation:
             async with semaphore:
                 await self._start(run, item.persisted)
+                timeout = max(1, reserved * slices[item.call.call_id] // requested)
                 return await self._invoke(item, timeout)
 
         tasks = [asyncio.create_task(dispatch(item)) for item in group]
@@ -287,7 +299,7 @@ class ToolBatchExecutor[AdapterConfigT]:
             return _Invocation(
                 timeout,
                 self._clock(),
-                error_code="TOOL_TIMEOUT",
+                error_code=item.tool.spec.timeout_error_code,
                 error_summary="The tool exceeded its active-time slice.",
             )
         except (

@@ -29,6 +29,16 @@ class ToolSpec:
     risk_level: ToolRiskLevel
     execution: Literal["parallel", "exclusive"]
     presentation: Literal["context", "search", "write"]
+    timeout_ms: int | None = None
+    timeout_error_code: str = "TOOL_TIMEOUT"
+
+    def __post_init__(self) -> None:
+        if self.timeout_ms is not None and (
+            type(self.timeout_ms) is not int or self.timeout_ms <= 0
+        ):
+            raise ValueError("A declared tool timeout must be a positive integer.")
+        if not self.timeout_error_code:
+            raise ValueError("A tool timeout requires an error code.")
 
 
 @dataclass(frozen=True)

@@ -28,6 +28,7 @@ import { AttachmentStrip } from "@/features/attachments/AttachmentStrip";
 import { collectImageOffloads } from "@/features/attachments/image-offloads";
 import { parseToolContent, toolContentImages, toolContentText } from "@/features/agent/tool-content";
 import { ReadResult } from "@/features/agent/ReadResult";
+import { SearchResult } from "@/features/agent/SearchResult";
 import { FileMutationResult } from "@/features/agent/FileMutationResult";
 import { useSessionWorkspace } from "@/features/sessions/SessionWorkspaceContext";
 import { useSessionEvents } from "./SessionEventContext";
@@ -376,6 +377,10 @@ function ToolResultPresentation({ record }: { readonly record: TrajectoryRecord 
   if (record.source.tool_name === "write" || record.source.tool_name === "edit") {
     if (!("result" in output)) throw new Error("File mutation result has no presentation metadata.");
     return <FileMutationResult value={output.result} text={toolContentText(parseToolContent(output.content))} />;
+  }
+  if (record.source.tool_name === "glob" || record.source.tool_name === "grep") {
+    if (!("result" in output)) throw new Error("Search result has no presentation metadata.");
+    return <SearchResult value={output.result} text={toolContentText(parseToolContent(output.content))} />;
   }
   const images = toolContentImages(parseToolContent(output.content));
   if (images.length === 0) return null;

@@ -302,3 +302,17 @@ HTTP 适配器只读取真实可见图片，通过 harness 几何算法做请求
 Messages 原样将图文内容嵌入 tool_result。Chat Completions 按 harness 的 pi-ai 适配方式保持整个批次的文字 tool 消息，随后追加承接图片的 user 消息；不向 tool 的文本字段塞入 image_url，也不插入虚构助手回复。Canonical journal 仍记录真实工具来源，协议投影不创建会话消息。工具图片按出现次数计入同一图片限额，可通过其完成事件坐标再次卸载。
 
 迁移 `0011` 显式将旧 tool.completed.result 转成原先 `_json_text` 的排序、紧凑 UTF-8 文本块，填充工具投影的 content 列；保留结果原值、事件身份、时间与顺序，其他事件不改写。运行时和 API 只使用新结构，没有旧 JSON 字符串兼容分支。前端默认折叠工具行；展开时复用已有附件卡片、鉴权加载、预览和下载。轨迹概述与结果页显示同一内容块图片。图片省略标记从完整轨迹事实计算，不依赖最多 256 个近期原始事件，避免长会话丢失来源。
+
+## 文件搜索与前台子进程
+
+`SearchPlugin` 对应 harness `tool-fs-search`，独立于 `FilesystemPlugin`；提供 `subprocess` 服务并注册 L0 并行的 `glob`、`grep`，不把搜索塞入 `fs` 接口。Electron 注入固定版本 `@vscode/ripgrep@1.18.0` 的平台二进制，后端从 `KUNYU_RIPGREP_PATH` 读取绝对路径；缺失或损坏明确报 `SEARCH_FAILED`，不尝试系统命令或其他搜索实现。当前原生目录 IO／进程组实现面向 POSIX。
+
+`LocalSubprocess` 仅接收 argv，不使用 shell。搜索先通过 descriptor-relative、no-follow IO 创建／打开当前 workspace 的托管根，再将目录描述符继承给独立 Python 启动入口；入口 `fchdir` 后 `execv` 替换为 ripgrep，不在有线程的父进程使用 `preexec_fn`。`--no-config` 禁止主机 ripgrep 配置注入预处理命令。stdout 完整捕获上限 20,000,000 字节，stderr 仅保留 64 KiB 尾部；原始 stdout 超限明确失败，不解析部分输出。取消包括启动竞态和重复取消，等待进程组 TERM／最多 3 秒／KILL 和管道排空，不留下后台任务。工作区根固定在描述符上；显式子路径在启动前校验，未提供对外部进程并发替换子路径的系统级沙箱。
+
+工具声明 30 秒 `timeout_ms` 和 `SEARCH_ABORTED` 超时代码；Runner 根据实际工具声明分配并行批次的时间预留，全局运行预算继续约束声明，未声明工具保持统一的 5 秒策略。超时后的终止清理可能多用最多 3 秒；沿用原有预留内计费契约。失败区分 `SEARCH_INVALID_PATTERN`、`SEARCH_FAILED`、`SEARCH_RAW_OUTPUT_OVERFLOW`、`SEARCH_ABORTED`，不返回伪造的空结果。
+
+`glob` 使用 `--files --glob --sort=modified --no-ignore --hidden`，排除六类 VCS 内部目录；结果最多 100 个。部署显式采用顶层条目轮转采样，与完整修改时间顺序列表分别保存。`grep` 使用 `--json --regexp`，默认遵守隐藏／忽略规则；一个正向 `include` glob 按 ripgrep 语义覆盖匹配文件的这些规则，支持 brace alternatives，拒绝否定和括号外逗号列表。逐行解析真实 JSON 匹配，保留前 250 处、每行最多 2000 UTF-8 字节的预览及截断标识；不使用 Python 正则替代 Rust 正则。非 UTF-8 行使用 harness 的明确标记，损坏 JSON／非文本路径失败。
+
+Canonical `content` 与 `paths`／按文件分组的 `matches` 展示元数据分离。元数据以 64 KiB 紧凑 UTF-8 JSON 为目标，移除尾部完整路径／文件组，但至少保留一项，因此单个极大的文件组可能超过目标上限，符合 harness 的保留约定。前端严格解析新结构，在对话与轨迹共用 Mu 风格的文件列表、匹配行表格、复制与折叠展示，显示真实保留数／总数和空结果；不从模型参数重建结果。
+
+超过条目上限时必须保存完整格式化结果（grep 的每行预览仍有 2000-byte 边界），不提供保存失败后继续成功的分支。存储采用 UUID 目录与固定 `glob-results.txt`／`grep-results.txt`，位于 `/workspace/.kunyu-search/<session>/<UUID>/`。通过 `read` 可分页读取，跨会话读取和模型 write/edit 禁止；搜索排除该内部目录，避免结果再次进入搜索。读取到的路径与普通 workspace 文件共用挂载。搜索不触发文件版本观察：发现文件后仍须 read，再 edit/write。文件发布与 journal 不在一个事务；未提交成功事实的孤立恢复文件不授予模型路径，后续生命周期清理仍待完善。采样与渲染移植保留 DeepSeek MIT 许可证，根目录和 Python 包均携带副本。

@@ -145,3 +145,11 @@
 
 - [对话深色预览](ui-mockups/mu-aligned-conversation-dark.png)
 - [轨迹深色预览](ui-mockups/harness-aligned-trajectory-dark.png)
+
+### 文件搜索与结果卡片（2026-10-04）
+
+- 对照 harness `tool-fs-search` 的 glob／grep／search-core／presentation 和 Mu `MessageToolCall`，新增独立 subprocess-backed 搜索插件，不扩展 fs 为原生进程接口。Electron 注入随依赖安装的 ripgrep，无系统命令或 Python 搜索替代分支。当前使用 POSIX 原生进程／目录实现。
+- 对齐 glob 隐藏／忽略／VCS 排除和修改时间排序、100 项顶层采样；grep 的 Rust 正则、单个正向 include、JSON 匹配、250 处／2000-byte UTF-8 预览、完整输出错误与 64 KiB 元数据目标。include 的隐藏／忽略覆盖按实际 ripgrep 行为处理，元数据至少保留一个完整组。
+- 完整结果保存为当前会话只读的 UUID 路径，可通过 read 续读，不允许覆盖／跨会话读取，并从后续发现中排除。遵守项目无回退要求，保存失败作为真实失败处理。搜索不更新 observed-state；修改已有文件仍需先读取。
+- 前台服务固定 workspace 根描述符，禁用 ripgrep 配置，限制 raw stdout／stderr，取消后排空、终止进程组；支持启动期间与重复取消。显式子路径仅做启动前 no-follow 校验，不宣称具备完整 OS 沙箱。ToolSpec 声明超时与错误码，Runner 按实际声明预留混合并行调用，继续使用全局预算。
+- 对话与轨迹共用真实文件／行号卡片，默认折叠、展示真实数量／空结果、复制 canonical 文字、刷新恢复。原生 Messages 与 Chat Completions 实际 Agent 验证搜索→读取→编辑、忽略／正则错误、采样、完整结果读取／归属、输出边界、重建与重启；真实子进程验证有界捕获、取消与启动竞态。混合并行调用验证预留、超时代码回传和子进程退出。离屏 Electron 验证真实接口、浅色桌面／深色 600px、刷新、轨迹与结果页，无渲染错误或横向溢出。桌面 BackendProcessManager 启动验证自动注入的二进制和实际完整流程。未新增仓库测试文件或数据库迁移，未使用真实模型供应商。

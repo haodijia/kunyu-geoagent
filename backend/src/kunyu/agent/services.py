@@ -29,6 +29,7 @@ if TYPE_CHECKING:
     from kunyu.application.run_acceptance import RunAcceptanceService
     from kunyu.application.run_lifecycle import RunLifecycleService
     from kunyu.domain.filesystem import Filesystem
+    from kunyu.integrations.subprocess import LocalSubprocess
     from kunyu.persistence.agent_context import SQLAlchemyRunContextRepository
     from kunyu.persistence.agent_projections import SQLAlchemyAgentProjectionService
     from kunyu.persistence.attachments import SQLAlchemyAttachmentStore
@@ -39,6 +40,7 @@ if TYPE_CHECKING:
     from kunyu.persistence.workspace_memory import SQLAlchemyWorkspaceMemoryRepository
 
 FILESYSTEM: ServiceKey[Filesystem] = ServiceKey("fs")
+SUBPROCESS: ServiceKey[LocalSubprocess] = ServiceKey("subprocess")
 FILESYSTEM_HOOKS: ServiceKey[FilesystemHooks] = ServiceKey("fs.hooks")
 DATABASE: ServiceKey[Database] = ServiceKey("database")
 ATTACHMENTS: ServiceKey[SQLAlchemyAttachmentStore] = ServiceKey("sessions.attachments")
