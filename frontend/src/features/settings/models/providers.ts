@@ -37,7 +37,7 @@ export interface ProviderCatalogEntry {
 }
 
 export const providerCatalog = [
-  entry("openai", "openai", "api", true, "https://api.openai.com/v1"),
+  entry("openai", "openai", "api", true, "https://api.openai.com/v1", "max_completion_tokens"),
   entry("deepseek", "deepseek", "api", true, "https://api.deepseek.com/anthropic"),
   entry("moonshot", "moonshot", "api", true, "https://api.moonshot.cn/v1"),
   entry("mimo", "mimo", "api", true, "https://api.xiaomimimo.com/v1", "max_completion_tokens"),
@@ -72,7 +72,7 @@ function entry(
   return {
     id,
     providerType,
-    protocol: providerType === "deepseek" ? "deepseek_messages" : "openai_compatible",
+    protocol: providerType === "deepseek" ? "deepseek_messages" : providerType === "openai" ? "openai_responses" : "openai_compatible",
     category,
     recommended,
     baseUrl,
@@ -84,4 +84,11 @@ function entry(
 
 export function providerById(id: string): ProviderCatalogEntry | undefined {
   return providerCatalog.find((provider) => provider.id === id);
+}
+
+export function protocolsForProvider(providerType: ModelProviderType): readonly ModelProtocol[] {
+  if (providerType === "openai") return ["openai_responses", "openai_compatible"];
+  if (providerType === "deepseek") return ["deepseek_messages", "openai_compatible"];
+  if (providerType === "custom") return ["openai_compatible", "openai_responses", "deepseek_messages"];
+  return ["openai_compatible"];
 }

@@ -69,7 +69,7 @@ class TurnBudgetResponse(BaseModel):
 class StepModelResponse(BaseModel):
     connection_id: str
     provider_type: str
-    protocol: Literal["openai_compatible", "deepseek_messages"]
+    protocol: Literal["openai_compatible", "deepseek_messages", "openai_responses"]
     base_url: str
     auth_mode: Literal["api_key", "none"]
     model_id: str

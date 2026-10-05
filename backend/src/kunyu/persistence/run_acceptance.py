@@ -188,6 +188,8 @@ class SQLAlchemyRunAcceptanceRepository:
                 image_input=image_input,
                 max_output_tokens=256_000
                 if connection.protocol == ModelProtocol.DEEPSEEK_MESSAGES
+                else 16_384
+                if connection.protocol == ModelProtocol.OPENAI_RESPONSES
                 else MAX_MODEL_OUTPUT_TOKENS,
                 retry_policy=connection.retry_policy,
             )

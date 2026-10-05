@@ -1,4 +1,4 @@
-"""HTTP model transport with explicit Chat Completions or native Messages routing."""
+"""HTTP transport for explicitly selected Chat, Messages and Responses protocols."""
 
 import asyncio
 import logging
@@ -35,6 +35,10 @@ from kunyu.integrations.model.openai_chat_request import (
     encode_request as encode_chat_request,
 )
 from kunyu.integrations.model.openai_chat_stream import OpenAIChatStreamParser
+from kunyu.integrations.model.openai_responses_request import (
+    encode_request as encode_responses_request,
+)
+from kunyu.integrations.model.openai_responses_stream import OpenAIResponsesStreamParser
 from kunyu.integrations.model.request_images import (
     MAX_INLINE_IMAGE_BYTES,
     RequestImage,
@@ -135,6 +139,15 @@ class HTTPModelAdapter:
             body = encode_messages_request(request, images)
             url = f"{messages_root(config.base_url)}/messages"
             parser = DeepSeekMessagesStreamParser(request.model_id)
+        elif config.protocol is ModelProtocol.OPENAI_RESPONSES:
+            body = encode_responses_request(request, images)
+            url = f"{api_root(config.base_url)}/responses"
+            parser = OpenAIResponsesStreamParser(
+                request.model_id,
+                config.connection_id,
+                config.base_url,
+                config.config_revision,
+            )
         elif config.protocol is ModelProtocol.OPENAI_COMPATIBLE:
             body = encode_chat_request(request, images)
             url = f"{api_root(config.base_url)}/chat/completions"

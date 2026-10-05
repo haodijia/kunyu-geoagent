@@ -323,7 +323,7 @@ class RunModelSnapshotRecord(Base):
     __tablename__ = "run_model_snapshots"
     __table_args__ = (
         CheckConstraint(
-            "protocol IN ('openai_compatible', 'deepseek_messages')",
+            "protocol IN ('openai_compatible', 'deepseek_messages', 'openai_responses')",
             name="ck_run_snapshots_protocol",
         ),
         CheckConstraint(
@@ -519,7 +519,7 @@ class ModelConnectionRecord(Base):
     __tablename__ = "model_connections"
     __table_args__ = (
         CheckConstraint(
-            "protocol IN ('openai_compatible', 'deepseek_messages')",
+            "protocol IN ('openai_compatible', 'deepseek_messages', 'openai_responses')",
             name="ck_model_connections_protocol",
         ),
         CheckConstraint(

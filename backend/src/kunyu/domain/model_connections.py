@@ -9,6 +9,7 @@ from kunyu.domain.model_images import ModelImageInput
 
 class ModelProtocol(StrEnum):
     OPENAI_COMPATIBLE = "openai_compatible"
+    OPENAI_RESPONSES = "openai_responses"
     DEEPSEEK_MESSAGES = "deepseek_messages"
 
 

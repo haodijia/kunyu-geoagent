@@ -11,7 +11,7 @@ import { modelConnectionsApi, type ModelProtocol, type ModelProviderType } from 
 import { connectionErrorMessage } from "./model";
 import { displayForProvider } from "./provider-copy";
 import { ProviderLogo } from "./ProviderLogo";
-import { providerById } from "./providers";
+import { providerById, protocolsForProvider } from "./providers";
 
 const content = zhCN.modelConnections;
 
@@ -85,10 +85,10 @@ export function ModelConnectionCreatePage() {
         />
 
         <form className="provider-setup-form" onSubmit={(event) => void submit(event)}>
-          {selectedProvider.providerType === "custom" ? (
+          {protocolsForProvider(selectedProvider.providerType).length > 1 ? (
             <FormField label={content.create.protocol}>
               <select value={protocol} disabled={busy || createdConnectionId !== null} onChange={(event) => setProtocol(event.target.value as ModelProtocol)}>
-                {Object.entries(content.protocols).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
+                {protocolsForProvider(selectedProvider.providerType).map((value) => <option key={value} value={value}>{content.protocols[value]}</option>)}
               </select>
             </FormField>
           ) : null}

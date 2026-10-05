@@ -8,6 +8,8 @@ from urllib.parse import urlsplit, urlunsplit
 
 import httpx
 
+from kunyu.agent.runtime.content import TextBlock, ToolCallBlock
+from kunyu.agent.runtime.models import ModelAdapterError
 from kunyu.domain.model_connections import (
     MaxTokensField,
     ModelAuthMode,
@@ -15,6 +17,7 @@ from kunyu.domain.model_connections import (
     ModelProviderType,
 )
 from kunyu.integrations.model.connection import messages_root
+from kunyu.integrations.model.openai_responses_items import item_block
 
 MODEL_OPERATION_TIMEOUT_SECONDS = 30
 MAX_PROVIDER_RESPONSE_BYTES = 2 * 1024 * 1024
@@ -170,6 +173,9 @@ class ModelProviderClient:
         )
 
     async def _check_text_request(self, config: ProviderConfig, model_id: str) -> None:
+        if config.protocol is ModelProtocol.OPENAI_RESPONSES:
+            await self._check_responses(config, model_id, tool=False)
+            return
         if config.protocol is ModelProtocol.DEEPSEEK_MESSAGES:
             await self._check_messages(config, model_id, tool=False)
             return
@@ -200,6 +206,9 @@ class ModelProviderClient:
             raise _protocol_error("The provider returned an invalid text completion.")
 
     async def _check_tool_request(self, config: ProviderConfig, model_id: str) -> None:
+        if config.protocol is ModelProtocol.OPENAI_RESPONSES:
+            await self._check_responses(config, model_id, tool=True)
+            return
         if config.protocol is ModelProtocol.DEEPSEEK_MESSAGES:
             await self._check_messages(config, model_id, tool=True)
             return
@@ -273,6 +282,78 @@ class ModelProviderClient:
                 "The model returned invalid tool arguments."
             ) from error
         if arguments != {"token": PROBE_TOKEN}:
+            raise _protocol_error("The model returned invalid tool arguments.")
+
+    async def _check_responses(
+        self, config: ProviderConfig, model_id: str, *, tool: bool
+    ) -> None:
+        body = {
+            "model": model_id,
+            "stream": False,
+            "store": False,
+            "include": ["reasoning.encrypted_content"],
+            "max_output_tokens": CHECK_MAX_TOKENS,
+            "input": [
+                {
+                    "role": "user",
+                    "content": (
+                        f"Call {PROBE_TOOL_NAME} with token '{PROBE_TOKEN}'."
+                        if tool
+                        else "Reply with a short plain-text acknowledgement."
+                    ),
+                }
+            ],
+        }
+        if tool:
+            body["tools"] = [
+                {
+                    "type": "function",
+                    "name": PROBE_TOOL_NAME,
+                    "description": "Checks structured tool-call support.",
+                    "strict": False,
+                    "parameters": {
+                        "type": "object",
+                        "properties": {
+                            "token": {"type": "string", "const": PROBE_TOKEN}
+                        },
+                        "required": ["token"],
+                        "additionalProperties": False,
+                    },
+                }
+            ]
+            body["tool_choice"] = "auto"
+        payload = await self._request_json(
+            "POST",
+            f"{config.base_url}/responses",
+            config=config,
+            json_body=body,
+        )
+        if (
+            not isinstance(payload, dict)
+            or payload.get("object") != "response"
+            or payload.get("status") != "completed"
+            or not isinstance(payload.get("output"), list)
+            or any(not isinstance(item, dict) for item in payload["output"])
+        ):
+            raise _protocol_error(
+                "The provider returned an invalid Responses completion."
+            )
+        try:
+            blocks = [item_block(item) for item in payload["output"]]
+        except ModelAdapterError as error:
+            raise _protocol_error(
+                "The provider returned invalid Responses items."
+            ) from error
+        calls = [block for block in blocks if isinstance(block, ToolCallBlock)]
+        if not tool:
+            if calls or not any(
+                isinstance(block, TextBlock) and block.text.strip() for block in blocks
+            ):
+                raise _protocol_error("The provider returned an invalid text response.")
+            return
+        if len(calls) != 1 or calls[0].name != PROBE_TOOL_NAME:
+            raise _protocol_error("The model did not return the required tool call.")
+        if json.loads(calls[0].arguments) != {"token": PROBE_TOKEN}:
             raise _protocol_error("The model returned invalid tool arguments.")
 
     async def _check_messages(
@@ -355,7 +436,11 @@ class ModelProviderClient:
         config: ProviderConfig,
         json_body: dict[str, Any] | None = None,
     ) -> Any:
-        if json_body is not None and config.provider_type is ModelProviderType.DEEPSEEK:
+        if (
+            json_body is not None
+            and config.provider_type is ModelProviderType.DEEPSEEK
+            and config.protocol is not ModelProtocol.OPENAI_RESPONSES
+        ):
             json_body["thinking"] = {"type": "disabled"}
         native_auth = config.protocol is ModelProtocol.DEEPSEEK_MESSAGES and not (
             method == "GET" and urlsplit(config.base_url).hostname == "api.deepseek.com"
@@ -410,7 +495,10 @@ class ModelProviderClient:
 
 
 def _models_url(config: ProviderConfig) -> str:
-    if config.protocol is ModelProtocol.OPENAI_COMPATIBLE:
+    if config.protocol in {
+        ModelProtocol.OPENAI_COMPATIBLE,
+        ModelProtocol.OPENAI_RESPONSES,
+    }:
         return f"{config.base_url}/models"
     parsed = urlsplit(config.base_url)
     if parsed.hostname == "api.deepseek.com":

@@ -401,7 +401,7 @@ HtmlPreview 保留 allow-scripts、无同源权限的隔离 iframe 和原有 CSP
 
 ## 多模型连接与兼容协议
 
-产品支持 DeepSeek、Kimi、Xiaomi MiMo、智谱 GLM、OpenAI 及其他兼容模型服务。Chat Completions 保留为明确选择的适配器；DeepSeek 默认走原生 Messages，连接不会自动换协议或降级。OpenAI 原生 Responses 尚待接入，不能据此移除当前 OpenAI 与兼容服务的调用路径。
+产品支持 DeepSeek、Kimi、Xiaomi MiMo、智谱 GLM、OpenAI 及其他兼容模型服务。Chat Completions 保留为明确选择的适配器；DeepSeek 默认走原生 Messages，连接不会自动换协议或降级。新 OpenAI 连接默认原生 Responses，也可显式选择 Chat Completions；旧连接和已接受 Run 不改写。
 
 供应商目录中 Kimi 继续使用 moonshot 的连接事实与官方地址；新增 mimo 类型、`https://api.xiaomimimo.com/v1` 和 `max_completion_tokens` 默认参数。智谱国内平台使用 `https://open.bigmodel.cn/api/paas/v4`，与 Z.AI 国际服务分开选择；两者共享相同 GLM 适配器身份。新迁移 `0014` 扩展供应商约束，不改写既有连接、运行和日志。
 
@@ -409,4 +409,19 @@ HtmlPreview 保留 allow-scripts、无同源权限的隔离 iframe 和原有 CSP
 
 本地 HTTP 供应商通过真实 Agent 逐个验证 Kimi／MiMo／GLM／OpenAI 的工具执行、结果配对、后续轮次、原文思考回传、OpenAI 字段隔离和完整投影重建。空值工具流通过、非空非法值仍拒绝；文本与工具检查通过。0013 临时数据库升级0014 后17张业务表全部原数据不变、外键与完整性通过。离屏 Electron 使用真实 API 验证供应商目录、MiMo／智谱国内连接创建、凭据脱敏、模型发现与连接检查、刷新恢复、浅色桌面和600px深色；无页面错误与横向溢出。已有两种协议的计划审批与通用问题回归保持通过；未新增仓库测试文件，未请求真实模型或写入用户数据库。
 
-参考： [Kimi 思考模型](https://platform.kimi.com/docs/guide/use-thinking-models)、[MiMo 深度思考](https://platform.xiaomimimo.com/docs/en-US/usage-guide/passing-back-reasoning_content)、[智谱 OpenAI 兼容](https://docs.bigmodel.cn/cn/guide/develop/openai/introduction)、[GLM 思考模式](https://docs.z.ai/guides/capabilities/thinking-mode)、[OpenAI Docs：迁移至 Responses](https://developers.openai.com/api/docs/guides/migrate-to-responses)。模型特定的思考档位、容量配置和原生 Responses 继续待对齐，不能宣称所有模型版本已完成真实服务验证。
+参考： [Kimi 思考模型](https://platform.kimi.com/docs/guide/use-thinking-models)、[MiMo 深度思考](https://platform.xiaomimimo.com/docs/en-US/usage-guide/passing-back-reasoning_content)、[智谱 OpenAI 兼容](https://docs.bigmodel.cn/cn/guide/develop/openai/introduction)、[GLM 思考模式](https://docs.z.ai/guides/capabilities/thinking-mode)、[OpenAI Docs：迁移至 Responses](https://developers.openai.com/api/docs/guides/migrate-to-responses)。模型特定的思考档位、容量配置和其余原生能力继续待对齐，不能宣称所有模型版本已完成真实服务验证。
+
+
+## OpenAI 原生 Responses
+
+`openai_responses` 是独立协议，由 HTTP 适配器明确调用 `/responses`；连接发现仍使用 `/models`。编码器以 `store: false`、`include: ["reasoning.encrypted_content"]` 和完整本地历史执行，不使用服务端 `previous_response_id`。原生函数定义平铺，显式 `strict: false` 保留现有工具可选参数，由本地工具注册表验证。工具结果通过 `function_call_output` 配对原始 `call_id`，图片直接使用其 `input_image` 内容，文件继续发送已有文件句柄，不上传虚构 OpenAI 文件。
+
+流解析器将 message／reasoning／function_call 对齐为 TextBlock／ReasoningBlock／ToolCallBlock，处理文本、拒绝、推理摘要、原生推理文本、函数参数、用量和终态。完成项是权威来源；响应身份、递增序列、调用身份、参数及最终输出不一致均明确报错，断流不能当作成功。不支持的服务端工具与输出项明确拒绝，不伪造本地结果。HTTP 资源关闭后发布终态，取消、重试、输出限制、提问和计划审批继续共用现有 Runner。
+
+ReplayEnvelope 每块保存实际完成的原生项，空推理摘要仍有对应 ReasoningBlock 和加密状态。回传检查内容、块数、类型和原始模型身份；只有相同连接、地址、配置版本和模型使用私有状态。跨模型／配置转换只投影公共文本和函数调用，不发送旧调用方的加密推理。配置版本包含凭据变更，避免旧状态被传给另一个调用方。length 结算继续同时丢弃工具块及其 replay 项；没有加密状态的未完成推理保留在轨迹中供展示，不作为原生输入回传，下一次用户消息仍可运行。
+
+Responses 的新 Run 默认输出上限为 16384，独立使用 `max_output_tokens`；协议编码允许范围不是逐模型容量声明，逐模型输出容量和思考档位仍待配置。0015 仅扩展连接／运行快照协议约束。设置页 OpenAI 默认 Responses，OpenAI 与 DeepSeek 只展示对应协议，自定义连接可选三种；协议修改使检查失效，原显式连接与历史快照不自动转换。
+
+本地 HTTP 与真实 Agent 验证工具执行、后续轮次、原样加密状态、空摘要、图片输入及 `read_image` 的原生图片结果、提问答案回传、计划审批原子回滚和重启续接、完整重建。单独验证提前 EOF、取消排空、拒绝文本、脱敏错误、伪造 replay、错误序列及 length 工具丢弃。0014→0015 升级保留17张表业务数据、外键及完整性；离屏 Electron 通过真实 API 验证默认协议、文本／工具连接检查、显式 Chat 切换失效、刷新及600px深色，无渲染错误或溢出。未新增仓库测试，未调用真实供应商或写入用户数据库。
+
+原生契约参考 [Responses 创建接口](https://developers.openai.com/api/reference/resources/responses/methods/create)、[流事件](https://developers.openai.com/api/reference/resources/responses/streaming-events)、[函数调用](https://developers.openai.com/api/docs/guides/function-calling)；Mu 的端点类型和 harness 的 replay／内容边界继续作为产品与架构参考。
