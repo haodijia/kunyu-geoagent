@@ -14,6 +14,7 @@ const marks: Record<ModelProviderType, ReactNode> = {
     </svg>
   ),
   moonshot: <LetterMark label="M" />,
+  mimo: <LetterMark label="Mi" />,
   zai: (
     <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
       <path d="M12.105 2 9.927 4.953H.653L2.83 2h9.276Zm11.149 17.048L21.078 22h-9.242l2.174-2.952h9.244ZM24 2 9.264 22H0L14.736 2H24Z" />

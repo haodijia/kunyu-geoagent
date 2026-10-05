@@ -523,7 +523,7 @@ class ModelConnectionRecord(Base):
             name="ck_model_connections_protocol",
         ),
         CheckConstraint(
-            "provider_type IN ('openai', 'deepseek', 'moonshot', 'zai', "
+            "provider_type IN ('openai', 'deepseek', 'moonshot', 'mimo', 'zai', "
             "'siliconflow', 'openrouter', 'groq', 'nvidia', 'together', "
             "'deepinfra', 'fireworks', 'alibaba', 'xai', 'mistral', 'ollama', "
             "'lm_studio', 'localai', 'custom')",

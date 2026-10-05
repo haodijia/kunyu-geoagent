@@ -124,7 +124,7 @@ backend/src/kunyu/agent/
 
 `BlockAssembler` 是块、用量、结束和回放的唯一组装来源；紧凑记录保留实际观察事实。第一个 block-end 是权威内容，可以替换预览文字、思考、工具身份及参数；重复开始、重复关闭与关闭后碎片不改变组装结果，运行边界记录警告，原始观察仍保留。未闭合块的 delta 类型改变、重复用量及终止后输出仍明确报错。Reducer 展开并验证同一语法，结算后用规范块替换正文及思考投影。最终内容变长时补计字符预算，按已交付预览与规范文本／思考总量的较大值收费，缩短不退款；失败／取消预算快照和前端下一步剩余额度来自同一结算结果。权威闭合本身超预算时保留预算内的规范前缀并失败，不能以短预览绕过上限。没有结算的进程中断仅保留已提交 delta 对应的文本／思考块，不编造遗失的原始边界、签名或工具调用。
 
-取消、异常和字符预算耗尽只保留安全文本／思考，不回放工具或 replay。模型 length 结束丢弃工具块，并同时裁剪 replay 的对应条目；条目数量与首次出现块数不一致时丢弃整个 envelope，运行边界记录警告。ReplayEnvelope 的响应及嵌套条目都不可变，记录序列化为普通 JSON，历史回传保留原值。Chat Completions 仅编码其支持的历史字段；原生 Messages 保留并回传真实思考签名，不向请求虚构签名。
+取消、异常和字符预算耗尽只保留安全文本／思考，不回放工具或 replay。模型 length 结束丢弃工具块，并同时裁剪 replay 的对应条目；条目数量与首次出现块数不一致时丢弃整个 envelope，运行边界记录警告。ReplayEnvelope 的响应及嵌套条目都不可变，记录序列化为普通 JSON，历史回传保留原值。Chat Completions 按服务商编码历史字段：DeepSeek、Kimi、MiMo、智谱保留真实 reasoning_content，OpenAI 不发送该扩展字段；原生 Messages 保留并回传真实思考签名，不向请求虚构签名。
 
 对话按块顺序复用 Markdown、Mu 思考行与工具组件，连续工具保留已有分组。闭合内容立即替换实时预览，迟到碎片不会撤销权威内容或遮断后续有效块；只有真实文本／思考／工具 delta 提供首 token 时间，仅结束块的内容不编造 token 边界。实时前缀与结算内容采用相同首次出现顺序及码点预算；轨迹上下文先从块提取正文，详情保留完整结构。迁移 `0007` 重编号旧文本／思考／工具索引，以原观察时间转换已知完整调用；有碎片时保留原参数字符串，并校验与旧完整对象一致。buffered 来源的调用仅来自已提交 tool.requested，不编造原始工具流；旧请求快照也转换为块，不保留运行时旧格式分支。
 
@@ -397,3 +397,16 @@ HtmlPreview 保留 allow-scripts、无同源权限的隔离 iframe 和原有 CSP
 ### 完整计划审阅验证
 
 临时真实 Agent 与两种协议验证批准、反馈、跳过、关闭、非计划模式拒绝、无标题拒绝、同批写入限制、下一步静默退出、审批提交失败整事务回滚、批准后的重启恢复及完整投影重建。缺失、重复、错误身份和伪造审批成功结果的日志均拒绝；通用用户问题协议流程保持通过。离屏 Electron 验证完整 Markdown、摘要、自动打开一次、手动关闭、刷新恢复原文档、503 原答案重试、终态卡片及修改计划返回输入区。混合计划／文件标签验证只读、读取失败重试、未保存文件内容、普通输入草稿和刷新恢复；窄屏自动文件树不遮挡文档，手动开关有效。实际浅色、深色和 600px 截图检查通过。未新增仓库测试文件或数据库迁移，未调用真实模型供应商。
+
+
+## 多模型连接与兼容协议
+
+产品支持 DeepSeek、Kimi、Xiaomi MiMo、智谱 GLM、OpenAI 及其他兼容模型服务。Chat Completions 保留为明确选择的适配器；DeepSeek 默认走原生 Messages，连接不会自动换协议或降级。OpenAI 原生 Responses 尚待接入，不能据此移除当前 OpenAI 与兼容服务的调用路径。
+
+供应商目录中 Kimi 继续使用 moonshot 的连接事实与官方地址；新增 mimo 类型、`https://api.xiaomimimo.com/v1` 和 `max_completion_tokens` 默认参数。智谱国内平台使用 `https://open.bigmodel.cn/api/paas/v4`，与 Z.AI 国际服务分开选择；两者共享相同 GLM 适配器身份。新迁移 `0014` 扩展供应商约束，不改写既有连接、运行和日志。
+
+兼容流中 `tool_calls: null` 表示本帧无工具片段；非空非法值继续明确拒绝。工具历史中的真实思考按原顺序回传给 DeepSeek、Kimi、MiMo 和智谱，跨轮保存，不添加缺失思考或虚构签名；OpenAI 请求不发送其他供应商的扩展字段。能力检查的输出上限从 128 提升至 16384，以便思考模型完成文本和工具检查；仍保留超时、响应上限及真实成功条件。运行自身的 Chat 输出上限仍是既有 4096，后续需按模型能力提供配置；检查上限不改变历史 Run 快照和运行预算。
+
+本地 HTTP 供应商通过真实 Agent 逐个验证 Kimi／MiMo／GLM／OpenAI 的工具执行、结果配对、后续轮次、原文思考回传、OpenAI 字段隔离和完整投影重建。空值工具流通过、非空非法值仍拒绝；文本与工具检查通过。0013 临时数据库升级0014 后17张业务表全部原数据不变、外键与完整性通过。离屏 Electron 使用真实 API 验证供应商目录、MiMo／智谱国内连接创建、凭据脱敏、模型发现与连接检查、刷新恢复、浅色桌面和600px深色；无页面错误与横向溢出。已有两种协议的计划审批与通用问题回归保持通过；未新增仓库测试文件，未请求真实模型或写入用户数据库。
+
+参考： [Kimi 思考模型](https://platform.kimi.com/docs/guide/use-thinking-models)、[MiMo 深度思考](https://platform.xiaomimimo.com/docs/en-US/usage-guide/passing-back-reasoning_content)、[智谱 OpenAI 兼容](https://docs.bigmodel.cn/cn/guide/develop/openai/introduction)、[GLM 思考模式](https://docs.z.ai/guides/capabilities/thinking-mode)、[OpenAI Docs：迁移至 Responses](https://developers.openai.com/api/docs/guides/migrate-to-responses)。模型特定的思考档位、容量配置和原生 Responses 继续待对齐，不能宣称所有模型版本已完成真实服务验证。
