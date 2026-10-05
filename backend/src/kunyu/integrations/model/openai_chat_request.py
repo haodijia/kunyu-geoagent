@@ -39,7 +39,12 @@ def encode_request(
         _serialize_message(message, images if images is not None else {})
         for message in request.messages
     ]
-    if config.provider_type is ModelProviderType.DEEPSEEK and request.tools:
+    if config.provider_type in {
+        ModelProviderType.DEEPSEEK,
+        ModelProviderType.MOONSHOT,
+        ModelProviderType.MIMO,
+        ModelProviderType.ZAI,
+    }:
         for message, serialized in zip(request.messages, messages, strict=True):
             if message.role is ModelRole.ASSISTANT:
                 if any(isinstance(block, ReasoningBlock) for block in message.content):
@@ -47,7 +52,11 @@ def encode_request(
                         message.content, reasoning=True
                     )
                 elif (
-                    any(isinstance(block, ToolCallBlock) for block in message.content)
+                    config.provider_type is ModelProviderType.DEEPSEEK
+                    and request.tools
+                    and any(
+                        isinstance(block, ToolCallBlock) for block in message.content
+                    )
                     and request.reasoning_effort != "off"
                 ):
                     raise invalid_request(

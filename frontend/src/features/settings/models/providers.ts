@@ -5,6 +5,8 @@ export type ProviderCatalogId =
   | "openai"
   | "deepseek"
   | "moonshot"
+  | "mimo"
+  | "zhipu"
   | "zai"
   | "zai-coding-plan"
   | "siliconflow"
@@ -38,6 +40,8 @@ export const providerCatalog = [
   entry("openai", "openai", "api", true, "https://api.openai.com/v1"),
   entry("deepseek", "deepseek", "api", true, "https://api.deepseek.com/anthropic"),
   entry("moonshot", "moonshot", "api", true, "https://api.moonshot.cn/v1"),
+  entry("mimo", "mimo", "api", true, "https://api.xiaomimimo.com/v1", "max_completion_tokens"),
+  entry("zhipu", "zai", "api", true, "https://open.bigmodel.cn/api/paas/v4"),
   entry("zai", "zai", "api", true, "https://api.z.ai/api/paas/v4"),
   entry("zai-coding-plan", "zai", "api", true, "https://api.z.ai/api/coding/paas/v4"),
   entry("siliconflow", "siliconflow", "aggregators", true, "https://api.siliconflow.com/v1"),

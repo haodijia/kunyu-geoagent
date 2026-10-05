@@ -17,7 +17,9 @@ export const providerCategoryCopy: Record<ProviderCategory, string> = {
 export const providerCopy: Record<ProviderCatalogId, ProviderCopy> = {
   openai: { name: "OpenAI", description: "OpenAI 官方 API 接入", badge: "API" },
   deepseek: { name: "DeepSeek", description: "DeepSeek 官方 API 接入", badge: "API" },
-  moonshot: { name: "Moonshot", description: "月之暗面官方 API 接入", badge: "API" },
+  moonshot: { name: "Kimi", description: "月之暗面 Moonshot 官方 API 接入", badge: "API" },
+  mimo: { name: "Xiaomi MiMo", description: "小米 MiMo 官方 API 接入", badge: "API" },
+  zhipu: { name: "智谱 GLM", description: "智谱国内开放平台 · GLM 系列模型", badge: "API" },
   zai: { name: "Z.AI", description: "智谱 GLM 系列模型官方接入", badge: "API" },
   "zai-coding-plan": { name: "Z.AI Coding Plan", description: "智谱编码套餐 · OpenAI 兼容", badge: "Coding" },
   siliconflow: { name: "SiliconFlow", description: "硅基流动多模型 API", badge: "聚合" },
@@ -39,7 +41,8 @@ export const providerCopy: Record<ProviderCatalogId, ProviderCopy> = {
 export const providerName: Record<ModelProviderType, string> = {
   openai: "OpenAI",
   deepseek: "DeepSeek",
-  moonshot: "Moonshot",
+  moonshot: "Kimi",
+  mimo: "Xiaomi MiMo",
   zai: "Z.AI",
   siliconflow: "SiliconFlow",
   openrouter: "OpenRouter",

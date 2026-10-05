@@ -16,6 +16,7 @@ class ModelProviderType(StrEnum):
     OPENAI = "openai"
     DEEPSEEK = "deepseek"
     MOONSHOT = "moonshot"
+    MIMO = "mimo"
     ZAI = "zai"
     SILICONFLOW = "siliconflow"
     OPENROUTER = "openrouter"

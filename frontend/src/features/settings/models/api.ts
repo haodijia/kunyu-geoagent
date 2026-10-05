@@ -5,6 +5,7 @@ export type ModelProviderType =
   | "openai"
   | "deepseek"
   | "moonshot"
+  | "mimo"
   | "zai"
   | "siliconflow"
   | "openrouter"

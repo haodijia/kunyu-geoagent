@@ -115,8 +115,9 @@ class OpenAIChatStreamParser:
                 logical = self._open("text", 0, outputs)
                 self._text_parts.append(content)
                 outputs.append(TextDelta(logical, content))
-        if "tool_calls" in delta:
-            outputs.extend(self._append_tool_calls(delta["tool_calls"]))
+        tool_calls = delta.get("tool_calls")
+        if tool_calls is not None:
+            outputs.extend(self._append_tool_calls(tool_calls))
 
         finish_reason = choice.get("finish_reason")
         if finish_reason is not None:
