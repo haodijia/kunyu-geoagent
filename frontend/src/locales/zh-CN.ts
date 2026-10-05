@@ -194,7 +194,7 @@ export const zhCN = {
       category: "供应商分类",
       empty: "没有匹配的供应商",
     },
-    protocols: { openai_compatible: "Chat Completions", deepseek_messages: "DeepSeek Messages" },
+    protocols: { openai_compatible: "Chat Completions", deepseek_messages: "DeepSeek Messages", openai_responses: "OpenAI Responses" },
     create: {
       connect: (name: string) => `连接 ${name}`,
       subtitle: "凭据仅保存在本机，保存后会自动获取模型列表。",

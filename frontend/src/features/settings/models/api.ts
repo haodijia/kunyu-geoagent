@@ -1,6 +1,6 @@
 import { requestJson } from "@/api/client";
 
-export type ModelProtocol = "openai_compatible" | "deepseek_messages";
+export type ModelProtocol = "openai_compatible" | "deepseek_messages" | "openai_responses";
 export type ModelProviderType =
   | "openai"
   | "deepseek"

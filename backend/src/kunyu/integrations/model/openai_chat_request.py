@@ -65,7 +65,7 @@ def encode_request(
     messages = _project_tool_images(
         request.messages, messages, images if images is not None else {}
     )
-    tools = [_serialize_tool(tool) for tool in request.tools]
+    tools = [serialize_tool(tool) for tool in request.tools]
     _require_unique_tool_names(tools)
     payload: dict[str, object] = {
         "model": request.model_id,
@@ -225,7 +225,7 @@ def _project_tool_images(
     return result
 
 
-def _serialize_tool(tool: ToolSpec) -> dict[str, object]:
+def serialize_tool(tool: ToolSpec) -> dict[str, object]:
     if (
         not isinstance(tool.name, str)
         or not tool.name

@@ -247,3 +247,14 @@
 - 修复官方 MiMo SSE 的 tool_calls 空值被当作协议错误；非空非法内容仍报错。Kimi／MiMo／GLM 的工具续接和后续轮次回传原始思考，不对 OpenAI 发送该扩展字段。文本及工具能力检查给予16384输出上限，避免128限制截断思考；运行容量配置仍需继续完善。
 - 本地 HTTP 与真实 Agent 完成四供应商的实际工具执行／结果配对／后续轮次／原文回传和重建；恶意流片段仍拒绝。0013→0014升级保留17张表所有业务行，外键与完整性通过。真实设置页 API 和离屏 Electron 验证创建 MiMo、国内智谱、默认地址及参数、凭据脱敏、模型发现／连接检查、刷新与600px深色；截图已核对，无渲染错误。计划审批和用户问题两种协议回归通过，Ruff及前后端构建通过；未新增仓库测试或调用真实模型服务。
 - 本批补齐已观察到的多模型连接缺口，不宣称模型所有原生能力一致。OpenAI Responses、按模型配置输出容量和思考档位、PTC、多 Agent、profile及其余项目相关能力继续待完成。
+
+
+## OpenAI 原生 Responses（2026-10-05）
+
+- 参考 Mu `KyrnSettings/providers/endpoints.ts` 的显式 openai-responses 端点，以及 harness `llm-pi-ai/src/replay.ts` 的 provider/model 身份、逐块元数据及跨模型公共内容投影。实际线协议核对 OpenAI 官方 [创建接口](https://developers.openai.com/api/reference/resources/responses/methods/create)、[流事件](https://developers.openai.com/api/reference/resources/responses/streaming-events) 和 [函数调用](https://developers.openai.com/api/docs/guides/function-calling)。
+- 新 OpenAI 连接默认 Responses，自定义连接可选三种协议；OpenAI 保留显式 Chat Completions，Kimi／MiMo／GLM 沿用各自兼容连接。前后端协议、运行快照和0015约束一致。旧连接不自动换协议，切换使能力检查失效，原生文本／工具检查直连 Responses。
+- 请求使用完整本地 input、store:false、加密 reasoning include、原生平铺函数定义和 function_call_output。显式 strict:false 保留工具可选参数，继续本地校验；用户图片与工具图片结果直接使用 input_image，文件保留现有路径句柄。新 Responses Run 默认16384输出，未硬编码逐模型能力。
+- 原生完整输出项按首次出现顺序映射 canonical 内容，终态 replay 与块一一对应；仅完成项的实际加密状态用于下一请求，空摘要不丢失。私有状态绑定原模型、连接、地址和配置版本，跨来源只投影公共内容。序列、身份、JSON参数、最终快照、用量与提前断流严格验证，错误脱敏；不支持的服务端工具明确拒绝，没有失败后切换协议。
+- 本地 HTTP 与真实 Agent 验证工具→模型、追加消息、空推理摘要、加密原文续接、用户图片／文件和 read_image 的原生图片结果；三个协议均完成问题／计划审批及提交异常原子回滚。Responses 批准等待重启后保留加密项并恢复执行，完整投影重建一致。直接验证HTTP先关闭后终态、取消关闭、EOF失败、拒绝文本、恶意流、伪造 replay 与 length 不执行截断调用；未封口私有状态只保留展示，输出截断后的新用户回合仍可执行。
+- 0014连接库及含旧运行快照的0013库升级0015均保持17张业务表原行、外键和完整性；设置页面真实 API＋离屏 Electron 验证 OpenAI 原生默认、发现／检查、切回Chat、检查失效、刷新、600px深色，并回归MiMo与国内GLM。截图检查无横向溢出或页面错误，Ruff与构建通过。所有供应商调用均为隔离本地HTTP，未新增仓库测试或访问真实凭据。
+- 本批完成 Responses 的项目自有函数工具与本地会话运行路径；逐模型容量／思考档位、PTC、服务端工具、多Agent、profile及其余UI仍待继续，不宣称已与完整参考项目一致。
