@@ -23,7 +23,6 @@ MODEL_OPERATION_TIMEOUT_SECONDS = 30
 MAX_PROVIDER_RESPONSE_BYTES = 2 * 1024 * 1024
 MAX_CATALOG_ENTRIES = 2_000
 MAX_MODEL_ID_LENGTH = 256
-CHECK_MAX_TOKENS = 16_384
 PROBE_TOOL_NAME = "kunyu_capability_probe"
 PROBE_TOKEN = "kunyu-tool-check"
 
@@ -114,12 +113,12 @@ class ModelProviderClient:
         return tuple(models)
 
     async def check_text(
-        self, config: ProviderConfig, model_id: str
+        self, config: ProviderConfig, model_id: str, max_output_tokens: int
     ) -> ModelCheckOutcome:
         started_at = monotonic()
         try:
             async with asyncio.timeout(MODEL_OPERATION_TIMEOUT_SECONDS):
-                await self._check_text_request(config, model_id)
+                await self._check_text_request(config, model_id, max_output_tokens)
         except TimeoutError:
             return ModelCheckOutcome(
                 text_passed=False,
@@ -142,15 +141,15 @@ class ModelProviderClient:
         )
 
     async def check_tools(
-        self, config: ProviderConfig, model_id: str
+        self, config: ProviderConfig, model_id: str, max_output_tokens: int
     ) -> ModelCheckOutcome:
         started_at = monotonic()
         text_passed = False
         try:
             async with asyncio.timeout(MODEL_OPERATION_TIMEOUT_SECONDS):
-                await self._check_text_request(config, model_id)
+                await self._check_text_request(config, model_id, max_output_tokens)
                 text_passed = True
-                await self._check_tool_request(config, model_id)
+                await self._check_tool_request(config, model_id, max_output_tokens)
         except TimeoutError:
             return ModelCheckOutcome(
                 text_passed=text_passed,
@@ -172,12 +171,14 @@ class ModelProviderClient:
             latency_ms=_elapsed_ms(started_at),
         )
 
-    async def _check_text_request(self, config: ProviderConfig, model_id: str) -> None:
+    async def _check_text_request(
+        self, config: ProviderConfig, model_id: str, max_output_tokens: int
+    ) -> None:
         if config.protocol is ModelProtocol.OPENAI_RESPONSES:
-            await self._check_responses(config, model_id, tool=False)
+            await self._check_responses(config, model_id, max_output_tokens, tool=False)
             return
         if config.protocol is ModelProtocol.DEEPSEEK_MESSAGES:
-            await self._check_messages(config, model_id, tool=False)
+            await self._check_messages(config, model_id, max_output_tokens, tool=False)
             return
         payload = await self._request_json(
             "POST",
@@ -192,7 +193,7 @@ class ModelProviderClient:
                     }
                 ],
                 "stream": False,
-                config.max_tokens_field.value: CHECK_MAX_TOKENS,
+                config.max_tokens_field.value: max_output_tokens,
             },
         )
         choice = _single_choice(payload)
@@ -205,12 +206,14 @@ class ModelProviderClient:
         ):
             raise _protocol_error("The provider returned an invalid text completion.")
 
-    async def _check_tool_request(self, config: ProviderConfig, model_id: str) -> None:
+    async def _check_tool_request(
+        self, config: ProviderConfig, model_id: str, max_output_tokens: int
+    ) -> None:
         if config.protocol is ModelProtocol.OPENAI_RESPONSES:
-            await self._check_responses(config, model_id, tool=True)
+            await self._check_responses(config, model_id, max_output_tokens, tool=True)
             return
         if config.protocol is ModelProtocol.DEEPSEEK_MESSAGES:
-            await self._check_messages(config, model_id, tool=True)
+            await self._check_messages(config, model_id, max_output_tokens, tool=True)
             return
         payload = await self._request_json(
             "POST",
@@ -251,7 +254,7 @@ class ModelProviderClient:
                 # Match the Agent adapter and deepseek-harness: thinking models
                 # can reject a forced named choice even when Tool Call works.
                 "tool_choice": "auto",
-                config.max_tokens_field.value: CHECK_MAX_TOKENS,
+                config.max_tokens_field.value: max_output_tokens,
             },
         )
         choice = _single_choice(payload)
@@ -285,14 +288,19 @@ class ModelProviderClient:
             raise _protocol_error("The model returned invalid tool arguments.")
 
     async def _check_responses(
-        self, config: ProviderConfig, model_id: str, *, tool: bool
+        self,
+        config: ProviderConfig,
+        model_id: str,
+        max_output_tokens: int,
+        *,
+        tool: bool,
     ) -> None:
         body = {
             "model": model_id,
             "stream": False,
             "store": False,
             "include": ["reasoning.encrypted_content"],
-            "max_output_tokens": CHECK_MAX_TOKENS,
+            "max_output_tokens": max_output_tokens,
             "input": [
                 {
                     "role": "user",
@@ -357,12 +365,17 @@ class ModelProviderClient:
             raise _protocol_error("The model returned invalid tool arguments.")
 
     async def _check_messages(
-        self, config: ProviderConfig, model_id: str, *, tool: bool
+        self,
+        config: ProviderConfig,
+        model_id: str,
+        max_output_tokens: int,
+        *,
+        tool: bool,
     ) -> None:
         body = {
             "model": model_id,
             "stream": False,
-            "max_tokens": CHECK_MAX_TOKENS,
+            "max_tokens": max_output_tokens,
             "thinking": {"type": "disabled"},
             "messages": [
                 {

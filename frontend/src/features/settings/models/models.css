@@ -338,7 +338,7 @@
 }
 
 .provider-setup-form__actions,
-.model-expandable-row__editor > div {
+.model-expandable-row__actions {
   display: flex;
   justify-content: flex-end;
   gap: 8px;

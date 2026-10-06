@@ -11,6 +11,7 @@ from kunyu.domain.model_connections import (
     ModelProviderType,
 )
 from kunyu.domain.model_images import ModelImageInput
+from kunyu.domain.model_settings import MAX_MODEL_OUTPUT_TOKENS
 
 
 @dataclass(frozen=True, slots=True)
@@ -56,9 +57,7 @@ def validate_config(config: ModelConnectionConfig) -> None:
         raise invalid_request("The reasoning capability configuration is invalid.")
 
 
-def validate_request(
-    request: ModelRequest[ModelConnectionConfig], *, maximum_output_tokens: int
-) -> None:
+def validate_request(request: ModelRequest[ModelConnectionConfig]) -> None:
     config = request.adapter_config
     validate_config(config)
     if (
@@ -75,10 +74,10 @@ def validate_request(
     if (
         isinstance(request.max_output_tokens, bool)
         or not isinstance(request.max_output_tokens, int)
-        or not 1 <= request.max_output_tokens <= maximum_output_tokens
+        or not 1 <= request.max_output_tokens <= MAX_MODEL_OUTPUT_TOKENS
     ):
         raise invalid_request(
-            f"max_output_tokens must be between 1 and {maximum_output_tokens}."
+            f"max_output_tokens must be between 1 and {MAX_MODEL_OUTPUT_TOKENS}."
         )
     if (
         request.reasoning_effort is not None

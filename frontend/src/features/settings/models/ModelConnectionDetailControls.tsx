@@ -58,7 +58,7 @@ export function ModelExpandableRow({
       {editing ? (
         <div className="model-expandable-row__editor">
           {children}
-          <div>
+          <div className="model-expandable-row__actions">
             <Button size="sm" variant="ghost" disabled={busy} onClick={onCancel}>{content.cancel}</Button>
             <Button size="sm" disabled={busy || !canSave} onClick={onSave}>{content.detail.save}</Button>
           </div>

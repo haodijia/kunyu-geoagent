@@ -19,6 +19,7 @@ from sqlalchemy import text as sql_text
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
 from kunyu.agent.runtime.retry_policy import NormalRetryPolicy
+from kunyu.domain.model_settings import DEFAULT_MODEL_OUTPUT_TOKENS
 
 
 class Base(DeclarativeBase):
@@ -648,6 +649,10 @@ class ModelCatalogEntryRecord(Base):
             "reasoning_source IN ('unknown', 'provider_metadata', 'protocol')",
             name="ck_model_catalog_reasoning_source",
         ),
+        CheckConstraint(
+            "max_output_tokens > 0 AND max_output_tokens <= 100000000",
+            name="ck_model_catalog_output_tokens",
+        ),
         Index("ix_model_catalog_connection_revision", "connection_id", "revision"),
     )
 
@@ -667,6 +672,12 @@ class ModelCatalogEntryRecord(Base):
     tool_error_code: Mapped[str | None] = mapped_column(String(100))
     tool_capability: Mapped[str] = mapped_column(String(32), nullable=False)
     tool_capability_source: Mapped[str] = mapped_column(String(32), nullable=False)
+    max_output_tokens: Mapped[int] = mapped_column(
+        Integer,
+        nullable=False,
+        default=DEFAULT_MODEL_OUTPUT_TOKENS,
+        server_default=str(DEFAULT_MODEL_OUTPUT_TOKENS),
+    )
     reasoning_efforts: Mapped[list[str]] = mapped_column(JSON, nullable=False)
     image_input: Mapped[dict[str, Any]] = mapped_column(JSON, nullable=False)
     reasoning_default: Mapped[str | None] = mapped_column(String(64))

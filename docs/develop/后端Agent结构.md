@@ -405,11 +405,11 @@ HtmlPreview 保留 allow-scripts、无同源权限的隔离 iframe 和原有 CSP
 
 供应商目录中 Kimi 继续使用 moonshot 的连接事实与官方地址；新增 mimo 类型、`https://api.xiaomimimo.com/v1` 和 `max_completion_tokens` 默认参数。智谱国内平台使用 `https://open.bigmodel.cn/api/paas/v4`，与 Z.AI 国际服务分开选择；两者共享相同 GLM 适配器身份。新迁移 `0014` 扩展供应商约束，不改写既有连接、运行和日志。
 
-兼容流中 `tool_calls: null` 表示本帧无工具片段；非空非法值继续明确拒绝。工具历史中的真实思考按原顺序回传给 DeepSeek、Kimi、MiMo 和智谱，跨轮保存，不添加缺失思考或虚构签名；OpenAI 请求不发送其他供应商的扩展字段。能力检查的输出上限从 128 提升至 16384，以便思考模型完成文本和工具检查；仍保留超时、响应上限及真实成功条件。运行自身的 Chat 输出上限仍是既有 4096，后续需按模型能力提供配置；检查上限不改变历史 Run 快照和运行预算。
+兼容流中 `tool_calls: null` 表示本帧无工具片段；非空非法值继续明确拒绝。工具历史中的真实思考按原顺序回传给 DeepSeek、Kimi、MiMo 和智谱，跨轮保存，不添加缺失思考或虚构签名；OpenAI 请求不发送其他供应商的扩展字段。能力检查的输出上限从 128 提升至 16384，以便思考模型完成文本和工具检查；仍保留超时、响应上限及真实成功条件。运行输出上限现由模型参数逐项配置；检查使用同一上限，不改变已接受 Run 快照和运行预算。
 
 本地 HTTP 供应商通过真实 Agent 逐个验证 Kimi／MiMo／GLM／OpenAI 的工具执行、结果配对、后续轮次、原文思考回传、OpenAI 字段隔离和完整投影重建。空值工具流通过、非空非法值仍拒绝；文本与工具检查通过。0013 临时数据库升级0014 后17张业务表全部原数据不变、外键与完整性通过。离屏 Electron 使用真实 API 验证供应商目录、MiMo／智谱国内连接创建、凭据脱敏、模型发现与连接检查、刷新恢复、浅色桌面和600px深色；无页面错误与横向溢出。已有两种协议的计划审批与通用问题回归保持通过；未新增仓库测试文件，未请求真实模型或写入用户数据库。
 
-参考： [Kimi 思考模型](https://platform.kimi.com/docs/guide/use-thinking-models)、[MiMo 深度思考](https://platform.xiaomimimo.com/docs/en-US/usage-guide/passing-back-reasoning_content)、[智谱 OpenAI 兼容](https://docs.bigmodel.cn/cn/guide/develop/openai/introduction)、[GLM 思考模式](https://docs.z.ai/guides/capabilities/thinking-mode)、[OpenAI Docs：迁移至 Responses](https://developers.openai.com/api/docs/guides/migrate-to-responses)。模型特定的思考档位、容量配置和其余原生能力继续待对齐，不能宣称所有模型版本已完成真实服务验证。
+参考： [Kimi 思考模型](https://platform.kimi.com/docs/guide/use-thinking-models)、[MiMo 深度思考](https://platform.xiaomimimo.com/docs/en-US/usage-guide/passing-back-reasoning_content)、[智谱 OpenAI 兼容](https://docs.bigmodel.cn/cn/guide/develop/openai/introduction)、[GLM 思考模式](https://docs.z.ai/guides/capabilities/thinking-mode)、[OpenAI Docs：迁移至 Responses](https://developers.openai.com/api/docs/guides/migrate-to-responses)。模型特定的思考档位、上下文容量和其余原生能力继续待对齐，不能宣称所有模型版本已完成真实服务验证。
 
 
 ## OpenAI 原生 Responses
@@ -420,8 +420,23 @@ HtmlPreview 保留 allow-scripts、无同源权限的隔离 iframe 和原有 CSP
 
 ReplayEnvelope 每块保存实际完成的原生项，空推理摘要仍有对应 ReasoningBlock 和加密状态。回传检查内容、块数、类型和原始模型身份；只有相同连接、地址、配置版本和模型使用私有状态。跨模型／配置转换只投影公共文本和函数调用，不发送旧调用方的加密推理。配置版本包含凭据变更，避免旧状态被传给另一个调用方。length 结算继续同时丢弃工具块及其 replay 项；没有加密状态的未完成推理保留在轨迹中供展示，不作为原生输入回传，下一次用户消息仍可运行。
 
-Responses 的新 Run 默认输出上限为 16384，独立使用 `max_output_tokens`；协议编码允许范围不是逐模型容量声明，逐模型输出容量和思考档位仍待配置。0015 仅扩展连接／运行快照协议约束。设置页 OpenAI 默认 Responses，OpenAI 与 DeepSeek 只展示对应协议，自定义连接可选三种；协议修改使检查失效，原显式连接与历史快照不自动转换。
+Responses 的新 Run 默认输出上限为 16384，独立使用 `max_output_tokens`；协议编码允许范围不是逐模型容量声明，输出上限现由模型设置声明，逐模型思考档位仍待配置。0015 仅扩展连接／运行快照协议约束。设置页 OpenAI 默认 Responses，OpenAI 与 DeepSeek 只展示对应协议，自定义连接可选三种；协议修改使检查失效，原显式连接与历史快照不自动转换。
 
 本地 HTTP 与真实 Agent 验证工具执行、后续轮次、原样加密状态、空摘要、图片输入及 `read_image` 的原生图片结果、提问答案回传、计划审批原子回滚和重启续接、完整重建。单独验证提前 EOF、取消排空、拒绝文本、脱敏错误、伪造 replay、错误序列及 length 工具丢弃。0014→0015 升级保留17张表业务数据、外键及完整性；离屏 Electron 通过真实 API 验证默认协议、文本／工具连接检查、显式 Chat 切换失效、刷新及600px深色，无渲染错误或溢出。未新增仓库测试，未调用真实供应商或写入用户数据库。
 
 原生契约参考 [Responses 创建接口](https://developers.openai.com/api/reference/resources/responses/methods/create)、[流事件](https://developers.openai.com/api/reference/resources/responses/streaming-events)、[函数调用](https://developers.openai.com/api/docs/guides/function-calling)；Mu 的端点类型和 harness 的 replay／内容边界继续作为产品与架构参考。
+
+
+## 按模型设置输出上限
+
+参考 Mu `providers/ModelRows.tsx` 的模型行／展开编辑、`endpoints.ts` 的16384默认值和1–100000000范围，以及 harness `llm-pi-ai/src/catalog.ts` 的模型输出声明、`session/src/request-header.ts` 的实际调用快照。`ModelCatalogEntry.max_output_tokens` 持久保存每个模型的请求上限；发现更新、凭据／连接变更和手动模型合并保留该设置，不根据供应商名称或模型ID猜容量。
+
+`PUT /api/v1/model-connections/{id}/model-settings?model_id=...` 严格接收输出上限及已有图片参数，单次提交统一更新。旧 image-input 端点和独立前端图片设置组件已移除。输出上限变化清除该模型文本／工具检查及来源为验证的工具能力，并推进检查代次；较早开始的检查无法覆盖新配置。单独图片设置不声称经过文本／工具检查验证，也不清除这些检查。排队、运行或人类等待中的连接保持原有修改保护。
+
+能力检查、接受 Run、工具续接和逐步骤请求都使用该模型的具体值，移除 Chat 4096、Messages 256000、Responses 128000 等编码器固定上限。共同边界只约束正整数及设置允许范围；上游拒绝参数时明确记录失败，不自动减少输出或更换协议。该字段是请求配置，不能据此宣称供应商支持任意声明的容量。已接受运行不读取后续目录变动来改写上限，原请求／预算／图片策略继续冻结；重建保持同一快照。
+
+手动 `/compact` 使用最后实际请求的模型、思考选择和输出上限，修复固定4096及初始模型与当前适配器可能不一致的问题。此前的摘要输入构造仍需继续对齐 harness 的前缀复用、结构化checkpoint和完整辅助调用轨迹，本批不宣称压缩架构已等价。
+
+设置页面将最大输出与原图片控制合并到同一模型展开行；统一基础组件与主题，修改失败保留未保存参数并在行内提供错误。共享展开行只对操作按钮使用末端布局，字段网格在桌面两列、600px一列。新迁移0016增加模型字段及约束；重建表时重新声明语义相同的图片JSON默认值，避免反射文本把冒号识别为绑定参数，既有记录不改写。
+
+临时真实 ASGI／HTTP／Agent 验证 Kimi、MiMo、GLM、OpenAI Chat、DeepSeek Messages、OpenAI Responses 六条路径的不同输出上限、连接检查、真实工具续接、目录变化时快照稳定、重建、严格原子输入、忙连接拒绝及过期检查拒绝；三种协议的压缩均使用冻结上限。0013／0015临时数据库升级0016保留全部原列和业务行、事件、运行快照与图片策略，外键／完整性及投影重建通过；新的JSON默认值有效。离屏 Electron 经真实API验证设置、无效数值、503保存失败／重试、检查失效、刷新、浅色桌面和600px深色，截图检查通过。未新增仓库测试或调用真实模型服务。

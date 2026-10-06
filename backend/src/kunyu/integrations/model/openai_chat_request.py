@@ -31,7 +31,7 @@ def encode_request(
     images: Mapping[str, RequestImage] | None = None,
 ) -> bytes:
     config = request.adapter_config
-    validate_request(request, maximum_output_tokens=4_096)
+    validate_request(request)
     require_images_fit(
         request.messages, images if images is not None else {}, config.image_input
     )

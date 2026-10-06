@@ -56,6 +56,7 @@ from kunyu.domain.model_connections import (
     ModelProviderType,
 )
 from kunyu.domain.model_images import ModelImageInput
+from kunyu.domain.model_settings import ModelSettings
 from kunyu.integrations.model.provider_client import (
     ProviderErrorCode,
     ProviderRequestError,
@@ -158,6 +159,7 @@ class ModelCatalogEntryResponse(BaseModel):
     reasoning_efforts: list[str]
     reasoning_default: str | None
     image_input: ModelImageInput
+    max_output_tokens: int
     reasoning_source: CapabilitySource
     discovered_at: datetime | None
 
@@ -179,6 +181,7 @@ class ModelCatalogEntryResponse(BaseModel):
             reasoning_efforts=list(entry.reasoning_efforts),
             reasoning_default=entry.reasoning_default,
             image_input=entry.image_input,
+            max_output_tokens=entry.max_output_tokens,
             reasoning_source=entry.reasoning_source,
             discovered_at=entry.discovered_at,
         )
@@ -536,15 +539,15 @@ def add_manual_model(
     return ModelCatalogEntryResponse.from_domain(entry)
 
 
-@router.put("/{connection_id}/image-input", response_model=ModelCatalogEntryResponse)
-def set_model_image_input(
+@router.put("/{connection_id}/model-settings", response_model=ModelCatalogEntryResponse)
+def set_model_settings(
     connection_id: str,
-    request: ModelImageInput,
+    request: ModelSettings,
     service: ModelCatalogServiceDependency,
     model_id: Annotated[str, Query(min_length=1, max_length=256)],
 ) -> ModelCatalogEntryResponse:
     try:
-        entry = service.set_image_input(connection_id, model_id, request)
+        entry = service.set_model_settings(connection_id, model_id, request)
     except ModelConnectionNotFoundError as error:
         raise _not_found(error) from error
     except InvalidModelConnectionError as error:

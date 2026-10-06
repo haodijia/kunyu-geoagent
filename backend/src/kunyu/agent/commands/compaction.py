@@ -42,6 +42,11 @@ async def compact_history(invocation: CommandInvocation) -> CommandResult:
     execution = await agent.ctx.require(s.EXECUTIONS).get(latest)
     if source is None or execution is None:
         raise LookupError("The latest completed turn is unavailable.")
+    snapshot = (
+        source.run.model_snapshot
+        if source.run.request_snapshot is None
+        else source.run.request_snapshot
+    )
     events = await agent.ctx.require(s.EVENTS).list_after(agent.session_id, 0)
     boundary = events[-1].sequence
     history = build_model_history(source)
@@ -58,10 +63,10 @@ async def compact_history(invocation: CommandInvocation) -> CommandResult:
     request = ModelRequest(
         run_id=latest,
         adapter_config=execution.adapter_config,
-        model_id=source.run.model_snapshot.model_id,
+        model_id=snapshot.model_id,
         tools=(),
-        max_output_tokens=4096,
-        reasoning_effort=source.run.model_snapshot.reasoning_effort,
+        max_output_tokens=snapshot.max_output_tokens,
+        reasoning_effort=snapshot.reasoning_effort,
         messages=(
             ModelMessage(
                 ModelRole.SYSTEM,

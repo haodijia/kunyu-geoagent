@@ -89,7 +89,7 @@ def encode_request(
     request: ModelRequest[ModelConnectionConfig],
     images: Mapping[str, RequestImage] | None = None,
 ) -> bytes:
-    validate_request(request, maximum_output_tokens=256_000)
+    validate_request(request)
     require_images_fit(
         request.messages,
         images if images is not None else {},
