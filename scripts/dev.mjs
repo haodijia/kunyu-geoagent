@@ -93,7 +93,8 @@ function startProcess(name, command, args, cwd) {
     cwd,
     env: process.env,
     stdio: ["ignore", "pipe", "pipe"],
-    windowsHide: true
+    // Electron is a GUI process and must not be launched hidden.
+    windowsHide: name !== "electron"
   });
   let exited = false;
   const service = {
