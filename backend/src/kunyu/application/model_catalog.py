@@ -34,7 +34,7 @@ from kunyu.domain.model_connections import (
     ModelConnectionRepository,
     ModelCredentialRepository,
 )
-from kunyu.domain.model_images import ModelImageInput
+from kunyu.domain.model_settings import ModelSettings
 from kunyu.integrations.model.provider_client import (
     ModelCheckOutcome,
     ModelProviderClient,
@@ -211,15 +211,30 @@ class ModelCatalogService:
                 raise RuntimeError("The manual model disappeared during update.")
             return result
 
-    def set_image_input(
-        self, connection_id: str, model_id: str, image_input: ModelImageInput
+    def set_model_settings(
+        self, connection_id: str, model_id: str, settings: ModelSettings
     ) -> ModelCatalogEntry:
         normalized_id = normalize_model_id(model_id)
         with self._locks.hold(connection_id):
             self._run_lifecycle.require_connection_available(connection_id)
             connection = self._get(connection_id)
             current = require_testable_entry(connection, normalized_id)
-            entry = replace(current, image_input=image_input)
+            changed_limit = current.max_output_tokens != settings.max_output_tokens
+            entry = replace(
+                current,
+                image_input=settings.image_input,
+                max_output_tokens=settings.max_output_tokens,
+                text_check=unchecked() if changed_limit else current.text_check,
+                tool_check=unchecked() if changed_limit else current.tool_check,
+                tool_capability=CapabilityStatus.UNKNOWN
+                if changed_limit
+                and current.tool_capability_source is CapabilitySource.VALIDATION
+                else current.tool_capability,
+                tool_capability_source=CapabilitySource.UNKNOWN
+                if changed_limit
+                and current.tool_capability_source is CapabilitySource.VALIDATION
+                else current.tool_capability_source,
+            )
             updated = self._connections.update(
                 replace(
                     connection,
@@ -227,12 +242,13 @@ class ModelCatalogService:
                         entry if item.model_id == normalized_id else item
                         for item in connection.catalog
                     ),
+                    check_generation=connection.check_generation + int(changed_limit),
                     updated_at=self._clock(),
                 )
             )
             result = find_entry(updated, normalized_id)
             if result is None:
-                raise RuntimeError("The model disappeared during its input update.")
+                raise RuntimeError("The model disappeared during its settings update.")
             return result
 
     def delete_manual_model(self, connection_id: str, model_id: str) -> None:
@@ -310,9 +326,13 @@ class ModelCatalogService:
             )
 
         outcome = (
-            await self._provider.check_text(provider, entry.model_id)
+            await self._provider.check_text(
+                provider, entry.model_id, entry.max_output_tokens
+            )
             if mode == "text"
-            else await self._provider.check_tools(provider, entry.model_id)
+            else await self._provider.check_tools(
+                provider, entry.model_id, entry.max_output_tokens
+            )
         )
         return self._commit_check(
             connection_id,

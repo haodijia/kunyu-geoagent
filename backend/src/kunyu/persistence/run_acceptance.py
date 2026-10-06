@@ -21,7 +21,7 @@ from kunyu.agent.runtime.session_reducer import reduce_session
 from kunyu.agent.runtime.session_state import ReducedSession
 from kunyu.domain.attachments import Attachment, AttachmentError
 from kunyu.domain.messages import Message, MessageRole, MessageStatus
-from kunyu.domain.model_connections import ModelAuthMode, ModelProtocol
+from kunyu.domain.model_connections import ModelAuthMode
 from kunyu.domain.model_images import ModelImageInput
 from kunyu.domain.run_acceptance import (
     CredentialUnavailableError,
@@ -63,7 +63,6 @@ MAX_MODEL_CALLS = 8
 MAX_TOOL_CALLS = 16
 MAX_ACTIVE_MILLISECONDS = 300_000
 MAX_OUTPUT_CODEPOINTS = 32_768
-MAX_MODEL_OUTPUT_TOKENS = 4_096
 
 
 class SQLAlchemyRunAcceptanceRepository:
@@ -186,11 +185,7 @@ class SQLAlchemyRunAcceptanceRepository:
                 max_tokens_field=connection.max_tokens_field,
                 include_usage=connection.include_usage,
                 image_input=image_input,
-                max_output_tokens=256_000
-                if connection.protocol == ModelProtocol.DEEPSEEK_MESSAGES
-                else 16_384
-                if connection.protocol == ModelProtocol.OPENAI_RESPONSES
-                else MAX_MODEL_OUTPUT_TOKENS,
+                max_output_tokens=entry.max_output_tokens,
                 retry_policy=connection.retry_policy,
             )
             budget_limits = BudgetLimitsPayload(

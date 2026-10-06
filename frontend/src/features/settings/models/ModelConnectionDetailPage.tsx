@@ -24,7 +24,7 @@ import {
 import { connectionErrorMessage, connectionStatus, providerErrorLabel } from "./model";
 import { providerName } from "./provider-copy";
 import { ProviderLogo } from "./ProviderLogo";
-import { ModelImageInputSettings } from "./ModelImageInputSettings";
+import { ModelSettings } from "./ModelSettings";
 import { ModelRetryPolicySettings } from "./ModelRetryPolicySettings";
 import { protocolsForProvider } from "./providers";
 
@@ -294,10 +294,10 @@ export function ModelConnectionDetailPage() {
           </div>
         </ModelDetailSection>
 
-        <ModelDetailSection title={content.images.title} description={content.images.description}>
-          <ModelImageInputSettings entries={availableEntries.filter((entry) => entry.enabled)} disabled={busyAction !== null}
-            onSave={(modelId, input) => perform("image-input", () => refreshConnection(
-              () => modelConnectionsApi.setImageInput(connection.id, modelId, input)
+        <ModelDetailSection title={content.modelSettings.title} description={content.modelSettings.description}>
+          <ModelSettings entries={availableEntries.filter((entry) => entry.enabled)} disabled={busyAction !== null}
+            onSave={(modelId, input) => perform("model-settings", () => refreshConnection(
+              () => modelConnectionsApi.setModelSettings(connection.id, modelId, input)
             ), content.saved)} />
         </ModelDetailSection>
 

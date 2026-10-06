@@ -5,6 +5,7 @@ from typing import Protocol
 
 from kunyu.agent.runtime.retry_policy import RetryPolicy
 from kunyu.domain.model_images import ModelImageInput
+from kunyu.domain.model_settings import DEFAULT_MODEL_OUTPUT_TOKENS
 
 
 class ModelProtocol(StrEnum):
@@ -130,6 +131,7 @@ class ModelCatalogEntry:
     discovered_at: datetime | None
     reasoning_default: str | None = None
     image_input: ModelImageInput = field(default_factory=ModelImageInput)
+    max_output_tokens: int = DEFAULT_MODEL_OUTPUT_TOKENS
 
     @property
     def agent_verified(self) -> bool:

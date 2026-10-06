@@ -53,7 +53,13 @@ export interface ModelImageInput {
   readonly max_bytes: number;
 }
 
+export interface ModelSettings {
+  readonly max_output_tokens: number;
+  readonly image_input: ModelImageInput;
+}
+
 export interface ModelCatalogEntry {
+  readonly max_output_tokens: number;
   readonly model_id: string;
   readonly display_name: string | null;
   readonly sources: CatalogSource[];
@@ -192,8 +198,8 @@ export const modelConnectionsApi = {
       `${pathFor(connectionId)}/manual-models?${new URLSearchParams({ model_id: modelId })}`,
       { method: "DELETE" }
     ),
-  setImageInput: (connectionId: string, modelId: string, input: ModelImageInput) =>
-    requestJson<ModelCatalogEntry>(`${pathFor(connectionId)}/image-input?${new URLSearchParams({ model_id: modelId })}`, {
+  setModelSettings: (connectionId: string, modelId: string, input: ModelSettings) =>
+    requestJson<ModelCatalogEntry>(`${pathFor(connectionId)}/model-settings?${new URLSearchParams({ model_id: modelId })}`, {
       method: "PUT", body: JSON.stringify(input),
     }),
   test: (connectionId: string, modelId: string, mode: "text" | "tools") =>
