@@ -14,6 +14,7 @@ from kunyu.domain.model_connections import (
     ModelProviderType,
 )
 from kunyu.domain.model_images import ModelImageInput
+from kunyu.domain.model_reasoning import ReasoningParameters
 
 
 class ToolCallStatus(StrEnum):
@@ -70,6 +71,7 @@ class RunModelSnapshot:
     auth_mode: ModelAuthMode
     model_id: str
     reasoning_effort: str | None
+    reasoning_parameters: ReasoningParameters
     connection_revision: int
     max_tokens_field: MaxTokensField
     include_usage: bool

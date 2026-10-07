@@ -108,6 +108,7 @@ export interface StepModelSnapshot {
   readonly auth_mode: ModelAuthMode;
   readonly model_id: string;
   readonly reasoning_effort: string | null;
+  readonly reasoning_parameters: Readonly<Record<string, unknown>>;
   readonly connection_revision: number;
   readonly max_tokens_field: MaxTokensField;
   readonly include_usage: boolean;

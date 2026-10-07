@@ -45,6 +45,7 @@ class StoredRunExecutionProvider:
             if snapshot.reasoning_effort is not None
             else (),
             provider_type=ModelProviderType(snapshot.provider_type),
+            reasoning_parameters=snapshot.reasoning_parameters,
         )
 
 

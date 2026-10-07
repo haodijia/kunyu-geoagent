@@ -365,7 +365,7 @@ Canonical `content` 与 `paths`／按文件分组的 `matches` 展示元数据�
 
 本地 HTTP 供应商通过真实 Agent 逐个验证 Kimi／MiMo／GLM／OpenAI 的工具执行、结果配对、后续轮次、原文思考回传、OpenAI 字段隔离和完整投影重建。空值工具流通过、非空非法值仍拒绝；文本与工具检查通过。0013 临时数据库升级0014 后17张业务表全部原数据不变、外键与完整性通过。离屏 Electron 使用真实 API 验证供应商目录、MiMo／智谱国内连接创建、凭据脱敏、模型发现与连接检查、刷新恢复、浅色桌面和600px深色；无页面错误与横向溢出。已有两种协议的计划审批与通用问题回归保持通过；未新增仓库测试文件，未请求真实模型或写入用户数据库。
 
-参考： [Kimi 思考模型](https://platform.kimi.com/docs/guide/use-thinking-models)、[MiMo 深度思考](https://platform.xiaomimimo.com/docs/en-US/usage-guide/passing-back-reasoning_content)、[智谱 OpenAI 兼容](https://docs.bigmodel.cn/cn/guide/develop/openai/introduction)、[GLM 思考模式](https://docs.z.ai/guides/capabilities/thinking-mode)、[OpenAI Docs：迁移至 Responses](https://developers.openai.com/api/docs/guides/migrate-to-responses)。模型特定的思考档位、上下文容量和其余原生能力继续待对齐，不能宣称所有模型版本已完成真实服务验证。
+参考： [Kimi 思考模型](https://platform.kimi.com/docs/guide/use-thinking-models)、[MiMo 深度思考](https://platform.xiaomimimo.com/docs/en-US/usage-guide/passing-back-reasoning_content)、[智谱 OpenAI 兼容](https://docs.bigmodel.cn/cn/guide/develop/openai/introduction)、[GLM 思考模式](https://docs.z.ai/guides/capabilities/thinking-mode)、[OpenAI Docs：迁移至 Responses](https://developers.openai.com/api/docs/guides/migrate-to-responses)。逐模型思考声明已接入，上下文容量和其余原生能力继续待对齐，不能宣称所有模型版本已完成真实服务验证。
 
 
 ## OpenAI 原生 Responses
@@ -376,7 +376,7 @@ Canonical `content` 与 `paths`／按文件分组的 `matches` 展示元数据�
 
 ReplayEnvelope 每块保存实际完成的原生项，空推理摘要仍有对应 ReasoningBlock 和加密状态。回传检查内容、块数、类型和原始模型身份；只有相同连接、地址、配置版本和模型使用私有状态。跨模型／配置转换只投影公共文本和函数调用，不发送旧调用方的加密推理。配置版本包含凭据变更，避免旧状态被传给另一个调用方。length 结算继续同时丢弃工具块及其 replay 项；没有加密状态的未完成推理保留在轨迹中供展示，不作为原生输入回传，下一次用户消息仍可运行。
 
-Responses 的新 Run 默认输出上限为 16384，独立使用 `max_output_tokens`；协议编码允许范围不是逐模型容量声明，输出上限现由模型设置声明，逐模型思考档位仍待配置。0015 仅扩展连接／运行快照协议约束。设置页 OpenAI 默认 Responses，OpenAI 与 DeepSeek 只展示对应协议，自定义连接可选三种；协议修改使检查失效，原显式连接与历史快照不自动转换。
+Responses 的新 Run 默认输出上限为 16384，独立使用 `max_output_tokens`；协议编码允许范围不是逐模型容量声明，输出上限现由模型设置声明，逐模型思考声明与请求值映射现已支持。0015 仅扩展连接／运行快照协议约束。设置页 OpenAI 默认 Responses，OpenAI 与 DeepSeek 只展示对应协议，自定义连接可选三种；协议修改使检查失效，原显式连接与历史快照不自动转换。
 
 本地 HTTP 与真实 Agent 验证工具执行、后续轮次、原样加密状态、空摘要、图片输入及 `read_image` 的原生图片结果、提问答案回传、计划审批原子回滚和重启续接、完整重建。单独验证提前 EOF、取消排空、拒绝文本、脱敏错误、伪造 replay、错误序列及 length 工具丢弃。0014→0015 升级保留17张表业务数据、外键及完整性；离屏 Electron 通过真实 API 验证默认协议、文本／工具连接检查、显式 Chat 切换失效、刷新及600px深色，无渲染错误或溢出。未新增仓库测试，未调用真实供应商或写入用户数据库。
 
@@ -396,3 +396,20 @@ Responses 的新 Run 默认输出上限为 16384，独立使用 `max_output_toke
 设置页面将最大输出与原图片控制合并到同一模型展开行；统一基础组件与主题，修改失败保留未保存参数并在行内提供错误。共享展开行只对操作按钮使用末端布局，字段网格在桌面两列、600px一列。新迁移0016增加模型字段及约束；重建表时重新声明语义相同的图片JSON默认值，避免反射文本把冒号识别为绑定参数，既有记录不改写。
 
 临时真实 ASGI／HTTP／Agent 验证 Kimi、MiMo、GLM、OpenAI Chat、DeepSeek Messages、OpenAI Responses 六条路径的不同输出上限、连接检查、真实工具续接、目录变化时快照稳定、重建、严格原子输入、忙连接拒绝及过期检查拒绝；三种协议的压缩均使用冻结上限。0013／0015临时数据库升级0016保留全部原列和业务行、事件、运行快照与图片策略，外键／完整性及投影重建通过；新的JSON默认值有效。离屏 Electron 经真实API验证设置、无效数值、503保存失败／重试、检查失效、刷新、浅色桌面和600px深色，截图检查通过。未新增仓库测试或调用真实模型服务。
+
+
+## 逐模型思考声明与实际请求参数
+
+参考Mu ModelRows的思考档位编辑、模型选择器，以及harness llm-pi-ai/catalog的逻辑档位到供应商值映射。`ModelReasoningSettings`独立保存用户声明，供应商目录的reasoning_efforts/default/source仍记录原始事实；发现更新不会覆盖用户设置，撤销声明后可继续使用供应商／协议信息。前端公开实际可选择的档位、默认档位和configuration来源，不按模型名称猜支持能力。
+
+思考格式按显式声明编译：effort在Chat使用reasoning_effort，在Responses使用reasoning.effort；thinking发送enabled/disabled；deepseek在Chat发送thinking及reasoning_effort，在Messages发送thinking及output_config.effort。kimi开关启用时携带thinking.keep=all，zai启用时携带clear_thinking=false。开关只提供off/on，强度档位可配置请求值；只有effort的off允许空值，表示明确不发送字段，不能据此推断服务实际停止推理。none表示不提供控制档位，不表示强制关闭供应商思考。
+
+配置默认和供应商声明默认在接受运行时解析；`ReasoningParameters`仅保存实际参数，严格拒绝跨协议字段并以无空值JSON序列化。运行、队列、实际request.header、API快照和重建统一记录该值，适配器删除原分散的供应商参数分支，仅发送冻结参数。后续步骤、重试、压缩和重启不根据目录变化改写已接受参数；request_config扩展若要改变实际控制，应显式修改冻结参数，而不是只改展示档位。
+
+设置API统一保存输出、图片及reasoning_settings；思考声明改变推进检查代次并清除旧检查。检查采用配置默认控制，不再强制DeepSeek关闭思考；它只验证当前默认请求，不证明所有手工声明的档位或模型版本均被供应商支持。协议切换如与现有声明不兼容则明确拒绝，需用户先调整声明，不自动清空设置或换协议。设置页以复用的Input／Checkbox编辑，请求值映射收在可展开区域，输入区只展示所声明的档位。
+
+0017为目录添加声明、为运行快照添加实际参数；旧日志中所有嵌入模型快照都由旧编码契约补充，不改写旧逻辑档位、历史输出或事件序号。八组旧版编码器直接对照迁移，覆盖Messages默认／关闭／最高、DeepSeek Chat、Kimi及Responses；已有0016库升级后原业务事实、外键／完整性与重建一致。不存在旧运行时格式兼容分支。
+
+本地真实HTTP／ASGI／Agent完成七条配置路径，验证Kimi保留思考、MiMo开关、GLM保留思考、Kimi强度映射、DeepSeek Messages输出控制、OpenAI Responses映射、OpenAI Chat关闭；文本／工具检查和续接使用准确参数，目录变化不影响正在执行的运行。严格原子输入、协议不兼容、元数据与声明分离、刷新发现、完整重建通过。计划等待重启后仍用原参数和加密推理续接并完成审批。离屏Electron验证无档位禁止保存、映射／默认保存、实际检查、刷新、输入区选择和600px深色；截图已核对。未新增仓库测试，所有模型服务均为本地HTTP数据，真实供应商验收仍待完成。
+
+契约来源：[OpenAI Docs思考模型](https://developers.openai.com/api/docs/guides/reasoning)、[Kimi思考模型](https://platform.kimi.com/docs/guide/use-thinking-models)、[MiMo深度思考](https://mimo.mi.com/docs/en-US/quick-start/usage-guide/other/deep-thinking)、[GLM思考模式](https://docs.z.ai/guides/capabilities/thinking-mode)、[DeepSeek思考模式](https://api-docs.deepseek.com/guides/thinking_mode/)。

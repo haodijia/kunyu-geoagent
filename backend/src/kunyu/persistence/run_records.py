@@ -12,6 +12,7 @@ from kunyu.domain.model_connections import (
     ModelProviderType,
 )
 from kunyu.domain.model_images import ModelImageInput
+from kunyu.domain.model_reasoning import ReasoningParameters
 from kunyu.domain.runs import (
     Run,
     RunBudget,
@@ -109,6 +110,7 @@ def snapshot_record(snapshot: RunModelSnapshot) -> RunModelSnapshotRecord:
         auth_mode=snapshot.auth_mode.value,
         model_id=snapshot.model_id,
         reasoning_effort=snapshot.reasoning_effort,
+        reasoning_parameters=snapshot.reasoning_parameters.payload(),
         connection_revision=snapshot.connection_revision,
         max_tokens_field=snapshot.max_tokens_field.value,
         include_usage=snapshot.include_usage,
@@ -186,6 +188,7 @@ def snapshot_to_domain(record: RunModelSnapshotRecord) -> RunModelSnapshot:
         auth_mode=ModelAuthMode(record.auth_mode),
         model_id=record.model_id,
         reasoning_effort=record.reasoning_effort,
+        reasoning_parameters=ReasoningParameters.model_validate(record.reasoning_parameters),
         connection_revision=record.connection_revision,
         max_tokens_field=MaxTokensField(record.max_tokens_field),
         include_usage=record.include_usage,

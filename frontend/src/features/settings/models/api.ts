@@ -27,7 +27,7 @@ export type ModelCheckStatus = "unchecked" | "passed" | "failed";
 export type CatalogAvailability = "available" | "unavailable";
 export type CatalogSource = "fetched" | "manual";
 export type CapabilityStatus = "unknown" | "supported" | "unsupported";
-export type CapabilitySource = "unknown" | "provider_metadata" | "protocol" | "validation";
+export type CapabilitySource = "unknown" | "provider_metadata" | "protocol" | "validation" | "configuration";
 export type DiscoveryStatus = "idle" | "pending" | "succeeded" | "failed" | "interrupted";
 export type ManagementStatus = "ready";
 
@@ -53,12 +53,21 @@ export interface ModelImageInput {
   readonly max_bytes: number;
 }
 
+export type ReasoningLevel = "off" | "minimal" | "low" | "medium" | "high" | "xhigh" | "max" | "on";
+export interface ModelReasoningSettings {
+  readonly mode: "none" | "effort" | "thinking" | "deepseek" | "kimi" | "zai";
+  readonly levels: Partial<Record<ReasoningLevel, string | null>>;
+  readonly default_level: ReasoningLevel | null;
+}
+
 export interface ModelSettings {
+  readonly reasoning_settings: ModelReasoningSettings | null;
   readonly max_output_tokens: number;
   readonly image_input: ModelImageInput;
 }
 
 export interface ModelCatalogEntry {
+  readonly reasoning_settings: ModelReasoningSettings | null;
   readonly max_output_tokens: number;
   readonly model_id: string;
   readonly display_name: string | null;

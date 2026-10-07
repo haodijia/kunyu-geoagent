@@ -5,6 +5,7 @@ from typing import Protocol
 
 from kunyu.agent.runtime.retry_policy import RetryPolicy
 from kunyu.domain.model_images import ModelImageInput
+from kunyu.domain.model_reasoning import LEVELS, ModelReasoningSettings
 from kunyu.domain.model_settings import DEFAULT_MODEL_OUTPUT_TOKENS
 
 
@@ -89,6 +90,7 @@ class CapabilitySource(StrEnum):
     UNKNOWN = "unknown"
     PROVIDER_METADATA = "provider_metadata"
     PROTOCOL = "protocol"
+    CONFIGURATION = "configuration"
     VALIDATION = "validation"
 
 
@@ -132,6 +134,31 @@ class ModelCatalogEntry:
     reasoning_default: str | None = None
     image_input: ModelImageInput = field(default_factory=ModelImageInput)
     max_output_tokens: int = DEFAULT_MODEL_OUTPUT_TOKENS
+    reasoning_settings: ModelReasoningSettings | None = None
+
+    @property
+    def available_reasoning_efforts(self) -> tuple[str, ...]:
+        return (
+            tuple(level for level in LEVELS if level in self.reasoning_settings.levels)
+            if self.reasoning_settings is not None
+            else self.reasoning_efforts
+        )
+
+    @property
+    def default_reasoning_effort(self) -> str | None:
+        return (
+            self.reasoning_settings.default_level
+            if self.reasoning_settings is not None
+            else self.reasoning_default
+        )
+
+    @property
+    def effective_reasoning_source(self) -> CapabilitySource:
+        return (
+            CapabilitySource.CONFIGURATION
+            if self.reasoning_settings is not None
+            else self.reasoning_source
+        )
 
     @property
     def agent_verified(self) -> bool:

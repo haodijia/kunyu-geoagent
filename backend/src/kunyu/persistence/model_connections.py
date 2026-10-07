@@ -23,6 +23,7 @@ from kunyu.domain.model_connections import (
     ModelProviderType,
 )
 from kunyu.domain.model_images import ModelImageInput
+from kunyu.domain.model_reasoning import ModelReasoningSettings
 from kunyu.persistence.database import Database
 from kunyu.persistence.models import (
     ModelCatalogEntryRecord,
@@ -225,6 +226,11 @@ def _copy_catalog_entry(
     record.tool_capability = entry.tool_capability.value
     record.tool_capability_source = entry.tool_capability_source.value
     record.max_output_tokens = entry.max_output_tokens
+    record.reasoning_settings = (
+        entry.reasoning_settings.model_dump(mode="json")
+        if entry.reasoning_settings is not None
+        else None
+    )
     record.reasoning_efforts = list(entry.reasoning_efforts)
     record.image_input = entry.image_input.model_dump(mode="json")
     record.reasoning_default = entry.reasoning_default
@@ -345,6 +351,11 @@ def _catalog_to_domain(
         tool_capability=CapabilityStatus(record.tool_capability),
         tool_capability_source=CapabilitySource(record.tool_capability_source),
         max_output_tokens=record.max_output_tokens,
+        reasoning_settings=ModelReasoningSettings.model_validate(
+            record.reasoning_settings
+        )
+        if record.reasoning_settings is not None
+        else None,
         reasoning_efforts=tuple(record.reasoning_efforts),
         image_input=ModelImageInput.model_validate(record.image_input),
         reasoning_default=record.reasoning_default,

@@ -34,6 +34,10 @@ from kunyu.domain.model_connections import (
     ModelConnectionRepository,
     ModelCredentialRepository,
 )
+from kunyu.domain.model_reasoning import (
+    reasoning_parameters,
+    require_reasoning_protocol,
+)
 from kunyu.domain.model_settings import ModelSettings
 from kunyu.integrations.model.provider_client import (
     ModelCheckOutcome,
@@ -219,19 +223,29 @@ class ModelCatalogService:
             self._run_lifecycle.require_connection_available(connection_id)
             connection = self._get(connection_id)
             current = require_testable_entry(connection, normalized_id)
-            changed_limit = current.max_output_tokens != settings.max_output_tokens
+            try:
+                require_reasoning_protocol(
+                    connection.protocol, settings.reasoning_settings
+                )
+            except ValueError as error:
+                raise InvalidModelConnectionError(str(error)) from error
+            changed_request = (
+                current.max_output_tokens != settings.max_output_tokens
+                or current.reasoning_settings != settings.reasoning_settings
+            )
             entry = replace(
                 current,
                 image_input=settings.image_input,
+                reasoning_settings=settings.reasoning_settings,
                 max_output_tokens=settings.max_output_tokens,
-                text_check=unchecked() if changed_limit else current.text_check,
-                tool_check=unchecked() if changed_limit else current.tool_check,
+                text_check=unchecked() if changed_request else current.text_check,
+                tool_check=unchecked() if changed_request else current.tool_check,
                 tool_capability=CapabilityStatus.UNKNOWN
-                if changed_limit
+                if changed_request
                 and current.tool_capability_source is CapabilitySource.VALIDATION
                 else current.tool_capability,
                 tool_capability_source=CapabilitySource.UNKNOWN
-                if changed_limit
+                if changed_request
                 and current.tool_capability_source is CapabilitySource.VALIDATION
                 else current.tool_capability_source,
             )
@@ -242,7 +256,7 @@ class ModelCatalogService:
                         entry if item.model_id == normalized_id else item
                         for item in connection.catalog
                     ),
-                    check_generation=connection.check_generation + int(changed_limit),
+                    check_generation=connection.check_generation + int(changed_request),
                     updated_at=self._clock(),
                 )
             )
@@ -325,13 +339,19 @@ class ModelCatalogService:
                 )
             )
 
+        parameters = reasoning_parameters(
+            connection.protocol,
+            connection.provider_type,
+            entry.default_reasoning_effort,
+            entry.reasoning_settings,
+        )
         outcome = (
             await self._provider.check_text(
-                provider, entry.model_id, entry.max_output_tokens
+                provider, entry.model_id, entry.max_output_tokens, parameters
             )
             if mode == "text"
             else await self._provider.check_tools(
-                provider, entry.model_id, entry.max_output_tokens
+                provider, entry.model_id, entry.max_output_tokens, parameters
             )
         )
         return self._commit_check(

@@ -115,8 +115,7 @@ def encode_request(
     }
     if tools:
         payload.update(tools=tools, tool_choice="auto")
-    if request.reasoning_effort is not None:
-        payload["reasoning"] = {"effort": request.reasoning_effort}
+    payload.update(config.reasoning_parameters.payload())
     try:
         return json.dumps(payload, ensure_ascii=False, allow_nan=False).encode("utf-8")
     except (ValueError, TypeError) as error:
