@@ -230,3 +230,185 @@ curl --request POST 'http://openge.org.cn/api/data-product/retrieval' \
   }
 }
 ```
+
+## 3. 影像详情
+
+### 怎么请求
+
+- 方法：`GET`
+- 地址：`http://openge.org.cn/api/data-product/image/detail`
+- 鉴权：实测无需 Token
+
+### 输入是什么
+
+| 参数 | 位置 | 类型 | 必填 | 说明 |
+| --- | --- | --- | --- | --- |
+| imageId | Query | integer | 是 | 影像检索接口返回的 `data.records[].imageId`，如 `3537347` |
+
+### 输出是什么
+
+返回 JSON，成功时 HTTP `200`、`code=20000`。`data` 为单条影像详情。
+
+| 字段 | 类型 | 说明 |
+| --- | --- | --- |
+| code | integer | `20000` 请求成功；缺少 imageId 时实测为 `50000` |
+| msg | string | 成功时为空字符串 |
+| data | object / null | 影像详情；影像不存在时实测仍为 `code=20000`，但 `data=null` |
+| data.imageId | integer | 影像 ID |
+| data.productId | integer | 产品数字 ID |
+| data.imageIdentification | string | 影像标识 |
+| data.productName | string | 产品名 |
+| data.mission / missionEn | string | 卫星 / 任务名称 |
+| data.phenomenonTime | string | 影像采集日期 |
+| data.coverCloud | number | 云量百分比 |
+| data.resolution / resolutionEn | string | 产品分辨率描述，如 `0.5米` |
+| data.productLevel / productLevelEn | string | 产品处理级别 |
+| data.sensor / sensorEn | string | 传感器类别 |
+| data.crs | string | 影像坐标系 |
+| data.upperLeftLong / upperLeftLat | number | 左上角经纬度 |
+| data.upperRightLong / upperRightLat | number | 右上角经纬度 |
+| data.lowerLeftLong / lowerLeftLat | number | 左下角经纬度 |
+| data.lowerRightLong / lowerRightLat | number | 右下角经纬度 |
+| data.width / height | integer | 影像宽、高，单位为像素 |
+| data.rowResolution / colResolution | number | 栅格分辨率，单位见 `data.unit` |
+| data.unit | string | 栅格分辨率单位，示例为 `degree` |
+| data.path | string | 平台内部数据路径 |
+| data.thumb / preview | string / null | 缩略图、预览字段，本例均为 `null`；图片通过第 4 个接口获取 |
+| data.bands | null（本例） | 波段信息，本例为空，非空结构待验证 |
+| data.geomWkt | string / null | WKT 几何字段，本例为 `null` |
+
+可空字段以实际响应为准，不能仅凭 `code=20000` 判断影像存在，还需检查 `data`。
+
+### 一个例子
+
+获取第 2 个接口示例中返回的武汉一号影像详情。
+
+请求：
+
+```bash
+curl --get 'http://openge.org.cn/api/data-product/image/detail' \
+  --data-urlencode 'imageId=3537347'
+```
+
+响应（2026-10-07 实测，完整响应）：
+
+```json
+{
+  "code": 20000,
+  "msg": "",
+  "data": {
+    "imageId": 3537347,
+    "productId": 593,
+    "imageIdentification": "LJ3II_FUS_E114.86_N30.65_20250101_L1B_063",
+    "path": "LJ3II_L1/LJ3II_L1B_Fusion/LJ3II_FUS_E114.86_N30.65_20250101_L1B_063",
+    "crs": "EPSG:4326",
+    "coverCloud": 0.0,
+    "mapProjection": null,
+    "utmZone": null,
+    "phenomenonTime": "2025-01-01",
+    "resultTime": null,
+    "upperLeftLat": 30.7105508132,
+    "upperLeftLong": 114.7809550506,
+    "upperRightLat": 30.7105508132,
+    "upperRightLong": 114.9317787686,
+    "lowerLeftLat": 30.5672926603,
+    "lowerLeftLong": 114.7809550506,
+    "lowerRightLat": 30.5672926603,
+    "lowerRightLong": 114.9317787686,
+    "createBy": "admin",
+    "createTime": "2026-08-04",
+    "updateBy": "admin",
+    "updateTime": "2026-08-06",
+    "rowResolution": 5.358e-06,
+    "colResolution": 5.358e-06,
+    "height": 26737,
+    "width": 28149,
+    "unit": "degree",
+    "thumb": null,
+    "preview": null,
+    "productName": "LJ3II_L1B_Fusion",
+    "catalogId": null,
+    "catalogName": "珞珈系列产品",
+    "catalogNameEn": "Luojia series products",
+    "keyTag": "土地利用",
+    "keyTagEn": "Land Use",
+    "sensor": "光学",
+    "sensorEn": "Optical",
+    "resolution": "0.5米",
+    "resolutionEn": "0.5m",
+    "productLevel": "L1B",
+    "productLevelEn": "L1B",
+    "productCrs": null,
+    "productCrsEn": null,
+    "coverArea": null,
+    "coverAreaEn": null,
+    "updateFrequency": null,
+    "updateFrequencyEn": null,
+    "mission": "武汉一号",
+    "missionEn": "LJ3II",
+    "isCollected": null,
+    "collectTime": null,
+    "bands": null,
+    "geomWkt": null
+  }
+}
+```
+
+## 4. 影像预览
+
+### 怎么请求
+
+- 方法：`GET`
+- 地址：`http://openge.org.cn/api/data-product/image/getImagePreview`
+- 鉴权：实测无需 Token
+
+### 输入是什么
+
+| 参数 | 位置 | 类型 | 必填 | 说明 |
+| --- | --- | --- | --- | --- |
+| imageId | Query | integer | 是 | 影像检索或详情接口返回的影像 ID，如 `3537347` |
+
+### 输出是什么
+
+成功时直接返回 PNG 图片二进制，可用于缩略图或预览展示。
+
+| 项目 | 实测值 / 说明 |
+| --- | --- |
+| HTTP 状态 | `200` |
+| Content-Type | `image/png` |
+| Content-Disposition | `inline; filename=3537347.png` |
+| 响应体 | PNG 图片二进制，按图片读取或保存，无 `code/msg/data` 包装 |
+| 示例图片尺寸 | `262 × 249` 像素 |
+| 示例图片大小 | `150491` 字节 |
+
+失败时返回 `application/json`，HTTP 状态仍为 `200`：
+
+| 场景 | code | msg | data |
+| --- | --- | --- | --- |
+| imageId=-1，影像不存在 | `50000` | `缩略图不存在：-1` | `null` |
+| 未传 imageId | `50000` | `服务器内部错误: Required Integer parameter 'imageId' is not present` | `null` |
+
+开发时根据响应 `Content-Type` 读取图片或 JSON 错误；图片大小和尺寸随影像变化。
+
+### 一个例子
+
+获取同一景武汉一号影像的预览图，保存为 `image-preview.png`。
+
+请求：
+
+```bash
+curl --get 'http://openge.org.cn/api/data-product/image/getImagePreview' \
+  --data-urlencode 'imageId=3537347' \
+  --output image-preview.png
+```
+
+响应（2026-10-07 实测）：
+
+```http
+HTTP/1.1 200 OK
+Content-Type: image/png
+Content-Length: 150491
+Content-Disposition: inline; filename=3537347.png
+```
+
+响应体为 PNG 图片二进制；实测可正常解码为 `262 × 249` 像素的 RGBA 图片。
