@@ -65,3 +65,168 @@ curl --request POST \
   }
 }
 ```
+
+## 2. 按时间和地点检索卫星影像
+
+### 怎么请求
+
+- 方法：`POST`
+- 地址：`http://openge.org.cn/api/data-product/retrieval`
+- Content-Type：`multipart/form-data`（客户端自动生成 boundary）
+- 鉴权：实测无需 Token
+
+可跨产品查询具体影像。地点使用平台行政区代码、多边形或经纬度范围，不能直接传“武汉市”等地名。
+
+### 输入是什么
+
+所有参数放在表单中，按文本提交。
+
+| 参数 | 类型 | 必填 | 值 / 说明 |
+| --- | --- | --- | --- |
+| startTime | string | 是 | 开始时间，格式 `yyyy-MM-dd HH:mm:ss` |
+| endTime | string | 是 | 结束时间，格式 `yyyy-MM-dd HH:mm:ss` |
+| type | integer | 是 | 区域方式：`0` 行政区、`1` 多边形、`3` 经纬度矩形；不是卫星类型 |
+| code | string | type=0 时 | 平台行政区代码，武汉市为 `420100` |
+| level | integer | type=0 时 | 平台行政区层级，武汉市为 `3` |
+| points | string | type=1 时 | JSON 坐标数组，点按 `[经度,纬度]` 排列，首尾闭合 |
+| minx | number | type=3 时 | 最小经度（西边界） |
+| miny | number | type=3 时 | 最小纬度（南边界） |
+| maxx | number | type=3 时 | 最大经度（东边界） |
+| maxy | number | type=3 时 | 最大纬度（北边界） |
+| productIds | string | 否 | 产品数字 ID，多个用逗号分隔；不传则跨产品查询。`454,456` 为 Landsat 9 的 L1、L2 产品 |
+| useCloud | boolean | 是 | `true` 启用云量筛选，`false` 不筛选 |
+| minCloud | number | useCloud=true 时 | 最小云量百分比，如 `0` |
+| maxCloud | number | useCloud=true 时 | 最大云量百分比，如 `20` |
+| pageNum | integer | 是 | 页码，从 `1` 开始 |
+| pageSize | integer | 是 | 每页条数 |
+
+经纬度使用 WGS84（`EPSG:4326`）。三组区域参数按 `type` 选择一组：
+
+- 行政区：`type=0`、`code=420100`、`level=3`，查询武汉市行政区域。
+- 多边形：`type=1`、`points=[[114.2,30.4],[114.5,30.4],[114.5,30.7],[114.2,30.7],[114.2,30.4]]`。
+- 矩形：`type=3`、`minx=114.2`、`miny=30.4`、`maxx=114.5`、`maxy=30.7`，查询武汉市区的一块范围。
+
+平台行政区代码和层级可从 `GET http://openge.org.cn/api/data-product/administrative-region/tree` 的 `data` 树中读取 `name`、`code`、`level`；本次已核对武汉市。
+
+### 输出是什么
+
+返回 JSON，成功时 HTTP `200`、`code=20000`。`data.records` 为具体影像列表，继续增加 `pageNum` 可读取后续页。
+
+| 字段 | 类型 | 说明 |
+| --- | --- | --- |
+| code | integer | `20000` 检索成功；云量范围不合规时实测为 `50000` |
+| msg | string | 成功时为 `检索成功` |
+| data.pages | integer | 总页数 |
+| data.currentPage | integer | 当前页码 |
+| data.total | integer | 符合条件的影像记录总数，无结果时为 `0` |
+| data.pageSize | integer | 每页条数 |
+| data.records | array | 当前页影像，无结果时为空数组 |
+| records[].imageId | integer | 影像 ID |
+| records[].imageIdentification | string | 影像标识 |
+| records[].productId | integer | 产品数字 ID |
+| records[].productName | string | 产品名，如 `LJ3II_L1B_Fusion`、`LC09_C02_L2`、`S2_MSIL2A` |
+| records[].mission / missionEn | string | 卫星 / 任务名称 |
+| records[].phenomenonTime | string | 影像采集日期 |
+| records[].coverCloud | number | 云量百分比 |
+| records[].resolution / resolutionEn | string | 产品分辨率描述 |
+| records[].productLevel / productLevelEn | string | 产品处理级别 |
+| records[].sensor / sensorEn | string | 传感器类别 |
+| records[].crs | string | 影像坐标系 |
+| records[].upperLeftLong / upperLeftLat | number | 左上角经纬度 |
+| records[].upperRightLong / upperRightLat | number | 右上角经纬度 |
+| records[].lowerLeftLong / lowerLeftLat | number | 左下角经纬度 |
+| records[].lowerRightLong / lowerRightLat | number | 右下角经纬度 |
+| records[].width / height | integer | 影像宽、高，单位为像素 |
+| records[].path | string | 平台内部数据路径，不是下载 URL |
+
+返回的是与区域相交的影像。同一次采集的不同产品级别会分别返回，因此 `total` 是记录数。
+
+### 一个例子
+
+查询 **2025 年 1 月，武汉市行政区域内的卫星影像**，不限制产品、不筛云量，每页取 1 条。
+
+请求：
+
+```bash
+curl --request POST 'http://openge.org.cn/api/data-product/retrieval' \
+  --form-string 'startTime=2025-01-01 00:00:00' \
+  --form-string 'endTime=2025-01-31 23:59:59' \
+  --form-string 'type=0' \
+  --form-string 'code=420100' \
+  --form-string 'level=3' \
+  --form-string 'useCloud=false' \
+  --form-string 'pageNum=1' \
+  --form-string 'pageSize=1'
+```
+
+响应（2026-10-07 实测，共 458 条，以下为第 1 页完整响应）：
+
+```json
+{
+  "code": 20000,
+  "msg": "检索成功",
+  "data": {
+    "pages": 458,
+    "currentPage": 1,
+    "total": 458,
+    "pageSize": 1,
+    "records": [
+      {
+        "imageId": 3537347,
+        "productId": 593,
+        "imageIdentification": "LJ3II_FUS_E114.86_N30.65_20250101_L1B_063",
+        "path": "LJ3II_L1/LJ3II_L1B_Fusion/LJ3II_FUS_E114.86_N30.65_20250101_L1B_063",
+        "crs": "EPSG:4326",
+        "coverCloud": 0.0,
+        "mapProjection": null,
+        "utmZone": null,
+        "phenomenonTime": "2025-01-01",
+        "resultTime": null,
+        "upperLeftLat": 30.7105508132,
+        "upperLeftLong": 114.7809550506,
+        "upperRightLat": 30.7105508132,
+        "upperRightLong": 114.9317787686,
+        "lowerLeftLat": 30.5672926603,
+        "lowerLeftLong": 114.7809550506,
+        "lowerRightLat": 30.5672926603,
+        "lowerRightLong": 114.9317787686,
+        "createBy": "admin",
+        "createTime": "2026-08-04",
+        "updateBy": "admin",
+        "updateTime": "2026-08-06",
+        "rowResolution": 5.358e-06,
+        "colResolution": 5.358e-06,
+        "height": 26737,
+        "width": 28149,
+        "unit": "degree",
+        "thumb": null,
+        "preview": null,
+        "productName": "LJ3II_L1B_Fusion",
+        "catalogId": 31,
+        "catalogName": "珞珈系列产品",
+        "catalogNameEn": "Luojia series products",
+        "keyTag": "土地利用",
+        "keyTagEn": "Land Use",
+        "sensor": "光学",
+        "sensorEn": "Optical",
+        "resolution": "0.5米",
+        "resolutionEn": "0.5m",
+        "productLevel": "L1B",
+        "productLevelEn": "L1B",
+        "productCrs": null,
+        "productCrsEn": null,
+        "coverArea": null,
+        "coverAreaEn": null,
+        "updateFrequency": null,
+        "updateFrequencyEn": null,
+        "mission": "武汉一号",
+        "missionEn": "LJ3II",
+        "isCollected": null,
+        "collectTime": null,
+        "bands": null,
+        "geomWkt": null
+      }
+    ]
+  }
+}
+```
