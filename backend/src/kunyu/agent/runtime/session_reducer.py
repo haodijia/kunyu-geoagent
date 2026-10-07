@@ -5,6 +5,7 @@ from collections.abc import Iterable
 from dataclasses import replace
 from typing import Literal
 
+from kunyu.agent.runtime.compaction_projection import CompactionProjection
 from kunyu.agent.runtime.control_projection import ControlProjection
 from kunyu.agent.runtime.events import (
     TERMINAL_RUN_STATES,
@@ -47,6 +48,7 @@ def reduce_session(events: Iterable[AgentEvent]) -> ReducedSession:
     todos_run_id = None
     image_offloads = ImageOffloadProjection()
     controls = ControlProjection()
+    compactions = CompactionProjection()
 
     for envelope in events:
         if envelope.sequence != expected_sequence:
@@ -74,6 +76,11 @@ def reduce_session(events: Iterable[AgentEvent]) -> ReducedSession:
             raise SessionReductionError(
                 f"Event {envelope.sequence} is invalid: {error}"
             ) from error
+
+        try:
+            compactions.accept(event, envelope.sequence)
+        except ValueError as error:
+            raise SessionReductionError(str(error)) from error
 
         if isinstance(event, SessionCreatedEvent):
             if session_created or event.run_id is not None or envelope.sequence != 1:
@@ -333,6 +340,11 @@ def reduce_session(events: Iterable[AgentEvent]) -> ReducedSession:
                     f"Confirmation identifier '{confirmation.confirmation_id}' is not unique."
                 )
             confirmation_ids.add(confirmation.confirmation_id)
+
+    try:
+        compactions.finish()
+    except ValueError as error:
+        raise SessionReductionError(str(error)) from error
 
     return ReducedSession(
         session_id=session_id,

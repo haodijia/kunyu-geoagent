@@ -218,6 +218,7 @@ export function TrajectoryInspector({ record, onClose, onWidthChange }: Props) {
   );
 }
 function tabsFor(record: TrajectoryRecord): readonly Tab[] {
+  if (record.source.kind === "compaction") return ["summary", "input", "output", ...(streamFor(record) === null ? [] : ["stream" as const]), "systemPrompt", "toolDefinitions", "model", "raw", "source"];
   if (record.kind === "system" && record.prompt !== undefined)
     return [
       ...(record.previousPrompt === undefined ? [] : ["changes" as const]),
@@ -243,7 +244,7 @@ function tabsFor(record: TrajectoryRecord): readonly Tab[] {
 }
 function streamFor(record: TrajectoryRecord) {
   if (
-    record.kind !== "assistant" ||
+    (record.kind !== "assistant" && record.source.kind !== "compaction") ||
     record.output === null ||
     typeof record.output !== "object"
   )

@@ -39,6 +39,7 @@ from kunyu.agent.runtime.hooks import (
     RequestFailure,
     RequestRetry,
 )
+from kunyu.agent.runtime.message_snapshot import message_snapshot
 from kunyu.agent.runtime.model_attempt import (
     AssistantFinish,
     ModelAttempt,
@@ -88,27 +89,6 @@ def _system_prompt(messages: tuple[ModelMessage, ...]) -> str:
         for message in messages
         if message.role is ModelRole.SYSTEM
     )
-
-
-def _message_snapshot(message: ModelMessage) -> dict[str, JsonValue]:
-    value = {
-        "role": message.role.value,
-        "content": [block.model_dump(mode="json") for block in message.content],
-        "replay_state": None
-        if message.replay_state is None
-        else message.replay_state.model_dump(mode="json"),
-    }
-    if message.input_source is not None:
-        value["input_source"] = message.input_source.model_dump(mode="json")
-    if message.context_source is not None:
-        value["source"] = {"kind": "context", "producer": message.context_source}
-    if message.source_model is not None:
-        value["source"] = {"kind": "model", "model": message.source_model}
-    if message.tool_call_id is not None:
-        value["tool_call_id"] = message.tool_call_id
-    if message.is_error is not None:
-        value["is_error"] = message.is_error
-    return value
 
 
 @dataclass(frozen=True, slots=True)
@@ -270,7 +250,7 @@ class ModelStepExecutor[AdapterConfigT]:
                         model_snapshot=call_config,
                         system_prompt=_system_prompt(context.messages),
                         messages=[
-                            _message_snapshot(message) for message in context.messages
+                            message_snapshot(message) for message in context.messages
                         ],
                         tools=[
                             {

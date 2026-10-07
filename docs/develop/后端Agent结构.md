@@ -391,7 +391,7 @@ Responses 的新 Run 默认输出上限为 16384，独立使用 `max_output_toke
 
 能力检查、接受 Run、工具续接和逐步骤请求都使用该模型的具体值，移除 Chat 4096、Messages 256000、Responses 128000 等编码器固定上限。共同边界只约束正整数及设置允许范围；上游拒绝参数时明确记录失败，不自动减少输出或更换协议。该字段是请求配置，不能据此宣称供应商支持任意声明的容量。已接受运行不读取后续目录变动来改写上限，原请求／预算／图片策略继续冻结；重建保持同一快照。
 
-手动 `/compact` 使用最后实际请求的模型、思考选择和输出上限，修复固定4096及初始模型与当前适配器可能不一致的问题。此前的摘要输入构造仍需继续对齐 harness 的前缀复用、结构化checkpoint和完整辅助调用轨迹，本批不宣称压缩架构已等价。
+手动 `/compact` 使用最后实际请求的模型、思考选择和输出上限，修复固定4096及初始模型与当前适配器可能不一致的问题。前缀复用、结构化checkpoint和辅助调用轨迹现已接入，自动压力判断、窗口容量与尾部保留仍需继续对齐。
 
 设置页面将最大输出与原图片控制合并到同一模型展开行；统一基础组件与主题，修改失败保留未保存参数并在行内提供错误。共享展开行只对操作按钮使用末端布局，字段网格在桌面两列、600px一列。新迁移0016增加模型字段及约束；重建表时重新声明语义相同的图片JSON默认值，避免反射文本把冒号识别为绑定参数，既有记录不改写。
 
@@ -413,3 +413,18 @@ Responses 的新 Run 默认输出上限为 16384，独立使用 `max_output_toke
 本地真实HTTP／ASGI／Agent完成七条配置路径，验证Kimi保留思考、MiMo开关、GLM保留思考、Kimi强度映射、DeepSeek Messages输出控制、OpenAI Responses映射、OpenAI Chat关闭；文本／工具检查和续接使用准确参数，目录变化不影响正在执行的运行。严格原子输入、协议不兼容、元数据与声明分离、刷新发现、完整重建通过。计划等待重启后仍用原参数和加密推理续接并完成审批。离屏Electron验证无档位禁止保存、映射／默认保存、实际检查、刷新、输入区选择和600px深色；截图已核对。未新增仓库测试，所有模型服务均为本地HTTP数据，真实供应商验收仍待完成。
 
 契约来源：[OpenAI Docs思考模型](https://developers.openai.com/api/docs/guides/reasoning)、[Kimi思考模型](https://platform.kimi.com/docs/guide/use-thinking-models)、[MiMo深度思考](https://mimo.mi.com/docs/en-US/quick-start/usage-guide/other/deep-thinking)、[GLM思考模式](https://docs.z.ai/guides/capabilities/thinking-mode)、[DeepSeek思考模式](https://api-docs.deepseek.com/guides/thinking_mode/)。
+
+
+## 前缀复用的手动压缩与辅助调用轨迹
+
+参考harness compaction-basic/summarizer的原请求前缀、最终用户摘要指令、检查点包裹，以及session独立压缩事件。当前 `/compact` 使用最后实际request.header的完整消息、工具定义、模型与思考参数；只追加请求后生成的规范助手／工具结果及摘要指令。共享message_snapshot编解码保留replay、附件收据、输入来源和真实错误标记，ToolSchema与运行工具风险声明分开，不为辅助请求伪造工具权限。历史不再序列化成JSON用户消息，系统头也不替换成摘要专用提示。
+
+`RunContextSource.journal_revision`绑定实际读取的日志前缀；压缩开始前要求一致、会话空闲、无待发送输入。重放截止原header的规范历史，并验证当前历史仍延伸该前缀；不一致明确拒绝。相同命令ID幂等，历史已被压缩且没有新模型请求时不再次调用供应商。指令保留harness八节结构，将编码产品的Files and Code改为业务Data and Results，强调影像、范围、坐标系统、任务和真实成果；摘要必须包含完整章节，使用原语言与固定标题。只接纳完整STOP文本，辅助回复不得执行工具；失败、工具回复、截断和过大文本保留原历史。
+
+`compaction/start`保存命令、来源Run／header、覆盖边界、冻结模型、完整消息和schema；`compaction/end`保存真实状态、原始定时输出记录、canonical块、replay、用量／缓存字段和实际活动时间。`CompactionProjection`校验来源、原消息／schema前缀、边界、流与内容／用量一致、完整章节及最终检查点。成功结算与带compacted-summary包裹的history/compacted同事务提交，任何并发变化只记录stale，不替换历史。压缩数据不计入普通助手消息或伪造工具生命周期。
+
+命令执行任务绑定会话作用域，关闭取消并排空后才释放数据／HTTP服务。结算使用执行前捕获的服务引用，避免释放中的上下文拒绝查找导致取消事实遗失。启动时关闭尚无结算的压缩记录和命令，标记interrupted，丢失的输出、用量和活动时间保持未知，不自动请求模型或补写成功摘要。轨迹按压缩ID聚合，并提供参数／结果／输出流／系统提示／工具／模型详情，原对话保留。
+
+真实隔离HTTP／ASGI／Agent验证Chat、Messages、Responses三协议请求前缀与schema字面一致，包含工具结果和原生签名／加密状态；续接检查点、重建和幂等／重复压缩通过。非法摘要、截断、工具调用输出、并发反馈和作用域关闭均保留历史、记录结束且不执行摘要工具。复制进程中断时的真实日志前缀后，应用启动恢复只结算一次，完整重建一致。思考／计划审批的重启流程继续通过。离屏Electron验证辅助记录、实际输入输出、原始输出流、用量、模型与工具详情、刷新和600px深色，截图已检查。未新增仓库测试、迁移或真实供应商调用。
+
+本批是手动压缩及其公共记录基础，不宣称已实现自动压缩；逐模型上下文窗口、压力估算、保留最近尾部和自动触发继续按harness对齐。

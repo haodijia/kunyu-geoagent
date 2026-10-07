@@ -15,7 +15,7 @@ from kunyu.agent.runtime.models import (
     ModelRequest,
     ModelRole,
 )
-from kunyu.agent.runtime.tools import ToolSpec
+from kunyu.agent.runtime.tools import ToolSchema
 from kunyu.domain.model_connections import ModelProviderType
 from kunyu.integrations.model.attachment_projection import input_blocks
 from kunyu.integrations.model.connection import (
@@ -212,7 +212,7 @@ def _project_tool_images(
     return result
 
 
-def serialize_tool(tool: ToolSpec) -> dict[str, object]:
+def serialize_tool(tool: ToolSchema) -> dict[str, object]:
     if (
         not isinstance(tool.name, str)
         or not tool.name

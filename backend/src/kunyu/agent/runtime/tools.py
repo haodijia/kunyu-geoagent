@@ -22,10 +22,14 @@ class ToolRiskLevel(Enum):
 
 
 @dataclass(frozen=True)
-class ToolSpec:
+class ToolSchema:
     name: str
     description: str
     parameters: Mapping[str, object]
+
+
+@dataclass(frozen=True)
+class ToolSpec(ToolSchema):
     risk_level: ToolRiskLevel
     execution: Literal["parallel", "exclusive"]
     presentation: Literal["context", "search", "write"]

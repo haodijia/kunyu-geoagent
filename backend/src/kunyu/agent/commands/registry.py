@@ -70,6 +70,36 @@ class CommandRegistry:
         line: str,
         message: RunAcceptanceRequest | None,
     ) -> CommandResult:
+        agent.ctx.assert_active()
+        projections = agent.ctx.require(s.PROJECTIONS)
+        events = agent.ctx.require(s.EVENTS)
+        task = asyncio.create_task(
+            self._execute(agent, command_id, line, message, projections, events)
+        )
+
+        async def stop() -> None:
+            if not task.done():
+                task.cancel()
+            results = await asyncio.gather(task, return_exceptions=True)
+            for result in results:
+                if isinstance(result, Exception):
+                    logger.error("Owned command failed during shutdown: %s", result)
+
+        detach = agent.ctx.effect(stop, before_children=True)
+        try:
+            return await task
+        finally:
+            detach()
+
+    async def _execute(
+        self,
+        agent: SessionAgent,
+        command_id: str,
+        line: str,
+        message: RunAcceptanceRequest | None,
+        projections,
+        events,
+    ) -> CommandResult:
         parsed = re.fullmatch(r"\s*/([a-z][a-z0-9_-]*)(\s[\s\S]*)?", line)
         if parsed is None:
             raise ValueError("Invalid slash command.")
@@ -81,11 +111,11 @@ class CommandRegistry:
             self._locks[agent.session_id] = asyncio.Lock()
             agent.ctx.effect(lambda: self._locks.pop(agent.session_id))
         async with self._locks[agent.session_id]:
-            events = await agent.ctx.require(s.EVENTS).list_after(agent.session_id, 0)
+            history = await events.list_after(agent.session_id, 0)
             previous = next(
                 (
                     event
-                    for event in events
+                    for event in history
                     if event.event_type == "command/run"
                     and event.payload["command_id"] == command_id
                 ),
@@ -106,7 +136,7 @@ class CommandRegistry:
                 done = next(
                     (
                         event
-                        for event in events
+                        for event in history
                         if event.event_type == "command/done"
                         and event.payload["command_id"] == command_id
                     ),
@@ -116,13 +146,14 @@ class CommandRegistry:
                     result = CommandResult(
                         "error", "上次命令执行已中断，请检查会话状态后重新提交。"
                     )
-                    self._done(agent, command_id, result)
+                    self._done(projections, agent, command_id, result)
                     return result
                 payload = CommandDonePayload.model_validate(done.payload)
                 return CommandResult(
                     payload.kind, payload.text, payload.source_event_sequence
                 )
             self._append(
+                projections,
                 agent,
                 CommandRunEvent(
                     session_id=agent.session_id,
@@ -142,7 +173,10 @@ class CommandRegistry:
                 )
             except asyncio.CancelledError:
                 self._done(
-                    agent, command_id, CommandResult("error", "命令执行已取消。")
+                    projections,
+                    agent,
+                    command_id,
+                    CommandResult("error", "命令执行已取消。"),
                 )
                 raise
             except Exception:
@@ -154,13 +188,14 @@ class CommandRegistry:
                 result = CommandResult(
                     "error", "命令执行失败，详情已记录在服务日志中。"
                 )
-            self._done(agent, command_id, result)
+            self._done(projections, agent, command_id, result)
             return result
 
     def _done(
-        self, agent: SessionAgent, command_id: str, result: CommandResult
+        self, projections, agent: SessionAgent, command_id: str, result: CommandResult
     ) -> None:
         self._append(
+            projections,
             agent,
             CommandDoneEvent(
                 session_id=agent.session_id,
@@ -176,7 +211,7 @@ class CommandRegistry:
         )
 
     @staticmethod
-    def _append(agent: SessionAgent, event: CommandRunEvent | CommandDoneEvent) -> None:
-        agent.ctx.require(s.PROJECTIONS).commit(
-            EventBatch(agent.session_id, None, (event,))
-        )
+    def _append(
+        projections, agent: SessionAgent, event: CommandRunEvent | CommandDoneEvent
+    ) -> None:
+        projections.commit(EventBatch(agent.session_id, None, (event,)))

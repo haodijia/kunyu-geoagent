@@ -20,6 +20,7 @@ from kunyu.agent.runtime.events import (
 )
 from kunyu.agent.scope import Context
 from kunyu.persistence.commands import read_session_controls
+from kunyu.persistence.compaction_recovery import recover_compactions
 
 
 async def _permission(invocation: CommandInvocation) -> CommandResult:
@@ -96,6 +97,7 @@ class CommandsPlugin:
     provides = (s.COMMANDS,)
 
     async def apply(self, context: Context) -> None:
+        recover_compactions(context.require(s.DATABASE), context.require(s.PROJECTIONS))
         registry = CommandRegistry()
         context.provide(s.COMMANDS, registry)
         definitions = (

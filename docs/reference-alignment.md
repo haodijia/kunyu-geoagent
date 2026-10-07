@@ -300,3 +300,13 @@
 - 0017为旧运行／日志快照补充旧编码器对应参数，八种实际旧编码器输出与迁移一致；已有0016数据升级保持原事实、事件序号、外键及完整性，投影重建通过，不增加运行时旧格式分支。
 - 本地HTTP与真实API／Agent验证七种原生控制、默认、值映射、检查、真实工具续接、执行中目录变化、元数据／声明分离、不兼容协议拒绝与重建。计划等待重启后保持原参数、加密推理和审批结果续接。离屏Electron验证设置、无档位错误、默认及映射保存、实际连接检查、刷新恢复、对话档位及600px深色；截图检查无溢出或渲染错误。前后端构建和Ruff通过，未新增仓库测试或调用真实模型服务。
 - 参考[OpenAI Docs](https://developers.openai.com/api/docs/guides/reasoning)、[Kimi](https://platform.kimi.com/docs/guide/use-thinking-models)、[MiMo](https://mimo.mi.com/docs/en-US/quick-start/usage-guide/other/deep-thinking)、[GLM](https://docs.z.ai/guides/capabilities/thinking-mode)、[DeepSeek](https://api-docs.deepseek.com/guides/thinking_mode/)。配置链路已补齐，真实模型验收、上下文容量／自动压缩、相关工具／Skill／Agent能力及其余对话UI继续推进，已取消的文件工作台保持移除。
+
+
+## 前缀复用压缩与辅助调用记录（2026-10-07）
+
+- 对照harness compaction-basic/summarizer、session独立压缩边界，核对Mu消息／轨迹统一样式。替换JSON历史摘要方式，复用最后实际请求的系统／消息／schema及模型、思考参数，追加规范结果与最终摘要指令；共享消息快照保留完整replay和附件。工具schema独立于风险／执行器，不生成辅助工具权限或实际调用。
+- 业务检查点保留八节结构，用Data and Results替代不相关的编码文件章节。完整文本、章节和STOP才可替换，结果以compacted-summary包裹成为后续用户上下文。原始会话记录保留，重复ID和没有新请求的重复压缩不再次调用模型。
+- 日志版本与事务边界防止丢失并发输入。新增start/end聚合实际完整输入、原始定时流、canonical输出、replay、模型和用量；独立投影拒绝错误来源、伪造前缀／流／用量／章节及不配对检查点。成功结束与历史替换同事务；失败／截断／工具回复／历史变化不替换。
+- 命令任务受作用域拥有，关闭取消并等待结算，使用捕获的服务引用。应用启动将未结算压缩标记interrupted，不虚构丢失数据或自动补请求。原运行预算和工具生命周期不冒充摘要成本。
+- 真实HTTP与Agent三协议验证消息／工具前缀一致、工具结果、思考签名／加密状态、检查点续接、重建和幂等。五种失败／并发／取消条件保留历史且结算；真实日志前缀复制验证崩溃恢复、未知指标和只结算一次。原计划批准后重启续接保持通过。离屏Electron验证辅助记录、参数／结果／输出流／用量／系统／工具／模型、刷新和600px深色；截图核对无页面错误或溢出。构建和Ruff通过，未新增仓库测试、迁移或真实模型调用。
+- 自动上下文压力、模型窗口、尾部保留与自动触发仍待继续；已取消文件工作台范围保持不做。
