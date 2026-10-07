@@ -7,7 +7,7 @@ from typing import Protocol
 
 from kunyu.agent.runtime.content import ContentBlock, ContentBlockType, ReplayEnvelope
 from kunyu.agent.runtime.input_content import InputMessageSource, MessageContentBlock
-from kunyu.agent.runtime.tools import ToolSpec
+from kunyu.agent.runtime.tools import ToolSchema
 
 
 class ModelRole(StrEnum):
@@ -100,7 +100,7 @@ class ModelRequest[AdapterConfigT]:
     adapter_config: AdapterConfigT
     model_id: str
     messages: tuple[ModelMessage, ...]
-    tools: tuple[ToolSpec, ...]
+    tools: tuple[ToolSchema, ...]
     max_output_tokens: int
     reasoning_effort: str | None = None
 

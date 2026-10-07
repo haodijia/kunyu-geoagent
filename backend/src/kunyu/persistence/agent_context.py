@@ -78,6 +78,7 @@ class SQLAlchemyRunContextRepository:
                 or payload.metadata.get("run_id") == run_id
             )
             return RunContextSource(
+                journal_revision=event_records[-1].sequence,
                 workspace=Workspace(
                     id=workspace_record.id,
                     name=workspace_record.name,

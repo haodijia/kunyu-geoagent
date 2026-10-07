@@ -173,6 +173,37 @@ class HistoryCompactedPayload(EventPayload):
     through_sequence: PositiveInt
 
 
+class CompactionStartedPayload(EventPayload):
+    compaction_id: str = Field(min_length=1, max_length=64)
+    command_id: str = Field(min_length=1, max_length=64)
+    source_run_id: str = Field(min_length=1, max_length=64)
+    through_sequence: PositiveInt
+    request_sequence: PositiveInt
+    model_snapshot: "ModelSnapshotPayload"
+    messages: tuple[dict[str, JsonValue], ...]
+    tools: tuple[dict[str, JsonValue], ...]
+
+
+class CompactionUsage(EventPayload):
+    input_tokens: NonNegativeInt | None
+    output_tokens: NonNegativeInt | None
+    total_tokens: NonNegativeInt | None
+    cache_read_input_tokens: NonNegativeInt | None
+    cache_creation_input_tokens: NonNegativeInt | None
+
+
+class CompactionFinishedPayload(EventPayload):
+    compaction_id: str = Field(min_length=1, max_length=64)
+    outcome: Literal["completed", "failed", "cancelled", "stale", "interrupted"]
+    finish_reason: Literal["stop", "tool_calls", "length", "content_filter"] | None
+    error_code: str | None
+    blocks: tuple[ContentBlock, ...]
+    stream: tuple[AssistantStreamRecord, ...]
+    replay_state: ReplayEnvelope | None
+    usage: CompactionUsage | None
+    active_milliseconds: NonNegativeInt | None
+
+
 class ImageOffloadTarget(EventPayload):
     sequence: int = Field(gt=0, strict=True)
     message_id: str = Field(min_length=1, max_length=64)
@@ -580,6 +611,16 @@ class HistoryCompactedEvent(_SessionEventDraft):
     payload: HistoryCompactedPayload
 
 
+class CompactionStartedEvent(_SessionEventDraft):
+    event_type: Literal["compaction/start"]
+    payload: CompactionStartedPayload
+
+
+class CompactionFinishedEvent(_SessionEventDraft):
+    event_type: Literal["compaction/end"]
+    payload: CompactionFinishedPayload
+
+
 class ImageOffloadEvent(_SessionEventDraft):
     event_type: Literal["image/offload"]
     payload: ImageOffloadPayload
@@ -752,6 +793,8 @@ type EventDraft = Annotated[
     | PermissionChangedEvent
     | FeedbackRecordedEvent
     | HistoryCompactedEvent
+    | CompactionStartedEvent
+    | CompactionFinishedEvent
     | ImageOffloadEvent
     | RunCreatedEvent
     | RunModelSelectedEvent

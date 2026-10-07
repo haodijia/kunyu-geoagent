@@ -109,6 +109,26 @@ function contextRecord(
   context: RecordContext,
 ): TrajectoryRecord {
   const first = events[0]!;
+  if (first.eventType === "compaction/start") {
+    const ended = events.find(event => event.eventType === "compaction/end");
+    const output = ended?.payload ?? null;
+    const usage = output?.usage;
+    const checkpoint = output === null ? "" : contentText(parseContentBlocks(output.blocks));
+    const status = stringValue(output?.outcome) ?? "running";
+    const record = baseRecord(events, {
+      turn: null, text: zhCN.trajectory.compaction, searchText: `${zhCN.trajectory.compaction} ${checkpoint}`,
+      status, startedAt: first.occurredAt, completedAt: ended?.occurredAt ?? null,
+      isError: ended !== undefined && status !== "completed",
+      source: { kind: "compaction", source_run_id: first.payload.source_run_id, through_sequence: first.payload.through_sequence, request_sequence: first.payload.request_sequence },
+      input: first.payload.messages, output: output === null ? null : { ...output, stream_origin: "model" },
+      usage: typeof usage === "object" && usage !== null ? {
+        inputTokens: tokenCount((usage as Record<string, unknown>).input_tokens),
+        outputTokens: tokenCount((usage as Record<string, unknown>).output_tokens),
+        totalTokens: tokenCount((usage as Record<string, unknown>).total_tokens),
+      } : null,
+    });
+    return { ...record, prompt: { system: first.payload.messages instanceof Array ? first.payload.messages.filter(message => message.role === "system").map(message => contentText(parseContentBlocks(message.content))).join("\n\n") : "", tools: first.payload.tools as readonly unknown[], model: first.payload.model_snapshot as Readonly<Record<string, unknown>> } };
+  }
   if (first.eventType === "question.requested") {
     const resolved = events.find((event) => event.eventType === "question.resolved");
     const request = first.payload.request;
@@ -708,4 +728,10 @@ function toolLabel(name: string): string {
 function statusLabel(status: string): string {
   const labels = zhCN.trajectory.statuses as Readonly<Record<string, string>>;
   return labels[status] ?? status;
+}
+
+function tokenCount(value: unknown): number | null {
+  if (value === null || value === undefined) return null;
+  if (typeof value !== "number" || !Number.isSafeInteger(value) || value < 0) throw new Error("Invalid compaction token count.");
+  return value;
 }

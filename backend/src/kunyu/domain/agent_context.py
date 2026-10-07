@@ -20,6 +20,7 @@ class InjectedContext:
 
 @dataclass(frozen=True, slots=True)
 class RunContextSource:
+    journal_revision: int
     workspace: Workspace
     session: Session
     run: ReducedRun

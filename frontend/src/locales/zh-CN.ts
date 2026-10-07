@@ -574,6 +574,7 @@ export const zhCN = {
     },
   },
   trajectory: {
+    compaction: "上下文压缩",
     ledgerLabel: "轨迹记录",
     step: (value: number) => `第 ${value} 步`,
     initialPrompt: "初始系统提示词",
