@@ -1,10 +1,8 @@
 import { isValidElement, type ReactNode } from "react";
-import Markdown, { defaultUrlTransform } from "react-markdown";
+import Markdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 
 import { CopyButton } from "./CopyButton";
-import { isLocalFileHref } from "@/features/files/file-path";
-import { FileLink } from "@/features/files/FileLink";
 
 function textContent(node: ReactNode): string {
   if (typeof node === "string" || typeof node === "number") return String(node);
@@ -13,11 +11,11 @@ function textContent(node: ReactNode): string {
   return "";
 }
 
-export function MessageMarkdown({ text, basePath = "/workspace/" }: { readonly text: string; readonly basePath?: string }) {
+export function MessageMarkdown({ text }: { readonly text: string }) {
   return (
     <div className="message-markdown w-full min-w-0">
-      <Markdown remarkPlugins={[remarkGfm]} urlTransform={(url, key) => key === "href" && isLocalFileHref(url) ? url : defaultUrlTransform(url)} components={{
-        a: ({ children, href }) => href !== undefined && href !== "" && isLocalFileHref(href) ? <FileLink href={href} base={basePath}>{children}</FileLink> : <a href={href} target="_blank" rel="noreferrer">{children}</a>,
+      <Markdown remarkPlugins={[remarkGfm]} components={{
+        a: ({ children, href }) => href !== undefined && /^(?:https?:|mailto:|tel:)/i.test(href) ? <a href={href} target="_blank" rel="noreferrer">{children}</a> : <span>{children}</span>,
         pre: ({ children }) => (
           <div className="message-code-block">
             <div className="message-code-toolbar"><CopyButton text={textContent(children).replace(/\n$/, "")} /></div>

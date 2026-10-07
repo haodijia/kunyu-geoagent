@@ -1,17 +1,15 @@
 import { CopyButton } from "@/features/messages/CopyButton";
 import { zhCN } from "@/locales/zh-CN";
 import { parseReadResult } from "./read-result";
-import { useFilePreview } from "@/features/files/FilePreviewContext";
 
 const content = zhCN.conversation.tools;
 
 export function ReadResult({ value, text }: { readonly value: unknown; readonly text: string }) {
   const result = parseReadResult(value);
-  const preview = useFilePreview();
   const end = result.lines.at(-1)?.number ?? Math.max(0, result.offset - 1);
   return <div className="mb-2 min-w-0" data-read-path={result.path}>
     <div className="mb-1 flex items-center justify-between gap-2 text-[11px] text-secondary-foreground">
-      <button type="button" className="min-w-0 truncate text-left hover:text-primary" title={result.path} onClick={() => preview.openFile(result.path, result.offset)}>{content.output} · {result.path}{result.lang === undefined ? "" : ` · ${result.lang}`}</button>
+      <span className="min-w-0 truncate [overflow-wrap:anywhere]">{content.output} · {result.path}{result.lang === undefined ? "" : ` · ${result.lang}`}</span>
       <CopyButton text={text} />
     </div>
     {result.lines.length > 0 && <div className="max-h-80 overflow-auto rounded-md bg-muted py-2" role="region" aria-label={content.read.lines(result.path)} tabIndex={0}>

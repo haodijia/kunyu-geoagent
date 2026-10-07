@@ -1,6 +1,6 @@
 """Scoped filesystem contracts; tools do not own native path or storage access."""
 
-from collections.abc import AsyncGenerator, Generator
+from collections.abc import Generator
 from dataclasses import dataclass
 from threading import Event
 from typing import Literal, Protocol
@@ -39,27 +39,6 @@ class FsInfo:
     version: str
     kind: Literal["file", "directory", "other"]
     size: int | None
-
-
-@dataclass(frozen=True, slots=True)
-class FsDirectoryEntry:
-    name: str
-    type: Literal["file", "directory", "other"]
-    size: int | None
-
-
-@dataclass(frozen=True, slots=True)
-class FsDirectoryListing:
-    path: str
-    entries: tuple[FsDirectoryEntry, ...]
-    truncated: bool
-
-
-@dataclass(frozen=True, slots=True)
-class FsWatchFrame:
-    path: str
-    kind: Literal["ready", "change"]
-    info: FsInfo | None
 
 
 @dataclass(frozen=True, slots=True)
@@ -118,13 +97,7 @@ class Filesystem(Protocol):
 
     def stat(self, target: FsTarget, cancelled: Event) -> FsInfo | None: ...
 
-    def list_directory(
-        self, target: FsTarget, cancelled: Event
-    ) -> FsDirectoryListing: ...
-
     def read_text(self, target: FsTarget, cancelled: Event) -> str: ...
-
-    def watch(self, target: FsTarget) -> AsyncGenerator[FsWatchFrame, None]: ...
 
     def stream_text(self, target: FsTarget, cancelled: Event) -> Generator[str]: ...
 

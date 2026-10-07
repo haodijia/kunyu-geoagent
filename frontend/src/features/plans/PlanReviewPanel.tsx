@@ -1,7 +1,7 @@
 import { ChevronRight, Circle, LoaderCircle, Pencil } from "lucide-react";
 import { useEffect, useMemo } from "react";
 import { Button } from "@/components/ui/button";
-import { useFilePreview } from "@/features/files/FilePreviewContext";
+import { usePlanDocument } from "./PlanDocument";
 import type {
   HumanQuestion,
   QuestionAnswer,
@@ -28,7 +28,7 @@ export function PlanReviewPanel({
 }) {
   if (review.intent === null || review.detail === null)
     throw new Error("A complete plan review is required.");
-  const preview = useFilePreview();
+  const preview = usePlanDocument();
   const summary = useMemo(() => planSummary(review.detail!), [review.detail]);
   useEffect(() => {
     preview.openReview(pending.id, pending.tool_call_id, summary.title);

@@ -1,5 +1,5 @@
 export const zhCN = {
-  planReview: { header: "计划审阅", full: "完整计划", open: "打开完整计划", approve: "批准计划", discuss: "修改计划", loading: "正在读取计划…", loadFailed: "无法读取计划，请重试。", title: "计划", document: "计划文档", view: "查看", openNamed: (title: string) => `打开计划：${title}` },
+  planReview: { close: "关闭计划", stateReadFailed: "计划阅读状态无法恢复，请清除后重新打开。", stateWriteFailed: "计划阅读状态未能保存，刷新后可能无法恢复。", resetState: "清除阅读状态", header: "计划审阅", full: "完整计划", open: "打开完整计划", approve: "批准计划", discuss: "修改计划", loading: "正在读取计划…", loadFailed: "无法读取计划，请重试。", title: "计划", document: "计划文档", view: "查看", openNamed: (title: string) => `打开计划：${title}` },
   questions: {
     loading: "正在读取待回答的问题…", loadFailed: "无法读取待回答的问题，请重试。", retry: "重试", cancelRun: "停止运行",
     customLabel: "自定义回答", customPlaceholder: "输入你的回答…", recommended: "推荐",
@@ -8,34 +8,6 @@ export const zhCN = {
     incomplete: "请回答或跳过每个问题。", unanswered: "请先选择选项或输入回答。",
     draftReadFailed: "无法恢复回答草稿，请清除后重新回答。", draftWriteFailed: "无法保存回答草稿，内容未更新，请检查存储后重试。", resetDraft: "清除回答草稿",
     asked: "询问用户", answered: "用户已回答", dismissed: "用户已关闭问题", cancelled: "问题已取消", waiting: "等待用户回答",
-  },
-  pdfPreview: {
-    controls: "PDF 阅读控制", page: "PDF 页码", previous: "上一页", next: "下一页", zoom: "PDF 缩放", fitWidth: "适应宽度", retry: "重新渲染",
-    rendering: (page: number) => `正在渲染第 ${page} 页…`, pageImage: (page: number) => `PDF 第 ${page} 页`, renderFailed: (page: number) => `第 ${page} 页渲染失败。`,
-    workerFailed: "PDF 解析进程不可用，请刷新预览。", passwordRequired: "此 PDF 需要密码，请下载后使用系统应用打开。",
-  },
-  fileExplorer: {
-    title: "文件", root: "工作区", toggle: "切换文件面板", close: "关闭文件面板", resize: "调整文件面板宽度",
-    refresh: "刷新文件", collapse: "全部折叠", loading: "正在读取目录…", empty: "此目录为空。",
-    truncated: "此目录仅显示前 2000 项。", other: "符号链接及特殊文件无法打开。",
-    watchFailed: (message: string) => `自动更新已停止：${message}`, retryWatch: "重新连接",
-  },
-  filePreview: {
-    title: "文件预览", tabs: "打开的文档", close: "关闭预览", closeTab: (name: string) => `关闭 ${name}`, resize: "调整预览宽度",
-    source: "源码", preview: "预览", editor: "编辑器", split: "分屏", splitResize: "调整编辑器与预览宽度", splitStorageFailed: "分屏宽度无法保存，请检查本地存储。", viewMode: "文件视图", diff: "变更", html: "HTML 预览",
-    refresh: "刷新文件", download: "下载文件", maximize: "最大化预览", restore: "还原预览",
-    updated: "文件已变化，点击刷新", watchFailed: "文件监视不可用，点击重新连接",
-    saveConflict: "保存冲突：文件已发生变化，你的修改已保留。",
-    save: "保存", saveTooltip: "保存文件（⌘ / Ctrl + S）", saving: "正在保存…", saved: "已保存", unsaved: "未保存修改", cancel: "取消",
-    saveAndClose: "保存并关闭", closeWithoutSave: "不保存关闭", discardAndRefresh: "放弃修改并刷新",
-    closeConfirmTitle: "保存修改后再关闭？", closeConfirmMessage: (count: number) => `${count} 个文件有未保存的修改。`,
-    refreshConfirmTitle: "放弃未保存的修改？", refreshConfirmMessage: "刷新将用磁盘中的内容替换当前编辑。",
-    draftStorageFailed: "未保存修改无法暂存，请保存文件后再离开。",
-    loading: "正在读取文件…", readOnly: "只读", zoomIn: "放大", zoomOut: "缩小", resetZoom: "重置缩放", imageFailed: "图片无法显示。",
-    line: (path: string, line: number) => `查看 ${path} 第 ${line} 行`, invalidLink: "文件链接无效。",
-    unsupported: "暂不支持预览此文件类型，可下载文件查看。", failed: "文件读取失败。", diffMissing: "未找到这次工具调用的已保存变更。",
-    oversized: (bytes: number, limit: number) => `文件大小 ${bytes.toLocaleString()} 字节，超过预览上限 ${limit.toLocaleString()} 字节。可下载完整文件查看。`,
-    errors: { FILE_SAVE_FAILED: "文件保存失败，请重试。", FS_READ_ONLY: "此文件为只读。", FS_TOO_LARGE: "文件内容超过当前操作的大小上限。", FS_NOT_PDF: "此文件不是有效的 PDF。", FS_WATCH_FAILED: "文件监视失败，请重新连接。", FS_WATCH_UNSUPPORTED: "当前环境无法提供原生文件通知。", FS_WATCH_CLOSED: "文件服务已关闭。", FS_NOT_DIRECTORY: "此路径不是可展开的目录。", FS_IO_ERROR: "无法读取文件系统，请检查目录权限后刷新。", FS_NOT_FOUND: "文件已不存在。", FS_STALE_VERSION: "文件已发生变化，请刷新预览。", FS_OUT_OF_SCOPE: "文件路径不在当前工作区中。", FS_PERMISSION_DENIED: "无权读取该文件。", FS_NOT_TEXT: "此文件不是有效的 UTF-8 文本，可下载查看。", FS_NOT_REGULAR_FILE: "此路径不是可预览的普通文件。", FILE_READ_FAILED: "文件读取失败，请重试。" },
   },
   api: {
     runtimeUnavailable: "桌面运行时连接不可用。",
@@ -323,7 +295,7 @@ export const zhCN = {
     mapEmptyDescription: "会话产生空间数据后，相关图层将在这里显示。",
   },
   conversation: {
-    attachments: {
+    attachments: { zoomIn: "放大", zoomOut: "缩小", resetZoom: "重置缩放",
       offloaded: "已从模型图片上下文省略，附件仍可预览",
       offloadSummary: (count: number) => `为适应模型图片限制，已省略 ${count} 张图片上下文。`,
       scrollLeft: "向左滚动附件", scrollRight: "向右滚动附件", add: "添加附件", list: "附件", uploading: "正在上传附件…", drop: "松开以添加附件",
