@@ -1,12 +1,12 @@
 import { useMemo } from "react";
 import { FileText } from "lucide-react";
 import type { ToolCall } from "@/features/agent/api";
-import { useFilePreview } from "@/features/files/FilePreviewContext";
+import { usePlanDocument } from "./PlanDocument";
 import { zhCN } from "@/locales/zh-CN";
 import { submittedPlan } from "./plan";
 
 export function PlanCards({ tools }: { readonly tools: readonly ToolCall[] }) {
-  const preview = useFilePreview(),
+  const preview = usePlanDocument(),
     plans = useMemo(
       () => tools.map(submittedPlan).filter((plan) => plan !== null),
       [tools],

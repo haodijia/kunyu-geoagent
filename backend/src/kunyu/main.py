@@ -13,7 +13,6 @@ from kunyu.api.attachments import router as attachments_router
 from kunyu.api.commands import router as commands_router
 from kunyu.api.confirmations import router as confirmations_router
 from kunyu.api.errors import install_error_handlers
-from kunyu.api.files import router as files_router
 from kunyu.api.messages import router as messages_router
 from kunyu.api.model_connections import router as model_connections_router
 from kunyu.api.plans import router as plans_router
@@ -116,7 +115,6 @@ def create_app(session_token: str | None = None) -> FastAPI:
     app.include_router(sessions_router)
     app.include_router(messages_router)
     app.include_router(attachments_router)
-    app.include_router(files_router)
     return app
 
 

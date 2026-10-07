@@ -24,10 +24,6 @@ class FilesystemPlugin:
         )
         context.provide(s.FILESYSTEM_HOOKS, hooks)
         context.provide(s.FILESYSTEM, filesystem)
-        context.effect(filesystem.watches.close)
-        hooks.observed.register(
-            context, "workspace-file-changes", filesystem.watches.observed
-        )
 
 
 class FilesystemObservationPlugin:

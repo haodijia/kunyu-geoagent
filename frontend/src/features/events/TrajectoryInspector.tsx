@@ -378,7 +378,7 @@ function ToolResultPresentation({ record }: { readonly record: TrajectoryRecord 
   if (record.source.tool_name === "write" || record.source.tool_name === "edit") {
     if (!("result" in output)) throw new Error("File mutation result has no presentation metadata.");
     if (typeof record.source.tool_call_id !== "string") throw new Error("File mutation result has no source identity.");
-    return <FileMutationResult toolId={record.source.tool_call_id} value={output.result} text={toolContentText(parseToolContent(output.content))} />;
+    return <FileMutationResult value={output.result} text={toolContentText(parseToolContent(output.content))} />;
   }
   if (record.source.tool_name === "glob" || record.source.tool_name === "grep") {
     if (!("result" in output)) throw new Error("Search result has no presentation metadata.");
