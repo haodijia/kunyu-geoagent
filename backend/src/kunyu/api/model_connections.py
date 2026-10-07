@@ -56,6 +56,7 @@ from kunyu.domain.model_connections import (
     ModelProviderType,
 )
 from kunyu.domain.model_images import ModelImageInput
+from kunyu.domain.model_reasoning import ModelReasoningSettings
 from kunyu.domain.model_settings import ModelSettings
 from kunyu.integrations.model.provider_client import (
     ProviderErrorCode,
@@ -156,6 +157,7 @@ class ModelCatalogEntryResponse(BaseModel):
     checks: dict[Literal["text", "tools"], ModelCheckResponse]
     tool_capability: CapabilityStatus
     tool_capability_source: CapabilitySource
+    reasoning_settings: ModelReasoningSettings | None
     reasoning_efforts: list[str]
     reasoning_default: str | None
     image_input: ModelImageInput
@@ -178,11 +180,12 @@ class ModelCatalogEntryResponse(BaseModel):
             },
             tool_capability=entry.tool_capability,
             tool_capability_source=entry.tool_capability_source,
-            reasoning_efforts=list(entry.reasoning_efforts),
-            reasoning_default=entry.reasoning_default,
+            reasoning_settings=entry.reasoning_settings,
+            reasoning_efforts=list(entry.available_reasoning_efforts),
+            reasoning_default=entry.default_reasoning_effort,
             image_input=entry.image_input,
             max_output_tokens=entry.max_output_tokens,
-            reasoning_source=entry.reasoning_source,
+            reasoning_source=entry.effective_reasoning_source,
             discovered_at=entry.discovered_at,
         )
 

@@ -27,7 +27,11 @@ def merge_discovery(
     merged: list[ModelCatalogEntry] = []
     for model in models:
         efforts = model.reasoning_efforts
-        if connection.provider_type is ModelProviderType.DEEPSEEK and efforts:
+        if (
+            connection.provider_type is ModelProviderType.DEEPSEEK
+            and efforts
+            and "off" not in efforts
+        ):
             # Harness uses off as its UI identity; the adapter owns wire encoding.
             efforts = ("off", *efforts)
         current = existing.get(model.model_id)

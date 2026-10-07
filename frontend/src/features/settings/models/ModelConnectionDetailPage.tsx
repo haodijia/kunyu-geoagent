@@ -295,7 +295,7 @@ export function ModelConnectionDetailPage() {
         </ModelDetailSection>
 
         <ModelDetailSection title={content.modelSettings.title} description={content.modelSettings.description}>
-          <ModelSettings entries={availableEntries.filter((entry) => entry.enabled)} disabled={busyAction !== null}
+          <ModelSettings protocol={connection.protocol} entries={availableEntries.filter((entry) => entry.enabled)} disabled={busyAction !== null}
             onSave={(modelId, input) => perform("model-settings", () => refreshConnection(
               () => modelConnectionsApi.setModelSettings(connection.id, modelId, input)
             ), content.saved)} />

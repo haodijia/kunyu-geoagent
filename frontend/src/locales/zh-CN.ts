@@ -111,13 +111,20 @@ export const zhCN = {
     back: "返回会话",
   },
   modelConnections: {
+    reasoning: {
+      mapping: "请求值映射", control: "思考控制方式", inherit: "供应商与协议默认", levels: "支持的思考档位", defaultLevel: "默认思考档位",
+      modes: { none: "不提供思考档位", effort: "按强度", thinking: "开启／关闭", deepseek: "开关与强度（DeepSeek）", kimi: "开启／关闭（Kimi，保留思考）", zai: "开启／关闭（GLM，保留思考）" },
+      requestValue: (level: string) => `请求值（${level}）`,
+      help: "仅声明当前模型实际支持的控制方式和档位。关闭档位的请求值可留空，表示不发送参数。修改后需重新检查，检查使用默认档位。",
+      invalid: "请选择至少一个档位，并填写有效的请求值和默认档位。",
+    },
     modelSettings: {
       title: "模型参数",
-      description: "为每个模型设置输出上限与图片输入。",
+      description: "为每个模型设置输出上限、思考控制与图片输入。",
       maxOutput: "最大输出（tokens）",
       saveFailed: "保存失败，参数已保留，请重试。",
       summary: (tokens: number, images: boolean) => `${tokens.toLocaleString("zh-CN")} tokens${images ? " · 图片" : ""}`,
-      help: "输出上限同时用于连接测试和对话，修改后需要重新测试。仅为实际支持图片的模型开启图片输入；文本与工具测试不验证图片能力。已接受的运行保留原有配置。",
+      help: "输出上限和思考配置同时用于连接测试和对话，修改后需要重新测试。仅为实际支持图片的模型开启图片输入；文本与工具测试不验证图片能力。已接受的运行保留原有配置。",
       noModels: "请先在上方启用模型。",
       imageInput: "支持图片输入",
       pixelBudget: "图片像素预算",
@@ -369,6 +376,7 @@ export const zhCN = {
     reasoningNotSpecified: "模型默认",
     reasoningValue: (value: string) => {
       switch (value) {
+        case "on": return "开启";
         case "off": return "关闭";
         case "none": return "关闭";
         case "minimal": return "最低";

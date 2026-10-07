@@ -16,6 +16,7 @@ from kunyu.domain.model_connections import (
     ModelProtocol,
     ModelProviderType,
 )
+from kunyu.domain.model_reasoning import ReasoningParameters
 from kunyu.integrations.model.connection import messages_root
 from kunyu.integrations.model.openai_responses_items import item_block
 
@@ -113,12 +114,18 @@ class ModelProviderClient:
         return tuple(models)
 
     async def check_text(
-        self, config: ProviderConfig, model_id: str, max_output_tokens: int
+        self,
+        config: ProviderConfig,
+        model_id: str,
+        max_output_tokens: int,
+        parameters: ReasoningParameters,
     ) -> ModelCheckOutcome:
         started_at = monotonic()
         try:
             async with asyncio.timeout(MODEL_OPERATION_TIMEOUT_SECONDS):
-                await self._check_text_request(config, model_id, max_output_tokens)
+                await self._check_text_request(
+                    config, model_id, max_output_tokens, parameters
+                )
         except TimeoutError:
             return ModelCheckOutcome(
                 text_passed=False,
@@ -141,15 +148,23 @@ class ModelProviderClient:
         )
 
     async def check_tools(
-        self, config: ProviderConfig, model_id: str, max_output_tokens: int
+        self,
+        config: ProviderConfig,
+        model_id: str,
+        max_output_tokens: int,
+        parameters: ReasoningParameters,
     ) -> ModelCheckOutcome:
         started_at = monotonic()
         text_passed = False
         try:
             async with asyncio.timeout(MODEL_OPERATION_TIMEOUT_SECONDS):
-                await self._check_text_request(config, model_id, max_output_tokens)
+                await self._check_text_request(
+                    config, model_id, max_output_tokens, parameters
+                )
                 text_passed = True
-                await self._check_tool_request(config, model_id, max_output_tokens)
+                await self._check_tool_request(
+                    config, model_id, max_output_tokens, parameters
+                )
         except TimeoutError:
             return ModelCheckOutcome(
                 text_passed=text_passed,
@@ -172,13 +187,21 @@ class ModelProviderClient:
         )
 
     async def _check_text_request(
-        self, config: ProviderConfig, model_id: str, max_output_tokens: int
+        self,
+        config: ProviderConfig,
+        model_id: str,
+        max_output_tokens: int,
+        parameters: ReasoningParameters,
     ) -> None:
         if config.protocol is ModelProtocol.OPENAI_RESPONSES:
-            await self._check_responses(config, model_id, max_output_tokens, tool=False)
+            await self._check_responses(
+                config, model_id, max_output_tokens, parameters, tool=False
+            )
             return
         if config.protocol is ModelProtocol.DEEPSEEK_MESSAGES:
-            await self._check_messages(config, model_id, max_output_tokens, tool=False)
+            await self._check_messages(
+                config, model_id, max_output_tokens, parameters, tool=False
+            )
             return
         payload = await self._request_json(
             "POST",
@@ -186,6 +209,7 @@ class ModelProviderClient:
             config=config,
             json_body={
                 "model": model_id,
+                **parameters.payload(),
                 "messages": [
                     {
                         "role": "user",
@@ -207,13 +231,21 @@ class ModelProviderClient:
             raise _protocol_error("The provider returned an invalid text completion.")
 
     async def _check_tool_request(
-        self, config: ProviderConfig, model_id: str, max_output_tokens: int
+        self,
+        config: ProviderConfig,
+        model_id: str,
+        max_output_tokens: int,
+        parameters: ReasoningParameters,
     ) -> None:
         if config.protocol is ModelProtocol.OPENAI_RESPONSES:
-            await self._check_responses(config, model_id, max_output_tokens, tool=True)
+            await self._check_responses(
+                config, model_id, max_output_tokens, parameters, tool=True
+            )
             return
         if config.protocol is ModelProtocol.DEEPSEEK_MESSAGES:
-            await self._check_messages(config, model_id, max_output_tokens, tool=True)
+            await self._check_messages(
+                config, model_id, max_output_tokens, parameters, tool=True
+            )
             return
         payload = await self._request_json(
             "POST",
@@ -221,6 +253,7 @@ class ModelProviderClient:
             config=config,
             json_body={
                 "model": model_id,
+                **parameters.payload(),
                 "messages": [
                     {
                         "role": "user",
@@ -292,11 +325,13 @@ class ModelProviderClient:
         config: ProviderConfig,
         model_id: str,
         max_output_tokens: int,
+        parameters: ReasoningParameters,
         *,
         tool: bool,
     ) -> None:
         body = {
             "model": model_id,
+            **parameters.payload(),
             "stream": False,
             "store": False,
             "include": ["reasoning.encrypted_content"],
@@ -369,14 +404,15 @@ class ModelProviderClient:
         config: ProviderConfig,
         model_id: str,
         max_output_tokens: int,
+        parameters: ReasoningParameters,
         *,
         tool: bool,
     ) -> None:
         body = {
             "model": model_id,
+            **parameters.payload(),
             "stream": False,
             "max_tokens": max_output_tokens,
-            "thinking": {"type": "disabled"},
             "messages": [
                 {
                     "role": "user",
@@ -449,12 +485,6 @@ class ModelProviderClient:
         config: ProviderConfig,
         json_body: dict[str, Any] | None = None,
     ) -> Any:
-        if (
-            json_body is not None
-            and config.provider_type is ModelProviderType.DEEPSEEK
-            and config.protocol is not ModelProtocol.OPENAI_RESPONSES
-        ):
-            json_body["thinking"] = {"type": "disabled"}
         native_auth = config.protocol is ModelProtocol.DEEPSEEK_MESSAGES and not (
             method == "GET" and urlsplit(config.base_url).hostname == "api.deepseek.com"
         )

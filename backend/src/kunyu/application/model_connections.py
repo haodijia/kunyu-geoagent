@@ -32,6 +32,7 @@ from kunyu.domain.model_connections import (
     ModelProviderType,
 )
 from kunyu.domain.model_images import ModelImageInput
+from kunyu.domain.model_reasoning import require_reasoning_protocol
 
 MAX_DISPLAY_NAME_LENGTH = 200
 MAX_BASE_URL_LENGTH = 2_048
@@ -254,6 +255,15 @@ class ModelConnectionService:
             values["default_model_id"] = default_model_id
         if "default_model_id" in changes and default_model_id is not None:
             _validate_default_model(current, default_model_id, enabled_model_ids)
+
+        if "protocol" in values:
+            for entry in current.catalog:
+                try:
+                    require_reasoning_protocol(
+                        values["protocol"], entry.reasoning_settings
+                    )
+                except ValueError as error:
+                    raise InvalidModelConnectionError(str(error)) from error
 
         execution_changed = any(
             field in values and values[field] != getattr(current, field)

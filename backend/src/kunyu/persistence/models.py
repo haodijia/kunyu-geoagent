@@ -356,6 +356,7 @@ class RunModelSnapshotRecord(Base):
     auth_mode: Mapped[str] = mapped_column(String(32), nullable=False)
     model_id: Mapped[str] = mapped_column(String(256), nullable=False)
     reasoning_effort: Mapped[str | None] = mapped_column(String(64))
+    reasoning_parameters: Mapped[dict[str, Any]] = mapped_column(JSON, nullable=False)
     connection_revision: Mapped[int] = mapped_column(Integer, nullable=False)
     max_tokens_field: Mapped[str] = mapped_column(String(32), nullable=False)
     include_usage: Mapped[bool] = mapped_column(Boolean, nullable=False)
@@ -678,6 +679,7 @@ class ModelCatalogEntryRecord(Base):
         default=DEFAULT_MODEL_OUTPUT_TOKENS,
         server_default=str(DEFAULT_MODEL_OUTPUT_TOKENS),
     )
+    reasoning_settings: Mapped[dict[str, Any] | None] = mapped_column(JSON)
     reasoning_efforts: Mapped[list[str]] = mapped_column(JSON, nullable=False)
     image_input: Mapped[dict[str, Any]] = mapped_column(JSON, nullable=False)
     reasoning_default: Mapped[str | None] = mapped_column(String(64))

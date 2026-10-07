@@ -290,3 +290,13 @@
 - 图片附件保留原居中查看／缩放，普通附件包括PDF统一直接下载。PDF.js、CodeMirror与PDF资源构建插件完全删除；后端删除预览、文件列表、保存、PDF／图片文件读取、下载和监视专用路由／服务及watchfiles依赖。Agent内部附件与工作文件操作、实际观察和写入版本守卫保持独立，删除仅服务于人类文件工作台的目录列表／原生通知接口。
 - 真实隔离应用验证七个旧文件接口404且OpenAPI不再声明，图片与文件附件仍返回原内容。离屏Electron通过实际API验证无文件面板或旧请求、完整计划Markdown、自动打开／关闭／刷新、批准后模型继续、终态计划卡、审阅期间对话草稿、图片查看／缩放、PDF下载、地图／轨迹切换及600px深色。最终浅色与深色截图已检查，无页面错误或溢出。前后端构建及Ruff通过；未新增仓库测试或数据库迁移。
 - 不继续实现Office、完整PDF控件、HTML本地资源、文件工作台管理等已取消范围。业务数据与成果展示按地图、结果卡片和下载的实际需求设计；其他Agent对齐目标保持原范围。
+
+
+## 逐模型思考档位与冻结参数（2026-10-07）
+
+- 对照Mu ModelRows／模型选择器与harness llm-pi-ai/catalog的声明和映射。用户控制独立于供应商元数据持久保存，覆盖有效档位与默认值但不冒充供应商事实；发现刷新保留声明。仅提供当前声明的档位，不按模型ID猜能力。
+- 支持effort、thinking、deepseek、kimi、zai控制及不提供档位。Chat／Responses／Messages分别编译实际字段，Kimi和GLM开关提供各自保留思考参数；默认配置与请求值映射在受理时解析。Runtime模型快照、header、API和重建统一冻结ReasoningParameters；删除编码器分散拼接，后续请求只发送该对象。
+- 模型参数API严格原子保存；控制变化失效旧检查及代次，默认检查使用相同参数。协议切换与配置不兼容时明确拒绝，没有自动清空、猜值或降级。不宣称默认检查验证了全部自定义档位或所有模型版本。
+- 0017为旧运行／日志快照补充旧编码器对应参数，八种实际旧编码器输出与迁移一致；已有0016数据升级保持原事实、事件序号、外键及完整性，投影重建通过，不增加运行时旧格式分支。
+- 本地HTTP与真实API／Agent验证七种原生控制、默认、值映射、检查、真实工具续接、执行中目录变化、元数据／声明分离、不兼容协议拒绝与重建。计划等待重启后保持原参数、加密推理和审批结果续接。离屏Electron验证设置、无档位错误、默认及映射保存、实际连接检查、刷新恢复、对话档位及600px深色；截图检查无溢出或渲染错误。前后端构建和Ruff通过，未新增仓库测试或调用真实模型服务。
+- 参考[OpenAI Docs](https://developers.openai.com/api/docs/guides/reasoning)、[Kimi](https://platform.kimi.com/docs/guide/use-thinking-models)、[MiMo](https://mimo.mi.com/docs/en-US/quick-start/usage-guide/other/deep-thinking)、[GLM](https://docs.z.ai/guides/capabilities/thinking-mode)、[DeepSeek](https://api-docs.deepseek.com/guides/thinking_mode/)。配置链路已补齐，真实模型验收、上下文容量／自动压缩、相关工具／Skill／Agent能力及其余对话UI继续推进，已取消的文件工作台保持移除。

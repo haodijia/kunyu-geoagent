@@ -17,6 +17,7 @@ from pydantic import (
 
 from kunyu.agent.runtime.questions import QuestionAnswers, QuestionSet
 from kunyu.domain.model_images import ModelImageInput
+from kunyu.domain.model_reasoning import ReasoningParameters, require_parameter_protocol
 
 type NonNegativeInt = Annotated[int, Field(ge=0)]
 from kunyu.agent.runtime.assistant_stream import AssistantStreamRecord
@@ -222,12 +223,18 @@ class ModelSnapshotPayload(EventPayload):
     auth_mode: Literal["api_key", "none"]
     model_id: str
     reasoning_effort: str | None
+    reasoning_parameters: ReasoningParameters
     connection_revision: PositiveInt
     max_tokens_field: Literal["max_tokens", "max_completion_tokens"]
     include_usage: bool
     max_output_tokens: PositiveInt
     retry_policy: RetryPolicy
     image_input: ModelImageInput = ModelImageInput()
+
+    @model_validator(mode="after")
+    def validate_reasoning_parameters(self) -> Self:
+        require_parameter_protocol(self.protocol, self.reasoning_parameters)
+        return self
 
 
 class RequestFailurePayload(EventPayload):

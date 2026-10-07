@@ -57,7 +57,7 @@ def encode_request(
                     and any(
                         isinstance(block, ToolCallBlock) for block in message.content
                     )
-                    and request.reasoning_effort != "off"
+                    and (config.reasoning_parameters.thinking is None or config.reasoning_parameters.thinking.type != "disabled")
                 ):
                     raise invalid_request(
                         "DeepSeek thinking tool history is missing its reasoning content."
@@ -78,20 +78,7 @@ def encode_request(
         payload["tool_choice"] = "auto"
     if config.include_usage:
         payload["stream_options"] = {"include_usage": True}
-    if (
-        config.provider_type is ModelProviderType.DEEPSEEK
-        and request.reasoning_effort is not None
-    ):
-        effort = request.reasoning_effort
-        if effort not in {"off", "low", "high", "max"}:
-            raise invalid_request(
-                "DeepSeek reasoning effort must be off, low, high or max."
-            )
-        payload["thinking"] = {"type": "disabled" if effort == "off" else "enabled"}
-        if effort != "off":
-            payload["reasoning_effort"] = effort
-    elif request.reasoning_effort is not None:
-        payload["reasoning_effort"] = request.reasoning_effort
+    payload.update(config.reasoning_parameters.payload())
     try:
         return json.dumps(
             payload,

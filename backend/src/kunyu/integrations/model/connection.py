@@ -11,6 +11,7 @@ from kunyu.domain.model_connections import (
     ModelProviderType,
 )
 from kunyu.domain.model_images import ModelImageInput
+from kunyu.domain.model_reasoning import ReasoningParameters, require_parameter_protocol
 from kunyu.domain.model_settings import MAX_MODEL_OUTPUT_TOKENS
 
 
@@ -24,6 +25,7 @@ class ModelConnectionConfig:
     max_tokens_field: MaxTokensField
     include_usage: bool
     provider_type: ModelProviderType
+    reasoning_parameters: ReasoningParameters
     reasoning_efforts: tuple[str, ...] = ()
     image_input: ModelImageInput = field(default_factory=ModelImageInput)
 
@@ -48,6 +50,12 @@ def validate_config(config: ModelConnectionConfig) -> None:
         or not isinstance(config.include_usage, bool)
     ):
         raise invalid_request("The model adapter configuration is invalid.")
+    if not isinstance(config.reasoning_parameters, ReasoningParameters):
+        raise invalid_request("The frozen thinking parameters are invalid.")
+    try:
+        require_parameter_protocol(config.protocol, config.reasoning_parameters)
+    except ValueError as error:
+        raise invalid_request(str(error)) from error
     efforts = config.reasoning_efforts
     if not isinstance(efforts, tuple) or any(
         not isinstance(item, str) or not item for item in efforts

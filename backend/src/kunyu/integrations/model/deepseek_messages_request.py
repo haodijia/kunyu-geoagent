@@ -205,14 +205,6 @@ def encode_request(
         raise invalid("History ends with unresolved tools.")
     if not messages:
         raise invalid("History requires a conversational message.")
-    effort = (
-        request.reasoning_effort if request.reasoning_effort is not None else "high"
-    )
-    if effort not in {"off", "low", "high", "max"}:
-        raise ModelAdapterError(
-            ModelErrorCode.UNSUPPORTED_CAPABILITY,
-            "Unsupported Messages reasoning effort.",
-        )
     names = [tool.name for tool in request.tools]
     if len(set(names)) != len(names):
         raise invalid("Tool names must be unique.")
@@ -221,10 +213,8 @@ def encode_request(
         "messages": messages,
         "stream": True,
         "max_tokens": request.max_output_tokens,
-        "thinking": {"type": "disabled" if effort == "off" else "enabled"},
     }
-    if effort != "off":
-        payload["output_config"] = {"effort": effort}
+    payload.update(request.adapter_config.reasoning_parameters.payload())
     if system:
         payload["system"] = system
     if request.tools:

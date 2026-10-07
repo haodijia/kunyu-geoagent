@@ -23,6 +23,7 @@ from kunyu.domain.attachments import Attachment, AttachmentError
 from kunyu.domain.messages import Message, MessageRole, MessageStatus
 from kunyu.domain.model_connections import ModelAuthMode
 from kunyu.domain.model_images import ModelImageInput
+from kunyu.domain.model_reasoning import ModelReasoningSettings, reasoning_parameters
 from kunyu.domain.run_acceptance import (
     CredentialUnavailableError,
     IdempotencyConflictError,
@@ -181,6 +182,17 @@ class SQLAlchemyRunAcceptanceRepository:
                 auth_mode=connection.auth_mode,
                 model_id=selection.model_id,
                 reasoning_effort=selection.reasoning_effort,
+                reasoning_parameters=reasoning_parameters(
+                    connection.protocol,
+                    connection.provider_type,
+                    selection.reasoning_effort
+                    if selection.reasoning_effort is not None
+                    or entry.reasoning_settings is not None
+                    else entry.reasoning_default,
+                    ModelReasoningSettings.model_validate(entry.reasoning_settings)
+                    if entry.reasoning_settings is not None
+                    else None,
+                ),
                 connection_revision=connection.revision,
                 max_tokens_field=connection.max_tokens_field,
                 include_usage=connection.include_usage,
@@ -503,13 +515,28 @@ class SQLAlchemyRunAcceptanceRepository:
             raise ModelUnverifiedError(
                 "The selected model is not enabled and verified for agent runs."
             )
-        if (
-            reasoning_effort is not None
-            and reasoning_effort not in entry.reasoning_efforts
-        ):
+        declared = (
+            ModelReasoningSettings.model_validate(entry.reasoning_settings)
+            if entry.reasoning_settings is not None
+            else None
+        )
+        offered = declared.levels if declared is not None else entry.reasoning_efforts
+        if reasoning_effort is not None and reasoning_effort not in offered:
             raise UnsupportedModelCapabilityError(
                 "The selected reasoning effort is not supported by this model."
             )
+
+        try:
+            reasoning_parameters(
+                connection.protocol,
+                connection.provider_type,
+                reasoning_effort
+                if reasoning_effort is not None or declared is not None
+                else entry.reasoning_default,
+                declared,
+            )
+        except ValueError as error:
+            raise UnsupportedModelCapabilityError(str(error)) from error
 
     def _load_result(self, message_id: str, run_id: str) -> RunAcceptanceResult:
         with self._database.sessions() as database_session:

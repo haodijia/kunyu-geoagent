@@ -5,6 +5,7 @@ from pydantic import BaseModel, JsonValue
 
 from kunyu.agent.runtime.tool_content import ToolContentBlock
 from kunyu.domain.model_images import ModelImageInput
+from kunyu.domain.model_reasoning import ReasoningParameters
 from kunyu.domain.runs import Run, RunDetails, RunModelSnapshot, ToolCall
 
 
@@ -74,6 +75,7 @@ class StepModelResponse(BaseModel):
     auth_mode: Literal["api_key", "none"]
     model_id: str
     reasoning_effort: str | None
+    reasoning_parameters: ReasoningParameters
     connection_revision: int
     max_tokens_field: Literal["max_tokens", "max_completion_tokens"]
     include_usage: bool
@@ -90,6 +92,7 @@ class StepModelResponse(BaseModel):
             auth_mode=snapshot.auth_mode.value,
             model_id=snapshot.model_id,
             reasoning_effort=snapshot.reasoning_effort,
+            reasoning_parameters=snapshot.reasoning_parameters,
             connection_revision=snapshot.connection_revision,
             max_tokens_field=snapshot.max_tokens_field.value,
             include_usage=snapshot.include_usage,

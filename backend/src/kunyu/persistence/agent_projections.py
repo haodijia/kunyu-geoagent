@@ -315,6 +315,7 @@ def _snapshot_record(reduced: ReducedRun) -> RunModelSnapshotRecord:
         auth_mode=ModelAuthMode(model.auth_mode),
         model_id=model.model_id,
         reasoning_effort=model.reasoning_effort,
+        reasoning_parameters=model.reasoning_parameters,
         connection_revision=model.connection_revision,
         max_tokens_field=MaxTokensField(model.max_tokens_field),
         include_usage=model.include_usage,
