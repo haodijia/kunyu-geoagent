@@ -1,7 +1,7 @@
 from dataclasses import dataclass
 from datetime import datetime
 from enum import StrEnum
-from typing import Protocol
+from typing import Literal, Protocol
 
 from pydantic import JsonValue
 
@@ -26,6 +26,8 @@ class Confirmation:
     arguments: dict[str, JsonValue]
     summary: str
     side_effect: str
+    execution: Literal["transaction", "tool"]
+    binding: str | None
     status: ConfirmationStatus
     decided_at: datetime | None
     created_at: datetime

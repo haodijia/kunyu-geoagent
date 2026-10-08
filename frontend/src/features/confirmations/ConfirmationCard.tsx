@@ -33,6 +33,7 @@ export function ConfirmationCard({
   readonly error: string | null;
 }) {
   const content = zhCN.conversation.confirmation;
+  const label = toolLabel(confirmation.name);
   return (
     <aside className={className} aria-labelledby={`confirmation-${confirmation.id}`}>
       <div className="flex items-start gap-3 border-b border-border px-4 py-3.5">
@@ -50,8 +51,8 @@ export function ConfirmationCard({
       </div>
       <dl className="m-0 divide-y divide-border px-4">
         <ConfirmationRow label={content.operation}>
-          <span>{toolLabel(confirmation.name)}</span>
-          <code className="ml-2 text-xs text-muted-foreground">{confirmation.name}</code>
+          <span>{label}</span>
+          {label !== confirmation.name && <code className="ml-2 text-xs text-muted-foreground">{confirmation.name}</code>}
         </ConfirmationRow>
         <ConfirmationRow label={content.scope}>
           <span>{content.currentWorkspace}</span>

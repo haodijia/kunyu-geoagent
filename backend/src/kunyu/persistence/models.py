@@ -508,6 +508,8 @@ class ConfirmationRecord(Base):
     arguments: Mapped[dict[str, Any]] = mapped_column(JSON, nullable=False)
     summary: Mapped[str] = mapped_column(String(500), nullable=False)
     side_effect: Mapped[str] = mapped_column(String(500), nullable=False)
+    execution: Mapped[str] = mapped_column(String(32), nullable=False)
+    binding: Mapped[str | None] = mapped_column(String(1000), nullable=True)
     status: Mapped[str] = mapped_column(String(32), nullable=False)
     decided_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     created_at: Mapped[datetime] = mapped_column(

@@ -369,6 +369,8 @@ def _confirmation_record(
             arguments=dict(confirmation.arguments),
             summary=confirmation.summary,
             side_effect=confirmation.side_effect,
+            execution=confirmation.execution,
+            binding=confirmation.binding,
             status=ConfirmationStatus(confirmation.status),
             decided_at=confirmation.decided_at,
             created_at=confirmation.created_at,

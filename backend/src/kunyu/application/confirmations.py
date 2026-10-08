@@ -4,7 +4,7 @@ from time import monotonic_ns
 from typing import Literal
 from uuid import uuid4
 
-from pydantic import JsonValue, TypeAdapter
+from pydantic import JsonValue, TypeAdapter, ValidationError
 from sqlalchemy import func, select, text
 from sqlalchemy.orm import Session as DatabaseSession
 
@@ -29,7 +29,12 @@ from kunyu.agent.runtime.events import (
     ToolProgressEvent,
     ToolProgressPayload,
 )
-from kunyu.agent.runtime.tools import PolicyDecision
+from kunyu.agent.runtime.tools import (
+    PolicyDecision,
+    ToolExecutionError,
+    ToolRegistryError,
+    ToolValidationError,
+)
 from kunyu.agent.runtime.tools import ToolCall as PolicyToolCall
 from kunyu.agent.tools.registry import ToolPolicyGate, ToolRegistryFactory
 from kunyu.agent.tools.shared import tool_result
@@ -115,7 +120,7 @@ class ConfirmationService:
                 or tool_record.status != "pending"
             ):
                 raise ConfirmationConflictError(
-                    "Only the current pending write tool can request confirmation."
+                    "Only the current pending tool can request confirmation."
                 )
             session_record = database_session.get(SessionRecord, run_record.session_id)
             if session_record is None:
@@ -124,9 +129,7 @@ class ConfirmationService:
                 )
 
             arguments = self._validate_exact_snapshot(run_id, tool_record)
-            handler = self._tool_registries.require_write_handler(
-                tool_record.name, run_id
-            )
+            approval = self._tool_registries.require_approval(tool_record.name, run_id)
             confirmation_id = self._confirmation_id_factory()
             now = self._clock()
             event = ConfirmationRequestedEvent(
@@ -139,8 +142,10 @@ class ConfirmationService:
                     workspace_id=session_record.workspace_id,
                     name=tool_record.name,
                     arguments=arguments,
-                    summary=handler.summary,
-                    side_effect=handler.side_effect,
+                    summary=approval.summary,
+                    side_effect=approval.side_effect,
+                    execution=approval.execution,
+                    binding=approval.binding,
                 ),
                 occurred_at=now,
             )
@@ -212,7 +217,7 @@ class ConfirmationService:
                 event_type="run.cancelled",
                 payload=RunTerminalPayload(
                     state="cancelled",
-                    reason="Run cancelled after the confirmed local write.",
+                    reason="Run cancelled after tool approval.",
                     budget=_budget_usage(run_record),
                 ),
                 occurred_at=now,
@@ -314,7 +319,7 @@ class ConfirmationService:
                         payload=RunTerminalPayload(
                             state="cancelled",
                             reason=(
-                                "User rejected the requested local write."
+                                "User rejected the requested tool operation."
                                 if decision == "rejected"
                                 else "Run cancelled while awaiting confirmation."
                             ),
@@ -357,11 +362,46 @@ class ConfirmationService:
         remaining_milliseconds = run.max_active_milliseconds - run.active_milliseconds
         if run.tool_calls >= run.max_tool_calls or remaining_milliseconds <= 0:
             raise ConfirmationConflictError("The run tool budget is exhausted.")
+        approval = self._tool_registries.require_approval(tool.name, run.id)
+        if (
+            approval.execution,
+            approval.binding,
+            approval.summary,
+            approval.side_effect,
+        ) != (
+            confirmation.execution,
+            confirmation.binding,
+            confirmation.summary,
+            confirmation.side_effect,
+        ):
+            raise ConfirmationConflictError(
+                "The reviewed tool contract or binding has changed."
+            )
+        if approval.execution == "tool":
+            return (
+                resolved,
+                RunProgressEvent(
+                    session_id=confirmation.session_id,
+                    run_id=confirmation.run_id,
+                    event_type="run.queued",
+                    payload=RunProgressPayload(
+                        step=run.step,
+                        attempt=run.attempt,
+                        resume_phase="tool",
+                        next_tool_index=tool.batch_index,
+                        requires_resume=False,
+                        queue_sequence=queue_sequence,
+                        reason=None,
+                        budget=_budget_usage(run),
+                    ),
+                    occurred_at=now,
+                ),
+            )
         reserved_milliseconds = min(
             TOOL_ACTIVE_TIME_SLICE_MILLISECONDS, remaining_milliseconds
         )
         operation_id = self._operation_id_factory()
-        handler = self._tool_registries.require_write_handler(tool.name, run.id)
+        handler = self._tool_registries.require_transaction(tool.name, run.id)
         call = PolicyToolCall(
             run_id=run.id,
             call_id=tool.id,
@@ -471,10 +511,20 @@ class ConfirmationService:
             name=tool.name,
             arguments=tool.arguments,
         )
-        registered_tool = self._tool_registries.for_run(run_id).require(tool.name)
-        arguments = _JSON_OBJECT_ADAPTER.validate_python(
-            dict(registered_tool.validate(tool.arguments))
-        )
+        try:
+            registered_tool = self._tool_registries.for_run(run_id).require(tool.name)
+            arguments = _JSON_OBJECT_ADAPTER.validate_python(
+                dict(registered_tool.validate(tool.arguments))
+            )
+        except (
+            ToolExecutionError,
+            ToolRegistryError,
+            ToolValidationError,
+            ValidationError,
+        ) as error:
+            raise ConfirmationConflictError(
+                "The reviewed tool is unavailable or its arguments changed."
+            ) from error
         if arguments != tool.arguments:
             raise ConfirmationConflictError(
                 "The stored tool arguments are not the validated snapshot."

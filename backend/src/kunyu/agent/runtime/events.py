@@ -512,6 +512,16 @@ class ConfirmationRequestedPayload(EventPayload):
     arguments: dict[str, JsonValue]
     summary: str
     side_effect: str
+    execution: Literal["transaction", "tool"]
+    binding: str | None = Field(max_length=1000)
+
+    @model_validator(mode="after")
+    def require_deferred_binding(self) -> Self:
+        if self.execution == "tool" and (
+            self.binding is None or not self.binding.strip()
+        ):
+            raise ValueError("Deferred confirmation requires its exact tool binding.")
+        return self
 
 
 class ConfirmationResolvedPayload(EventPayload):

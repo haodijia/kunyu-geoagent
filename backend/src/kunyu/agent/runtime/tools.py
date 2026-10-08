@@ -28,16 +28,51 @@ class ToolSchema:
     parameters: Mapping[str, object]
 
 
+@dataclass(frozen=True, slots=True)
+class ToolApproval:
+    execution: Literal["transaction", "tool"]
+    summary: str
+    side_effect: str
+    binding: str | None = None
+
+    def __post_init__(self) -> None:
+        if (
+            self.execution not in {"transaction", "tool"}
+            or not isinstance(self.summary, str)
+            or not self.summary.strip()
+            or not isinstance(self.side_effect, str)
+            or not self.side_effect.strip()
+        ):
+            raise ValueError(
+                "Tool approval requires an execution mode and reviewable effects."
+            )
+        if self.binding is not None and (
+            not isinstance(self.binding, str)
+            or not self.binding.strip()
+            or len(self.binding) > 1000
+        ):
+            raise ValueError(
+                "Approval binding must be nonempty text up to 1000 characters."
+            )
+        if self.execution == "tool" and self.binding is None:
+            raise ValueError(
+                "Deferred tool approval requires an exact implementation binding."
+            )
+
+
 @dataclass(frozen=True)
 class ToolSpec(ToolSchema):
     risk_level: ToolRiskLevel
     execution: Literal["parallel", "exclusive"]
     presentation: Literal["context", "search", "write"]
+    approval: ToolApproval | None = None
     interaction: bool = False
     timeout_ms: int | None = None
     timeout_error_code: str = "TOOL_TIMEOUT"
 
     def __post_init__(self) -> None:
+        if (self.risk_level is ToolRiskLevel.L2) != (self.approval is not None):
+            raise ValueError("Exactly L2 tools require an explicit approval contract.")
         if self.interaction and (
             self.execution != "exclusive" or self.risk_level is not ToolRiskLevel.L0
         ):
@@ -95,6 +130,8 @@ class PolicyDecision(Enum):
     ALLOW = "allow"
     CONFIRM = "confirm"
     DENY = "deny"
+    DO_NOT_REPEAT = "do-not-repeat"
+    CONTRACT_CHANGED = "contract-changed"
 
 
 class PolicyGate(Protocol):

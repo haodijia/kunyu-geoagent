@@ -38,6 +38,8 @@ class ConfirmationResponse(BaseModel):
     arguments: dict[str, JsonValue]
     summary: str
     side_effect: str
+    execution: Literal["transaction", "tool"]
+    binding: str | None
     status: Literal["pending", "approved", "rejected", "cancelled"]
     decided_at: datetime | None
     created_at: datetime
@@ -56,6 +58,8 @@ class ConfirmationResponse(BaseModel):
             arguments=confirmation.arguments,
             summary=confirmation.summary,
             side_effect=confirmation.side_effect,
+            execution=confirmation.execution,
+            binding=confirmation.binding,
             status=confirmation.status.value,
             decided_at=confirmation.decided_at,
             created_at=confirmation.created_at,
