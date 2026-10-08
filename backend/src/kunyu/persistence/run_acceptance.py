@@ -198,6 +198,8 @@ class SQLAlchemyRunAcceptanceRepository:
                 include_usage=connection.include_usage,
                 image_input=image_input,
                 max_output_tokens=entry.max_output_tokens,
+                context_window=entry.context_window,
+                retention_tokens=entry.retention_tokens,
                 retry_policy=connection.retry_policy,
             )
             budget_limits = BudgetLimitsPayload(

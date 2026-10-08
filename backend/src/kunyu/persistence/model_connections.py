@@ -226,6 +226,8 @@ def _copy_catalog_entry(
     record.tool_capability = entry.tool_capability.value
     record.tool_capability_source = entry.tool_capability_source.value
     record.max_output_tokens = entry.max_output_tokens
+    record.context_window = entry.context_window
+    record.retention_tokens = entry.retention_tokens
     record.reasoning_settings = (
         entry.reasoning_settings.model_dump(mode="json")
         if entry.reasoning_settings is not None
@@ -351,6 +353,8 @@ def _catalog_to_domain(
         tool_capability=CapabilityStatus(record.tool_capability),
         tool_capability_source=CapabilitySource(record.tool_capability_source),
         max_output_tokens=record.max_output_tokens,
+        context_window=record.context_window,
+        retention_tokens=record.retention_tokens,
         reasoning_settings=ModelReasoningSettings.model_validate(
             record.reasoning_settings
         )

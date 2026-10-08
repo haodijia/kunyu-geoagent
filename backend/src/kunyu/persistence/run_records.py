@@ -116,6 +116,8 @@ def snapshot_record(snapshot: RunModelSnapshot) -> RunModelSnapshotRecord:
         include_usage=snapshot.include_usage,
         image_input=snapshot.image_input.model_dump(mode="json"),
         max_output_tokens=snapshot.max_output_tokens,
+        context_window=snapshot.context_window,
+        retention_tokens=snapshot.retention_tokens,
         map_context=snapshot.map_context,
         scene=snapshot.scene,
     )
@@ -194,6 +196,8 @@ def snapshot_to_domain(record: RunModelSnapshotRecord) -> RunModelSnapshot:
         include_usage=record.include_usage,
         image_input=ModelImageInput.model_validate(record.image_input),
         max_output_tokens=record.max_output_tokens,
+        context_window=record.context_window,
+        retention_tokens=record.retention_tokens,
         map_context=record.map_context,
         scene=record.scene,
     )

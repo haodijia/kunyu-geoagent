@@ -232,12 +232,16 @@ class ModelCatalogService:
             changed_request = (
                 current.max_output_tokens != settings.max_output_tokens
                 or current.reasoning_settings != settings.reasoning_settings
+                or current.context_window != settings.context_window
+                or current.retention_tokens != settings.retention_tokens
             )
             entry = replace(
                 current,
                 image_input=settings.image_input,
                 reasoning_settings=settings.reasoning_settings,
                 max_output_tokens=settings.max_output_tokens,
+                context_window=settings.context_window,
+                retention_tokens=settings.retention_tokens,
                 text_check=unchecked() if changed_request else current.text_check,
                 tool_check=unchecked() if changed_request else current.tool_check,
                 tool_capability=CapabilityStatus.UNKNOWN

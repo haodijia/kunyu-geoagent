@@ -61,12 +61,16 @@ export interface ModelReasoningSettings {
 }
 
 export interface ModelSettings {
+  readonly context_window: number | null;
+  readonly retention_tokens: number;
   readonly reasoning_settings: ModelReasoningSettings | null;
   readonly max_output_tokens: number;
   readonly image_input: ModelImageInput;
 }
 
 export interface ModelCatalogEntry {
+  readonly context_window: number | null;
+  readonly retention_tokens: number;
   readonly reasoning_settings: ModelReasoningSettings | null;
   readonly max_output_tokens: number;
   readonly model_id: string;

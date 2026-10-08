@@ -47,7 +47,7 @@ export function projectSessionEvent(
   if (event.event_type === "message.user.appended") {
     return projection(event, "user", requiredString(event, "message_id"));
   }
-  if (event.event_type === "compaction/start" || event.event_type === "compaction/end") {
+  if (event.event_type === "compaction/start" || event.event_type === "compaction/end" || event.event_type === "compaction/selection") {
     return projection(event, "context", requiredString(event, "compaction_id"));
   }
   if (event.event_type === "command/run" || event.event_type === "command/done") {

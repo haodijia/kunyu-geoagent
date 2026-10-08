@@ -36,7 +36,7 @@ class RunContextIntegrityError(RuntimeError):
 
 
 @dataclass(frozen=True, slots=True)
-class _HistoryStep:
+class ModelHistoryNode:
     sequence: int
     messages: tuple[ModelMessage, ...]
 
@@ -114,6 +114,14 @@ class ScopedAgentContextProvider:
 
 
 def build_model_history(source: RunContextSource) -> tuple[ModelMessage, ...]:
+    return tuple(
+        message
+        for node in build_model_history_nodes(source)
+        for message in node.messages
+    )
+
+
+def build_model_history_nodes(source: RunContextSource) -> tuple[ModelHistoryNode, ...]:
     validate_run_context_source(source, source.run.run_id)
     current_user_messages = tuple(
         message
@@ -137,7 +145,7 @@ def build_model_history(source: RunContextSource) -> tuple[ModelMessage, ...]:
     }
     runs_by_id = {run.run_id: run for run in source.reduced_session.runs}
     steps = [
-        _HistoryStep(
+        ModelHistoryNode(
             sequence=message.created_sequence,
             messages=(
                 ModelMessage(
@@ -187,7 +195,7 @@ def build_model_history(source: RunContextSource) -> tuple[ModelMessage, ...]:
         item.message_id: item for item in source.reduced_session.user_messages
     }
     steps.extend(
-        _HistoryStep(
+        ModelHistoryNode(
             sequence=decision.sequence,
             messages=tuple(
                 model_message
@@ -236,7 +244,7 @@ def build_model_history(source: RunContextSource) -> tuple[ModelMessage, ...]:
         )
     )
     steps.extend(
-        _HistoryStep(
+        ModelHistoryNode(
             sequence=item.sequence,
             messages=(
                 ModelMessage(
@@ -256,26 +264,34 @@ def build_model_history(source: RunContextSource) -> tuple[ModelMessage, ...]:
             visible = _visible_assistant_step(run, assistant)
             if visible is not None:
                 steps.append(
-                    _HistoryStep(
+                    ModelHistoryNode(
                         sequence=assistant.created_sequence,
                         messages=visible,
                     )
                 )
     steps.sort(key=lambda item: item.sequence)
     visible = tuple(
-        message
+        ModelHistoryNode(
+            sequence=step.sequence,
+            messages=apply_offloads(
+                step.messages, source.reduced_session.offloaded_images
+            ),
+        )
         for step in steps
         if step.sequence > source.controls.compacted_through
-        for message in step.messages
     )
-    visible = apply_offloads(visible, source.reduced_session.offloaded_images)
     if source.controls.summary is None:
         return visible
     return (
-        ModelMessage(
-            ModelRole.USER,
-            text_content(source.controls.summary),
-            context_source="compaction",
+        ModelHistoryNode(
+            sequence=source.controls.compacted_through,
+            messages=(
+                ModelMessage(
+                    ModelRole.USER,
+                    text_content(source.controls.summary),
+                    context_source="compaction",
+                ),
+            ),
         ),
         *visible,
     )

@@ -6,7 +6,10 @@ from typing import Protocol
 from kunyu.agent.runtime.retry_policy import RetryPolicy
 from kunyu.domain.model_images import ModelImageInput
 from kunyu.domain.model_reasoning import LEVELS, ModelReasoningSettings
-from kunyu.domain.model_settings import DEFAULT_MODEL_OUTPUT_TOKENS
+from kunyu.domain.model_settings import (
+    DEFAULT_MODEL_OUTPUT_TOKENS,
+    DEFAULT_RETENTION_TOKENS,
+)
 
 
 class ModelProtocol(StrEnum):
@@ -134,6 +137,8 @@ class ModelCatalogEntry:
     reasoning_default: str | None = None
     image_input: ModelImageInput = field(default_factory=ModelImageInput)
     max_output_tokens: int = DEFAULT_MODEL_OUTPUT_TOKENS
+    context_window: int | None = None
+    retention_tokens: int = DEFAULT_RETENTION_TOKENS
     reasoning_settings: ModelReasoningSettings | None = None
 
     @property

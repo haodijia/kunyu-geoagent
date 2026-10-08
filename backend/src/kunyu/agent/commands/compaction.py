@@ -14,7 +14,8 @@ from kunyu.agent.compaction_prompt import (
     SECTIONS,
     frame_summary,
 )
-from kunyu.agent.context import build_model_history
+from kunyu.agent.compaction_selection import select_prefix
+from kunyu.agent.context import build_model_history, build_model_history_nodes
 from kunyu.agent.runtime.assistant_stream import AssistantStreamAccumulator
 from kunyu.agent.runtime.block_assembler import BlockAssembler
 from kunyu.agent.runtime.content import ToolCallBlock, content_text, text_content
@@ -22,6 +23,8 @@ from kunyu.agent.runtime.events import (
     TERMINAL_RUN_STATES,
     CompactionFinishedEvent,
     CompactionFinishedPayload,
+    CompactionSelectionEvent,
+    CompactionSelectionPayload,
     CompactionStartedEvent,
     CompactionStartedPayload,
     CompactionUsage,
@@ -30,7 +33,11 @@ from kunyu.agent.runtime.events import (
     HistoryCompactedPayload,
     RequestHeaderPayload,
 )
-from kunyu.agent.runtime.message_snapshot import message_snapshot, snapshot_message
+from kunyu.agent.runtime.message_snapshot import (
+    message_snapshot,
+    require_balanced_tools,
+    snapshot_message,
+)
 from kunyu.agent.runtime.models import (
     ModelAdapterError,
     ModelFinishReason,
@@ -40,6 +47,7 @@ from kunyu.agent.runtime.models import (
 )
 from kunyu.agent.runtime.session_reducer import reduce_session
 from kunyu.agent.runtime.tools import ToolSchema
+from kunyu.agent.token_estimate import estimate_message
 from kunyu.persistence.models import SessionEventRecord
 from sqlalchemy import func, select, text
 
@@ -92,10 +100,26 @@ async def compact_history(invocation: CommandInvocation) -> CommandResult:
         return CommandResult(
             "error", "历史前缀已变化，无法复用当前模型请求，请先完成下一轮对话。"
         )
+    selection = select_prefix(
+        build_model_history_nodes(source), header.model_snapshot.retention_tokens
+    )
+    if selection is None:
+        return CommandResult("success", "当前历史已在最近保留范围内，无需请求压缩。")
     prefix = tuple(snapshot_message(message) for message in header.messages)
+    protected = len(prefix) - len(before)
+    if protected < 0 or prefix[protected:] != before:
+        return CommandResult("error", "原请求历史边界不一致，无法复用前缀。")
+    selected = tuple(
+        message for node in selection.selected for message in node.messages
+    )
+    retained = tuple(
+        message for node in selection.retained for message in node.messages
+    )
+    require_balanced_tools(selected)
+    require_balanced_tools(retained)
     messages = (
-        *prefix,
-        *history[len(before) :],
+        *prefix[:protected],
+        *selected,
         ModelMessage(
             ModelRole.USER,
             text_content(COMPACTION_INSTRUCTION),
@@ -130,6 +154,16 @@ async def compact_history(invocation: CommandInvocation) -> CommandResult:
         messages=tuple(message_snapshot(message) for message in messages),
         tools=tuple(header.tools),
     )
+    selected_payload = CompactionSelectionPayload(
+        compaction_id=identity,
+        compact_through_sequence=selection.selected[-1].sequence,
+        selected_sequences=tuple(node.sequence for node in selection.selected),
+        retained_sequences=tuple(node.sequence for node in selection.retained),
+        retained_messages=tuple(message_snapshot(message) for message in retained),
+        protected_messages=protected,
+        retention_tokens=header.model_snapshot.retention_tokens,
+        estimated_selected_tokens=selection.estimated_tokens,
+    )
     database, projections = (
         agent.ctx.require(s.DATABASE),
         agent.ctx.require(s.PROJECTIONS),
@@ -155,9 +189,15 @@ async def compact_history(invocation: CommandInvocation) -> CommandResult:
                         payload=payload,
                         occurred_at=datetime.now(UTC),
                     ),
+                    CompactionSelectionEvent(
+                        session_id=agent.session_id,
+                        event_type="compaction/selection",
+                        payload=selected_payload,
+                        occurred_at=datetime.now(UTC),
+                    ),
                 ),
             ),
-        )[0]
+        )[-1]
         tx.commit()
     assembler, stream, began = (
         BlockAssembler(),
@@ -215,6 +255,23 @@ async def compact_history(invocation: CommandInvocation) -> CommandResult:
             code,
         )
         return CommandResult("error", "模型未生成完整压缩摘要，原历史已保留，请重试。")
+    replacement = ModelMessage(
+        ModelRole.USER,
+        text_content(frame_summary(summary)),
+        context_source="compaction",
+    )
+    if estimate_message(replacement) >= selection.estimated_tokens:
+        _finish(
+            projections,
+            agent.session_id,
+            identity,
+            assembler,
+            stream,
+            began,
+            "failed",
+            "COMPACTION_NOT_SMALLER",
+        )
+        return CommandResult("error", "摘要未缩小所选上下文，原历史保留。")
     with database.sessions() as tx:
         tx.execute(text("BEGIN IMMEDIATE"))
         current = tx.scalar(
@@ -265,7 +322,7 @@ async def compact_history(invocation: CommandInvocation) -> CommandResult:
                         event_type="history/compacted",
                         payload=HistoryCompactedPayload(
                             summary=frame_summary(summary),
-                            through_sequence=payload.through_sequence,
+                            through_sequence=selected_payload.compact_through_sequence,
                         ),
                         occurred_at=datetime.now(UTC),
                     ),
