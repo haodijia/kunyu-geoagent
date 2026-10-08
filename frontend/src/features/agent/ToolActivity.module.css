@@ -1,0 +1,68 @@
+/* Copyright 2025 AionUi (aionui.com)
+   SPDX-License-Identifier: Apache-2.0 */
+/* Adapted from Mu/AionUi MessageToolGroupSummary (Apache-2.0).
+   See licenses/AionUi-LICENSE.txt. */
+.summary, .activity, .activityBody {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+}
+.summary { margin: 4px 0; }
+.call { min-width: 0; }
+.callButton, .activityHeader {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  min-width: 0;
+  height: auto;
+  gap: 8px;
+  padding: 4px 8px;
+  border-radius: 8px;
+  color: var(--text-primary);
+  font-size: 13px;
+  text-align: start;
+  cursor: pointer;
+}
+.callButton:hover, .activityHeader:hover { background: var(--bg-active); }
+.callButton:disabled { cursor: default; }
+.callButton:disabled:hover { background: transparent; }
+.callButton:focus-visible, .activityHeader:focus-visible {
+  outline: 2px solid var(--mu-accent-border);
+  outline-offset: 2px;
+}
+.callButton > :global(.i-icon), .activityHeader > :global(.i-icon) {
+  flex-shrink: 0;
+  color: var(--text-secondary);
+}
+.kindIcon { display: inline-flex; flex-shrink: 0; align-items: center; color: var(--text-secondary); opacity: 0.7; }
+.callName { flex: 0 1 auto; max-width: 35%; overflow: hidden; text-overflow: ellipsis; font-weight: 500; white-space: nowrap; }
+.callPreview {
+  min-width: 0;
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--text-secondary);
+  font: 12px/1.6 var(--font-mono);
+}
+.pathPreview { display: flex; direction: ltr; unicode-bidi: isolate; }
+.pathHead { flex: 0 100000 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pathTail { flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.callError { margin: 0 8px 4px 32px; color: var(--danger); font: 12px/1.6 var(--font-mono); overflow-wrap: anywhere; }
+.callDenied { margin: 0 8px 4px 32px; color: var(--text-secondary); font-size: 12px; line-height: 1.6; overflow-wrap: anywhere; }
+.activityHeader { color: var(--text-secondary); }
+.activityHeader:hover { color: var(--text-primary); }
+.activitySummary { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.activityBody { margin-inline-start: 8px; }
+.activityError { display: flex; align-items: baseline; gap: 8px; min-width: 0; padding: 0 8px 2px 24px; font-size: 12px; }
+.activityErrorLine, .activityDeniedLine { min-width: 0; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.activityErrorLine { color: var(--danger); font: 12px/1.6 var(--font-mono); }
+.activityDeniedLine { color: var(--text-secondary); font-size: 12px; line-height: 1.6; }
+.detailPanel { margin: 2px 0 6px 16px; padding: 6px 0 2px 12px; border-inline-start: 2px solid var(--border-base); }
+.statusDot { display: inline-block; width: 6px; height: 6px; flex-shrink: 0; border-radius: 50%; background: var(--text-disabled); }
+.statusDot[data-tool-status="running"] { background: var(--mu-tool-processing); animation: tool-breathing 1.5s ease-in-out infinite; }
+.statusDot[data-tool-status="completed"] { background: var(--success); }
+.statusDot[data-tool-status="failed"] { background: var(--danger); }
+@keyframes tool-breathing { 0%, 100% { opacity: 0.4; } 50% { opacity: 1; } }
+@media (prefers-reduced-motion: reduce) { .statusDot[data-tool-status="running"] { animation: none; } }

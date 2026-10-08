@@ -236,6 +236,7 @@ export function MessageList({
             ) : (
               <>
                 <AssistantContent
+                  runState={activeTurn === undefined ? null : activeTurn.state}
                   blocks={
                     generating
                       ? live.blocks

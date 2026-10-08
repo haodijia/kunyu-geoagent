@@ -519,13 +519,12 @@ user-invocable: true
         rejected: "已拒绝",
         cancelled: "已取消",
       },
-      groupCompleted: (count: number) => `已完成 ${count} 次工具调用`,
-      groupPending: (count: number) => `${count} 次工具调用等待执行`,
-      groupCancelled: (count: number, cancelled: number) => `${count} 次工具调用，${cancelled} 次已取消`,
-      groupRunning: (count: number, name: string) =>
-        `正在执行 ${count} 次工具调用 · ${name}`,
-      groupFailed: (count: number, failed: number) =>
-        `${count} 次工具调用，${failed} 次失败`,
+      denied: "没有运行：你没有允许。",
+      callAria: (name: string, status: string) => `${name} · ${status}`,
+      groupSummary: (count: number) => `${count} 步`,
+      groupWaiting: (count: number, status: string) => `${count} 步 · ${status}`,
+      groupRunning: (count: number, label: string) => `${count} 步 · 正在执行 ${label}`,
+      groupFailed: (count: number, failed: number) => `${count} 步 · ${failed} 步失败`,
       names: {
         memory_read: "搜索工作区记忆",
         memory_write: "保存工作区记忆",
@@ -547,6 +546,10 @@ user-invocable: true
         completed: "执行完成",
         failed: "执行失败",
         cancelled: "已取消",
+        denied: "未允许",
+        interrupted: "执行中断，等待继续",
+        unknown: "状态待同步",
+        waiting: "等待确认",
       },
       read: {
         lines: (path: string) => `文件内容：${path}`,

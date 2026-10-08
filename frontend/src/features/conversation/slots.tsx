@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 
-import type { ToolCall } from "@/features/agent/api";
+import type { AgentTurnState, ToolCall } from "@/features/agent/api";
 import {
   ToolActivity,
   GeneratingToolActivity,
@@ -13,6 +13,7 @@ interface ConversationSlots {
     readonly tools: readonly GeneratingTool[];
   };
   readonly "message.tools": {
+    readonly runState: AgentTurnState | null;
     readonly confirmations: readonly Confirmation[];
     readonly tools: readonly ToolCall[];
   };
@@ -52,6 +53,6 @@ export const conversationSlots = new ConversationSlotRegistry();
 conversationSlots.register("message.generating-tools", ({ tools }) => (
   <GeneratingToolActivity tools={tools} />
 ));
-conversationSlots.register("message.tools", ({ confirmations, tools }) => (
-  <ToolActivity confirmations={confirmations} tools={tools} />
+conversationSlots.register("message.tools", ({ confirmations, tools, runState }) => (
+  <ToolActivity confirmations={confirmations} tools={tools} runState={runState} />
 ));
