@@ -358,6 +358,9 @@ class OpenAIResponsesStreamParser:
             cache_read_input_tokens=_tokens(input_details.get("cached_tokens"))
             if input_details is not None
             else None,
+            cache_creation_input_tokens=_tokens(input_details.get("cache_write_tokens"))
+            if input_details is not None
+            else None,
         )
         replay = ReplayEnvelope(
             response={

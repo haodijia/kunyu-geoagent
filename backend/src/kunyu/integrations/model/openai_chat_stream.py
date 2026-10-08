@@ -288,10 +288,21 @@ class OpenAIChatStreamParser:
 def _parse_usage(value: Any) -> TokenUsage:
     if not isinstance(value, dict):
         raise _protocol_error("The provider usage record is invalid.")
+    details = value.get("prompt_tokens_details")
+    if details is not None and not isinstance(details, dict):
+        raise _protocol_error("The provider prompt token details are invalid.")
     return TokenUsage(
         input_tokens=_optional_token_count(value.get("prompt_tokens")),
         output_tokens=_optional_token_count(value.get("completion_tokens")),
         total_tokens=_optional_token_count(value.get("total_tokens")),
+        cache_read_input_tokens=_optional_token_count(details.get("cached_tokens"))
+        if details is not None
+        else None,
+        cache_creation_input_tokens=_optional_token_count(
+            details.get("cache_write_tokens")
+        )
+        if details is not None
+        else None,
     )
 
 

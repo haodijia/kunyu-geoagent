@@ -332,3 +332,15 @@
 - 0019 为既有手动记录声明 manual、无活动所有者及未知压力；原序号、输入输出、用量与历史事实保留。真实 0018 格式升级、完整性／外键和投影重建通过。自动压缩进程中断后只结算 interrupted，不虚构命令、输出、用量或自动重跑，活动轮次恢复为需人工继续的 interrupted。
 - 实际本地 HTTP／公开 API／Agent 验证三协议的长对话自动触发、旧段摘要、平衡工具批次、正常调用不受辅助调用影响；三协议溢出缩减、冻结参数、重建请求、有限再次溢出、原错误保留、非法摘要与取消通过。手动五类失败／并发／关闭保护继续通过。离屏 Electron 验证自动记录、输入／结果／流／模型／工具、刷新、600px 深色和无页面错误，截图已检查。构建与 Ruff 通过，未新增仓库测试，未调用真实供应商。
 - 计量仍采用固定 UTF-16 密度及结构附件估算；路由实际文件文字、图片视觉 token 与原生隐藏推理的完整定价尚未接入，不能把本批估算当作供应商用量。自动配置面板、逐模型策略、摘要重试接缝、更多对话／工具／Skill／Agent 能力与整体 Mu／harness 完整一致仍待继续。
+
+
+## 输入区上下文用量圆环（2026-10-08）
+
+- 对照 Mu ContextUsageIndicator／AcpSendBox 的发送按钮前置圆环、20px 图形／32px 控件、2px 描边、70%／90% 灰黄红边界、数字格式与浮层排版。复用现有 Radix／shadcn Popover 和主题变量，悬停与焦点事件打开、点击固定、Escape／外部交互关闭；悬停不抢输入焦点，新请求通过标识重新挂载以关闭旧浮层，离开定时器在释放时清理。
+- context-usage 只配对最新实际 request.header 与相同 run／step／attempt／message 的结算；实时样本须匹配相同请求。分母取冻结窗口声明，浮层说明实际提供方／模型，切换输入区模型不拿新窗口套用旧计数。辅助压缩调用不覆盖普通请求用量；压缩完成后明确提示当前为上次请求计数，未伪造压缩后的供应商用量或下一次请求预测。
+- 没有供应商用量时不显示控件；有计数但窗口未知时只显示数量及空心圆环，无百分比。部分输入／缓存计数可展示，但总量未知时不补零或推算总量；已报告的零值保留。浮层展示输入、输出、缓存读取／写入，原供应商口径保留，普通请求总量不重复累加缓存子项。
+- 根据 OpenAI Docs 已获取的 Chat Completion usage 和 Prompt Caching 页面，Chat 解析器保留 prompt_tokens_details.cached_tokens／cache_write_tokens，Responses 保留 input_tokens_details.cache_write_tokens；Messages 原有缓存字段继续使用。缺失为未知，非法形态／数字明确拒绝。缓存字段随实际流保留，无迁移或虚构旧统计。
+- 真实本地 HTTP／公开 API／Agent 生成 OpenAI、Kimi、MiMo、DeepSeek、GLM 五类连接和三种协议的数据，验证已知／未知／部分／零值／缺失、缓存读写及重建；实际事件送入前端投影，验证实时／持久样本一致、拒绝不同 attempt、辅助用量隔离。离屏 Electron 核对圆环、缓存、未知／部分状态、警戒色、焦点事件、模型切换分母、刷新、hover 保留编辑焦点、点击固定／Escape及600px深色；等待响应式过渡结束后检查实际输入框边界和截图。前端构建／类型检查及Ruff通过，未新增仓库测试或调用真实供应商。
+- 此处是最近实际请求的用量视图；harness 的替换表面压力预测、完整视觉／隐藏推理计价、逐轮费用／推理桶、更多对话与Agent能力仍待继续，整体目标未完成。已取消的通用文件工作台保持不做。
+
+来源：本地 Mu `ContextUsageIndicator.tsx`、[OpenAI Docs Chat Completions](https://developers.openai.com/api/reference/resources/chat/subresources/completions/methods/create)、[OpenAI Docs Prompt Caching](https://developers.openai.com/api/docs/guides/prompt-caching)。

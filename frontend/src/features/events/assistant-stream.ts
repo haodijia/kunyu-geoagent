@@ -33,6 +33,8 @@ type Usage = {
   readonly input_tokens: number | null;
   readonly output_tokens: number | null;
   readonly total_tokens: number | null;
+  readonly cache_read_input_tokens?: number | null;
+  readonly cache_creation_input_tokens?: number | null;
 };
 type Finish = {
   readonly type: "finish";
@@ -313,7 +315,7 @@ function validChunk(value: unknown): boolean {
         value.input_tokens,
         value.output_tokens,
         value.total_tokens,
-      ].every((count) => count === null || index(count));
+      ].every((count) => count === null || index(count)) && [value.cache_read_input_tokens, value.cache_creation_input_tokens].every(count => count === undefined || count === null || index(count));
     case "finish":
       return (
         ["stop", "tool_calls", "length", "content_filter"].includes(
