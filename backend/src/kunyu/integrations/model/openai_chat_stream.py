@@ -21,6 +21,7 @@ from kunyu.agent.runtime.models import (
     TextDelta,
     TokenUsage,
 )
+from kunyu.integrations.model.context_overflow import is_context_overflow
 
 MAX_TOOL_CALLS = 16
 MAX_TOOL_ARGUMENT_BYTES = 16 * 1024
@@ -63,6 +64,11 @@ class OpenAIChatStreamParser:
             raise _protocol_error(
                 "The provider stream contained invalid JSON."
             ) from error
+        if isinstance(payload, dict) and is_context_overflow(payload.get("error")):
+            raise ModelAdapterError(
+                ModelErrorCode.CONTEXT_WINDOW_EXCEEDED,
+                "The provider reported a context window overflow.",
+            )
         if not isinstance(payload, dict) or "error" in payload:
             raise _protocol_error("The provider stream contained an invalid event.")
 

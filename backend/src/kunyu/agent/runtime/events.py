@@ -173,9 +173,20 @@ class HistoryCompactedPayload(EventPayload):
     through_sequence: PositiveInt
 
 
+class CompactionPressurePayload(EventPayload):
+    estimated_prompt_tokens: PositiveInt
+    estimated_tool_tokens: NonNegativeInt
+    threshold_tokens: PositiveInt
+    threshold_ratio: float = Field(gt=0, le=1)
+    headroom_tokens: NonNegativeInt
+
+
 class CompactionStartedPayload(EventPayload):
     compaction_id: str = Field(min_length=1, max_length=64)
-    command_id: str = Field(min_length=1, max_length=64)
+    command_id: str | None = Field(min_length=1, max_length=64)
+    trigger: Literal["manual", "pressure", "context-overflow"]
+    owner_run_id: str | None = Field(min_length=1, max_length=64)
+    pressure: CompactionPressurePayload | None
     source_run_id: str = Field(min_length=1, max_length=64)
     through_sequence: PositiveInt
     request_sequence: PositiveInt
@@ -278,8 +289,13 @@ class ModelSnapshotPayload(EventPayload):
     @model_validator(mode="after")
     def validate_reasoning_parameters(self) -> Self:
         require_parameter_protocol(self.protocol, self.reasoning_parameters)
-        if self.context_window is not None and self.max_output_tokens + self.retention_tokens >= self.context_window:
-            raise ValueError("The frozen context window cannot hold output and retention reserves.")
+        if (
+            self.context_window is not None
+            and self.max_output_tokens + self.retention_tokens >= self.context_window
+        ):
+            raise ValueError(
+                "The frozen context window cannot hold output and retention reserves."
+            )
         return self
 
 

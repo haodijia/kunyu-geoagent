@@ -1,6 +1,7 @@
 """HTTP transport for explicitly selected Chat, Messages and Responses protocols."""
 
 import asyncio
+import json
 import logging
 import math
 from collections.abc import AsyncIterator, Awaitable, Callable
@@ -25,6 +26,7 @@ from kunyu.integrations.model.connection import (
     messages_root,
     validate_config,
 )
+from kunyu.integrations.model.context_overflow import is_context_overflow
 from kunyu.integrations.model.deepseek_messages_request import (
     encode_request as encode_messages_request,
 )
@@ -175,7 +177,7 @@ class HTTPModelAdapter:
                 content=body,
                 timeout=MODEL_HTTP_TIMEOUT,
             ) as response:
-                _validate_response(response)
+                await _validate_response(response)
                 async for data in _iter_sse_data(response):
                     outputs = parser.push(data)
                     if parser.complete:
@@ -272,13 +274,28 @@ async def _iter_sse_data(response: httpx.Response) -> AsyncIterator[str]:
         yield "\n".join(data_lines)
 
 
-def _validate_response(response: httpx.Response) -> None:
+async def _validate_response(response: httpx.Response) -> None:
     if response.status_code in {401, 403}:
         raise ModelAdapterError(
             ModelErrorCode.PROVIDER_AUTH,
             "The provider rejected the configured credential.",
         )
     if not 200 <= response.status_code < 300:
+        if response.status_code in {400, 413, 422}:
+            content = bytearray()
+            async for chunk in response.aiter_bytes():
+                content.extend(chunk[: 65536 - len(content)])
+                if len(content) == 65536:
+                    break
+            try:
+                detail = json.loads(content)
+            except (ValueError, UnicodeError):
+                detail = None
+            if is_context_overflow(detail):
+                raise ModelAdapterError(
+                    ModelErrorCode.CONTEXT_WINDOW_EXCEEDED,
+                    "The provider rejected a request exceeding its context window.",
+                )
         code = (
             ModelErrorCode.PROVIDER_RATE_LIMIT
             if response.status_code == 429
