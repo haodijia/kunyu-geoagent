@@ -10,11 +10,13 @@ from kunyu.agent.runtime.control_projection import ControlProjection
 from kunyu.agent.runtime.events import (
     TERMINAL_RUN_STATES,
     AgentEvent,
+    CompactionStartedEvent,
     InboxMessagePayload,
     InboxSplicedEvent,
     QueueDispatchedEvent,
     QueueModeEvent,
     QueueReorderedEvent,
+    RunState,
     SessionCreatedEvent,
     StepDecisionEvent,
     TodoWriteEvent,
@@ -78,6 +80,47 @@ def reduce_session(events: Iterable[AgentEvent]) -> ReducedSession:
             ) from error
 
         try:
+            if (
+                isinstance(event, CompactionStartedEvent)
+                and event.payload.owner_run_id is not None
+            ):
+                owner_events = run_events[event.payload.owner_run_id]
+                owner = reduce_run(owner_events)
+                if (
+                    owner.state
+                    not in {
+                        RunState.READY,
+                        RunState.MODEL_RUNNING,
+                        RunState.TOOL_RUNNING,
+                    }
+                    or any(
+                        assistant.status == "streaming"
+                        for assistant in owner.assistants
+                    )
+                    or any(
+                        call.status in {"pending", "running"}
+                        for call in owner.tool_calls
+                    )
+                ):
+                    raise ValueError(
+                        "Automatic compaction must be between complete model/tool batches."
+                    )
+                if event.payload.trigger == "context-overflow":
+                    attempt = next(
+                        (
+                            item
+                            for item in reversed(owner_events)
+                            if item.event_type == "model.attempt.finished"
+                        ),
+                        None,
+                    )
+                    if (
+                        attempt is None
+                        or attempt.payload["error_code"] != "CONTEXT_WINDOW_EXCEEDED"
+                    ):
+                        raise ValueError(
+                            "Overflow compaction requires the settled provider context failure."
+                        )
             compactions.accept(event, envelope.sequence)
         except ValueError as error:
             raise SessionReductionError(str(error)) from error

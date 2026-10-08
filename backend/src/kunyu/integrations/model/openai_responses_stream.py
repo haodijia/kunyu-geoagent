@@ -21,6 +21,7 @@ from kunyu.agent.runtime.models import (
     TextDelta,
     TokenUsage,
 )
+from kunyu.integrations.model.context_overflow import is_context_overflow
 from kunyu.integrations.model.openai_chat_stream import (
     MAX_TOOL_ARGUMENT_BYTES,
     MAX_TOOL_CALLS,
@@ -93,6 +94,11 @@ class OpenAIResponsesStreamParser:
             code = detail.get("code") if isinstance(detail, dict) else event.get("code")
             if code is not None and not isinstance(code, str):
                 raise protocol_error("The Responses error code is invalid.")
+            if is_context_overflow(detail):
+                raise ModelAdapterError(
+                    ModelErrorCode.CONTEXT_WINDOW_EXCEEDED,
+                    "The provider reported a context window overflow.",
+                )
             mapped = {
                 "server_error": ModelErrorCode.PROVIDER_SERVER,
                 "rate_limit_exceeded": ModelErrorCode.PROVIDER_RATE_LIMIT,

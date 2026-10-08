@@ -2,6 +2,7 @@
 
 from dataclasses import asdict
 
+from kunyu.agent.compaction_pressure import PressurePolicy, measure_pressure
 from kunyu.agent.compaction_prompt import (
     COMPACTION_INSTRUCTION,
     SECTIONS,
@@ -68,13 +69,31 @@ class CompactionProjection:
                 raise ValueError("The compaction request boundary is invalid.")
             header = self.headers.get(payload.request_sequence)
             if (
-                self.open_runs
-                or self.commands.get(payload.command_id) != "compact"
-                or header is None
+                header is None
                 or header.run_id != payload.source_run_id
                 or header.payload.model_snapshot != payload.model_snapshot
             ):
-                raise ValueError("Compaction requires the actual idle routed request.")
+                raise ValueError("Compaction requires the actual routed request.")
+            if payload.trigger == "manual":
+                if (
+                    self.open_runs
+                    or payload.owner_run_id is not None
+                    or self.commands.get(payload.command_id) != "compact"
+                    or payload.pressure is not None
+                ):
+                    raise ValueError(
+                        "Manual compaction requires the actual idle command."
+                    )
+            elif (
+                self.open_runs != {payload.owner_run_id}
+                or payload.command_id is not None
+                or (payload.trigger == "pressure") != (payload.pressure is not None)
+            ):
+                raise ValueError(
+                    "Automatic compaction requires its single active turn owner."
+                )
+            if any(identity not in self.finished for identity in self.started):
+                raise ValueError("A session cannot have concurrent compaction calls.")
             if payload.tools != tuple(header.payload.tools) or payload.messages[-1].get(
                 "content"
             ) != [{"type": "text", "text": COMPACTION_INSTRUCTION}]:
@@ -100,13 +119,21 @@ class CompactionProjection:
             ):
                 raise ValueError("Compaction selection boundaries are invalid.")
             header = self.headers[started.payload.request_sequence]
-            prefix = min(
-                len(header.payload.messages), len(started.payload.messages) - 1
+            prefix = payload.protected_messages
+            protected = next(
+                (
+                    index
+                    for index, message in enumerate(header.payload.messages)
+                    if message["role"] != "system"
+                    and snapshot_message(message).context_source != "workspace"
+                ),
+                len(header.payload.messages),
             )
             if (
-                started.payload.messages[:prefix]
+                prefix != protected
+                or started.payload.messages[:prefix]
                 != tuple(header.payload.messages[:prefix])
-                or payload.protected_messages >= len(started.payload.messages) - 1
+                or prefix >= len(started.payload.messages) - 1
             ):
                 raise ValueError(
                     "Selected compaction input does not preserve the routed prefix."
@@ -136,9 +163,34 @@ class CompactionProjection:
             if (
                 measured != payload.estimated_selected_tokens
                 or payload.retention_tokens
-                != started.payload.model_snapshot.retention_tokens
+                != (
+                    0
+                    if started.payload.trigger == "context-overflow"
+                    else started.payload.model_snapshot.retention_tokens
+                )
             ):
                 raise ValueError("Compaction selection measurements are inconsistent.")
+            if started.payload.pressure is not None:
+                pressure = started.payload.pressure
+                actual = measure_pressure(
+                    tuple(
+                        snapshot_message(message)
+                        for message in (
+                            *started.payload.messages[:-1],
+                            *payload.retained_messages,
+                        )
+                    ),
+                    started.payload.tools,
+                    started.payload.model_snapshot,
+                    PressurePolicy(pressure.threshold_ratio, pressure.headroom_tokens),
+                )
+                if (
+                    actual != pressure
+                    or pressure.estimated_prompt_tokens < pressure.threshold_tokens
+                ):
+                    raise ValueError(
+                        "Pressure compaction requires its measured routed threshold."
+                    )
             self.selections[payload.compaction_id] = event
         elif isinstance(event, CompactionFinishedEvent):
             payload = event.payload

@@ -65,7 +65,8 @@ def recover_compactions(
         )
         done = (
             ()
-            if (session_id, payload.command_id) in commands
+            if payload.command_id is None
+            or (session_id, payload.command_id) in commands
             else (
                 CommandDoneEvent(
                     session_id=session_id,

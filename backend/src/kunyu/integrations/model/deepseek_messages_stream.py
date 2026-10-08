@@ -25,6 +25,7 @@ from kunyu.agent.runtime.models import (
     TextDelta,
     TokenUsage,
 )
+from kunyu.integrations.model.context_overflow import is_context_overflow
 
 
 def protocol_error(detail: str) -> ModelAdapterError:
@@ -99,6 +100,11 @@ class DeepSeekMessagesStreamParser:
         if kind == "error":
             detail = object_field(event.get("error"))
             error_type = string_field(detail.get("type"))
+            if is_context_overflow(detail):
+                raise ModelAdapterError(
+                    ModelErrorCode.CONTEXT_WINDOW_EXCEEDED,
+                    "The provider reported a context window overflow.",
+                )
             code = {
                 "authentication_error": ModelErrorCode.PROVIDER_AUTH,
                 "permission_error": ModelErrorCode.PROVIDER_AUTH,

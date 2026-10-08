@@ -112,15 +112,19 @@ function contextRecord(
   if (first.eventType === "compaction/start") {
     const ended = events.find(event => event.eventType === "compaction/end");
     const selection = events.find(event => event.eventType === "compaction/selection");
+    const trigger = first.payload.trigger;
+    if (trigger !== "manual" && trigger !== "pressure" && trigger !== "context-overflow") throw new Error("Invalid compaction trigger.");
+    const label = zhCN.trajectory.compaction[trigger];
+    const owner = stringValue(first.payload.owner_run_id);
     const output = ended?.payload ?? null;
     const usage = output?.usage;
     const checkpoint = output === null ? "" : contentText(parseContentBlocks(output.blocks));
     const status = stringValue(output?.outcome) ?? "running";
     const record = baseRecord(events, {
-      turn: null, text: zhCN.trajectory.compaction, searchText: `${zhCN.trajectory.compaction} ${checkpoint}`,
+      turn: owner === null ? null : context.runTurns.get(owner) ?? null, text: label, searchText: `${label} ${checkpoint}`,
       status, startedAt: first.occurredAt, completedAt: ended?.occurredAt ?? null,
       isError: ended !== undefined && status !== "completed",
-      source: { kind: "compaction", source_run_id: first.payload.source_run_id, through_sequence: first.payload.through_sequence, request_sequence: first.payload.request_sequence, selection: selection?.payload ?? null },
+      source: { kind: "compaction", trigger: first.payload.trigger, owner_run_id: first.payload.owner_run_id, pressure: first.payload.pressure, source_run_id: first.payload.source_run_id, through_sequence: first.payload.through_sequence, request_sequence: first.payload.request_sequence, selection: selection?.payload ?? null },
       input: first.payload.messages, output: output === null ? null : { ...output, stream_origin: "model" },
       usage: typeof usage === "object" && usage !== null ? {
         inputTokens: tokenCount((usage as Record<string, unknown>).input_tokens),
