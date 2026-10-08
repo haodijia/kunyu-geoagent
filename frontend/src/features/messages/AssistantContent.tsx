@@ -1,4 +1,4 @@
-import type { ToolCall } from "@/features/agent/api";
+import type { AgentTurnState, ToolCall } from "@/features/agent/api";
 import type { Confirmation } from "@/features/confirmations/api";
 import { conversationSlots } from "@/features/conversation/slots";
 import type { PresentedBlock } from "@/features/events/stream-presentation";
@@ -19,6 +19,7 @@ export function AssistantContent({
   updatedAt,
   tools,
   confirmations,
+  runState,
 }: {
   readonly blocks: readonly PresentedBlock[];
   readonly messageId: string;
@@ -26,6 +27,7 @@ export function AssistantContent({
   readonly generating: boolean;
   readonly updatedAt: string;
   readonly tools: readonly ToolCall[];
+  readonly runState: AgentTurnState | null;
   readonly confirmations: readonly Confirmation[];
 }) {
   const groups: ContentGroup[] = [];
@@ -66,6 +68,7 @@ export function AssistantContent({
         {committed.length > 0 &&
           conversationSlots.render("message.tools", {
             confirmations,
+            runState,
             tools: committed,
           })}
         {generating &&

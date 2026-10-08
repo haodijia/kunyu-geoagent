@@ -11,7 +11,7 @@ import type { ReactNode } from "react";
 
 import { Button } from "@/components/ui/button";
 import type { Confirmation } from "@/features/confirmations/api";
-import { toolLabel } from "@/features/agent/ToolActivity";
+import { toolLabel } from "@/features/agent/tool-presentation";
 import { cn } from "@/lib/utils";
 import { zhCN } from "@/locales/zh-CN";
 
