@@ -558,6 +558,7 @@ class ModelCatalogService:
             auth_mode=connection.auth_mode,
             api_key=api_key,
             max_tokens_field=connection.max_tokens_field,
+            include_usage=connection.include_usage,
         )
 
     def _get(self, connection_id: str) -> ModelConnection:

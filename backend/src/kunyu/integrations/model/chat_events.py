@@ -36,8 +36,8 @@ class _PartialToolCall:
     argument_bytes: int = 0
 
 
-class OpenAIChatStreamParser:
-    """Strictly assembles one OpenAI Chat Completions SSE response."""
+class ChatEventMapper:
+    """Map SDK Chat events to ordered Agent blocks and native replay."""
 
     def __init__(self) -> None:
         self._text_parts: list[str] = []
@@ -53,17 +53,9 @@ class OpenAIChatStreamParser:
     def complete(self) -> bool:
         return self._complete
 
-    def push(self, data: str) -> tuple[ModelOutput, ...]:
+    def push(self, payload: dict) -> tuple[ModelOutput, ...]:
         if self._complete:
             raise _protocol_error("The provider sent data after stream completion.")
-        if data == "[DONE]":
-            return self._finish()
-        try:
-            payload = json.loads(data)
-        except ValueError as error:
-            raise _protocol_error(
-                "The provider stream contained invalid JSON."
-            ) from error
         if isinstance(payload, dict) and is_context_overflow(payload.get("error")):
             raise ModelAdapterError(
                 ModelErrorCode.CONTEXT_WINDOW_EXCEEDED,

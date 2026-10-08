@@ -59,7 +59,7 @@ class _Block:
     arguments: str = ""
 
 
-class DeepSeekMessagesStreamParser:
+class MessagesEventMapper:
     def __init__(self, model_id: str) -> None:
         self._model_id = model_id
         self._blocks: dict[int, _Block] = {}
@@ -68,11 +68,11 @@ class DeepSeekMessagesStreamParser:
         self._reason: ModelFinishReason | None = None
         self.complete = False
 
-    def push(self, data: str) -> tuple[ModelOutput, ...]:
+    def push(self, event: dict) -> tuple[ModelOutput, ...]:
         if self.complete:
             raise protocol_error("An event followed message_stop.")
         try:
-            event = object_field(json.loads(data, parse_constant=reject_constant))
+            event = object_field(event)
             return self._event(event)
         except (ValueError, ValidationError) as error:
             raise protocol_error("Invalid event data.") from error
@@ -181,6 +181,7 @@ class DeepSeekMessagesStreamParser:
                 arguments=json.dumps(
                     object_field(raw.get("input")),
                     ensure_ascii=False,
+                    allow_nan=False,
                     separators=(",", ":"),
                 ),
             )
@@ -236,7 +237,11 @@ class DeepSeekMessagesStreamParser:
             for block in self._blocks.values():
                 if isinstance(block.content, ToolCallBlock):
                     try:
-                        object_field(json.loads(block.content.arguments))
+                        object_field(
+                            json.loads(
+                                block.content.arguments, parse_constant=reject_constant
+                            )
+                        )
                     except ValueError as error:
                         raise protocol_error("Tool input is invalid JSON.") from error
         self.complete = True

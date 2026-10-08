@@ -85,10 +85,10 @@ def _assistant(message: ModelMessage, model: str) -> list[dict]:
     return result
 
 
-def encode_request(
+def project_request(
     request: ModelRequest[ModelConnectionConfig],
     images: Mapping[str, RequestImage] | None = None,
-) -> bytes:
+) -> dict:
     validate_request(request)
     require_images_fit(
         request.messages,
@@ -227,8 +227,7 @@ def encode_request(
             for tool in request.tools
         ]
     try:
-        return json.dumps(
-            payload, ensure_ascii=False, allow_nan=False, separators=(",", ":")
-        ).encode()
+        json.dumps(payload, allow_nan=False)
     except (TypeError, ValueError) as error:
-        raise invalid("Request must be JSON serializable.") from error
+        raise invalid("The model request is not JSON serializable.") from error
+    return payload
