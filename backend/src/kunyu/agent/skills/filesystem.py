@@ -58,6 +58,19 @@ def parse_skill(raw: str, path: Path, source: str, rank: int) -> SkillDefinition
     ):
         raise ValueError(f"Skill frontmatter requires name and description: {path}")
     validate_skill_name(name)
+    description.encode("utf-8")
+    when_to_use = metadata.get("whenToUse")
+    if when_to_use is not None:
+        if (
+            not isinstance(when_to_use, str)
+            or not when_to_use.strip()
+            or len(when_to_use) > 2000
+        ):
+            raise ValueError(
+                f"Skill frontmatter 'whenToUse' must be nonempty text up to 2000 characters: {path}"
+            )
+        when_to_use.encode("utf-8")
+        when_to_use = when_to_use.strip()
     for key in (
         "disableModelInvocation",
         "userInvocable",
@@ -84,6 +97,7 @@ def parse_skill(raw: str, path: Path, source: str, rank: int) -> SkillDefinition
             resource_base=str(path.parent),
             model_invocable=not metadata.get("disable-model-invocation", False),
             user_invocable=metadata.get("user-invocable", True),
+            when_to_use=when_to_use,
         ),
         content,
     )

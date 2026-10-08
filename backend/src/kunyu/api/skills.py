@@ -21,6 +21,7 @@ logger = logging.getLogger(__name__)
 class SkillResponse(BaseModel):
     name: str
     description: str
+    when_to_use: str | None
     source: str
     path: str
     resource_base: str
@@ -35,6 +36,7 @@ class SkillResponse(BaseModel):
         return cls(
             name=summary.name,
             description=summary.description,
+            when_to_use=summary.when_to_use,
             source=summary.source,
             path=summary.locator,
             resource_base=summary.resource_base,

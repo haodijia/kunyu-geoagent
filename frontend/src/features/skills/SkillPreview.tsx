@@ -1,3 +1,4 @@
+import { MessageMarkdown } from "@/features/messages/MessageMarkdown";
 import { CopyButton } from "@/features/messages/CopyButton";
 import { zhCN } from "@/locales/zh-CN";
 import type { LoadedSkill } from "./session-skills";
@@ -10,7 +11,7 @@ export function SkillPreview({ skill }: { readonly skill: LoadedSkill }) {
         <CopyButton text={skill.content} />
       </div>
       <p className="mb-2 text-xs text-muted-foreground">{zhCN.skills.loadedSnapshot} · {skill.source}</p>
-      <pre className="m-0 max-h-[min(50vh,360px)] overflow-auto rounded-md bg-muted p-2 text-xs leading-relaxed whitespace-pre-wrap [overflow-wrap:anywhere]">{skill.content}</pre>
+      <div className="max-h-[min(50vh,360px)] overflow-auto rounded-md bg-muted p-2 text-xs leading-relaxed [overflow-wrap:anywhere]"><MessageMarkdown text={skill.content} /></div>
     </div>
   );
 }

@@ -70,6 +70,7 @@ export const zhCN = {
   skills: {
     loadedCount: (count: number) => `已加载技能 (${count})`,
     loadedSnapshot: "本次加载的指令快照",
+    whenToUse: "适用场景",
     loadedList: "已加载技能",
     title: "技能",
     description: "用任务指令和参考资料扩展 Agent。模型按需加载技能，也可在会话中使用 /技能名 主动调用。",
@@ -80,7 +81,7 @@ export const zhCN = {
     importPlaceholder: "/path/to/skill 或 /path/to/SKILL.md",
     importHelp: "目录需包含 SKILL.md，可附带 references、scripts 和 assets。导入会复制资源到用户技能目录。",
     imported: "技能已导入",
-    search: "搜索技能名称或描述",
+    search: "搜索技能名称、描述或适用场景",
     directory: "用户技能目录",
     loading: "正在加载技能…",
     empty: "没有匹配的技能。可以新建或导入本地技能。",
@@ -103,7 +104,20 @@ export const zhCN = {
     deleteDescription: "将删除该用户技能的指令和全部资源。会话中已保存的加载内容仍会保留。",
     cancel: "取消",
     instructions: "技能指令",
-    template: (name: string) => `---\nname: ${name}\ndescription: 描述技能的用途与触发条件\ndisable-model-invocation: false\nuser-invocable: true\n---\n\n# 任务指令\n\n1. 明确任务目标和输入。\n2. 按步骤执行，并说明缺失的数据。\n3. 给出结果、依据和下一步行动。\n`,
+    template: (name: string) => `---
+name: ${name}
+description: 描述技能的用途与触发条件
+whenToUse: 说明适用的任务与输入场景
+disable-model-invocation: false
+user-invocable: true
+---
+
+# 任务指令
+
+1. 明确任务目标和输入。
+2. 按步骤执行，并说明缺失的数据。
+3. 给出结果、依据和下一步行动。
+`,
   },
   settings: {
     title: "设置",

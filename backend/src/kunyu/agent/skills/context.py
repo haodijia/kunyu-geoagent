@@ -18,7 +18,11 @@ SKILL_GESTURE = re.compile(r"(?:^|\s)/([a-z0-9]+(?:-[a-z0-9]+)*)(?=\s|$)")
 
 
 async def prepare_skill_context(
-    run_id: str, scope: Context, *, registration: ToolRegistration
+    run_id: str,
+    scope: Context,
+    *,
+    registration: ToolRegistration,
+    catalog_description_max_length: int,
 ) -> None:
     source = load_source(scope.require(s.CONTEXTS), run_id)
     registry = scope.require(s.SKILLS)
@@ -27,7 +31,10 @@ async def prepare_skill_context(
         scope.require(s.TOOLS).registration_for_run("skill", run_id) is registration
     )
     entries = (
-        catalog_entries(tuple(skill for skill in skills if skill.model_invocable))
+        catalog_entries(
+            tuple(skill for skill in skills if skill.model_invocable),
+            catalog_description_max_length,
+        )
         if tool_visible
         else []
     )
@@ -82,6 +89,7 @@ async def prepare_skill_context(
                     metadata={
                         "name": definition.summary.name,
                         "source": definition.summary.source,
+                        "content": definition.content,
                         "run_id": run_id,
                         "message_id": message.message_id,
                         "step": source.run.step,
