@@ -26,6 +26,18 @@ class Base(DeclarativeBase):
     pass
 
 
+class McpServerRecord(Base):
+    __tablename__ = "mcp_servers"
+    __table_args__ = (CheckConstraint("revision > 0 AND catalog_revision >= 0", name="ck_mcp_server_revision"),)
+    name: Mapped[str] = mapped_column(String(32), primary_key=True)
+    config: Mapped[dict] = mapped_column(JSON, nullable=False)
+    secrets: Mapped[dict] = mapped_column(JSON, nullable=False)
+    revision: Mapped[int] = mapped_column(Integer, nullable=False)
+    catalog_revision: Mapped[int] = mapped_column(Integer, nullable=False)
+    catalog: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+
 class WorkspaceRecord(Base):
     __tablename__ = "workspaces"
     __table_args__ = (Index("ix_workspaces_updated_at", "updated_at"),)

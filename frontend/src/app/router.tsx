@@ -6,6 +6,8 @@ import { ModelConnectionCreatePage } from "@/features/settings/models/ModelConne
 import { ModelConnectionDetailPage } from "@/features/settings/models/ModelConnectionDetailPage";
 import { ModelConnectionsPage } from "@/features/settings/models/ModelConnectionsPage";
 import { ModelProviderCatalogPage } from "@/features/settings/models/ModelProviderCatalogPage";
+import { McpServersPage } from "@/features/settings/mcp/McpServersPage";
+import { McpServerEditorPage } from "@/features/settings/mcp/McpServerEditorPage";
 import { SkillsPage } from "@/features/settings/skills/SkillsPage";
 import { SkillEditorPage } from "@/features/settings/skills/SkillEditorPage";
 import { SessionWorkspace } from "@/features/sessions/SessionWorkspace";
@@ -30,6 +32,9 @@ export const router = createHashRouter([
     path: "/",
     element: <AppShell />,
     children: [
+      { path: "settings/mcp", element: <McpServersPage /> },
+      { path: "settings/mcp/new", element: <McpServerEditorPage /> },
+      { path: "settings/mcp/:serverName", element: <McpServerEditorPage /> },
       { path: "settings/archived", element: <ArchivedSessionsPage /> },
       { path: "settings/skills", element: <SkillsPage /> },
       { path: "settings/skills/new", element: <SkillEditorPage /> },

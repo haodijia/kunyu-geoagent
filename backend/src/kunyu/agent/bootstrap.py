@@ -7,6 +7,7 @@ import httpx
 from kunyu.agent import services as s
 from kunyu.agent.commands.plugin import CommandsPlugin
 from kunyu.agent.kernel import Kernel, Plugin
+from kunyu.agent.mcp.plugin import McpPlugin
 from kunyu.agent.plugins.attachments import AttachmentToolsPlugin
 from kunyu.agent.plugins.compaction import CompactionPlugin
 from kunyu.agent.plugins.core import (
@@ -100,6 +101,7 @@ async def create_agent_runtime(
         SkillPlugin(),
         FilesystemSkillsPlugin(),
         SkillToolsPlugin(),
+        McpPlugin(),
         TurnServicesPlugin(),
         UserQuestionsPlugin(),
         PlanModePlugin(),
