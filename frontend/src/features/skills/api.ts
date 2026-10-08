@@ -3,6 +3,7 @@ import { requestJson } from "@/api/client";
 export interface Skill {
   readonly name: string;
   readonly description: string;
+  readonly when_to_use: string | null;
   readonly source: string;
   readonly path: string;
   readonly resource_base: string;

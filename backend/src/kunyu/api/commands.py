@@ -24,6 +24,7 @@ class CommandDescriptorResponse(BaseModel):
     definition_id: str
     name: str
     description: str
+    when_to_use: str | None
     input_hint: str | None
     kind: Literal["execute", "skill"]
 
@@ -68,6 +69,7 @@ async def list_commands(session_id: str, agents: AgentDirectoryDependency):
             definition_id=item.definition_id,
             name=item.name,
             description=item.description,
+            when_to_use=None,
             input_hint=item.input_hint,
             kind="execute",
         )
@@ -91,6 +93,7 @@ async def list_commands(session_id: str, agents: AgentDirectoryDependency):
                 definition_id=f"skill/{skill.name}",
                 name=skill.name,
                 description=skill.description,
+                when_to_use=skill.when_to_use,
                 input_hint="<任务需求>",
                 kind="skill",
             )

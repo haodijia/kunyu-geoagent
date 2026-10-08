@@ -46,7 +46,7 @@ export function ComposerCommandMenu({
             onClick={() => { if (command.unavailableReason === null) onSelect(command); }}
           >
             <span className="w-24 shrink-0 break-words font-medium">/{command.name}</span>
-            <span className="min-w-0 flex-1">{command.unavailableReason ?? command.description}{command.input_hint !== null && <span className="mt-0.5 block break-words font-mono text-[10px] text-muted-foreground">{command.input_hint}</span>}</span>
+            <span className="min-w-0 flex-1">{command.unavailableReason ?? command.description}{command.when_to_use !== null && <span className="mt-0.5 block break-words text-[11px] text-muted-foreground">{command.when_to_use}</span>}{command.input_hint !== null && <span className="mt-0.5 block break-words font-mono text-[10px] text-muted-foreground">{command.input_hint}</span>}</span>
           </div>
         ))}
       </div>

@@ -36,7 +36,7 @@ export function collectSessionSkills(events: readonly SessionEvent[]) {
       steps.set(stepKey(event.run_id, event.payload.step), ids);
     } else if (event.event_type === "context.injected" && event.payload.producer === "skill-invocation") {
       const metadata = object(event.payload.metadata);
-      const skill = { name: string(metadata.name), source: string(metadata.source), content: string(event.payload.content) };
+      const skill = { name: string(metadata.name), source: string(metadata.source), content: string(metadata.content) };
       loaded.set(skill.name, skill);
       const ids = steps.get(stepKey(metadata.run_id, metadata.step));
       if (ids === undefined) throw new Error("Skill invocation has no admitted user step.");

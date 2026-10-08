@@ -5,9 +5,32 @@ from html import escape
 from kunyu.agent.skills.registry import SkillDefinition, SkillSummary
 
 
-def catalog_entries(skills: tuple[SkillSummary, ...]) -> list[dict[str, str]]:
+def catalog_description(value: str, max_length: int) -> str:
+    if type(max_length) is not int or max_length < 3:
+        raise ValueError("Catalog description length must be an integer of at least 3.")
+    value.encode("utf-8")
+    normalized = " ".join(value.split())
+    length = sum(2 if ord(char) > 0xFFFF else 1 for char in normalized)
+    if length <= max_length:
+        return normalized
+    prefix, units = [], 0
+    for char in normalized:
+        size = 2 if ord(char) > 0xFFFF else 1
+        if units + size > max_length - 3:
+            break
+        prefix.append(char)
+        units += size
+    return "".join(prefix) + "..."
+
+
+def catalog_entries(
+    skills: tuple[SkillSummary, ...], max_length: int
+) -> list[dict[str, str]]:
     return [
-        {"name": skill.name, "description": " ".join(skill.description.split())[:500]}
+        {
+            "name": skill.name,
+            "description": catalog_description(skill.description, max_length),
+        }
         for skill in skills
     ]
 

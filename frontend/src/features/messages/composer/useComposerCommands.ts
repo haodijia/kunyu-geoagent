@@ -43,7 +43,7 @@ export function useComposerCommands({
     staleTime: 0,
   });
   const commands: ComposerCommandDescriptor[] = [
-    { definition_id: "kunyu/ui-model-selection", name: "model", description: content.modelDescription, input_hint: null, kind: "model", unavailableReason: modelDisabled ? content.modelLocked : null },
+    { definition_id: "kunyu/ui-model-selection", name: "model", description: content.modelDescription, when_to_use: null, input_hint: null, kind: "model", unavailableReason: modelDisabled ? content.modelLocked : null },
     ...(catalog.data === undefined ? [] : catalog.data.map((item) => ({
       ...item,
       unavailableReason: item.kind === "skill" && sendDisabled ? content.skillUnavailable : item.name === "compact" && agentBusy ? content.agentBusy : null,

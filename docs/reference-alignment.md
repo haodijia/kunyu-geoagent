@@ -344,3 +344,14 @@
 - 此处是最近实际请求的用量视图；harness 的替换表面压力预测、完整视觉／隐藏推理计价、逐轮费用／推理桶、更多对话与Agent能力仍待继续，整体目标未完成。已取消的通用文件工作台保持不做。
 
 来源：本地 Mu `ContextUsageIndicator.tsx`、[OpenAI Docs Chat Completions](https://developers.openai.com/api/reference/resources/chat/subresources/completions/methods/create)、[OpenAI Docs Prompt Caching](https://developers.openai.com/api/docs/guides/prompt-caching)。
+
+
+## Skill 加载指令与适用场景（2026-10-08）
+
+- 对照 harness skill/renderSkillContent、tool-skill 的结构化原始正文／共享模型渲染、whenToUse 元数据及目录截断；Mu 技能详情和已加载指示器的主题与排版。模型 skill 工具不再把包裹后的指令嵌进 JSON 字符串，实际 TextBlock 直接使用与显式用户调用相同的 render_skill；结构化 result.content 保存原始 Markdown。skill_resource 同样直接向模型提供实际 UTF-8 正文，结果元数据保留身份和资源目录。
+- 用户调用原始正文保存到 metadata.content；已加载指示器与消息 Skill 标记复用 MessageMarkdown 渲染标题、强调、列表、表格与代码，复制仍拿原始快照。后续文件编辑／删除不改写该记录。计划模式通知原本就在 Skill 注入之前，本批未增加上下文排序阶段或改变其运行顺序。
+- 支持标准 whenToUse YAML 字段和明确的文本验证，作为 when_to_use 提供给管理、会话目录和命令目录；设置列表／详情显示适用场景，设置及斜杠菜单可检索它，英文大小写统一处理。调用可见性仍先按 user_invocable 过滤；模型目录只含名称／description，与参考相同。
+- 模型简介规范空白、默认500 UTF-16单元，超限加省略提示；截断保持完整字符，避免切出孤立代理项。插件可显式配置描述上限，最小3，无文件hash。修复新建技能模板中的字面量\n，模板使用真实多行YAML；改名称更新实际frontmatter后可直接保存。
+- 0020仅补充旧用户调用已保存包裹中的确切原始正文，保持原消息、工具结果、序号、模型参数、用量与其他表不变，旧模型工具事实不被重写。真实旧0007技能库先升级0019，再验证0020的逐行原事实比较、外键／完整性和完整重建；没有从当前文件猜历史正文。
+- 实际本地HTTP／公开API／Agent验证Chat、Messages、Responses的裸指令包裹、资源正文、结构化快照、非法whenToUse、模型／用户可见性、手势去重、指令在当前输入末尾、压缩后目录重发和完整重建。网络503重试期间更改技能文件，原消息／冻结模型／Skill正文保持一致且不重复加载。离屏Electron验证两类快照、Markdown标题／表格／强调／代码、历史预览、刷新、适用场景搜索、用户权限过滤、600px深色；另验证新建模板、改名和实际UI保存。构建／类型检查／Ruff通过，未新增仓库测试或调用真实供应商。
+- Skill运行时虚拟资源Provider、更多Agent能力及完整Mu／harness目标仍待继续；此处不宣称所有Skill和Agent行为已完全一致。文件工作台继续保持取消。

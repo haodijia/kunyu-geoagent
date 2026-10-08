@@ -49,6 +49,16 @@ class SkillToolsPlugin:
     )
     provides = ()
 
+    def __init__(self, *, catalog_description_max_length: int = 500) -> None:
+        if (
+            type(catalog_description_max_length) is not int
+            or catalog_description_max_length < 3
+        ):
+            raise ValueError(
+                "Catalog description length must be an integer of at least 3."
+            )
+        self.catalog_description_max_length = catalog_description_max_length
+
     async def apply(self, context: Context) -> None:
         registrations = {}
         for name, resource in (("skill", False), ("skill_resource", True)):
@@ -66,5 +76,9 @@ class SkillToolsPlugin:
         context.require(s.CONTEXT_PREPARERS).register(
             context,
             "skills",
-            partial(prepare_skill_context, registration=registrations["skill"]),
+            partial(
+                prepare_skill_context,
+                registration=registrations["skill"],
+                catalog_description_max_length=self.catalog_description_max_length,
+            ),
         )

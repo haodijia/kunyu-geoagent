@@ -29,7 +29,7 @@ export function SkillsPage() {
     onError: (error) => console.error("[skills] Import failed.", error),
   });
   const skills = catalog.data?.skills.filter((skill) =>
-    `${skill.name} ${skill.description}`.toLowerCase().includes(search.toLowerCase()),
+    `${skill.name} ${skill.description} ${skill.when_to_use === null ? "" : skill.when_to_use}`.toLowerCase().includes(search.toLowerCase()),
   );
 
   return (
@@ -83,6 +83,7 @@ export function SkillsPage() {
                 {!skill.user_invocable ? <span className="text-[11px] text-muted-foreground">{content.userDisabled}</span> : null}
               </div>
               <p className="m-0 mt-1 line-clamp-2 text-xs leading-5 text-muted-foreground">{skill.description}</p>
+              {skill.when_to_use !== null && <p className="m-0 mt-1 line-clamp-2 text-xs leading-5 text-muted-foreground">{content.whenToUse} · {skill.when_to_use}</p>}
             </div>
             <ChevronRight className="size-4 shrink-0 text-muted-foreground" />
           </Link>

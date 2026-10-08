@@ -2,6 +2,7 @@ export interface ComposerCommandDescriptor {
   readonly definition_id: string;
   readonly name: string;
   readonly description: string;
+  readonly when_to_use: string | null;
   readonly input_hint: string | null;
   readonly kind: "execute" | "skill" | "model";
   readonly unavailableReason: string | null;
@@ -22,6 +23,6 @@ export function filterComposerCommands(
   const query = match[1]?.toLowerCase();
   if (query === undefined) return null;
   return commands.filter((command) =>
-    command.name.includes(query) || command.description.includes(query),
+    command.name.includes(query) || command.description.toLowerCase().includes(query) || (command.when_to_use !== null && command.when_to_use.toLowerCase().includes(query)),
   );
 }

@@ -87,6 +87,7 @@ function SkillEditor({ detail }: { readonly detail: SkillDetail | null }) {
           </label>
         ) : (
           <div className="flex flex-col gap-1 text-xs text-muted-foreground [overflow-wrap:anywhere]">
+            {detail.when_to_use !== null && <span>{content.whenToUse} · {detail.when_to_use}</span>}
             <span>{content.file} · {detail.path}</span>
             <span>{content.resources} · {detail.resource_base}</span>
             {!editable ? <span>{content.readOnly}</span> : null}

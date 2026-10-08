@@ -14,7 +14,6 @@ from kunyu.agent.skills.registry import SKILL_NAME_PATTERN, SkillRegistry
 from kunyu.agent.skills.render import render_skill
 from kunyu.agent.tools.shared import (
     ToolArguments,
-    encode_json,
     load_source,
     require_bound_call,
     validate_arguments,
@@ -93,7 +92,7 @@ class SkillTool:
                 read_resource, skill.summary, arguments.path
             )
         else:
-            content = render_skill(skill)
+            content = skill.content
         scope.assert_active()
         value = {
             "name": skill.summary.name,
@@ -102,6 +101,8 @@ class SkillTool:
             "content": content,
         }
         return ToolResult(
-            content=(TextBlock(text=encode_json(value).decode("utf-8")),),
+            content=(
+                TextBlock(text=content if self._resource else render_skill(skill)),
+            ),
             result=TypeAdapter(JsonValue).validate_python(value),
         )

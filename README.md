@@ -62,7 +62,7 @@ uv run --project backend python -m kunyu.main
 
 Agent 系统提示词可直接编辑 [system.md](backend/src/kunyu/agent/prompts/system.md)，下一次模型请求生效。记忆工具及上下文代码入口见[记忆工具与上下文](docs/develop/记忆工具与上下文.md)，目录职责及 Tool、Skill 扩展约定见[后端 Agent 结构](docs/develop/后端Agent结构.md)。
 
-在「设置 → 技能」中新建或导入 `SKILL.md` 技能包。会话中使用 `/技能名` 显式调用，或由模型按任务简介加载；内置 `/disaster-assessment` 灾害研判技能。格式、权限、资源读取和来源优先级见[Agent 技能](docs/develop/Agent技能.md)。
+在「设置 → 技能」中新建或导入 `SKILL.md` 技能包。会话中使用 `/技能名` 显式调用，或由模型按任务简介加载；支持 `whenToUse` 适用场景检索，已加载指令以 Markdown 快照展示；内置 `/disaster-assessment` 灾害研判技能。格式、权限、资源读取和来源优先级见[Agent 技能](docs/develop/Agent技能.md)。
 
 ## 功能特点
 

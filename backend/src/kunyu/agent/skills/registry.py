@@ -24,6 +24,7 @@ class SkillSummary:
     resource_base: str
     model_invocable: bool = True
     user_invocable: bool = True
+    when_to_use: str | None = None
 
 
 @dataclass(frozen=True, slots=True)

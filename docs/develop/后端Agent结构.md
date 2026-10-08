@@ -463,3 +463,10 @@ CompactionProjection 和 session reducer 校验当前唯一活动所有者、没
 前端从实际 request.header 的冻结模型窗口、提供方及模型标识，与相同 run／step／attempt／message 的 model.attempt.finished 配对；实时 usage 同样绑定请求身份。未知统计保持未知，辅助摘要不替换普通模型请求样本，输入区模型切换不改变旧请求分母。压缩后只说明历史已替换，等待下一次供应商请求再更新统计，不将固定密度估算冒充实际用量。
 
 Chat 保留 prompt_tokens_details 的缓存读取／写入，Responses 保留 input_tokens_details 的缓存写入；Messages 缓存收据继续进入已有 UsageChunk。没有新增数据库统计列、迁移或推断旧值，缓存计数来自原流，零值可区分缺失。此计数视图不是会话累计费用或下一次请求压力预测；原压力估算及运行预算契约不变。五类模型连接的实际本地 API／HTTP／Agent 记录与三协议重建，以及界面与请求投影已核对。
+
+
+## Skill 模型文本与原始快照
+
+SkillTool 的实际模型 TextBlock 直接调用 render_skill，显式调用注入使用同一函数，避免旧的JSON转义指令。结构化结果单独保存原始正文及资源身份；skill_resource 的模型文本也是读取到的原文。用户调用在 metadata.content 保存原始正文，界面直接使用该快照渲染Markdown；不再为展示从模型包裹提取内容或重读文件。旧记录的确切正文由0020一次性补充，原模型消息和工具事实保留。
+
+SkillSummary 增加 when_to_use，对应标准 frontmatter.whenToUse，进入管理／会话／命令查询；模型目录仍只投影名称和简介。简介按显式长度配置截断并标明省略，UTF-16预算不切开Unicode字符。当前用户输入／计划提醒／目录／指令的先后关系保持，未为此增加新的预处理阶段。三种实际HTTP协议、重试中的历史冻结、压缩续接、旧库迁移、Markdown快照及新建技能保存已核对。
