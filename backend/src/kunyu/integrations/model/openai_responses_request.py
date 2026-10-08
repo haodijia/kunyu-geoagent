@@ -22,10 +22,10 @@ from kunyu.integrations.model.openai_responses_items import item_block
 from kunyu.integrations.model.request_images import RequestImage, require_images_fit
 
 
-def encode_request(
+def project_request(
     request: ModelRequest[ModelConnectionConfig],
     images: Mapping[str, RequestImage] | None = None,
-) -> bytes:
+) -> dict:
     validate_request(request)
     images = images if images is not None else {}
     config = request.adapter_config
@@ -117,11 +117,10 @@ def encode_request(
         payload.update(tools=tools, tool_choice="auto")
     payload.update(config.reasoning_parameters.payload())
     try:
-        return json.dumps(payload, ensure_ascii=False, allow_nan=False).encode("utf-8")
-    except (ValueError, TypeError) as error:
-        raise invalid_request(
-            "The Responses request is not JSON serializable."
-        ) from error
+        json.dumps(payload, allow_nan=False)
+    except (TypeError, ValueError) as error:
+        raise invalid_request("The model request is not JSON serializable.") from error
+    return payload
 
 
 def _input(message: ModelMessage, images: Mapping[str, RequestImage]) -> list[dict]:

@@ -5,7 +5,7 @@ from collections.abc import Mapping
 
 from kunyu.agent.runtime.content import ReasoningBlock, TextBlock, ToolCallBlock
 from kunyu.agent.runtime.models import ModelAdapterError, ModelErrorCode
-from kunyu.integrations.model.openai_chat_stream import MAX_TOOL_ARGUMENT_BYTES
+from kunyu.integrations.model.chat_events import MAX_TOOL_ARGUMENT_BYTES
 
 
 def protocol_error(message: str) -> ModelAdapterError:

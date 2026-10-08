@@ -5,9 +5,11 @@ description = "Kunyu desktop backend"
 requires-python = ">=3.12"
 dependencies = [
     "alembic>=1.16,<2",
+    "anthropic>=0.125,<1",
     "anyio>=4,<5",
     "fastapi>=0.141.1",
     "httpx>=0.28.1",
+    "openai>=2.54,<3",
     "pillow>=12,<13",
     "platformdirs>=4.11.12",
     "pydantic>=2.13.5",

@@ -130,9 +130,9 @@ backend/src/kunyu/agent/
 
 ## 模型协议与签名回放
 
-`integrations/model/adapter.py` 统一 HTTP 生命周期、凭据读取、SSE 分帧和稳定错误；`connection.py` 提供不可变配置与 URL 校验。`openai_chat_request.py`／`openai_chat_stream.py` 和 `deepseek_messages_request.py`／`deepseek_messages_stream.py` 分别承担两种显式协议的编码、解析，不在失败后切换协议或地址。旧 `openai_compatible_adapter.py` 和 `openai_compatible.py` 已移除。
+`integrations/model/adapter.py` 的 SDKModelAdapter 是统一模型入口；Agent 核心只处理 ModelRequest／ModelOutput，不依赖具体协议或 SDK。`sdk.py` 通过官方 OpenAI、Anthropic Python SDK 发送请求和解码 SSE，`sdk_http.py` 借用应用连接池并限制响应字节。`openai_chat_request.py`、`openai_responses_request.py`、`messages_request.py` 投影原生输入；`chat_events.py`、`responses_events.py`、`messages_events.py` 把 SDK 对象转换为 Agent 分块、用量和原生回放。手写 HTTP／SSE 传输及旧解析器入口已删除；不在失败后切换协议或地址。
 
-DeepSeek 新连接默认 `deepseek_messages` 与 `https://api.deepseek.com/anthropic`，请求追加 `/v1/messages`；已含 `/v1` 时不重复追加。模型请求使用 `x-api-key` 和 `anthropic-version: 2023-06-01`。官方模型目录仍从根 `/models` 获取，使用该目录接口的 Bearer 认证；自定义 Messages 目录使用配置地址的 `/v1/models`。`provider_client.py` 的文本与工具检查直接使用非流式 Messages，关闭思考并验证真实块及工具参数。DeepSeek 与自定义连接可在设置页切换协议；改动增加修订，清除旧检查与推理声明，队列和运行占用时拒绝更改。既有连接保持其显式配置。
+DeepSeek 新连接默认 `deepseek_messages` 与 `https://api.deepseek.com/anthropic`，请求追加 `/v1/messages`；已含 `/v1` 时不重复追加。模型请求使用 `x-api-key` 和 `anthropic-version: 2023-06-01`。官方模型目录仍从根 `/models` 获取，使用该目录接口的 Bearer 认证；自定义 Messages 目录使用配置地址的 `/v1/models`。`provider_client.py` 的文本与工具检查使用同一个 SDKModelAdapter 的流式调用，发送实际冻结的思考参数、输出上限和用量开关，验证完整终止事件与真实工具参数。DeepSeek 与自定义连接可在设置页切换协议；改动增加修订，清除旧检查与推理声明，队列和运行占用时拒绝更改。既有连接保持其显式配置。
 
 原生思考档位为 off／low／high／max，默认 high。声明来自所选协议，目录来源记录为 `protocol`；请求编码为 thinking 与 output_config.effort。新 Messages 运行使用 harness 的 256000 输出 Token 上限与 300 秒流空闲超时，应用现有运行调用数、工具数、字符和活动时间预算仍生效。
 
@@ -481,3 +481,16 @@ confirmation.requested持久保存执行模式、绑定和可审阅说明。批�
 批准只授权相同tool_call_id。已开始后被中断的调用根据真实tool.started记录阻止重发，明确保存TOOL_REPLAY_BLOCKED结果；不能把未确认的远端结果说成已回滚。尚未开始的已批准调用可以正常续跑，等待审批的记录在重启后仍等待用户决定。重复批准不再次发送；拒绝及取消不会自动改走另一执行方式。
 
 0021将原审批标明transaction，绑定保持未知None，其他事实不变。三种HTTP模型协议与真实异步工具验证了批准后队列、失败、拒绝、绑定变化、重复批准、取消、重启及重建；批准后权限与风险声明变更也阻止发送。本地记忆事务及日志失败回滚保持。现有Mu风格确认卡直接复用，窄屏深色／刷新和模型续接通过。MCP连接、目录与资源、状态管理和完整业务作业监督尚未接入，本批是该能力的审批执行基础。
+
+
+## SDK 模型接入统一
+
+参考 harness 的 llm-pi-ai 适配边界，Python 后端直接使用官方 SDK，保留一套 Agent、工具和 Skill 运行逻辑。OpenAI SDK 负责 Chat Completions／Responses，Anthropic SDK 负责原生 Messages；DeepSeek、Kimi、MiMo、GLM 与 OpenAI 的显式连接仍可使用相应接口。协议选择只影响接入层，没有增加三套运行循环。SDK 依赖和解析版本由 backend/uv.lock 固定。
+
+SDK 接收投影后的消息和额外原生参数，模型返回对象使用 exclude_unset 保留缺失与零值的区别。reasoning_content、thinking signature、Responses encrypted_content 和 call_id 继续进入已有原生回放，历史 ReplayEnvelope 格式不变。严格事件映射仍拒绝不完整工具、非法 JSON、未闭合事件和未知能力；没有使用 SDK 的宽松工具参数解析替代本地工具验证。
+
+SDK 的 max_retries 固定为 0，重试与溢出压缩由现有 Agent 插件控制。请求使用已冻结的凭据与地址，忽略 SDK 环境中的自定义请求头，不跟随重定向。响应解压后按 2 MiB 响应／SSE 事件边界限制，模型事件空闲超时为 300 秒；结束、失败、取消或提前关闭都会释放当前响应及 SDK 客户端，不关闭应用共享连接池。SDK 原始异常正文不进入公开错误或日志异常链。
+
+连接目录也通过 SDK 获取；DeepSeek 官方目录仍明确使用根 OpenAI /models 接口。能力检查与真实运行共用输入投影、SDK 传输、事件映射和工具验证，删除了三份独立非流式探测实现。
+
+临时本地 HTTP／ASGI／实际 Agent 验证了五家模型的冻结参数、工具续接、Skill、手动和溢出压缩、审批与重启、投影重建、缺失／零值／部分缓存用量及图片／文件请求。另核对认证与环境请求头隔离、SDK 不隐藏重试、HTTP 与流内错误、非法工具输入、截断、超限、取消和连接释放。未新增仓库测试，也未调用真实付费模型；真实供应商连通性仍需使用配置的凭据检查。

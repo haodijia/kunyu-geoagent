@@ -26,10 +26,10 @@ from kunyu.integrations.model.connection import (
 from kunyu.integrations.model.request_images import RequestImage, require_images_fit
 
 
-def encode_request(
+def project_request(
     request: ModelRequest[ModelConnectionConfig],
     images: Mapping[str, RequestImage] | None = None,
-) -> bytes:
+) -> dict:
     config = request.adapter_config
     validate_request(request)
     require_images_fit(
@@ -80,13 +80,10 @@ def encode_request(
         payload["stream_options"] = {"include_usage": True}
     payload.update(config.reasoning_parameters.payload())
     try:
-        return json.dumps(
-            payload,
-            ensure_ascii=False,
-            separators=(",", ":"),
-        ).encode("utf-8")
+        json.dumps(payload, allow_nan=False)
     except (TypeError, ValueError) as error:
         raise invalid_request("The model request is not JSON serializable.") from error
+    return payload
 
 
 def _serialize_message(

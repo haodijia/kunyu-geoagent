@@ -1,6 +1,5 @@
-"""Assemble native Responses SSE items without exposing encrypted reasoning."""
+"""Map SDK Responses events to native replay items without exposing encrypted reasoning."""
 
-import json
 from dataclasses import dataclass, field
 
 from kunyu.agent.runtime.content import (
@@ -21,11 +20,11 @@ from kunyu.agent.runtime.models import (
     TextDelta,
     TokenUsage,
 )
-from kunyu.integrations.model.context_overflow import is_context_overflow
-from kunyu.integrations.model.openai_chat_stream import (
+from kunyu.integrations.model.chat_events import (
     MAX_TOOL_ARGUMENT_BYTES,
     MAX_TOOL_CALLS,
 )
+from kunyu.integrations.model.context_overflow import is_context_overflow
 from kunyu.integrations.model.openai_responses_items import (
     identifier,
     item_block,
@@ -41,7 +40,7 @@ class _Item:
     done: dict | None = None
 
 
-class OpenAIResponsesStreamParser:
+class ResponsesEventMapper:
     def __init__(
         self, model: str, connection_id: str, base_url: str, config_revision: int
     ) -> None:
@@ -68,15 +67,9 @@ class OpenAIResponsesStreamParser:
             )
         return ()
 
-    def push(self, data: str) -> tuple[ModelOutput, ...]:
+    def push(self, event: dict) -> tuple[ModelOutput, ...]:
         if self._complete:
             raise protocol_error("The Responses provider sent data after completion.")
-        try:
-            event = json.loads(data)
-        except ValueError as error:
-            raise protocol_error(
-                "The Responses stream contained invalid JSON."
-            ) from error
         if not isinstance(event, dict) or not isinstance(event.get("type"), str):
             raise protocol_error("The Responses stream contained an invalid event.")
         sequence = event.get("sequence_number")
@@ -90,8 +83,8 @@ class OpenAIResponsesStreamParser:
                 self._identity(response)
                 if response.get("status") != "failed":
                     raise protocol_error("The Responses failed status is invalid.")
-            detail = event.get("error") if kind == "error" else response.get("error")
-            code = detail.get("code") if isinstance(detail, dict) else event.get("code")
+            detail = event if kind == "error" else response.get("error")
+            code = detail.get("code") if isinstance(detail, dict) else None
             if code is not None and not isinstance(code, str):
                 raise protocol_error("The Responses error code is invalid.")
             if is_context_overflow(detail):

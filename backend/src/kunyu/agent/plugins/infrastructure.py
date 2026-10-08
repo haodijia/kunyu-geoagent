@@ -5,7 +5,7 @@ from kunyu.agent.adapters import SnapshotCredentialResolver, StoredRunExecutionP
 from kunyu.agent.attachments import RunImageResolver
 from kunyu.agent.scope import Context
 from kunyu.integrations.model.adapter import (
-    HTTPModelAdapter,
+    SDKModelAdapter,
 )
 from kunyu.persistence.agent_context import SQLAlchemyRunContextRepository
 from kunyu.persistence.agent_projections import SQLAlchemyAgentProjectionService
@@ -53,7 +53,7 @@ class ModelPlugin:
     async def apply(self, context: Context) -> None:
         context.provide(
             s.MODEL,
-            HTTPModelAdapter(
+            SDKModelAdapter(
                 context.require(s.HTTP_CLIENT),
                 SnapshotCredentialResolver(context.require(s.CONNECTIONS)),
                 RunImageResolver(
