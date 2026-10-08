@@ -10,11 +10,15 @@ import { ConversationComposer } from "./ConversationComposer";
 import { QuestionComposer } from "@/features/questions/QuestionComposer";
 import { QueuedMessages } from "./QueuedMessages";
 import { type ComposerModelGroup, type ModelPickerPane } from "./composer/ComposerModelPicker";
+import { useSessionEvents } from "@/features/events/SessionEventContext";
+import { projectContextUsage } from "./composer/context-usage";
 import { useComposerCommands } from "./composer/useComposerCommands";
 import { useSessionMessages } from "./SessionMessagesContext";
 
 export function SessionComposer() {
   const queryClient = useQueryClient();
+  const { events, activeAssistant } = useSessionEvents();
+  const contextUsage = useMemo(() => projectContextUsage(events, activeAssistant), [events, activeAssistant]);
   const [modelPickerPane, setModelPickerPane] = useState<ModelPickerPane | null>(null);
   const [queueEditing, setQueueEditing] = useState(false);
   const {
@@ -141,6 +145,7 @@ export function SessionComposer() {
     />
     {activeTurn?.state === "waiting_input" ? <QuestionComposer turn={activeTurn} onCancel={() => stopMutation.mutate()} cancelPending={stopMutation.isPending} cancelError={stopMutation.isError ? zhCN.conversation.runActionFailed : null} /> : <ConversationComposer
       sessionId={session.id}
+      contextUsage={contextUsage}
       attachmentState={attachmentState}
       contextLabel={zhCN.conversation.mapViewport(
         longitude.toFixed(4),

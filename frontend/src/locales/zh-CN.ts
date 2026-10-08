@@ -305,6 +305,15 @@ export const zhCN = {
     mapEmptyDescription: "会话产生空间数据后，相关图层将在这里显示。",
   },
   conversation: {
+    contextUsage: {
+      label: "上下文用量", latestRequest: "最近一次模型请求", totalUnknown: "总用量未知", windowUnknown: "上下文窗口未知",
+      usedOfWindow: (percent: string, used: string, limit: string) => `${percent} · ${used} / ${limit} 上下文用量`,
+      tokensUsed: (tokens: string) => `${tokens} tokens`,
+      input: (tokens: string) => `输入 ${tokens}`, output: (tokens: string) => `输出 ${tokens}`,
+      cacheRead: (tokens: string) => `缓存读取 ${tokens}`, cacheWrite: (tokens: string) => `缓存写入 ${tokens}`,
+      compacted: "历史已压缩；此处仍为上次请求用量，下次请求后更新。",
+      compactionRunning: "正在压缩上下文…", compactionFailed: "压缩未替换历史。",
+    },
     attachments: { zoomIn: "放大", zoomOut: "缩小", resetZoom: "重置缩放",
       offloaded: "已从模型图片上下文省略，附件仍可预览",
       offloadSummary: (count: number) => `为适应模型图片限制，已省略 ${count} 张图片上下文。`,

@@ -14,6 +14,8 @@ import { ComposerCommandMenu } from "./composer/ComposerCommandMenu";
 import { ComposerModelPicker, type ComposerModelGroup, type ModelPickerPane } from "./composer/ComposerModelPicker";
 import { filterComposerCommands, parseComposerCommand, type ComposerCommandDescriptor } from "./composer/commands";
 import { DraftBoxIcon } from "./composer/DraftBoxIcon";
+import { ContextUsageIndicator } from "./composer/ContextUsageIndicator";
+import type { ContextUsage } from "./composer/context-usage";
 import { ComposerPlanChip } from "./composer/ComposerPlanChip";
 
 const content = zhCN.conversation;
@@ -21,6 +23,7 @@ const MAX_TEXTAREA_HEIGHT = 120;
 
 interface ConversationComposerProps {
   readonly contextLabel: string;
+  readonly contextUsage: ContextUsage | null;
   readonly sessionId: string;
   readonly attachmentState: ReturnType<typeof useComposerAttachments>;
   readonly draft: string;
@@ -57,7 +60,7 @@ interface ConversationComposerProps {
 }
 
 export function ConversationComposer({
-  contextLabel, sessionId, attachmentState, draft, queuedDraft, error, draftFrozen, modelDisabled, modelGroups,
+  contextLabel, contextUsage, sessionId, attachmentState, draft, queuedDraft, error, draftFrozen, modelDisabled, modelGroups,
   pending, interactionLocked, running, stopPending, reasoningOptions, selectedModel,
   defaultReasoningEffort,
   selectedReasoningEffort, sendDisabled, showModelSettings, commands,
@@ -264,6 +267,7 @@ export function ConversationComposer({
               onReasoningEffortChange={onReasoningEffortChange}
               onClose={() => textareaRef.current?.focus()}
             />
+            <ContextUsageIndicator key={contextUsage?.requestSequence} value={contextUsage} />
             <Button
               type="submit" size="icon" className="composer-send ml-1 size-7 rounded-full shadow-none"
               disabled={!canSend}
