@@ -184,6 +184,17 @@ class CompactionStartedPayload(EventPayload):
     tools: tuple[dict[str, JsonValue], ...]
 
 
+class CompactionSelectionPayload(EventPayload):
+    compaction_id: str = Field(min_length=1, max_length=64)
+    compact_through_sequence: PositiveInt
+    selected_sequences: tuple[PositiveInt, ...] = Field(min_length=1)
+    retained_sequences: tuple[PositiveInt, ...]
+    retained_messages: tuple[dict[str, JsonValue], ...]
+    protected_messages: NonNegativeInt
+    retention_tokens: NonNegativeInt
+    estimated_selected_tokens: PositiveInt
+
+
 class CompactionUsage(EventPayload):
     input_tokens: NonNegativeInt | None
     output_tokens: NonNegativeInt | None
@@ -259,12 +270,16 @@ class ModelSnapshotPayload(EventPayload):
     max_tokens_field: Literal["max_tokens", "max_completion_tokens"]
     include_usage: bool
     max_output_tokens: PositiveInt
+    context_window: PositiveInt | None
+    retention_tokens: NonNegativeInt
     retry_policy: RetryPolicy
     image_input: ModelImageInput = ModelImageInput()
 
     @model_validator(mode="after")
     def validate_reasoning_parameters(self) -> Self:
         require_parameter_protocol(self.protocol, self.reasoning_parameters)
+        if self.context_window is not None and self.max_output_tokens + self.retention_tokens >= self.context_window:
+            raise ValueError("The frozen context window cannot hold output and retention reserves.")
         return self
 
 
@@ -621,6 +636,11 @@ class CompactionFinishedEvent(_SessionEventDraft):
     payload: CompactionFinishedPayload
 
 
+class CompactionSelectionEvent(_SessionEventDraft):
+    event_type: Literal["compaction/selection"]
+    payload: CompactionSelectionPayload
+
+
 class ImageOffloadEvent(_SessionEventDraft):
     event_type: Literal["image/offload"]
     payload: ImageOffloadPayload
@@ -795,6 +815,7 @@ type EventDraft = Annotated[
     | HistoryCompactedEvent
     | CompactionStartedEvent
     | CompactionFinishedEvent
+    | CompactionSelectionEvent
     | ImageOffloadEvent
     | RunCreatedEvent
     | RunModelSelectedEvent

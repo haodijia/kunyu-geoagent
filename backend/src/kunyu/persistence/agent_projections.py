@@ -321,6 +321,8 @@ def _snapshot_record(reduced: ReducedRun) -> RunModelSnapshotRecord:
         include_usage=model.include_usage,
         image_input=model.image_input,
         max_output_tokens=model.max_output_tokens,
+        context_window=model.context_window,
+        retention_tokens=model.retention_tokens,
         map_context=dict(reduced.map_snapshot),
         scene=(
             dict(reduced.scene_snapshot) if reduced.scene_snapshot is not None else None

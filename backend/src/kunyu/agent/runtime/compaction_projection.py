@@ -9,10 +9,11 @@ from kunyu.agent.compaction_prompt import (
 )
 from kunyu.agent.runtime.assistant_stream import expand_assistant_stream
 from kunyu.agent.runtime.block_assembler import BlockAssembler
-from kunyu.agent.runtime.content import ToolCallBlock, content_text
+from kunyu.agent.runtime.content import ToolCallBlock, content_text, text_content
 from kunyu.agent.runtime.events import (
     CommandRunEvent,
     CompactionFinishedEvent,
+    CompactionSelectionEvent,
     CompactionStartedEvent,
     EventDraft,
     HistoryCompactedEvent,
@@ -20,12 +21,19 @@ from kunyu.agent.runtime.events import (
     RunCreatedEvent,
     RunTerminalEvent,
 )
+from kunyu.agent.runtime.message_snapshot import (
+    require_balanced_tools,
+    snapshot_message,
+)
+from kunyu.agent.runtime.models import ModelMessage, ModelRole
+from kunyu.agent.token_estimate import estimate_message, estimate_messages
 
 
 class CompactionProjection:
     def __init__(self) -> None:
         self.started: dict[str, CompactionStartedEvent] = {}
         self.finished: set[str] = set()
+        self.selections: dict[str, CompactionSelectionEvent] = {}
         self.checkpoint: tuple[int, str] | None = None
         self.headers: dict[int, RequestHeaderEvent] = {}
         self.commands: dict[str, str] = {}
@@ -67,17 +75,71 @@ class CompactionProjection:
                 or header.payload.model_snapshot != payload.model_snapshot
             ):
                 raise ValueError("Compaction requires the actual idle routed request.")
+            if payload.tools != tuple(header.payload.tools) or payload.messages[-1].get(
+                "content"
+            ) != [{"type": "text", "text": COMPACTION_INSTRUCTION}]:
+                raise ValueError("The compaction instruction or tool schemas changed.")
+            self.started[payload.compaction_id] = event
+        elif isinstance(event, CompactionSelectionEvent):
+            payload = event.payload
+            started = self.started.get(payload.compaction_id)
             if (
-                payload.tools != tuple(header.payload.tools)
-                or payload.messages[: len(header.payload.messages)]
-                != tuple(header.payload.messages)
-                or payload.messages[-1].get("content")
-                != [{"type": "text", "text": COMPACTION_INSTRUCTION}]
+                started is None
+                or payload.compaction_id in self.selections
+                or sequence != started.payload.through_sequence + 2
             ):
                 raise ValueError(
-                    "The compaction input does not preserve its request prefix."
+                    "A selection requires one immediately preceding compaction start."
                 )
-            self.started[payload.compaction_id] = event
+            selected, retained = payload.selected_sequences, payload.retained_sequences
+            combined = (*selected, *retained)
+            if (
+                tuple(sorted(set(combined))) != combined
+                or payload.compact_through_sequence != selected[-1]
+                or payload.compact_through_sequence > started.payload.through_sequence
+            ):
+                raise ValueError("Compaction selection boundaries are invalid.")
+            header = self.headers[started.payload.request_sequence]
+            prefix = min(
+                len(header.payload.messages), len(started.payload.messages) - 1
+            )
+            if (
+                started.payload.messages[:prefix]
+                != tuple(header.payload.messages[:prefix])
+                or payload.protected_messages >= len(started.payload.messages) - 1
+            ):
+                raise ValueError(
+                    "Selected compaction input does not preserve the routed prefix."
+                )
+            measured = estimate_messages(
+                tuple(
+                    snapshot_message(message)
+                    for message in started.payload.messages[
+                        payload.protected_messages : -1
+                    ]
+                )
+            )
+            selected_messages = tuple(
+                snapshot_message(message)
+                for message in started.payload.messages[payload.protected_messages : -1]
+            )
+            retained_messages = tuple(
+                snapshot_message(message) for message in payload.retained_messages
+            )
+            require_balanced_tools(selected_messages)
+            require_balanced_tools(retained_messages)
+            if bool(retained_messages) != bool(payload.retained_sequences) or (
+                payload.retention_tokens > 0
+                and estimate_messages(retained_messages) < payload.retention_tokens
+            ):
+                raise ValueError("Retained history does not meet its declared budget.")
+            if (
+                measured != payload.estimated_selected_tokens
+                or payload.retention_tokens
+                != started.payload.model_snapshot.retention_tokens
+            ):
+                raise ValueError("Compaction selection measurements are inconsistent.")
+            self.selections[payload.compaction_id] = event
         elif isinstance(event, CompactionFinishedEvent):
             payload = event.payload
             started = self.started.get(payload.compaction_id)
@@ -111,7 +173,10 @@ class CompactionProjection:
                 raise ValueError("Unsuccessful compaction requires an error code.")
             self.finished.add(payload.compaction_id)
             if payload.outcome == "completed":
-                if sequence != started.payload.through_sequence + 2:
+                selection = self.selections.get(payload.compaction_id)
+                if sequence != started.payload.through_sequence + (
+                    3 if selection is not None else 2
+                ):
                     raise ValueError("Compaction cannot replace changed history.")
                 summary = content_text(payload.blocks).strip()
                 if (
@@ -129,8 +194,30 @@ class CompactionProjection:
                     raise ValueError(
                         "A checkpoint must preserve its required sections."
                     )
+                if selection is not None:
+                    tokens = estimate_message(
+                        ModelMessage(
+                            ModelRole.USER,
+                            text_content(frame_summary(summary)),
+                            context_source="compaction",
+                        )
+                    )
+                    if tokens >= selection.payload.estimated_selected_tokens:
+                        raise ValueError(
+                            "A new checkpoint must reduce the selected context."
+                        )
+                else:
+                    header = self.headers[started.payload.request_sequence]
+                    if started.payload.messages[
+                        : len(header.payload.messages)
+                    ] != tuple(header.payload.messages):
+                        raise ValueError(
+                            "Compaction must preserve its original routed prefix."
+                        )
                 self.checkpoint = (
-                    started.payload.through_sequence,
+                    selection.payload.compact_through_sequence
+                    if selection is not None
+                    else started.payload.through_sequence,
                     frame_summary(summary),
                 )
 

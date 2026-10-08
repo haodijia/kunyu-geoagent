@@ -113,6 +113,8 @@ export interface StepModelSnapshot {
   readonly max_tokens_field: MaxTokensField;
   readonly include_usage: boolean;
   readonly max_output_tokens: number;
+  readonly context_window: number | null;
+  readonly retention_tokens: number;
   readonly image_input: ModelImageInput;
 }
 

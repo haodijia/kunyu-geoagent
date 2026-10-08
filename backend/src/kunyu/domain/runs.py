@@ -76,6 +76,8 @@ class RunModelSnapshot:
     max_tokens_field: MaxTokensField
     include_usage: bool
     max_output_tokens: int
+    context_window: int | None
+    retention_tokens: int
     map_context: dict[str, JsonValue]
     scene: dict[str, JsonValue] | None
     image_input: ModelImageInput = field(default_factory=ModelImageInput)

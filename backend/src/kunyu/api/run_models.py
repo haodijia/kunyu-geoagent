@@ -79,6 +79,8 @@ class StepModelResponse(BaseModel):
     connection_revision: int
     max_tokens_field: Literal["max_tokens", "max_completion_tokens"]
     include_usage: bool
+    context_window: int | None
+    retention_tokens: int
     max_output_tokens: int
     image_input: ModelImageInput
 
@@ -97,6 +99,8 @@ class StepModelResponse(BaseModel):
             max_tokens_field=snapshot.max_tokens_field.value,
             include_usage=snapshot.include_usage,
             max_output_tokens=snapshot.max_output_tokens,
+            context_window=snapshot.context_window,
+            retention_tokens=snapshot.retention_tokens,
             image_input=snapshot.image_input,
         )
 

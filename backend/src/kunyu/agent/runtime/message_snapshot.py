@@ -2,7 +2,7 @@
 
 from pydantic import JsonValue, TypeAdapter
 
-from kunyu.agent.runtime.content import ReplayEnvelope
+from kunyu.agent.runtime.content import ReplayEnvelope, ToolCallBlock
 from kunyu.agent.runtime.input_content import InputMessageSource, MessageContentBlock
 from kunyu.agent.runtime.models import ModelMessage, ModelRole
 
@@ -57,3 +57,22 @@ def snapshot_message(value: dict[str, JsonValue]) -> ModelMessage:
         tool_call_id=value.get("tool_call_id"),
         is_error=value.get("is_error"),
     )
+
+
+def require_balanced_tools(messages: tuple[ModelMessage, ...]) -> None:
+    pending: set[str] = set()
+    for message in messages:
+        if message.role is ModelRole.TOOL:
+            if message.tool_call_id not in pending:
+                raise ValueError("A retained tool result has no matching call.")
+            pending.remove(message.tool_call_id)
+        else:
+            if pending:
+                raise ValueError("Compaction would split a tool result batch.")
+            for block in message.content:
+                if isinstance(block, ToolCallBlock):
+                    if block.id in pending:
+                        raise ValueError("Compaction contains duplicate tool calls.")
+                    pending.add(block.id)
+    if pending:
+        raise ValueError("Compaction would leave unresolved tool calls.")

@@ -161,6 +161,8 @@ class ModelCatalogEntryResponse(BaseModel):
     reasoning_efforts: list[str]
     reasoning_default: str | None
     image_input: ModelImageInput
+    context_window: int | None
+    retention_tokens: int
     max_output_tokens: int
     reasoning_source: CapabilitySource
     discovered_at: datetime | None
@@ -185,6 +187,8 @@ class ModelCatalogEntryResponse(BaseModel):
             reasoning_default=entry.default_reasoning_effort,
             image_input=entry.image_input,
             max_output_tokens=entry.max_output_tokens,
+            context_window=entry.context_window,
+            retention_tokens=entry.retention_tokens,
             reasoning_source=entry.effective_reasoning_source,
             discovered_at=entry.discovered_at,
         )

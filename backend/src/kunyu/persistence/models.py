@@ -362,6 +362,8 @@ class RunModelSnapshotRecord(Base):
     include_usage: Mapped[bool] = mapped_column(Boolean, nullable=False)
     image_input: Mapped[dict[str, Any]] = mapped_column(JSON, nullable=False)
     max_output_tokens: Mapped[int] = mapped_column(Integer, nullable=False)
+    context_window: Mapped[int | None] = mapped_column(Integer)
+    retention_tokens: Mapped[int] = mapped_column(Integer, nullable=False)
     map_context: Mapped[dict[str, Any]] = mapped_column(JSON, nullable=False)
     scene: Mapped[dict[str, Any] | None] = mapped_column(JSON)
 
@@ -678,6 +680,10 @@ class ModelCatalogEntryRecord(Base):
         nullable=False,
         default=DEFAULT_MODEL_OUTPUT_TOKENS,
         server_default=str(DEFAULT_MODEL_OUTPUT_TOKENS),
+    )
+    context_window: Mapped[int | None] = mapped_column(Integer)
+    retention_tokens: Mapped[int] = mapped_column(
+        Integer, nullable=False, default=2048, server_default="2048"
     )
     reasoning_settings: Mapped[dict[str, Any] | None] = mapped_column(JSON)
     reasoning_efforts: Mapped[list[str]] = mapped_column(JSON, nullable=False)
