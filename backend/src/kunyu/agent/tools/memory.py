@@ -8,6 +8,7 @@ from pydantic import Field, JsonValue, StringConstraints
 from sqlalchemy.orm import Session
 
 from kunyu.agent.runtime.tools import (
+    ToolApproval,
     ToolCall,
     ToolConfirmationRequiredError,
     ToolResult,
@@ -89,6 +90,13 @@ class MemoryReadTool:
         return _memory_read_result(page, arguments.query)
 
 
+MEMORY_WRITE_APPROVAL = ToolApproval(
+    execution="transaction",
+    summary="Save this exact memory to the current workspace.",
+    side_effect="Creates one persistent workspace memory visible to future agent runs in this workspace.",
+)
+
+
 class MemoryWriteTool:
     def __init__(self, run_id: str, contexts: RunContextRepository) -> None:
         self._run_id = run_id
@@ -101,6 +109,7 @@ class MemoryWriteTool:
             ),
             parameters=_MemoryWriteArguments.model_json_schema(),
             risk_level=ToolRiskLevel.L2,
+            approval=MEMORY_WRITE_APPROVAL,
             execution="exclusive",
             presentation="write",
         )
@@ -152,12 +161,6 @@ def _memory_payload(
 
 
 class MemoryWriteHandler:
-    summary = "Save this exact memory to the current workspace."
-    side_effect = (
-        "Creates one persistent workspace memory visible to future "
-        "agent runs in this workspace."
-    )
-
     def __init__(self, memory_id_factory: Callable[[], str]) -> None:
         self._memory_id_factory = memory_id_factory
 

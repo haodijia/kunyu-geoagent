@@ -1,4 +1,4 @@
-"""Explicit tool construction, write handlers and risk-based policy."""
+"""Scoped tools, explicit approval contracts and risk-based policy."""
 
 from collections.abc import Callable
 from dataclasses import dataclass
@@ -6,12 +6,14 @@ from datetime import datetime
 from typing import Protocol
 
 from pydantic import JsonValue
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from kunyu.agent.runtime.questions import QuestionAnswers, QuestionSet
 from kunyu.agent.runtime.tools import (
     PolicyDecision,
     Tool,
+    ToolApproval,
     ToolCall,
     ToolExecutionError,
     ToolNotFoundError,
@@ -23,6 +25,7 @@ from kunyu.agent.scope import Context, ScopedEntries
 from kunyu.domain.agent_context import RunContextRepository
 from kunyu.persistence.commands import read_session_controls
 from kunyu.persistence.database import Database
+from kunyu.persistence.models import SessionEventRecord
 
 
 class QuestionHandler(Protocol):
@@ -30,13 +33,7 @@ class QuestionHandler(Protocol):
     def resolve(self, call: ToolCall, answer: QuestionAnswers | None) -> ToolResult: ...
 
 
-class ConfirmedWriteHandler(Protocol):
-    @property
-    def summary(self) -> str: ...
-
-    @property
-    def side_effect(self) -> str: ...
-
+class TransactionWriteHandler(Protocol):
     def execute(
         self,
         database_session: Session,
@@ -49,7 +46,7 @@ class ConfirmedWriteHandler(Protocol):
 @dataclass(frozen=True, slots=True)
 class ToolRegistration:
     build: Callable[[str], Tool]
-    write_handler: ConfirmedWriteHandler | None = None
+    transaction: TransactionWriteHandler | None = None
     question_handler: QuestionHandler | None = None
 
 
@@ -84,16 +81,25 @@ class ToolRegistryFactory:
             if spec.interaction:
                 self.require_question_handler(spec.name, run_id)
             if spec.risk_level is ToolRiskLevel.L2:
-                self.require_write_handler(spec.name, run_id)
+                if spec.approval.execution == "transaction":
+                    self.require_transaction(spec.name, run_id)
+                elif entries[spec.name].transaction is not None:
+                    raise ToolExecutionError(
+                        "Deferred tools cannot declare a transaction writer."
+                    )
         return registry
 
-    def require_write_handler(self, name: str, run_id: str) -> ConfirmedWriteHandler:
+    def require_approval(self, name: str, run_id: str) -> ToolApproval:
+        approval = self.for_run(run_id).require(name).spec.approval
+        if approval is None:
+            raise ToolExecutionError(f"Tool '{name}' has no approval contract.")
+        return approval
+
+    def require_transaction(self, name: str, run_id: str) -> TransactionWriteHandler:
         entry = self.registration_for_run(name, run_id)
-        if entry is None or entry.write_handler is None:
-            raise ToolExecutionError(
-                f"Tool '{name}' has no confirmed local write handler."
-            )
-        return entry.write_handler
+        if entry is None or entry.transaction is None:
+            raise ToolExecutionError(f"Tool '{name}' has no transaction writer.")
+        return entry.transaction
 
     def require_question_handler(self, name: str, run_id: str) -> QuestionHandler:
         entry = self.registration_for_run(name, run_id)
@@ -124,15 +130,72 @@ class ToolPolicyGate:
 
     def decide(self, call: ToolCall) -> PolicyDecision:
         try:
-            risk_level = self.risk_level(call)
-        except ToolExecutionError:
+            tool = self._registries.for_run(call.run_id).require(call.name)
+        except (ToolExecutionError, ToolNotFoundError):
             return PolicyDecision.DENY
+        risk_level = tool.spec.risk_level
+        source = self._contexts.get(call.run_id)
+        if source is None:
+            raise ToolExecutionError("The tool run context is unavailable.")
+        reviewed = next(
+            (
+                item
+                for item in source.run.confirmations
+                if item.tool_call_id == call.call_id
+            ),
+            None,
+        )
+        if reviewed is not None and reviewed.status == "approved":
+            approval = tool.spec.approval
+            if approval is None or (
+                reviewed.name,
+                dict(reviewed.arguments),
+                reviewed.execution,
+                reviewed.binding,
+                reviewed.summary,
+                reviewed.side_effect,
+            ) != (
+                call.name,
+                dict(call.arguments),
+                approval.execution,
+                approval.binding,
+                approval.summary,
+                approval.side_effect,
+            ):
+                return PolicyDecision.CONTRACT_CHANGED
+            if approval.execution == "transaction":
+                return PolicyDecision.DO_NOT_REPEAT
+            controls = read_session_controls(self._database, source.session.id)
+            if controls.plan_active or controls.permission == "read-only":
+                return PolicyDecision.DENY
+            persisted = next(
+                (
+                    item
+                    for item in source.run.tool_calls
+                    if item.tool_call_id == call.call_id
+                ),
+                None,
+            )
+            if persisted is None or persisted.status not in {"pending", "cancelled"}:
+                return PolicyDecision.DO_NOT_REPEAT
+            if persisted.status == "cancelled":
+                with self._database.sessions() as tx:
+                    started = tx.scalar(
+                        select(SessionEventRecord.sequence)
+                        .where(
+                            SessionEventRecord.session_id == source.session.id,
+                            SessionEventRecord.event_type == "tool.started",
+                            SessionEventRecord.payload["tool_call_id"].as_string()
+                            == call.call_id,
+                        )
+                        .limit(1)
+                    )
+                if started is not None:
+                    return PolicyDecision.DO_NOT_REPEAT
+            return PolicyDecision.ALLOW
         if risk_level is ToolRiskLevel.L0:
             return PolicyDecision.ALLOW
         if risk_level in {ToolRiskLevel.L1, ToolRiskLevel.L2}:
-            source = self._contexts.get(call.run_id)
-            if source is None:
-                raise ToolExecutionError("The tool run context is unavailable.")
             controls = read_session_controls(self._database, source.session.id)
             if controls.plan_active or controls.permission == "read-only":
                 return PolicyDecision.DENY

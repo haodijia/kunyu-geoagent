@@ -1158,6 +1158,8 @@ def _request_confirmation(
         arguments=payload.arguments,
         summary=payload.summary,
         side_effect=payload.side_effect,
+        execution=payload.execution,
+        binding=payload.binding,
         created_at=event.occurred_at,
         created_sequence=sequence,
         updated_at=event.occurred_at,
@@ -1190,6 +1192,17 @@ def _resolve_confirmation(
     confirmation.updated_at = event.occurred_at
     confirmation.updated_sequence = sequence
     state.requires_resume = False
+    if payload.decision == "approved" and confirmation.execution == "tool":
+        if confirmation.binding is None:
+            raise RunReductionError(
+                "Deferred approval requires its exact tool binding."
+            )
+        state.pending_confirmation_id = None
+        state.pending_confirmation_tool_id = None
+        state.pause_reason = None
+        state.resume_phase = ResumePhase.TOOL
+        state.queue_sequence = None
+        _transition(state, RunState.READY)
 
 
 def _retry_boundary(
@@ -1547,6 +1560,8 @@ def _freeze(state: _State) -> ReducedRun:
                 arguments=item.arguments,
                 summary=item.summary,
                 side_effect=item.side_effect,
+                execution=item.execution,
+                binding=item.binding,
                 status=item.status,
                 decided_at=item.decided_at,
                 created_at=item.created_at,

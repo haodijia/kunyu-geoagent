@@ -125,6 +125,26 @@ class ToolBatchExecutor[AdapterConfigT]:
                     current.run_id, persisted.tool_call_id
                 )
                 return "waiting"
+            if decision is PolicyDecision.CONTRACT_CHANGED:
+                outcome = await self._reject(
+                    current,
+                    persisted,
+                    "TOOL_APPROVAL_CHANGED",
+                    "The approved tool contract or binding changed; request a new confirmed call.",
+                )
+                if outcome != "completed":
+                    return outcome
+                continue
+            if decision is PolicyDecision.DO_NOT_REPEAT:
+                outcome = await self._reject(
+                    current,
+                    persisted,
+                    "TOOL_REPLAY_BLOCKED",
+                    "An interrupted confirmed tool will not be repeated; request a new confirmed call.",
+                )
+                if outcome != "completed":
+                    return outcome
+                continue
             if decision is PolicyDecision.DENY:
                 outcome = await self._reject(
                     current,
@@ -369,7 +389,7 @@ class ToolBatchExecutor[AdapterConfigT]:
                 elapsed_milliseconds(started, self._monotonic_ns()),
                 self._clock(),
                 error_code="TOOL_RUNTIME_ERROR",
-                error_summary="The tool failed during local execution.",
+                error_summary="The tool failed during execution.",
             )
 
     async def _reject(

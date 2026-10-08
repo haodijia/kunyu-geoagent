@@ -93,6 +93,8 @@ class ReducedConfirmation:
     arguments: Mapping[str, JsonValue]
     summary: str
     side_effect: str
+    execution: Literal["transaction", "tool"]
+    binding: str | None
     status: ConfirmationStatus
     decided_at: datetime | None
     created_at: datetime
@@ -218,6 +220,8 @@ class _Confirmation:
     arguments: Mapping[str, JsonValue]
     summary: str
     side_effect: str
+    execution: Literal["transaction", "tool"]
+    binding: str | None
     created_at: datetime
     created_sequence: int
     status: ConfirmationStatus = "pending"

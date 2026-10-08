@@ -447,7 +447,7 @@ user-invocable: true
       parameters: "精确参数",
       sideEffect: "副作用",
       currentWorkspace: "当前工作空间",
-      exactSnapshot: "批准仅对以上参数生效，提交后不能替换或修改。",
+      exactSnapshot: "批准仅对这次工具操作和以上参数生效；工具或目标变化后需重新确认。",
       approve: "批准并继续",
       approving: "正在批准…",
       reject: "拒绝并结束",

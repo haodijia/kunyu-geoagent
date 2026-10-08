@@ -11,6 +11,8 @@ export interface Confirmation {
   readonly arguments: Readonly<Record<string, unknown>>;
   readonly summary: string;
   readonly side_effect: string;
+  readonly execution: "transaction" | "tool";
+  readonly binding: string | null;
   readonly status: "pending" | "approved" | "rejected" | "cancelled";
   readonly decided_at: string | null;
   readonly created_at: string;

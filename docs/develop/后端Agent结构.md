@@ -153,7 +153,7 @@ DeepSeek 新连接默认 `deepseek_messages` 与 `https://api.deepseek.com/anthr
 
 默认启用 `MemoryToolsPlugin` 的 `memory_read`、`memory_write`，`SkillToolsPlugin` 的 `skill`、`skill_resource`，`TodoToolsPlugin` 的 `todo_write`，`FilesystemToolsPlugin` 的 `read`、`write`、`edit`，`UserQuestionsPlugin` 的 `ask_user_question`，`PlanModePlugin` 的 `exit_plan_mode`，以及 `AttachmentToolsPlugin` 的 `read_image`。模型提供者和循环提供者可分别通过 `model_plugin`、`loop_plugin` 显式替换。没有旧路径、静态插件包装或工具名分支兼容层。
 
-L0 工具可直接执行；L1 工作区文件工具为独占调用，在 workspace-write 权限下直接执行，计划／read-only 模式拒绝。L2 记忆写入必须注册同名事务处理器。确认服务保留精确参数快照，批准后调用处理器；数据库业务修改、确认和工具结果同一事务提交，失败一起回滚。远程业务应另建持久作业与监督流程。
+L0 工具可直接执行；L1 工作区文件工具为独占调用，在 workspace-write 权限下直接执行，计划／read-only 模式拒绝。L2 工具必须声明 ToolApproval。transaction 模式注册同名 transaction 处理器，记忆写入仍将业务修改、确认、预算及工具结果同一事务提交，失败一起回滚；tool 模式须声明稳定的 binding，批准只持久化确认和工具续跑队列，实际异步执行由 Agent 运行器负责。外部服务结果和中断语义独立记录，不承诺远端事务回滚；完整业务作业监督仍需专门服务。
 
 工具批次按 deepseek-harness 的屏障与并发池执行：连续的 L0 并行工具最多同时运行四个，独占工具等池排空后执行。开始事实先持久提交，再调用工具；结果按模型发出的顺序提交。批次预留工具次数与活动时间，结束时按实际用量结算；取消会停止补充任务、等待已启动任务退出，并将未完成调用标记为取消。恢复重新执行安全的只读调用，保留已经结算的结果。
 
@@ -470,3 +470,14 @@ Chat 保留 prompt_tokens_details 的缓存读取／写入，Responses 保留 in
 SkillTool 的实际模型 TextBlock 直接调用 render_skill，显式调用注入使用同一函数，避免旧的JSON转义指令。结构化结果单独保存原始正文及资源身份；skill_resource 的模型文本也是读取到的原文。用户调用在 metadata.content 保存原始正文，界面直接使用该快照渲染Markdown；不再为展示从模型包裹提取内容或重读文件。旧记录的确切正文由0020一次性补充，原模型消息和工具事实保留。
 
 SkillSummary 增加 when_to_use，对应标准 frontmatter.whenToUse，进入管理／会话／命令查询；模型目录仍只投影名称和简介。简介按显式长度配置截断并标明省略，UTF-16预算不切开Unicode字符。当前用户输入／计划提醒／目录／指令的先后关系保持，未为此增加新的预处理阶段。三种实际HTTP协议、重试中的历史冻结、压缩续接、旧库迁移、Markdown快照及新建技能保存已核对。
+
+
+## 异步工具的审批后执行
+
+ToolSpec.approval 使用显式 ToolApproval(execution, summary, side_effect, binding)；只有L2工具能声明审批。ToolRegistration.transaction仅用于数据库事务写入，不再使用旧write_handler字段。transaction工具必须有事务处理器，tool工具不得声明它，且必须给出非空绑定。绑定由工具提供者定义，标明实际实现／连接配置版本，不能在相同绑定下悄悄改变目标。
+
+confirmation.requested持久保存执行模式、绑定和可审阅说明。批准前重新校验精确参数、权限和合同；tool批准只提交resolved及run.queued，预算与工具结果仍未发生。reducer恢复到原工具位置，Agent队列随后通过标准工具执行、预算、超时、取消和结果链路运行该调用。调度时仍检查已批准合同、参数和当前权限；绑定／合同或风险声明变化返回TOOL_APPROVAL_CHANGED。
+
+批准只授权相同tool_call_id。已开始后被中断的调用根据真实tool.started记录阻止重发，明确保存TOOL_REPLAY_BLOCKED结果；不能把未确认的远端结果说成已回滚。尚未开始的已批准调用可以正常续跑，等待审批的记录在重启后仍等待用户决定。重复批准不再次发送；拒绝及取消不会自动改走另一执行方式。
+
+0021将原审批标明transaction，绑定保持未知None，其他事实不变。三种HTTP模型协议与真实异步工具验证了批准后队列、失败、拒绝、绑定变化、重复批准、取消、重启及重建；批准后权限与风险声明变更也阻止发送。本地记忆事务及日志失败回滚保持。现有Mu风格确认卡直接复用，窄屏深色／刷新和模型续接通过。MCP连接、目录与资源、状态管理和完整业务作业监督尚未接入，本批是该能力的审批执行基础。
