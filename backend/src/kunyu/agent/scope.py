@@ -125,7 +125,7 @@ class ScopedEntries[T]:
     def __init__(self) -> None:
         self._layers: dict[ScopeKey, dict[str, T]] = {}
 
-    def register(self, owner: Context, name: str, value: T) -> None:
+    def register(self, owner: Context, name: str, value: T) -> Callable[[], None]:
         owner.assert_active()
         if not name:
             raise ValueError("Registration names must not be empty.")
@@ -133,13 +133,20 @@ class ScopedEntries[T]:
         if name in layer:
             raise ValueError(f"'{name}' is already registered in this scope.")
         layer[name] = value
+        active = True
 
         def remove() -> None:
+            nonlocal active
+            if not active:
+                return
+            active = False
             del layer[name]
             if not layer:
                 del self._layers[owner.scope]
+            detach()
 
-        owner.effect(remove)
+        detach = owner.effect(remove)
+        return remove
 
     def view(self, context: Context) -> dict[str, T]:
         context.assert_active()

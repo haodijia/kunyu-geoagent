@@ -13,6 +13,7 @@ if TYPE_CHECKING:
     from kunyu.agent.commands.registry import CommandRegistry
     from kunyu.agent.filesystem import FilesystemHooks
     from kunyu.agent.hooks import AgentHookRegistry
+    from kunyu.agent.mcp.plugin import McpManager
     from kunyu.agent.runtime.context import (
         ContextPreparationRegistry,
         PromptSectionRegistry,
@@ -83,4 +84,5 @@ SESSION_ID: ServiceKey[str] = ServiceKey("session_id")
 RUN_ID: ServiceKey[str] = ServiceKey("run_id")
 RUNNER: ServiceKey[Runner] = ServiceKey("runner")
 SKILLS: ServiceKey[SkillRegistry] = ServiceKey("skills")
+MCP: ServiceKey[McpManager] = ServiceKey("mcp")
 COMMANDS: ServiceKey[CommandRegistry] = ServiceKey("commands")

@@ -1,5 +1,5 @@
 import { Tooltip } from "@/components/ui/tooltip";
-import { Cube, Inbox } from "@icon-park/react";
+import { Api, Cube, Inbox } from "@icon-park/react";
 import { Sparkles } from "lucide-react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { cn } from "@/lib/utils";
@@ -18,6 +18,7 @@ export function SettingsSidebar({
       label: zhCN.modelConnections.title,
       icon: <Cube theme="outline" size="16" strokeWidth={3} />
     },
+    { path: "/settings/mcp", label: zhCN.mcp.title, icon: <Api theme="outline" size="16" strokeWidth={3} /> },
     {
       path: "/settings/skills",
       label: zhCN.skills.title,

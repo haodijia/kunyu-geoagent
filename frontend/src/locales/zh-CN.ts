@@ -1,4 +1,26 @@
 export const zhCN = {
+  mcp: {
+    title: "MCP 服务", description: "连接外部工具与数据资源，供对话中的 Agent 使用。",
+    add: "添加服务", empty: "尚未添加 MCP 服务", emptyDescription: "添加业务服务地址或本地服务命令。连接后可查看服务提供的工具。",
+    retry: "重试", loading: "正在读取服务…", requestFailed: "MCP 请求失败。", busy: "有未完成的运行，请先完成或取消，再修改 MCP 配置。",
+    status: {disconnected:"未连接",connecting:"正在连接",connected:"已连接",reconnecting:"正在重连",failed:"连接失败"},
+    reconnect: (name:string)=>`重新连接 ${name}`, edit:(name:string)=>`编辑 ${name}`, remove:(name:string)=>`删除 ${name}`,
+    enabled:"启用服务", connectionFailed:"无法连接服务或读取有效工具目录，请检查地址、命令和凭据。",
+    deletePrompt:(name:string)=>`删除服务 ${name}？`, deleteConfirm:"删除服务", cancel:"取消", back:"返回服务列表",
+    noCatalog:"连接成功后显示工具目录。", catalog:(count:number,cached:boolean)=>`${count} 个工具${cached?' · 上次连接的目录':''}`,
+    readOnly:(name:string)=>`将 ${name} 声明为只读`, readOnlyLabel:"声明只读", serverReadOnly:"· 服务声明只读",
+    resources:"支持资源与资源模板，可通过对话读取。", approvalHint:"除你声明的只读工具外，每次调用都需要确认。",
+    editorDescription:"使用固定服务名称。命令参数直接传递给进程，不通过 Shell 执行。",
+    name:"服务名称", transport:"连接方式", stdio:"本地命令（stdio）", url:"服务地址", command:"可执行命令", args:"参数（JSON 字符串数组）", cwd:"工作目录（可选，绝对路径）",
+    timeout:"工具请求超时（毫秒）", autoReconnect:"连接丢失后自动重连", save:"保存服务", notFound:"服务不存在。",
+    argsInvalid:"命令参数必须为 JSON 字符串数组。", secretsInvalid:"凭据必须为键值均为字符串的 JSON 对象。",
+    nameExists:"此服务名称已存在，请使用其他名称。",
+    changed:"配置已改变，请返回列表并重新打开后编辑。",
+    credentials:"连接凭据", secretHint:"凭据值不回显。此操作替换全部凭据；空对象会清除凭据。",
+    secretNames:(names:readonly string[])=>names.length===0?'尚未配置凭据':`已保存：${names.join('、')}`,
+    env:"环境变量（JSON 对象）", headers:"请求头（JSON 对象）", replaceSecrets:"替换凭据", secretsSaved:"凭据已保存。",
+  },
+
   planReview: { close: "关闭计划", stateReadFailed: "计划阅读状态无法恢复，请清除后重新打开。", stateWriteFailed: "计划阅读状态未能保存，刷新后可能无法恢复。", resetState: "清除阅读状态", header: "计划审阅", full: "完整计划", open: "打开完整计划", approve: "批准计划", discuss: "修改计划", loading: "正在读取计划…", loadFailed: "无法读取计划，请重试。", title: "计划", document: "计划文档", view: "查看", openNamed: (title: string) => `打开计划：${title}` },
   questions: {
     loading: "正在读取待回答的问题…", loadFailed: "无法读取待回答的问题，请重试。", retry: "重试", cancelRun: "停止运行",

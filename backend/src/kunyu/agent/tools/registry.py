@@ -60,8 +60,8 @@ class ToolRegistryFactory:
 
     def register(
         self, owner: Context, name: str, registration: ToolRegistration
-    ) -> None:
-        self._entries.register(owner, name, registration)
+    ) -> Callable[[], None]:
+        return self._entries.register(owner, name, registration)
 
     def registration_for_run(self, name: str, run_id: str) -> ToolRegistration | None:
         return self._entries.view(self._resolve_scope(run_id)).get(name)
