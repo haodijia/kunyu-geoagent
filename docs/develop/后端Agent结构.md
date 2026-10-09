@@ -521,4 +521,20 @@ ToolActivity 负责分组，ToolCallRow 负责单条记录，ToolActivityParts �
 
 设置页复用 Mu 风格的 Settings Shell、简洁服务行与工具目录，支持添加／编辑、启停、重连、删除、只读声明及凭据替换。凭据与公开配置分离，读接口仅返回凭据名称；存储沿用当前开发阶段的私有 SQLite 数据层，不宣称已实现系统凭据库。配置更新与凭据更新要求精确修订，旧页面不会覆盖新配置；未完成运行时拒绝配置改动。0022 仅新增 MCP 配置表，不改写既有日志、运行或业务记录。
 
-临时原生 stdio／Streamable HTTP 服务、真实 ASGI／Agent 链路验证了三种模型协议的工具／模板／资源续接、L2 审批、图片收据及重启恢复；原生旧协议分页／通知、新协议订阅、空闲 EOF、重连耗尽、认证失败、进程释放及配置冲突均通过。填充的 0021 数据库升级 0022 后全部旧行不变，完整性及外键检查通过。离屏 Electron 经真实 API 验证新增、凭据不回显、HTTP 连接、只读声明、刷新、删除及 600px 深色布局；前端构建与后端静态检查通过。未新增仓库测试或调用真实付费模型／业务服务。OAuth 登录、MCP tasks、采样／elicitation、完整作业监督及后续 Agent 能力仍须继续核对和实现；整体目标未完成。
+临时原生 stdio／Streamable HTTP 服务、真实 ASGI／Agent 链路验证了三种模型协议的工具／模板／资源续接、L2 审批、图片收据及重启恢复；原生旧协议分页／通知、新协议订阅、空闲 EOF、重连耗尽、认证失败、进程释放及配置冲突均通过。填充的 0021 数据库升级 0022 后全部旧行不变，完整性及外键检查通过。离屏 Electron 经真实 API 验证新增、凭据不回显、HTTP 连接、只读声明、刷新、删除及 600px 深色布局；前端构建与后端静态检查通过。未新增仓库测试或调用真实付费模型／业务服务。OAuth 登录见下节；MCP tasks、采样／elicitation、完整作业监督及后续 Agent 能力仍须继续核对和实现；整体目标未完成。
+
+## MCP OAuth 登录与持久认证
+
+HTTP 服务显式选择 headers 或 oauth 认证。OAuth 选项包含可选 client_id、HTTPS client_metadata_url、回调端口和 scopes；client_id 与 client_metadata_url 不能同时设置，OAuth 与手工 Authorization header 不能混用。非回环服务地址要求 HTTPS。stdio 继续使用私有环境变量。
+
+`agent/mcp/oauth.py` 管理用户发起的登录任务；发现、客户端注册、PKCE、授权服务器校验和令牌刷新由官方 MCP SDK 的 OAuthClientProvider 负责。`integrations/mcp/oauth_callback.py` 只监听回环地址，校验唯一 state 后接纳一次回调，错误 state 不消耗等待中的授权。登录总时限为 300 秒，取消／退出时释放监听端口和任务。后台连接需要登录时返回 login_required，停止自动重连，不自行打开浏览器。
+
+登录期间凭据暂存在内存，真实 MCP 握手与工具目录读取成功后才提交；不执行工具作为登录检查。提交重新校验运行空闲、配置修订、服务 URL 和认证方式，成功登录与退出均推进配置修订，旧身份下的审批不能授权新身份。访问令牌刷新只更新私有凭据与绝对过期时间，不推进配置修订。修改服务地址或 OAuth 选项会清除旧凭据。
+
+`persistence/mcp_oauth.py` 保存令牌、客户端元数据、绝对过期时间和实际发现的授权服务器元数据；恢复 SDK 的公开 context 后，重启使用真实授权服务器的 token endpoint 刷新。读接口只公开授权状态、登录进度及临时浏览器入口；令牌不进入配置响应、Agent 历史或工具结果。OAuth SDK 异常日志只保留异常类型，避免上游响应泄漏凭据。存储沿用私有 SQLite，尚无系统凭据库或静态加密。
+
+设置页参考 Mu useMcpOAuth 的登录／退出与状态展示，复用现有 Button 和 Settings Shell。仅当前页面主动发起的登录自动打开一次系统浏览器；刷新后不重复打开，仍可手动继续授权或取消。失败、拒绝、超时分别显示明确状态。
+
+0023 增加私有凭据表，并给既有 MCP 配置声明 headers 认证，不增加旧配置修订。填充的 0022 数据库升级后，17 张原业务表、MCP 凭据／目录／修订保持不变，完整性与外键检查通过。原生本地 OAuth／MCP 服务验证了 PKCE、issuer、错误 state、回调重放、取消、拒绝、退出及凭据不回显；独立新进程验证了过期令牌刷新、配置修订稳定和真实工具调用。离屏 Electron 验证登录只打开一次、取消、再次授权、刷新、退出、浅色／600px 深色布局；构建和静态检查通过。仓库不保留本批验证文件，未调用真实第三方账号或付费模型服务。
+
+参考：本地 Mu `desktop/packages/desktop/src/renderer/hooks/mcp/useMcpOAuth.ts`、harness `packages/mcp/mcp-client/src/transport.ts`、安装的 MCP Python SDK `mcp/client/auth/oauth2.py`，以及 [MCP Authorization](https://modelcontextprotocol.io/specification/2025-11-25/basic/authorization)。MCP tasks、采样／elicitation 和业务作业监督尚未实现；取消登录不代表撤销已授予的远端授权，退出只清除本地凭据。
