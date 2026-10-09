@@ -26,6 +26,11 @@ from kunyu.agent.plugins.image_offload import ImageOffloadPlugin
 from kunyu.agent.plugins.infrastructure import ModelPlugin, PersistencePlugin
 from kunyu.agent.plugins.loop import AgentLoopPlugin
 from kunyu.agent.plugins.memory import MemoryToolsPlugin
+from kunyu.agent.plugins.model_providers import (
+    DeepSeekModelProviderPlugin,
+    ModelProvidersPlugin,
+    SDKModelProviderPlugin,
+)
 from kunyu.agent.plugins.plan_mode import PlanModePlugin
 from kunyu.agent.plugins.questions import UserQuestionsPlugin
 from kunyu.agent.plugins.search import SearchPlugin
@@ -86,6 +91,9 @@ async def create_agent_runtime(
         ScopePlugin(),
         FilesystemPlugin(),
         FilesystemObservationPlugin(),
+        ModelProvidersPlugin(),
+        DeepSeekModelProviderPlugin(),
+        SDKModelProviderPlugin(),
         model_plugin,
         AgentHooksPlugin(),
         ImageOffloadPlugin(),

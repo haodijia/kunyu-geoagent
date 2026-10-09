@@ -5,10 +5,8 @@ from dataclasses import dataclass
 from enum import StrEnum
 from time import monotonic
 from typing import Any
-from urllib.parse import urlsplit, urlunsplit
 
-import httpx
-
+from kunyu.agent.model_providers import LLMService
 from kunyu.agent.runtime.content import TextBlock, ToolCallBlock
 from kunyu.agent.runtime.models import (
     BlockEnd,
@@ -28,9 +26,7 @@ from kunyu.domain.model_connections import (
     ModelProviderType,
 )
 from kunyu.domain.model_reasoning import ReasoningParameters
-from kunyu.integrations.model.adapter import SDKModelAdapter
 from kunyu.integrations.model.connection import ModelConnectionConfig
-from kunyu.integrations.model.sdk import ProviderSDK
 
 MODEL_OPERATION_TIMEOUT_SECONDS = 30
 MAX_CATALOG_ENTRIES = 2_000
@@ -80,15 +76,12 @@ class ModelCheckOutcome:
 
 
 class ModelProviderClient:
-    def __init__(self, client: httpx.AsyncClient) -> None:
-        if client.follow_redirects:
-            raise ValueError("The model HTTP client must not follow redirects.")
-        self._client = client
+    def __init__(self, model: LLMService) -> None:
+        self._model = model
 
     async def discover_models(
         self, config: ProviderConfig
     ) -> tuple[DiscoveredModel, ...]:
-        protocol, base_url = _catalog_route(config)
         if config.auth_mode is ModelAuthMode.API_KEY and not config.api_key:
             raise ProviderRequestError(
                 ProviderErrorCode.AUTH, "The model credential is missing."
@@ -96,9 +89,9 @@ class ModelProviderClient:
         key = config.api_key if config.auth_mode is ModelAuthMode.API_KEY else None
         try:
             async with asyncio.timeout(MODEL_OPERATION_TIMEOUT_SECONDS):
-                payload = await ProviderSDK(
-                    self._client, protocol, base_url, key
-                ).models()
+                payload = await self._model.models(
+                    _sdk_config(config, ReasoningParameters()), key
+                )
         except ModelAdapterError as error:
             raise _provider_error(error) from error
         except TimeoutError as error:
@@ -219,10 +212,6 @@ class ModelProviderClient:
         *,
         tool: bool,
     ) -> None:
-        async def credential(connection_id: str, revision: int) -> str | None:
-            return config.api_key
-
-        adapter = SDKModelAdapter(self._client, credential_resolver=credential)
         request = ModelRequest(
             run_id="capability-check",
             adapter_config=ModelConnectionConfig(
@@ -272,7 +261,14 @@ class ModelProviderClient:
         blocks = []
         finish = None
         try:
-            async with aclosing(adapter.stream(request)) as outputs:
+            async with aclosing(
+                self._model.check_stream(
+                    request,
+                    config.api_key
+                    if config.auth_mode is ModelAuthMode.API_KEY
+                    else None,
+                )
+            ) as outputs:
                 async for output in outputs:
                     if isinstance(output, BlockEnd):
                         blocks.append(output.block)
@@ -302,15 +298,20 @@ class ModelProviderClient:
             raise _protocol_error("The model returned invalid tool arguments.")
 
 
-def _catalog_route(config: ProviderConfig) -> tuple[ModelProtocol, str]:
-    if config.protocol is ModelProtocol.DEEPSEEK_MESSAGES:
-        parsed = urlsplit(config.base_url)
-        if parsed.hostname == "api.deepseek.com":
-            # DeepSeek publishes its catalog at the OpenAI endpoint even for Messages.
-            return ModelProtocol.OPENAI_COMPATIBLE, urlunsplit(
-                (parsed.scheme, parsed.netloc, "", "", "")
-            )
-    return config.protocol, config.base_url
+def _sdk_config(
+    config: ProviderConfig, parameters: ReasoningParameters
+) -> ModelConnectionConfig:
+    return ModelConnectionConfig(
+        protocol=config.protocol,
+        provider_type=config.provider_type,
+        base_url=config.base_url,
+        auth_mode=config.auth_mode,
+        max_tokens_field=config.max_tokens_field,
+        include_usage=config.include_usage,
+        connection_id="capability-check",
+        config_revision=1,
+        reasoning_parameters=parameters,
+    )
 
 
 def _provider_error(error: ModelAdapterError) -> ProviderRequestError:

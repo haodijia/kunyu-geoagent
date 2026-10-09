@@ -58,7 +58,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
             repository,
             repository,
             locks,
-            ModelProviderClient(http_client),
+            ModelProviderClient(agent_runtime.kernel.context.require(s.MODEL)),
             agent_runtime.lifecycle,
         )
         discovery_tasks = ModelDiscoveryTasks(catalog_service)

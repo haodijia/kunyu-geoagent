@@ -87,8 +87,8 @@ export function providerById(id: string): ProviderCatalogEntry | undefined {
 }
 
 export function protocolsForProvider(providerType: ModelProviderType): readonly ModelProtocol[] {
-  if (providerType === "openai") return ["openai_responses", "openai_compatible"];
-  if (providerType === "deepseek") return ["deepseek_messages", "openai_compatible"];
+  if (providerType === "openai") return ["openai_responses"];
+  if (providerType === "deepseek") return ["deepseek_messages"];
   if (providerType === "custom") return ["openai_compatible", "openai_responses", "deepseek_messages"];
   return ["openai_compatible"];
 }

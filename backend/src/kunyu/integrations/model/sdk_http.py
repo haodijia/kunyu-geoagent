@@ -3,24 +3,32 @@
 from collections.abc import AsyncIterator
 
 import httpx
+import httpx2
 
 from kunyu.agent.runtime.models import ModelAdapterError, ModelErrorCode
 
 MAX_MODEL_RESPONSE_BYTES = 2 * 1024 * 1024
 
 
-class ModelSDKTransport(httpx.AsyncBaseTransport):
+class ModelSDKTransport(httpx2.AsyncBaseTransport):
     def __init__(self, client: httpx.AsyncClient) -> None:
         self._client = client
 
-    async def handle_async_request(self, request: httpx.Request) -> httpx.Response:
-        response = await self._client.send(request, stream=True)
+    async def handle_async_request(self, request: httpx2.Request) -> httpx2.Response:
+        borrowed = httpx.Request(
+            request.method,
+            str(request.url),
+            headers=request.headers.multi_items(),
+            content=await request.aread(),
+            extensions=request.extensions,
+        )
+        response = await self._client.send(borrowed, stream=True)
         headers = [
             (name, value)
             for name, value in response.headers.multi_items()
             if name.lower() not in {"content-encoding", "content-length"}
         ]
-        return httpx.Response(
+        return httpx2.Response(
             response.status_code,
             headers=headers,
             stream=_BoundedResponse(response),
@@ -28,7 +36,7 @@ class ModelSDKTransport(httpx.AsyncBaseTransport):
         )
 
 
-class _BoundedResponse(httpx.AsyncByteStream):
+class _BoundedResponse(httpx2.AsyncByteStream):
     def __init__(self, response: httpx.Response) -> None:
         self._response = response
 

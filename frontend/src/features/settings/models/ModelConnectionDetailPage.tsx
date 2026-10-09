@@ -155,7 +155,7 @@ export function ModelConnectionDetailPage() {
         ) : null}
 
         <ModelDetailSection title={content.detail.credentials} description={content.detail.credentialsHelp}>
-          {connection.provider_type === "deepseek" || connection.provider_type === "openai" || connection.provider_type === "custom" ? (
+          {connection.provider_type === "custom" ? (
             <label className="provider-form-field">
               <span>{content.detail.protocol}</span>
               <select value={connection.protocol} disabled={busyAction !== null} onChange={(event) => {

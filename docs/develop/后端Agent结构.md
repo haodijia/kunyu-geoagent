@@ -130,7 +130,7 @@ backend/src/kunyu/agent/
 
 ## 模型协议与签名回放
 
-`integrations/model/adapter.py` 的 SDKModelAdapter 是统一模型入口；Agent 核心只处理 ModelRequest／ModelOutput，不依赖具体协议或 SDK。`sdk.py` 通过官方 OpenAI、Anthropic Python SDK 发送请求和解码 SSE，`sdk_http.py` 借用应用连接池并限制响应字节。`openai_chat_request.py`、`openai_responses_request.py`、`messages_request.py` 投影原生输入；`chat_events.py`、`responses_events.py`、`messages_events.py` 把 SDK 对象转换为 Agent 分块、用量和原生回放。手写 HTTP／SSE 传输及旧解析器入口已删除；不在失败后切换协议或地址。
+`integrations/model/adapter.py` 实现统一 LLM 服务，Agent 内核继续只消费 ModelRequest／ModelOutput。模型插件、Provider 注册与 SDK 协议实现分层，当前实现见后文“统一 LLM 服务、提供方插件与 SDK”；以下原生接入记录属于开发历史，不代表保留旧编码器或解析器。
 
 DeepSeek 新连接默认 `deepseek_messages` 与 `https://api.deepseek.com/anthropic`，请求追加 `/v1/messages`；已含 `/v1` 时不重复追加。模型请求使用 `x-api-key` 和 `anthropic-version: 2023-06-01`。官方模型目录仍从根 `/models` 获取，使用该目录接口的 Bearer 认证；自定义 Messages 目录使用配置地址的 `/v1/models`。`provider_client.py` 的文本与工具检查使用同一个 SDKModelAdapter 的流式调用，发送实际冻结的思考参数、输出上限和用量开关，验证完整终止事件与真实工具参数。DeepSeek 与自定义连接可在设置页切换协议；改动增加修订，清除旧检查与推理声明，队列和运行占用时拒绝更改。既有连接保持其显式配置。
 
@@ -483,17 +483,28 @@ confirmation.requested持久保存执行模式、绑定和可审阅说明。批�
 0021将原审批标明transaction，绑定保持未知None，其他事实不变。三种HTTP模型协议与真实异步工具验证了批准后队列、失败、拒绝、绑定变化、重复批准、取消、重启及重建；批准后权限与风险声明变更也阻止发送。本地记忆事务及日志失败回滚保持。现有Mu风格确认卡直接复用，窄屏深色／刷新和模型续接通过。该批提供通用审批执行基础；MCP 接入见后文，完整业务作业监督尚未实现。
 
 
-## SDK 模型接入统一
+## 统一 LLM 服务、提供方插件与 SDK
 
-参考 harness 的 llm-pi-ai 适配边界，Python 后端直接使用官方 SDK，保留一套 Agent、工具和 Skill 运行逻辑。OpenAI SDK 负责 Chat Completions／Responses，Anthropic SDK 负责原生 Messages；DeepSeek、Kimi、MiMo、GLM 与 OpenAI 的显式连接仍可使用相应接口。协议选择只影响接入层，没有增加三套运行循环。SDK 依赖和解析版本由 backend/uv.lock 固定。
+参考 harness 的统一 LLM 接口、llm-deepseek 和 llm-pi-ai 责任边界。Python 使用 Pydantic AI 2.54.0 的 Model／Provider 层；底层 OpenAI 3.26、Anthropic 1.12 SDK 的请求构造与 SSE 解码由该模型 SDK 调用。没有使用 SDK 的 Agent 循环，原有 Runner、工具审批、Skill、压缩和持久轨迹仍属于坤舆内核。
 
-SDK 接收投影后的消息和额外原生参数，模型返回对象使用 exclude_unset 保留缺失与零值的区别。reasoning_content、thinking signature、Responses encrypted_content 和 call_id 继续进入已有原生回放，历史 ReplayEnvelope 格式不变。严格事件映射仍拒绝不完整工具、非法 JSON、未闭合事件和未知能力；没有使用 SDK 的宽松工具参数解析替代本地工具验证。
+`agent/model_providers.py` 定义 LLMService 与作用域 Provider 注册表；统一提供 stream、check_stream 和 models。`ModelProvidersPlugin` 提供注册表，`DeepSeekModelProviderPlugin` 注册固定 Messages 的 deepseek-official，`SDKModelProviderPlugin` 注册多供应商 sdk 路由，`ModelPlugin` 提供公共 LLM 服务。最近作用域优先，同层按显式 rank 选择；没有可服务的已安装 Provider 时明确失败。SDK 通用插件不代替已卸载的官方 DeepSeek 插件。
 
-SDK 的 max_retries 固定为 0，重试与溢出压缩由现有 Agent 插件控制。请求使用已冻结的凭据与地址，忽略 SDK 环境中的自定义请求头，不跟随重定向。响应解压后按 2 MiB 响应／SSE 事件边界限制，模型事件空闲超时为 300 秒；结束、失败、取消或提前关闭都会释放当前响应及 SDK 客户端，不关闭应用共享连接池。SDK 原始异常正文不进入公开错误或日志异常链。
+Provider 在凭据等待之前选定，其工厂、配置、地址、输出上限及思考参数在当前调用内保持不变。提供方释放取消所属的凭据等待、图片准备和请求；元数据发现、能力检查与真实运行共用服务及 SDK 生命周期。目录信息仍来自真实 /models 或手工声明；DeepSeek 官方目录明确使用根 OpenAI 目录端点，不在请求失败后切换接口。
 
-连接目录也通过 SDK 获取；DeepSeek 官方目录仍明确使用根 OpenAI /models 接口。能力检查与真实运行共用输入投影、SDK 传输、事件映射和工具验证，删除了三份独立非流式探测实现。
+`sdk_content.py` 只在应用内容块与 SDK 的 ModelRequest／ModelResponse 之间转换；`sdk_events.py` 只映射 SDK 公共 parts 事件。旧 Chat、Messages、Responses 的输入编码器、事件解析器和附件原生编码文件已删除。SDK 负责工具请求、结果配对、图片编码及各 API 细节。首次系统指令使用 SDK SystemPrompt，后续真实注入保持在历史当前位置，不把当前 Skill 指令提前到全部历史之前。
 
-临时本地 HTTP／ASGI／实际 Agent 验证了五家模型的冻结参数、工具续接、Skill、手动和溢出压缩、审批与重启、投影重建、缺失／零值／部分缓存用量及图片／文件请求。另核对认证与环境请求头隔离、SDK 不隐藏重试、HTTP 与流内错误、非法工具输入、截断、超限、取消和连接释放。未新增仓库测试，也未调用真实付费模型；真实供应商连通性仍需使用配置的凭据检查。
+`sdk_observation.py` 观察 SDK 已解码的原生 DTO，记录实际用量、终止回执和工具身份，用于应用的严格校验，不解析 SSE 或实现协议。缺失／部分计数不补零，阶段用量合并后只结算一次；SDK 的归一用量不作为供应商凭据写入回放。工具身份须由提供方实际返回，重复身份、不合法文本／工具字段、超限和未终止流明确失败。SDK 将真实空 input={} 归一成 None 时，仅凭已经收到的原生 input 回执恢复该值，不为缺失参数构造空对象。
+
+Responses 终止回执交给 SDK 的完整响应解码器，按该回执闭合最终内容；仅终止记录出现的正文不虚构 token delta。输出用量、文本／工具限额继续由已有内核结算。SDK max_retries 固定为 0，重试和溢出压缩仍属于现有插件。SDK HTTPX2 客户端借用应用 HTTPX 连接池，单事件／响应最多 2 MiB，流空闲最多 300 秒；结束、失败和取消释放 SDK 客户端与原生响应，不关闭共享池。凭据和错误正文不写入公开日志，SDK 环境认证与自定义请求头不参与冻结配置。
+
+新 ReplayEnvelope 使用 kind=pydantic-model、version=1，包含真实 SDK 响应元数据和按块的 SDK Part 快照。输入校验来源模型、配置、块数和规范内容；同一绑定保留 thinking signature、encrypted_content 和 call_id。连接、修订、接口、地址或模型变更时移除原私有状态，保留规范正文与调用事实。旧开发回放格式未增加运行时兼容分支，历史记录仍可查看，继续执行时明确要求新建会话；没有删除或伪造原始 journal，无数据库迁移。
+
+默认 DeepSeek 与 OpenAI 的设置页不提供协议切换，分别对应 Messages 与 Responses；Kimi／MiMo／GLM 使用兼容 API。自定义路由按声明选择 SDK 支持的 API，不能猜测端点。既有显式连接配置保持实际值。
+
+本地实际 SDK／ASGI／Agent 验证了五家提供方的冻结参数、工具续接、思考回传、签名和加密状态、Skill 与历史重建；三种接口的 MCP 文本／资源／图片及 L2 审批通过。三种接口的溢出缩减、冻结模型和重建请求保持通过。缺失／零值／部分用量、文字标签、提前 EOF、错误脱敏、无 SDK 隐式重试及提供方卸载取消通过。离屏 Electron 核对默认连接无协议选项、自定义 API 配置和 600px 布局；构建与静态检查通过。未新增仓库测试文件，未使用真实供应商账号或付费模型验收。
+
+参考：本地 harness llm-deepseek／llm-pi-ai，以及 [Pydantic AI Model／Provider](https://pydantic.dev/docs/ai/models/overview/)。Python SDK 与参考项目的 pi-ai 是不同库，本批对齐服务与插件边界，不宣称 SDK 内部实现逐行相同。
+
 
 
 ## 对话工具活动展示

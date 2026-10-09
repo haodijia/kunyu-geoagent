@@ -4,6 +4,7 @@ from kunyu.agent import services as s
 from kunyu.agent.adapters import SnapshotCredentialResolver, StoredRunExecutionProvider
 from kunyu.agent.attachments import RunImageResolver
 from kunyu.agent.scope import Context
+from kunyu.agent.tools.shared import load_source
 from kunyu.integrations.model.adapter import (
     SDKModelAdapter,
 )
@@ -46,8 +47,15 @@ class PersistencePlugin:
 
 
 class ModelPlugin:
-    name = "http-model"
-    requires = (s.HTTP_CLIENT, s.CONNECTIONS, s.CONTEXTS, s.ATTACHMENTS)
+    name = "llm"
+    requires = (
+        s.HTTP_CLIENT,
+        s.CONNECTIONS,
+        s.CONTEXTS,
+        s.ATTACHMENTS,
+        s.SCOPES,
+        s.MODEL_PROVIDERS,
+    )
     provides = (s.MODEL,)
 
     async def apply(self, context: Context) -> None:
@@ -55,6 +63,11 @@ class ModelPlugin:
             s.MODEL,
             SDKModelAdapter(
                 context.require(s.HTTP_CLIENT),
+                context.require(s.MODEL_PROVIDERS),
+                context,
+                lambda run_id: context.require(s.SCOPES).for_session(
+                    load_source(context.require(s.CONTEXTS), run_id).session.id
+                ),
                 SnapshotCredentialResolver(context.require(s.CONNECTIONS)),
                 RunImageResolver(
                     context.require(s.CONTEXTS), context.require(s.ATTACHMENTS)

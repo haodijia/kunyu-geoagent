@@ -14,12 +14,12 @@ if TYPE_CHECKING:
     from kunyu.agent.filesystem import FilesystemHooks
     from kunyu.agent.hooks import AgentHookRegistry
     from kunyu.agent.mcp.plugin import McpManager
+    from kunyu.agent.model_providers import LLMService, ModelProviderRegistry
     from kunyu.agent.runtime.context import (
         ContextPreparationRegistry,
         PromptSectionRegistry,
     )
     from kunyu.agent.runtime.driver import AgentRuntime
-    from kunyu.agent.runtime.models import ModelAdapter
     from kunyu.agent.runtime.runner import Runner
     from kunyu.agent.scheduler import RunScheduler
     from kunyu.agent.session_agent import AgentDirectory, SessionAgent
@@ -65,7 +65,8 @@ LIFECYCLE_REPOSITORY: ServiceKey[SQLAlchemyRunLifecycleRepository] = ServiceKey(
     "turns.repository"
 )
 HOOKS: ServiceKey[AgentHookRegistry] = ServiceKey("agent.hooks")
-MODEL: ServiceKey[ModelAdapter] = ServiceKey("model")
+MODEL: ServiceKey[LLMService] = ServiceKey("model")
+MODEL_PROVIDERS: ServiceKey[ModelProviderRegistry] = ServiceKey("llm.providers")
 PROMPTS: ServiceKey[PromptSectionRegistry] = ServiceKey("system_prompt")
 CONTEXT_PREPARERS: ServiceKey[ContextPreparationRegistry] = ServiceKey(
     "context.preparers"
