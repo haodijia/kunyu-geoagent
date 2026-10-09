@@ -38,6 +38,18 @@ class McpServerRecord(Base):
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
 
 
+class McpOAuthRecord(Base):
+    __tablename__ = "mcp_oauth"
+    name: Mapped[str] = mapped_column(ForeignKey("mcp_servers.name", ondelete="CASCADE"), primary_key=True)
+    server_url: Mapped[str] = mapped_column(String(2048), nullable=False)
+    tokens: Mapped[dict] = mapped_column(JSON, nullable=False)
+    client_info: Mapped[dict] = mapped_column(JSON, nullable=False)
+    client_metadata: Mapped[dict] = mapped_column(JSON, nullable=False)
+    discovery: Mapped[dict] = mapped_column(JSON, nullable=False)
+    expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+
 class WorkspaceRecord(Base):
     __tablename__ = "workspaces"
     __table_args__ = (Index("ix_workspaces_updated_at", "updated_at"),)

@@ -5,6 +5,7 @@ from builtins import BaseExceptionGroup
 from functools import partial
 
 from kunyu.agent import services as s
+from kunyu.agent.mcp.oauth import McpOAuthManager
 from kunyu.agent.mcp.resources import register_resources
 from kunyu.agent.mcp.tools import McpTool
 from kunyu.agent.runtime.context import PromptSection
@@ -25,6 +26,7 @@ class McpManager:
         self.connections: dict[str, McpConnection] = {}
         self.disposers: dict[str, list] = {}
         self.locks: dict[str, asyncio.Lock] = {}
+        self.oauth = McpOAuthManager(self)
 
     def publish(self, connection: McpConnection, catalog: dict) -> int:
         row = self.repository.get(connection.config.name)
@@ -79,6 +81,10 @@ class McpManager:
                 self.retire,
             )
             self.connections[name] = connection
+            if row["config"].auth_mode == "oauth":
+                connection.auth_factory = partial(
+                    self.oauth.auth_for, row["config"], row["revision"]
+                )
             connection.start()
 
     def view(self, name: str) -> dict:
@@ -94,6 +100,7 @@ class McpManager:
             "status": connection.status if connection is not None else "disconnected",
             "error_code": connection.error_code if connection is not None else None,
             "attempt": connection.attempt if connection is not None else 0,
+            "auth": self.oauth.view(row["config"]),
         }
 
     def instructions(self, _source) -> str:
@@ -110,6 +117,7 @@ class McpManager:
         return "\n\n".join(sections)
 
     async def close(self) -> None:
+        await self.oauth.close()
         connections = tuple(self.connections.values())
         self.connections.clear()
         results = await asyncio.gather(

@@ -24,9 +24,44 @@ class McpReconnect(McpValue):
         return self
 
 
+class McpOAuthOptions(McpValue):
+    client_id: str | None = Field(default=None, min_length=1, max_length=2048)
+    client_metadata_url: str | None = Field(default=None, max_length=2048)
+    callback_port: int = Field(default=0, ge=0, le=65535, strict=True)
+    scopes: tuple[str, ...] = ()
+
+    @model_validator(mode="after")
+    def validate_options(self) -> Self:
+        if self.client_id is not None and self.client_metadata_url is not None:
+            raise ValueError("Choose a registered client ID or a client metadata URL.")
+        if self.client_metadata_url is not None:
+            parsed = urlsplit(self.client_metadata_url)
+            if (
+                parsed.scheme != "https"
+                or not parsed.hostname
+                or parsed.path in {"", "/"}
+                or parsed.username
+                or parsed.password
+                or parsed.fragment
+            ):
+                raise ValueError("OAuth client metadata must be an HTTPS document URL.")
+        if (
+            len(self.scopes) > 50
+            or len(set(self.scopes)) != len(self.scopes)
+            or any(
+                not scope or len(scope) > 256 or any(char.isspace() for char in scope)
+                for scope in self.scopes
+            )
+        ):
+            raise ValueError("OAuth scopes must be unique nonempty scope names.")
+        return self
+
+
 class McpServerConfig(McpValue):
     name: str = Field(pattern=r"^[A-Za-z0-9_-]{1,32}$")
     transport: Literal["stdio", "streamable-http"]
+    auth_mode: Literal["headers", "oauth"] = "headers"
+    oauth: McpOAuthOptions | None = None
     url: str | None = Field(default=None, max_length=2048)
     command: str | None = Field(default=None, min_length=1, max_length=4096)
     args: tuple[str, ...] = ()
@@ -38,6 +73,12 @@ class McpServerConfig(McpValue):
 
     @model_validator(mode="after")
     def validate_transport(self) -> Self:
+        if self.auth_mode == "oauth" and (
+            self.transport != "streamable-http" or self.oauth is None
+        ):
+            raise ValueError("OAuth requires HTTP transport and OAuth options.")
+        if self.auth_mode == "headers" and self.oauth is not None:
+            raise ValueError("OAuth options require OAuth authentication.")
         if self.transport == "stdio":
             if self.url is not None or self.command is None:
                 raise ValueError("Stdio requires a command and no HTTP URL.")
@@ -72,6 +113,12 @@ class McpServerConfig(McpValue):
                     "MCP URL must be an HTTP endpoint without credentials or query parameters."
                 )
             _ = parsed.port
+            if (
+                self.auth_mode == "oauth"
+                and parsed.scheme != "https"
+                and parsed.hostname not in {"127.0.0.1", "localhost", "::1"}
+            ):
+                raise ValueError("OAuth MCP endpoints require HTTPS outside loopback.")
         if any(
             "\0" in value for value in (*self.args, self.command or "", self.cwd or "")
         ):

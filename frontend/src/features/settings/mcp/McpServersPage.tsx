@@ -13,26 +13,18 @@ import {
   X,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { ApiError } from "@/api/client";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
   SettingsPageHeader,
   SettingsPageWrapper,
 } from "@/features/settings/SettingsPage";
 import { zhCN } from "@/locales/zh-CN";
+import { McpOAuthControls } from "./McpOAuthControls";
 import { mcpApi, type McpServer } from "./api";
 
 const content = zhCN.mcp;
-export const mcpQueryKey = ["mcp-servers"] as const;
-export function mcpError(error: unknown): string {
-  if (error instanceof ApiError && error.code === "MCP_NAME_EXISTS")
-    return content.nameExists;
-  if (error instanceof ApiError && error.code === "MCP_CONFIG_CHANGED")
-    return content.changed;
-  if (error instanceof ApiError && error.code === "MCP_BUSY")
-    return content.busy;
-  return error instanceof Error ? error.message : content.requestFailed;
-}
+import { mcpError, mcpQueryKey } from "./model";
+
 export function McpServersPage() {
   const navigate = useNavigate();
   const query = useQuery({
@@ -192,16 +184,18 @@ function ServerRow({ server }: { readonly server: McpServer }) {
       >
         {config.transport === "stdio" ? config.command : config.url}
       </div>
+      {config.auth_mode === "oauth" && <McpOAuthControls server={server} />}
       {error !== null && (
         <p role="alert" className="my-2 text-xs text-destructive">
           {error}
         </p>
       )}
-      {server.error_code !== null && (
-        <p className="mt-2 text-xs text-destructive">
-          {content.connectionFailed}
-        </p>
-      )}
+      {server.error_code !== null &&
+        server.error_code !== "MCP_AUTH_REQUIRED" && (
+          <p className="mt-2 text-xs text-destructive">
+            {content.connectionFailed}
+          </p>
+        )}
       {deleting && (
         <div className="mt-2 flex flex-wrap items-center gap-2 text-xs">
           <span>{content.deletePrompt(config.name)}</span>

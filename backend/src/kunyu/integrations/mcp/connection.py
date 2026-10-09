@@ -15,12 +15,15 @@ from mcp_types.version import MODERN_PROTOCOL_VERSIONS
 from kunyu.agent.runtime.tools import ToolExecutionError
 from kunyu.domain.mcp import McpSecrets, McpServerConfig
 from kunyu.integrations.mcp.catalog import discover_catalog
+from kunyu.integrations.mcp.oauth_storage import OAuthLoginRequired, contains_exception
 from kunyu.integrations.mcp.transport import connect_transport
 
 logger = logging.getLogger(__name__)
 
 
 def request_error(error: Exception) -> ToolExecutionError:
+    if contains_exception(error, OAuthLoginRequired):
+        return ToolExecutionError("MCP sign-in is required.", code="MCP_AUTH_REQUIRED")
     if isinstance(error, TimeoutError) or (
         isinstance(error, MCPError) and error.error.code == types.REQUEST_TIMEOUT
     ):
@@ -56,6 +59,8 @@ class McpConnection:
         self.lost = asyncio.Event()
         self.dirty = asyncio.Event()
         self.wake = asyncio.Event()
+        self.auth_factory: Callable | None = None
+        self.auth_required = False
 
     def start(self) -> None:
         if self.task is not None:
@@ -77,6 +82,7 @@ class McpConnection:
 
     async def _notification(self, message) -> None:
         if isinstance(message, Exception):
+            self.auth_required = contains_exception(message, OAuthLoginRequired)
             self.lost.set()
         elif message.method == "notifications/tools/list_changed":
             self.dirty.set()
@@ -118,7 +124,12 @@ class McpConnection:
                 self.dirty.clear()
                 began = None
                 try:
-                    transport = connect_transport(self.config, self.secrets, self.lost)
+                    auth = (
+                        self.auth_factory() if self.auth_factory is not None else None
+                    )
+                    transport = connect_transport(
+                        self.config, self.secrets, self.lost, auth
+                    )
                     async with AsyncExitStack() as resources:
                         async with asyncio.timeout(10):
                             client = await resources.enter_async_context(
@@ -165,6 +176,8 @@ class McpConnection:
                         began = monotonic()
                         while not self.stopping:
                             if self.lost.is_set():
+                                if self.auth_required:
+                                    raise OAuthLoginRequired("MCP sign-in is required.")
                                 raise ConnectionError("MCP transport closed.")
                             if self.dirty.is_set():
                                 self.dirty.clear()
@@ -186,6 +199,13 @@ class McpConnection:
                 except Exception as error:
                     self.retire(self)
                     self.client = None
+                    if contains_exception(error, OAuthLoginRequired):
+                        self.status, self.error_code = (
+                            "login_required",
+                            "MCP_AUTH_REQUIRED",
+                        )
+                        self.ready.set()
+                        break
                     self.error_code = "MCP_CONNECTION_FAILED"
                     logger.warning(
                         "MCP connection failed server=%s error_type=%s",

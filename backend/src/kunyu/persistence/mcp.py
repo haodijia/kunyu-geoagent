@@ -7,7 +7,7 @@ from sqlalchemy import select
 from kunyu.domain.mcp import McpSecrets, McpServerConfig
 from kunyu.domain.runs import NONTERMINAL_RUN_STATE_VALUES
 from kunyu.persistence.database import Database
-from kunyu.persistence.models import McpServerRecord, RunRecord
+from kunyu.persistence.models import McpOAuthRecord, McpServerRecord, RunRecord
 from kunyu.persistence.time import as_utc
 
 
@@ -84,6 +84,27 @@ class McpRepository:
                         "MCP configuration changed; reload it before editing."
                     )
                 if row.config != config.model_dump(mode="json"):
+                    if config.auth_mode == "oauth" and any(
+                        key.lower() == "authorization"
+                        for key in row.secrets.get("headers", {})
+                    ):
+                        raise ValueError(
+                            "Clear the manual Authorization header before choosing OAuth."
+                        )
+                    if (
+                        row.config.get("url"),
+                        row.config.get("auth_mode"),
+                        row.config.get("oauth"),
+                    ) != (
+                        config.url,
+                        config.auth_mode,
+                        config.oauth.model_dump(mode="json")
+                        if config.oauth is not None
+                        else None,
+                    ):
+                        credential = session.get(McpOAuthRecord, config.name)
+                        if credential is not None:
+                            session.delete(credential)
                     row.config = config.model_dump(mode="json")
                     row.revision += 1
                     if row.config["transport"] == "stdio":
@@ -116,6 +137,10 @@ class McpRepository:
                 raise ValueError(
                     "Credentials do not match the configured MCP transport."
                 )
+            if row.config.get("auth_mode") == "oauth" and any(
+                key.lower() == "authorization" for key in secrets.headers
+            ):
+                raise ValueError("OAuth owns the Authorization header.")
             row.secrets = secrets.model_dump(mode="json")
             row.revision += 1
             row.updated_at = datetime.now(UTC)

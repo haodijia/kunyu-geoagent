@@ -47,7 +47,10 @@ class ObservedReadStream:
 
 @asynccontextmanager
 async def connect_transport(
-    config: McpServerConfig, secrets: McpSecrets, lost: asyncio.Event
+    config: McpServerConfig,
+    secrets: McpSecrets,
+    lost: asyncio.Event,
+    auth: httpx2.Auth | None = None,
 ):
     if config.transport == "stdio":
         params = StdioServerParameters(
@@ -61,6 +64,7 @@ async def connect_transport(
     else:
         async with httpx2.AsyncClient(
             headers=secrets.headers,
+            auth=auth,
             follow_redirects=False,
             timeout=httpx2.Timeout(config.tool_timeout_ms / 1000, connect=10),
             trust_env=False,

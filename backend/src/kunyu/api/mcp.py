@@ -33,13 +33,24 @@ class McpSecretsRequest(BaseModel):
     expected_revision: int = Field(ge=1, strict=True)
 
 
+class McpOAuthRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    expected_revision: int = Field(ge=1, strict=True)
+
+
+class McpOAuthCancelRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    flow_id: str = Field(min_length=1, max_length=64)
+
+
 @asynccontextmanager
-async def mutation(service: McpManager, name: str):
+async def mutation(service: McpManager, name: str, *, require_idle: bool = True):
     import asyncio
 
     async with service.locks.setdefault(name, asyncio.Lock()):
         try:
-            service.repository.require_idle()
+            if require_idle:
+                service.repository.require_idle()
             yield
         except McpBusyError as error:
             raise ApiError(409, "MCP_BUSY", str(error)) from error
@@ -71,6 +82,7 @@ async def update_server(name: str, body: McpUpdateRequest, service: Manager):
     if body.config.name != name:
         raise ApiError(422, "MCP_INVALID_CONFIG", "MCP namespaces cannot be renamed.")
     async with mutation(service, name):
+        await cancel_current_login(service, name)
         service.repository.save(
             body.config, create=False, expected_revision=body.expected_revision
         )
@@ -81,6 +93,7 @@ async def update_server(name: str, body: McpUpdateRequest, service: Manager):
 @router.put("/{name}/secrets")
 async def set_secrets(name: str, body: McpSecretsRequest, service: Manager):
     async with mutation(service, name):
+        await cancel_current_login(service, name)
         service.repository.set_secrets(name, body.secrets, body.expected_revision)
         await service.activate(name)
         return service.view(name)
@@ -89,6 +102,7 @@ async def set_secrets(name: str, body: McpSecretsRequest, service: Manager):
 @router.post("/{name}/reconnect")
 async def reconnect(name: str, service: Manager):
     async with mutation(service, name):
+        await cancel_current_login(service, name)
         row = service.repository.get(name)
         service.repository.save(
             row["config"].model_copy(update={"enabled": True}),
@@ -102,8 +116,48 @@ async def reconnect(name: str, service: Manager):
 @router.delete("/{name}", status_code=204)
 async def delete_server(name: str, service: Manager):
     async with mutation(service, name):
+        await cancel_current_login(service, name)
         connection = service.connections.pop(name, None)
         if connection is not None:
             await connection.stop()
         service.repository.delete(name)
     return Response(status_code=204)
+
+
+async def cancel_current_login(service: McpManager, name: str) -> None:
+    attempt = service.oauth.attempts.get(name)
+    if attempt is not None:
+        await attempt.cancel()
+
+
+@router.post("/{name}/oauth/login")
+async def oauth_login(name: str, body: McpOAuthRequest, service: Manager):
+    async with mutation(service, name):
+        if service.repository.get(name)["revision"] != body.expected_revision:
+            raise McpRevisionError(
+                "OAuth configuration changed; reload before signing in."
+            )
+        return await service.oauth.begin(name)
+
+
+@router.post("/{name}/oauth/cancel")
+async def oauth_cancel(name: str, body: McpOAuthCancelRequest, service: Manager):
+    async with mutation(service, name, require_idle=False):
+        await service.oauth.cancel(name, body.flow_id)
+        return service.view(name)
+
+
+@router.post("/{name}/oauth/logout")
+async def oauth_logout(name: str, body: McpOAuthRequest, service: Manager):
+    async with mutation(service, name):
+        row = service.repository.get(name)
+        if row["config"].auth_mode != "oauth":
+            raise ValueError("This MCP server does not use OAuth.")
+        if row["revision"] != body.expected_revision:
+            raise McpRevisionError(
+                "OAuth configuration changed; reload before signing out."
+            )
+        await cancel_current_login(service, name)
+        service.oauth.repository.clear(name, body.expected_revision)
+        await service.activate(name)
+        return service.view(name)

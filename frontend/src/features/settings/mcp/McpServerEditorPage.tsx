@@ -10,13 +10,16 @@ import {
   SettingsPageWrapper,
 } from "@/features/settings/SettingsPage";
 import { zhCN } from "@/locales/zh-CN";
+import { McpOAuthSettings } from "./McpOAuthSettings";
 import { mcpApi, type McpConfig, type McpServer } from "./api";
-import { mcpError, mcpQueryKey } from "./McpServersPage";
+import { mcpError, mcpQueryKey } from "./model";
 
 const content = zhCN.mcp;
 const blank: McpConfig = {
   name: "",
   transport: "streamable-http",
+  auth_mode: "headers",
+  oauth: null,
   url: "",
   command: null,
   args: [],
@@ -184,6 +187,8 @@ function Editor({ server }: { readonly server: McpServer | null }) {
               setConfig({
                 ...config,
                 transport,
+                auth_mode: "headers",
+                oauth: null,
                 url: transport === "streamable-http" ? "" : null,
                 command: transport === "stdio" ? "" : null,
                 args: [],
@@ -246,6 +251,13 @@ function Editor({ server }: { readonly server: McpServer | null }) {
               />
             </label>
           </>
+        )}
+        {config.transport === "streamable-http" && (
+          <McpOAuthSettings
+            config={config}
+            pending={pending}
+            onChange={setConfig}
+          />
         )}
         <label className="flex flex-col gap-2 text-[13px]">
           {content.timeout}
