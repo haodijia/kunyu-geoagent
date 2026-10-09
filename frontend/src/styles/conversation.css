@@ -15,6 +15,9 @@
 .message-list-scroller {
   mask-image: linear-gradient(to bottom, transparent, black 12px);
 }
+@media (max-width: 720px) {
+  .message-actions { display: none; }
+}
 .chat-history__item[aria-current="page"]::before {
   content: "";
   position: absolute;

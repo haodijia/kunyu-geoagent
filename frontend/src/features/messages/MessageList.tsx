@@ -24,12 +24,9 @@ import { UserSkillText } from "@/features/skills/UserSkillText";
 
 import { PlanCards } from "@/features/plans/PlanCards";
 import { AssistantContent } from "./AssistantContent";
+import { collectReplyCopyRows, formatMessageTime } from "./reply-actions";
 
 const content = zhCN.conversation;
-const timeFormatter = new Intl.DateTimeFormat("zh-CN", {
-  hour: "2-digit",
-  minute: "2-digit",
-});
 
 interface MessageListProps {
   readonly footer?: ReactNode;
@@ -131,6 +128,12 @@ export function MessageList({
     for (const item of timeline) if (item.kind === "message" && item.message.role === "assistant" && item.message.run_id !== null) last.set(item.message.run_id, item.id);
     return last;
   }, [timeline]);
+  const processing = turns.some((turn) => ["ready", "model_running", "tool_running", "waiting_input", "waiting_confirmation"].includes(turn.state));
+  const replyCopyRows = useMemo(() => collectReplyCopyRows(
+    timeline.flatMap((item) => item.kind === "message" ? [item.message] : []),
+    settledBlocks,
+    processing,
+  ), [timeline, settledBlocks, processing]);
   const endRef = useRef<HTMLDivElement>(null);
   const followStreamRef = useRef(true);
   const [awayFromEnd, setAwayFromEnd] = useState(false);
@@ -221,6 +224,9 @@ export function MessageList({
         return (
           <article
             key={message.id}
+            id={`message-${message.id}`}
+            data-message-id={message.id}
+            data-message-role={message.role}
             className={
               message.role === "user"
                 ? "group ml-auto flex w-full flex-col items-end"
@@ -228,7 +234,7 @@ export function MessageList({
             }
           >
             {message.role === "user" ? (
-              <div className="max-w-full [--attachment-surface:var(--message-user-bg)] rounded-[8px] bg-[var(--message-user-bg)] px-2.5 py-2 text-[13px] leading-5 whitespace-pre-wrap text-foreground [overflow-wrap:anywhere]">
+              <div className="max-w-full [--attachment-surface:var(--message-user-bg)] rounded-[8px_0_8px_8px] bg-[var(--message-user-bg)] p-1.5 md:p-2 text-[13px] leading-5 whitespace-pre-wrap text-foreground [overflow-wrap:anywhere]">
                 {message.content.length > 0 && <UserSkillText text={message.content} skills={skillsByMessage.get(message.id) ?? new Map()} />}
                 <AttachmentStrip sessionId={message.session_id} attachments={message.attachments} offloadedIds={imageOffloads.get(message.id)} />
                 {imageOffloads.has(message.id) && <p className="text-[11px] text-muted-foreground">{content.attachments.offloadSummary(imageOffloads.get(message.id)!.size)}</p>}
@@ -290,14 +296,9 @@ export function MessageList({
               </>
             )}
             {message.role === "assistant" && message.run_id !== null && lastAssistantByRun.get(message.run_id) === message.id && turns.some(turn => turn.id === message.run_id && ["completed", "failed", "cancelled"].includes(turn.state)) && <PlanCards tools={turns.find(turn => turn.id === message.run_id)!.tool_calls} />}
-            <div
-              className={`mt-1 flex h-6 items-center gap-2 px-1 text-xs text-muted-foreground transition-opacity ${message.status === "completed" && !pendingSteering.has(message.id) ? "opacity-0 group-hover:opacity-100 group-focus-within:opacity-100" : "opacity-100"}`}
-            >
+            {(message.status !== "completed" || pendingSteering.has(message.id)) && <div className="mt-1 flex min-h-6 items-center gap-2 text-xs text-muted-foreground">
               {pendingSteering.has(message.id) && (
                 <span role="status">{content.steeringQueued}</span>
-              )}
-              {message.content.length > 0 && (
-                <CopyButton text={message.content} />
               )}
               {message.status !== "completed" ? (
                 <span className="inline-flex items-center gap-1" role="status">
@@ -313,10 +314,13 @@ export function MessageList({
                     : null}
                 </span>
               ) : null}
-              <time dateTime={message.created_at}>
-                {timeFormatter.format(new Date(message.created_at))}
-              </time>
-            </div>
+            </div>}
+            {(message.role === "user" || replyCopyRows.has(message.id)) && (
+              <div data-message-actions={message.id} className={`message-actions mt-1 flex h-8 items-center gap-2 text-xs text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100 ${message.role === "user" ? "flex-row-reverse" : ""}`}>
+                {message.role === "user" ? message.content.length > 0 && <CopyButton text={message.content} /> : <CopyButton text={replyCopyRows.get(message.id)!} />}
+                <time dateTime={message.created_at}>{formatMessageTime(message.created_at)}</time>
+              </div>
+            )}
           </article>
         );
       })}

@@ -24,7 +24,7 @@ export function CopyButton({ text }: { readonly text: string }) {
             toast.error(zhCN.conversation.copyFailed);
           }
         }}>
-          {copied ? <Check className="size-3" /> : <Copy className="size-3" />}
+          {copied ? <Check className="size-4" /> : <Copy className="size-4" />}
         </Button>
     </Tooltip>
   );
