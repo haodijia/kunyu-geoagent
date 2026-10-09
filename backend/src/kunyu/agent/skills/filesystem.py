@@ -7,14 +7,16 @@ from pathlib import Path
 
 import yaml
 
-from kunyu.agent.skills.registry import (
+from kunyu.agent.skills.definitions import (
+    MAX_SKILL_BYTES,
+    DirectoryResourceBase,
     SkillDefinition,
     SkillSummary,
+    validate_resource_path,
     validate_skill_name,
 )
 
 logger = logging.getLogger(__name__)
-MAX_SKILL_BYTES = 128 * 1024
 
 
 @dataclass(frozen=True, slots=True)
@@ -92,9 +94,11 @@ def parse_skill(raw: str, path: Path, source: str, rank: int) -> SkillDefinition
             name=name,
             description=description.strip(),
             source=source,
+            provider="filesystem",
             locator=str(path),
             rank=rank,
-            resource_base=str(path.parent),
+            path=str(path),
+            resource_base=DirectoryResourceBase(path=str(path.parent)),
             model_invocable=not metadata.get("disable-model-invocation", False),
             user_invocable=metadata.get("user-invocable", True),
             when_to_use=when_to_use,
@@ -158,6 +162,8 @@ class FilesystemSkillProvider:
         return tuple(summaries)
 
     async def get(self, summary: SkillSummary, *, workspace_id: str) -> SkillDefinition:
+        if not isinstance(summary.locator, str):
+            raise ValueError("Filesystem skill locators must be paths.")
         path = Path(summary.locator)
         roots = self.roots(workspace_id)
         if not any(
@@ -169,11 +175,18 @@ class FilesystemSkillProvider:
             lambda: parse_skill(read_text(path), path, summary.source, summary.rank)
         )
 
-
-def read_resource(summary: SkillSummary, relative_path: str) -> str:
-    base = Path(summary.resource_base).resolve()
-    relative = Path(relative_path)
-    path = (base / relative).resolve()
-    if relative.is_absolute() or not path.is_relative_to(base):
-        raise ValueError("Skill resources must stay inside the skill directory.")
-    return read_text(path)
+    async def read_resource(
+        self, summary: SkillSummary, path: str, *, workspace_id: str
+    ) -> str:
+        validate_resource_path(path)
+        if not isinstance(summary.resource_base, DirectoryResourceBase):
+            raise ValueError("Filesystem skill resources require a directory base.")
+        # Validate the source and metadata before resolving provider-owned resources.
+        definition = await self.get(summary, workspace_id=workspace_id)
+        if definition.summary != summary:
+            raise ValueError("Skill metadata changed before reading resources.")
+        base = Path(summary.resource_base.path).resolve()
+        resource = (base / path).resolve()
+        if not resource.is_relative_to(base):
+            raise ValueError("Skill resources must stay inside the skill directory.")
+        return await asyncio.to_thread(read_text, resource)

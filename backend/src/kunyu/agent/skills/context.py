@@ -89,6 +89,7 @@ async def prepare_skill_context(
                     metadata={
                         "name": definition.summary.name,
                         "source": definition.summary.source,
+                        "provider": definition.summary.provider,
                         "content": definition.content,
                         "run_id": run_id,
                         "message_id": message.message_id,

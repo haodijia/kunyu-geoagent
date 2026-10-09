@@ -9,7 +9,8 @@ import yaml
 from fastapi import APIRouter, Depends, Request, Response
 from pydantic import BaseModel, ConfigDict, Field
 
-from kunyu.agent.skills.registry import SkillSummary
+from kunyu.agent.skills.definitions import SkillResourceBase, SkillSummary
+from kunyu.agent.skills.registry import SkillCatalogChangedError
 from kunyu.api.errors import ApiError
 from kunyu.application.sessions import SessionNotFoundError
 from kunyu.application.skills import SkillConflictError, SkillManagementService
@@ -23,8 +24,9 @@ class SkillResponse(BaseModel):
     description: str
     when_to_use: str | None
     source: str
-    path: str
-    resource_base: str
+    provider: str
+    path: str | None
+    resource_base: SkillResourceBase | None
     model_invocable: bool
     user_invocable: bool
     editable: bool
@@ -38,7 +40,8 @@ class SkillResponse(BaseModel):
             description=summary.description,
             when_to_use=summary.when_to_use,
             source=summary.source,
-            path=summary.locator,
+            provider=summary.provider,
+            path=summary.path,
             resource_base=summary.resource_base,
             model_invocable=summary.model_invocable,
             user_invocable=summary.user_invocable,
@@ -48,7 +51,7 @@ class SkillResponse(BaseModel):
 
 class SkillDetailResponse(SkillResponse):
     content: str
-    raw: str
+    raw: str | None
 
 
 class SkillCatalogResponse(BaseModel):
@@ -85,6 +88,9 @@ def skill_errors() -> Iterator[None]:
         raise ApiError(404, "NOT_FOUND", str(error)) from error
     except SkillConflictError as error:
         raise ApiError(409, "SKILL_CONFLICT", str(error)) from error
+    except SkillCatalogChangedError as error:
+        logger.warning("Skill catalog changed during discovery")
+        raise ApiError(409, "SKILL_CATALOG_CHANGED", str(error)) from error
     except LookupError as error:
         raise ApiError(404, "SKILL_NOT_FOUND", str(error)) from error
     except (ValueError, UnicodeError, yaml.YAMLError) as error:

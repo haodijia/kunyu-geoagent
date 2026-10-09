@@ -58,6 +58,7 @@ user-invocable: true
 | Rank | 来源 | 路径 |
 | --- | --- | --- |
 | 100 | workspace | `APP_DATA/workspaces/<workspace_id>/skills` |
+| 250 | runtime | 应用插件或会话作用域直接注册，无需文件 |
 | 400 | user | `APP_DATA/skills` |
 | 500 | user-agents | `~/.agents/skills` |
 | 600 | bundled | `backend/src/kunyu/agent/skills/bundled` |
@@ -72,7 +73,7 @@ user-invocable: true
 
 模型目录只包含名称和简介，不包含正文和绝对路径。`skill({name})` 在调用时检查模型权限并读取完整正文。结构化结果包含来源、资源目录和原始 Markdown 正文；实际模型工具文本使用与用户显式调用相同的 `<skill_content>` 包裹，不把指令编码成嵌套 JSON 字符串。两部分作为实际工具结果持久保存。
 
-`skill_resource({name,path})` 读取相对路径指向的 UTF-8 文件，模型直接收到正文文本，结构化结果保存资源身份和相同正文。解析后的路径必须仍在技能资源目录内；不允许绝对路径和越界符号链接。对模型专用或两种调用均关闭的技能，用户消息不能授予资源权限；用户专用技能只有当前 Run 显式调用后才能读取资源。
+`skill_resource({name,path})` 将相对路径交给当前获胜技能的 Provider，模型直接收到 UTF-8 正文，结构化结果保存名称、来源、Provider、资源位置、相对路径和相同正文。文件系统 Provider 要求解析后仍在技能资源目录内，不允许绝对路径和越界符号链接；所有 Provider 的相对路径均拒绝父目录穿越、反斜杠和 URL／驱动器前缀。对模型专用或两种调用均关闭的技能，用户消息不能授予资源权限；用户专用技能只有当前 Run 显式调用后才能读取资源。
 
 技能加载不会执行 `scripts/` 中的脚本，不安装依赖，也不自动枚举资源。图片或其他二进制资源不经此文本工具读取。
 
@@ -98,4 +99,32 @@ user-invocable: true
 | DELETE | `/api/v1/skills/{name}` | 删除用户技能包及其资源 |
 | GET | `/api/v1/sessions/{session_id}/skills` | 该会话允许用户调用的目录 |
 
-新增来源实现 `SkillProvider`，通过 `SKILLS.register(owner, name, provider)` 注册；Provider 随 owner 释放。服务定义、来源和消费工具是三个独立插件，在 `bootstrap.py` 选择组合。
+新增来源实现 `SkillProvider.list/get/read_resource`，通过 `SKILLS.register_provider(owner, name, provider)` 注册，返回幂等释放函数；Provider 随 owner 释放，未完成的发现、正文和资源读取同步取消，卸载后的结果不可被接纳。`locator` 是 Provider 自己解释的不透明值，不再等同于文件路径；可选 `path` 仅描述实际指令文件。服务定义、来源和消费工具是三个独立插件，在 `bootstrap.py` 选择组合。
+
+## 运行时技能与资源位置
+
+应用或业务插件通过 `SKILLS.register(owner, SkillRegistration(...))` 直接贡献 Markdown 和参考资料，无需生成 SKILL.md。注册返回幂等释放函数；同一作用域的同名运行时贡献按 harness 保留第一项，重复注册记录警告，重复项的释放函数不会移除原贡献。会话作用域只影响该会话；同层项目来源 rank 100 优先于运行时 rank 250，运行时优先于用户 rank 400。同 rank 时运行时贡献优先于普通 Provider，普通 Provider 保留注册顺序。
+
+```python
+from kunyu.agent import services as s
+from kunyu.agent.skills.definitions import OpaqueResourceBase, SkillRegistration
+
+dispose = context.require(s.SKILLS).register(
+    context,
+    SkillRegistration(
+        name="evidence-review",
+        description="核对当前业务场景的证据来源与研判口径",
+        content=scene.instructions,
+        resource_base=OpaqueResourceBase(description="当前场景参考资料"),
+        resources={"references/criteria.md": scene.criteria},
+    ),
+)
+```
+
+运行时指令和资源在注册时验证并复制；后续修改原 resources 映射不会改写已注册内容。资源仍按需读取，缺失资源明确报错，不转成本地文件读取。`resource_base` 可为 directory／url／opaque 或 None，分别说明真实目录、来源地址、业务资料描述或所属 Provider；URL 类型只描述来源，不自动发起网络读取。自定义远程来源的认证和读取由它自己的 Provider 负责。
+
+发现和加载期间若当前可见注册发生变化，返回 SKILL_CATALOG_CHANGED，调用方重新查询；兄弟会话的变化不干扰本次读取。已经完成加载的指令与工具结果仍是持久快照，释放来源不会改写历史。运行时注册本身不写入数据库，应用重启后由贡献插件重新注册。
+
+全局详情和会话目录共用上述注册表。接口新增 Provider 身份，真实文件路径可空；资源位置为带 kind 的对象。虚拟技能的 path／raw 为 None，详情只读并复用 Markdown 展示，不伪造文件路径或可编辑 SKILL.md。文件来源的用户技能继续提供原始文件编辑，外部和内置技能只读预览。当前模型／用户调用权限、目录重发和显式调用去重规则均继续生效。
+
+临时实际 Agent／ASGI 验证了 Chat、Messages、Responses 的运行时加载、Provider 资源读取、用户权限、目录压缩后重发和完整历史重建；作用域覆盖、优先级、重复注册、取消、来源替换和遍历拒绝通过。离屏 Electron 核对只读 Markdown、真实资源说明、用户编辑、刷新、浅色和 600px 深色布局；前后端构建、Ruff 和 Python 包构建通过。未新增仓库测试文件或数据库迁移，未调用真实付费模型。文件 watcher、远程来源默认接入、脚本执行和其余 Agent 能力仍未实现。

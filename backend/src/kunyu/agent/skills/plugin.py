@@ -28,7 +28,7 @@ class FilesystemSkillsPlugin:
     provides = ()
 
     async def apply(self, context: Context) -> None:
-        context.require(s.SKILLS).register(
+        context.require(s.SKILLS).register_provider(
             context,
             "filesystem",
             FilesystemSkillProvider(

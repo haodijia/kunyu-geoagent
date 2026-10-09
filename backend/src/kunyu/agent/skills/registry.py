@@ -1,77 +1,190 @@
-"""Scoped provider catalogs and explicit loading of one selected Skill."""
+"""Scoped providers, runtime contributions and provider-owned resource loading."""
 
-import re
+import asyncio
+import logging
+from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 from typing import Literal, Protocol
 
-from kunyu.agent.scope import Context, ScopedEntries
+from kunyu.agent.scope import Context, ScopedEntries, ScopeKey
+from kunyu.agent.skills.definitions import (
+    DirectoryResourceBase,
+    OpaqueResourceBase,
+    SkillDefinition,
+    SkillRegistration,
+    SkillSummary,
+    UrlResourceBase,
+    validate_resource_path,
+    validate_skill_name,
+    validate_skill_text,
+)
+from kunyu.agent.skills.runtime import RuntimeSkillProvider
 
-SKILL_NAME_PATTERN = r"^[a-z0-9]+(?:-[a-z0-9]+)*$"
-
-
-def validate_skill_name(name: str) -> None:
-    if re.fullmatch(SKILL_NAME_PATTERN, name) is None:
-        raise ValueError("Skill names must use lowercase letters, digits and hyphens.")
-
-
-@dataclass(frozen=True, slots=True)
-class SkillSummary:
-    name: str
-    description: str
-    source: str
-    locator: str
-    rank: int
-    resource_base: str
-    model_invocable: bool = True
-    user_invocable: bool = True
-    when_to_use: str | None = None
-
-
-@dataclass(frozen=True, slots=True)
-class SkillDefinition:
-    summary: SkillSummary
-    content: str
+logger = logging.getLogger(__name__)
 
 
 class SkillProvider(Protocol):
     async def list(self, *, workspace_id: str) -> tuple[SkillSummary, ...]: ...
-
     async def get(
         self, summary: SkillSummary, *, workspace_id: str
     ) -> SkillDefinition: ...
+    async def read_resource(
+        self, summary: SkillSummary, path: str, *, workspace_id: str
+    ) -> str: ...
+
+
+class SkillCatalogChangedError(RuntimeError):
+    pass
+
+
+class _ProviderRegistration:
+    def __init__(
+        self, owner: Context, name: str, provider: SkillProvider, *, runtime: bool
+    ) -> None:
+        self.owner, self.name, self.provider, self.runtime = (
+            owner,
+            name,
+            provider,
+            runtime,
+        )
+        self.active = True
+        self.pending: set[asyncio.Task] = set()
+        self.detach: Callable[[], None] | None = None
+
+    async def call[T](self, action: Callable[[], Awaitable[T]]) -> T:
+        self.require_active()
+        task = asyncio.create_task(action(), name=f"skill:{self.name}")
+        self.pending.add(task)
+        try:
+            result = await task
+            if asyncio.current_task().cancelling():
+                raise asyncio.CancelledError
+            self.require_active()
+            return result
+        except asyncio.CancelledError:
+            if not self.active and not asyncio.current_task().cancelling():
+                raise LookupError(
+                    f"Skill provider '{self.name}' was disposed."
+                ) from None
+            raise
+        except Exception:
+            logger.exception("Skill provider operation failed provider=%s", self.name)
+            raise
+        finally:
+            self.pending.discard(task)
+            if not self.active and not self.pending and self.detach is not None:
+                self.detach()
+
+    def require_active(self) -> None:
+        if not self.active:
+            raise LookupError(f"Skill provider '{self.name}' was disposed.")
+        self.owner.assert_active()
+
+    def dispose(self) -> None:
+        self.active = False
+        for task in self.pending:
+            task.cancel()
+        if not self.pending and self.detach is not None:
+            self.detach()
+
+    async def close(self) -> None:
+        pending = tuple(self.pending)
+        self.dispose()
+        await asyncio.gather(*pending, return_exceptions=True)
 
 
 @dataclass(frozen=True, slots=True)
 class _Candidate:
     summary: SkillSummary
-    provider: SkillProvider
+    entry: _ProviderRegistration
+    layers: tuple[dict[str, _ProviderRegistration], ...]
 
 
 class SkillRegistry:
     def __init__(self) -> None:
-        self._providers: ScopedEntries[SkillProvider] = ScopedEntries()
+        self._entries: ScopedEntries[_ProviderRegistration] = ScopedEntries()
+        self._runtime_names: dict[ScopeKey, set[str]] = {}
 
-    def register(self, owner: Context, name: str, provider: SkillProvider) -> None:
-        self._providers.register(owner, name, provider)
+    def register_provider(
+        self, owner: Context, name: str, provider: SkillProvider
+    ) -> Callable[[], None]:
+        if not name or name == "runtime":
+            raise ValueError(
+                "Skill provider names must be nonempty; 'runtime' is reserved."
+            )
+        return self._register(owner, f"provider:{name}", name, provider, runtime=False)
+
+    def register(
+        self, owner: Context, registration: SkillRegistration
+    ) -> Callable[[], None]:
+        owner.assert_active()
+        provider = RuntimeSkillProvider(registration)
+        self._validate(provider.definition.summary, "runtime")
+        names = self._runtime_names.setdefault(owner.scope, set())
+        if registration.name in names:
+            logger.warning(
+                "Runtime skill ignored because it is already registered name=%s",
+                registration.name,
+            )
+            return lambda: None
+        dispose = self._register(
+            owner, f"runtime:{registration.name}", "runtime", provider, runtime=True
+        )
+        names.add(registration.name)
+        active = True
+
+        def remove() -> None:
+            nonlocal active
+            if not active:
+                return
+            active = False
+            dispose()
+            names.remove(registration.name)
+            if not names:
+                del self._runtime_names[owner.scope]
+            detach()
+
+        detach = owner.effect(remove)
+        return remove
+
+    def _register(
+        self, owner, key, name, provider, *, runtime: bool
+    ) -> Callable[[], None]:
+        entry = _ProviderRegistration(owner, name, provider, runtime=runtime)
+        unregister = self._entries.register(owner, key, entry)
+        entry.detach = owner.effect(entry.close)
+
+        def remove() -> None:
+            if entry.active:
+                unregister()
+                entry.dispose()
+                detach()
+
+        detach = owner.effect(remove)
+        return remove
 
     async def _catalog(
         self, context: Context, workspace_id: str
     ) -> dict[str, _Candidate]:
+        layers = self._entries.layers(context)
         catalog: dict[str, _Candidate] = {}
-        for layer in self._providers.layers(context):
+        for layer in layers:
             candidates: dict[str, _Candidate] = {}
-            for provider in layer.values():
-                for summary in await provider.list(workspace_id=workspace_id):
+            for entry in sorted(layer.values(), key=lambda value: not value.runtime):
+                summaries = await entry.call(
+                    lambda: entry.provider.list(workspace_id=workspace_id)
+                )
+                for summary in summaries:
                     context.assert_active()
-                    validate_skill_name(summary.name)
-                    if not summary.description or not summary.locator:
-                        raise ValueError(
-                            "Skill metadata must contain name, description and locator."
-                        )
+                    self._validate(summary, entry.name)
                     previous = candidates.get(summary.name)
                     if previous is None or summary.rank < previous.summary.rank:
-                        candidates[summary.name] = _Candidate(summary, provider)
+                        candidates[summary.name] = _Candidate(summary, entry, layers)
             catalog.update(candidates)
+        if layers != self._entries.layers(context):
+            raise SkillCatalogChangedError(
+                "Skill registrations changed during discovery; request a new catalog."
+            )
         return catalog
 
     async def list(
@@ -88,14 +201,13 @@ class SkillRegistry:
             if invocation is None or _invocable(candidate.summary, invocation)
         )
 
-    async def get(
+    async def _select(
         self,
         context: Context,
         name: str,
-        *,
         workspace_id: str,
-        invocation: Literal["model", "user"] | None = None,
-    ) -> SkillDefinition:
+        invocation: Literal["model", "user"] | None,
+    ) -> _Candidate:
         validate_skill_name(name)
         candidate = (await self._catalog(context, workspace_id)).get(name)
         if candidate is None or (
@@ -104,20 +216,98 @@ class SkillRegistry:
             raise LookupError(
                 f"Skill '{name}' is unavailable for {invocation} invocation."
             )
-        definition = await candidate.provider.get(
-            candidate.summary, workspace_id=workspace_id
+        return candidate
+
+    async def _load(
+        self, context: Context, candidate: _Candidate, workspace_id: str
+    ) -> SkillDefinition:
+        definition = await candidate.entry.call(
+            lambda: candidate.entry.provider.get(
+                candidate.summary, workspace_id=workspace_id
+            )
         )
         context.assert_active()
-        if (
-            definition.summary != candidate.summary
-            or (
-                invocation is not None
-                and not _invocable(definition.summary, invocation)
+        self._require_catalog(context, candidate)
+        validate_skill_text(definition.content)
+        if definition.summary != candidate.summary or not definition.content.strip():
+            raise ValueError(
+                f"Skill '{candidate.summary.name}' body does not match its catalog entry."
             )
-            or not definition.content.strip()
-        ):
-            raise ValueError(f"Skill '{name}' body does not match its catalog entry.")
         return definition
+
+    async def get(
+        self,
+        context: Context,
+        name: str,
+        *,
+        workspace_id: str,
+        invocation: Literal["model", "user"] | None = None,
+    ) -> SkillDefinition:
+        candidate = await self._select(context, name, workspace_id, invocation)
+        return await self._load(context, candidate, workspace_id)
+
+    async def read_resource(
+        self,
+        context: Context,
+        name: str,
+        path: str,
+        *,
+        workspace_id: str,
+        invocation: Literal["model", "user"],
+    ) -> tuple[SkillDefinition, str]:
+        validate_resource_path(path)
+        candidate = await self._select(context, name, workspace_id, invocation)
+        definition = await self._load(context, candidate, workspace_id)
+        content = await candidate.entry.call(
+            lambda: candidate.entry.provider.read_resource(
+                candidate.summary, path, workspace_id=workspace_id
+            )
+        )
+        context.assert_active()
+        self._require_catalog(context, candidate)
+        validate_skill_text(content)
+        return definition, content
+
+    def _require_catalog(self, context: Context, candidate: _Candidate) -> None:
+        if candidate.layers != self._entries.layers(context):
+            raise SkillCatalogChangedError(
+                "Skill registrations changed while loading; request the current skill."
+            )
+
+    @staticmethod
+    def _validate(summary: SkillSummary, provider: str) -> None:
+        validate_skill_name(summary.name)
+        if (
+            not isinstance(summary.description, str)
+            or not summary.description.strip()
+            or len(summary.description) > 2000
+            or not isinstance(summary.source, str)
+            or not summary.source
+            or summary.provider != provider
+            or type(summary.rank) is not int
+            or type(summary.model_invocable) is not bool
+            or type(summary.user_invocable) is not bool
+            or (
+                summary.resource_base is not None
+                and not isinstance(
+                    summary.resource_base,
+                    (DirectoryResourceBase, UrlResourceBase, OpaqueResourceBase),
+                )
+            )
+            or (summary.path is not None and not isinstance(summary.path, str))
+            or (
+                summary.when_to_use is not None
+                and (
+                    not isinstance(summary.when_to_use, str)
+                    or not summary.when_to_use.strip()
+                    or len(summary.when_to_use) > 2000
+                )
+            )
+        ):
+            raise ValueError(f"Skill '{summary.name}' has invalid provider metadata.")
+        summary.description.encode("utf-8")
+        if summary.when_to_use is not None:
+            summary.when_to_use.encode("utf-8")
 
 
 def _invocable(summary: SkillSummary, invocation: Literal["model", "user"]) -> bool:

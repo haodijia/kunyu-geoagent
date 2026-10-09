@@ -1,6 +1,5 @@
 """Run-bound skill instruction and text resource loaders."""
 
-import asyncio
 from collections.abc import Mapping
 from typing import Annotated
 
@@ -9,8 +8,8 @@ from pydantic import JsonValue, StringConstraints, TypeAdapter
 from kunyu.agent.runtime.content import TextBlock
 from kunyu.agent.runtime.tools import ToolCall, ToolResult, ToolRiskLevel, ToolSpec
 from kunyu.agent.scope import AgentScopes
-from kunyu.agent.skills.filesystem import read_resource
-from kunyu.agent.skills.registry import SKILL_NAME_PATTERN, SkillRegistry
+from kunyu.agent.skills.definitions import SKILL_NAME_PATTERN
+from kunyu.agent.skills.registry import SkillRegistry
 from kunyu.agent.skills.render import render_skill
 from kunyu.agent.tools.shared import (
     ToolArguments,
@@ -50,7 +49,7 @@ class SkillTool:
             name="skill_resource" if resource else "skill",
             description=(
                 "Read one explicitly referenced UTF-8 resource using a relative path "
-                "inside an available skill. This does not execute scripts."
+                "from the provider of an available skill. This does not execute scripts."
                 if resource
                 else "Load the complete instructions of an available skill by its exact "
                 "catalog name before acting on a task that names or matches it."
@@ -79,27 +78,36 @@ class SkillTool:
             and item.metadata["name"] == arguments.name
             for item in source.injected_context
         )
-        skill = await self._skills.get(
-            scope,
-            arguments.name,
-            workspace_id=source.workspace.id,
-            invocation="user" if user_authorized else "model",
-        )
         if self._resource:
             if not isinstance(arguments, SkillResourceArguments):
                 raise TypeError("Skill resource arguments are required.")
-            content = await asyncio.to_thread(
-                read_resource, skill.summary, arguments.path
+            skill, content = await self._skills.read_resource(
+                scope,
+                arguments.name,
+                arguments.path,
+                workspace_id=source.workspace.id,
+                invocation="user" if user_authorized else "model",
             )
         else:
+            skill = await self._skills.get(
+                scope,
+                arguments.name,
+                workspace_id=source.workspace.id,
+                invocation="model",
+            )
             content = skill.content
         scope.assert_active()
         value = {
             "name": skill.summary.name,
             "source": skill.summary.source,
-            "resource_base": skill.summary.resource_base,
+            "provider": skill.summary.provider,
+            "resource_base": skill.summary.resource_base.model_dump(mode="json")
+            if skill.summary.resource_base is not None
+            else None,
             "content": content,
         }
+        if self._resource:
+            value["path"] = arguments.path
         return ToolResult(
             content=(
                 TextBlock(text=content if self._resource else render_skill(skill)),

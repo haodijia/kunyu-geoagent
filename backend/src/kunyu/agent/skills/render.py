@@ -2,7 +2,13 @@
 
 from html import escape
 
-from kunyu.agent.skills.registry import SkillDefinition, SkillSummary
+from kunyu.agent.skills.definitions import (
+    DirectoryResourceBase,
+    OpaqueResourceBase,
+    SkillDefinition,
+    SkillSummary,
+    UrlResourceBase,
+)
 
 
 def catalog_description(value: str, max_length: int) -> str:
@@ -56,10 +62,21 @@ def render_catalog(entries: list[dict[str, str]]) -> str:
 
 def render_skill(skill: SkillDefinition) -> str:
     summary = skill.summary
+    base = summary.resource_base
+    if base is None:
+        resource_hint = f'Resources for this skill are managed by provider "{escape(summary.provider)}".'
+    elif isinstance(base, DirectoryResourceBase):
+        resource_hint = f"Base directory for this skill: {escape(base.path)}"
+    elif isinstance(base, UrlResourceBase):
+        resource_hint = f"Base URL for this skill: {escape(base.url)}"
+    elif isinstance(base, OpaqueResourceBase):
+        resource_hint = f"Resources for this skill: {escape(base.description)}"
+    else:
+        raise TypeError("Unknown skill resource location.")
     return (
         f'<skill_content name="{escape(summary.name, quote=True)}">\n'
         "<skill_resources>\n"
-        f"Resource base: {escape(summary.resource_base)}\n"
+        f"{resource_hint}\n"
         "Use skill_resource with this skill name and a relative path to read "
         "explicitly referenced text resources. Loading a skill does not execute "
         "scripts or install dependencies.\n"

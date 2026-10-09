@@ -169,7 +169,7 @@ L0 工具可直接执行；L1 工作区文件工具为独占调用，在 workspa
 
 ## 扩展 Skill
 
-默认组合分别启用 `SkillPlugin`、`FilesystemSkillsPlugin` 和 `SkillToolsPlugin`。`SkillRegistry` 支持作用域 Provider 注册、元数据目录、模型/用户调用限制，以及显式读取正文。同名技能由最近作用域优先；同层按来源 rank 决定。来源报错和不匹配的正文直接报错并记录日志。
+默认组合分别启用 `SkillPlugin`、`FilesystemSkillsPlugin` 和 `SkillToolsPlugin`。`SkillRegistry` 支持作用域 Provider 注册、运行时技能贡献、元数据目录、模型/用户调用限制，以及显式读取正文。同名技能由最近作用域优先；同层按来源 rank 决定。来源报错和不匹配的正文直接报错并记录日志。
 
 来源实现放 `agent/skills/`，模型调用工具放 `agent/tools/skills.py`，内置指令放 `agent/skills/bundled/<name>/SKILL.md` 与相邻资源。用户技能保存在应用数据目录的 `skills/`，工作区技能保存在 `workspaces/<workspace_id>/skills/`，也会发现 `~/.agents/skills`。
 
@@ -177,7 +177,7 @@ L0 工具可直接执行；L1 工作区文件工具为独占调用，在 workspa
 
 `/技能名` 扫描当前步骤已接纳的真实用户消息，使用空白边界，支持消息任意位置的多个名称；按首次出现顺序与用户权限加载，同一步重试、恢复及重复名称不重复加载。处理器追加的上下文消息不能授予用户调用权限。正文、来源、消息身份、Run 和 step 以 `producer=skill-invocation` 持久保存；所属步骤实际发送后进入后续历史。前端从步骤接纳及实际加载事件生成消息标记，标题栏汇总用户与模型加载的技能；指令预览使用历史快照，不随文件编辑重写。
 
-模型使用 `skill({name})` 加载正文，实际结果进入已有工具完成事件；`skill_resource({name,path})` 按需读取技能目录内的 UTF-8 资源。用户专用技能的资源仅在当前 Run 显式调用后开放。资源不允许绝对路径或越界符号链接，不执行脚本、不安装依赖。详细使用、格式、来源和接口见[Agent 技能](Agent技能.md)。远程来源、文件 watcher、插件市场和脚本执行尚未实现。
+模型使用 `skill({name})` 加载正文，实际结果进入已有工具完成事件；`skill_resource({name,path})` 将相对路径交给获胜技能的 Provider，按需读取 UTF-8 资源。文件系统和运行时来源共用调用权限；用户专用技能的资源仅在当前 Run 显式调用后开放。资源不允许绝对路径、父目录穿越或越界符号链接，不执行脚本、不安装依赖。运行时贡献无需文件并可按会话注册，来源卸载取消未完成读取，当前可见注册变化时拒绝旧结果。详细使用、资源位置、格式、来源和接口见[Agent 技能](Agent技能.md#运行时技能与资源位置)。远程来源默认接入、文件 watcher、插件市场和脚本执行尚未实现。
 
 GeoSkill 的版本化地理场景逻辑放 `kunyu/scenes/`，场景数据放 `backend/scenarios/`。Tool 是执行能力，Skill 是任务指令和资源，GeoSkill 是业务场景契约。
 

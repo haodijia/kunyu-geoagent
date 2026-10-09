@@ -8,12 +8,13 @@ from tempfile import TemporaryDirectory
 
 from kunyu.agent import services as s
 from kunyu.agent.scope import Context
-from kunyu.agent.skills.filesystem import parse_skill, read_text
-from kunyu.agent.skills.registry import (
+from kunyu.agent.skills.definitions import (
+    DirectoryResourceBase,
     SkillDefinition,
     SkillSummary,
     validate_skill_name,
 )
+from kunyu.agent.skills.filesystem import parse_skill, read_text
 from kunyu.application.sessions import SessionNotFoundError
 from kunyu.domain.sessions import SessionRepository
 
@@ -57,11 +58,15 @@ class SkillManagementService:
     def editable(self, summary: SkillSummary) -> bool:
         return (
             summary.source == "user"
-            and Path(summary.locator) == self.directory / summary.name / "SKILL.md"
+            and summary.provider == "filesystem"
+            and summary.path is not None
+            and Path(summary.path) == self.directory / summary.name / "SKILL.md"
         )
 
-    async def raw(self, definition: SkillDefinition) -> str:
-        return await asyncio.to_thread(read_text, Path(definition.summary.locator))
+    async def raw(self, definition: SkillDefinition) -> str | None:
+        if definition.summary.path is None:
+            return None
+        return await asyncio.to_thread(read_text, Path(definition.summary.path))
 
     async def save(self, name: str, content: str, *, create: bool) -> SkillDefinition:
         async with self._mutation_lock:
@@ -151,5 +156,9 @@ class SkillManagementService:
             raise SkillConflictError(
                 "This skill is read-only; remove it from its source directory."
             )
-        await asyncio.to_thread(shutil.rmtree, Path(definition.summary.resource_base))
+        if not isinstance(definition.summary.resource_base, DirectoryResourceBase):
+            raise ValueError("Editable skills require a resource directory.")
+        await asyncio.to_thread(
+            shutil.rmtree, Path(definition.summary.resource_base.path)
+        )
         logger.info("Deleted user skill %s", name)

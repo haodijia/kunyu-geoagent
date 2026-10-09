@@ -1,12 +1,18 @@
 import { requestJson } from "@/api/client";
 
+export type SkillResourceBase =
+  | { readonly kind: "directory"; readonly path: string }
+  | { readonly kind: "url"; readonly url: string }
+  | { readonly kind: "opaque"; readonly description: string };
+
 export interface Skill {
   readonly name: string;
   readonly description: string;
   readonly when_to_use: string | null;
   readonly source: string;
-  readonly path: string;
-  readonly resource_base: string;
+  readonly provider: string;
+  readonly path: string | null;
+  readonly resource_base: SkillResourceBase | null;
   readonly model_invocable: boolean;
   readonly user_invocable: boolean;
   readonly editable: boolean;
@@ -14,7 +20,7 @@ export interface Skill {
 
 export interface SkillDetail extends Skill {
   readonly content: string;
-  readonly raw: string;
+  readonly raw: string | null;
 }
 
 export const skillQueryKeys = {
