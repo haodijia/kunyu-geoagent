@@ -25,7 +25,7 @@ from kunyu.agent.scope import Context, ScopedEntries
 from kunyu.domain.agent_context import RunContextRepository
 from kunyu.persistence.commands import read_session_controls
 from kunyu.persistence.database import Database
-from kunyu.persistence.models import SessionEventRecord
+from kunyu.persistence.models import RunRecord, SessionEventRecord, SubagentRecord
 
 
 class QuestionHandler(Protocol):
@@ -54,8 +54,10 @@ class ToolRegistryFactory:
     def __init__(
         self,
         resolve_scope: Callable[[str], Context],
+        database: Database,
     ) -> None:
         self._resolve_scope = resolve_scope
+        self._database = database
         self._entries: ScopedEntries[ToolRegistration] = ScopedEntries()
 
     def register(
@@ -68,6 +70,18 @@ class ToolRegistryFactory:
 
     def for_run(self, run_id: str) -> ToolRegistry:
         entries = self._entries.view(self._resolve_scope(run_id))
+        with self._database.sessions() as transaction:
+            child = (
+                transaction.scalar(
+                    select(SubagentRecord.child_session_id)
+                    .join(
+                        RunRecord,
+                        RunRecord.session_id == SubagentRecord.child_session_id,
+                    )
+                    .where(RunRecord.id == run_id)
+                )
+                is not None
+            )
         tools = []
         for name, entry in entries.items():
             tool = entry.build(run_id)
@@ -75,6 +89,19 @@ class ToolRegistryFactory:
                 raise ToolExecutionError(
                     f"Tool registration '{name}' has a mismatched name."
                 )
+            if child and (
+                tool.spec.risk_level is not ToolRiskLevel.L0
+                or tool.spec.interaction
+                or name
+                in {
+                    "subagent",
+                    "wait_subagents",
+                    "cancel_subagent",
+                    "subagent_result",
+                    "exit_plan_mode",
+                }
+            ):
+                continue
             tools.append(tool)
         registry = ToolRegistry(tuple(tools))
         for spec in registry.specs:

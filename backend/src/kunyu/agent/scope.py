@@ -178,14 +178,19 @@ class ScopedEntries[T]:
 class AgentScopes:
     """One live registration scope per durable session identity."""
 
-    def __init__(self, owner: Context) -> None:
+    def __init__(
+        self, owner: Context, parent_session: Callable[[str], str | None]
+    ) -> None:
         self._owner = owner
+        self._parent_session = parent_session
         self._sessions: dict[str, Context] = {}
 
     def for_session(self, session_id: str) -> Context:
         self._owner.assert_active()
         if session_id not in self._sessions:
-            context = self._owner.child()
+            parent_id = self._parent_session(session_id)
+            parent = self._owner if parent_id is None else self.for_session(parent_id)
+            context = parent.child()
             context.effect(lambda: self._sessions.pop(session_id))
             self._sessions[session_id] = context
         return self._sessions[session_id]

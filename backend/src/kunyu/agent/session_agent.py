@@ -127,6 +127,9 @@ class SessionAgent:
 
     async def when_idle(self) -> None:
         while True:
+            if self.status == "running":
+                await asyncio.sleep(0.05)
+                continue
             active = self._find_active_turn()
             state = await self.inbox.state()
             runnable_input = (
@@ -226,9 +229,14 @@ class AgentDirectory:
             scheduler = context.require(s.SCHEDULER)
             lifecycle = context.require(s.LIFECYCLE)
             runtime = context.require(s.RUNTIME)
+            subagents = context.require(s.SUBAGENTS)
 
             async def quiesce() -> None:
                 if scheduler.closing_event.is_set():
+                    return
+                child = subagents.repository.get(session_id)
+                if child is not None:
+                    await subagents.cancel(session_id, child[0])
                     return
                 await agent.inbox.cancel()
                 for turn in lifecycle.list_for_session(session_id):

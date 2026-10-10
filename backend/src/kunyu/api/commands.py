@@ -15,7 +15,11 @@ from kunyu.api.agent_dependencies import AgentDirectoryDependency
 from kunyu.api.errors import ApiError
 from kunyu.api.messages import AppendMessageRequest, EventResponse
 from kunyu.domain.run_acceptance import ModelSelection, RunAcceptanceRequest
-from kunyu.persistence.models import SessionRecord, WorkspaceRemovalRecord
+from kunyu.persistence.models import (
+    SessionRecord,
+    SubagentRecord,
+    WorkspaceRemovalRecord,
+)
 
 router = APIRouter(prefix="/api/v1/sessions/{session_id}", tags=["commands"])
 
@@ -56,6 +60,12 @@ def _session(
             is not None
         ):
             raise ApiError(409, "SESSION_ARCHIVED", "The session is read-only.")
+        if writable and database_session.get(SubagentRecord, session_id) is not None:
+            raise ApiError(
+                409,
+                "CHILD_READ_ONLY",
+                "Delegated children do not accept user commands.",
+            )
         workspace_id = record.workspace_id
     return agent, workspace_id
 

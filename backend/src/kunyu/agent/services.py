@@ -24,6 +24,7 @@ if TYPE_CHECKING:
     from kunyu.agent.scheduler import RunScheduler
     from kunyu.agent.session_agent import AgentDirectory, SessionAgent
     from kunyu.agent.skills.registry import SkillRegistry
+    from kunyu.agent.subagents import SubagentManager
     from kunyu.agent.tools.registry import ToolPolicyGate, ToolRegistryFactory
     from kunyu.application.confirmations import ConfirmationService
     from kunyu.application.connection_locks import ConnectionOperationLocks
@@ -80,6 +81,7 @@ LIFECYCLE: ServiceKey[RunLifecycleService] = ServiceKey("turns.lifecycle")
 RUNTIME: ServiceKey[AgentRuntime] = ServiceKey("agent_loop")
 SCHEDULER: ServiceKey[RunScheduler] = ServiceKey("agent_loop.scheduler")
 AGENTS: ServiceKey[AgentDirectory] = ServiceKey("agents")
+SUBAGENTS: ServiceKey[SubagentManager] = ServiceKey("subagents")
 SESSION_AGENT: ServiceKey[SessionAgent] = ServiceKey("agent")
 SESSION_ID: ServiceKey[str] = ServiceKey("session_id")
 RUN_ID: ServiceKey[str] = ServiceKey("run_id")

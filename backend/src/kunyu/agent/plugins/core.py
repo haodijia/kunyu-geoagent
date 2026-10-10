@@ -12,16 +12,24 @@ from kunyu.agent.tools.registry import ToolPolicyGate, ToolRegistryFactory
 from kunyu.application.confirmations import ConfirmationService
 from kunyu.application.run_acceptance import RunAcceptanceService
 from kunyu.application.run_lifecycle import RunLifecycleService
+from kunyu.persistence.models import SubagentRecord
 from kunyu.persistence.run_acceptance import SQLAlchemyRunAcceptanceRepository
 
 
 class ScopePlugin:
     name = "agent-scopes"
-    requires = ()
+    requires = (s.DATABASE,)
     provides = (s.SCOPES,)
 
     async def apply(self, context: Context) -> None:
-        context.provide(s.SCOPES, AgentScopes(context))
+        database = context.require(s.DATABASE)
+
+        def parent_session(session_id: str) -> str | None:
+            with database.sessions() as transaction:
+                row = transaction.get(SubagentRecord, session_id)
+                return None if row is None else row.parent_session_id
+
+        context.provide(s.SCOPES, AgentScopes(context, parent_session))
 
 
 class PromptPlugin:
@@ -50,7 +58,7 @@ class ToolsPlugin:
                 raise RunContextNotFoundError(run_id)
             return context.require(s.SCOPES).for_session(source.session.id)
 
-        registry = ToolRegistryFactory(resolve_scope)
+        registry = ToolRegistryFactory(resolve_scope, context.require(s.DATABASE))
         context.provide(s.TOOLS, registry)
         context.provide(
             s.POLICY, ToolPolicyGate(registry, context.require(s.DATABASE), repository)

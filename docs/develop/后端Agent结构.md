@@ -25,7 +25,7 @@ Agent 架构必须对齐本地 `deepseek-harness` 源码的服务、插件、作
 | `skill/skill`、`skill/skill-filesystem`、`skill/tool-skill` | `skills/registry.py`、`filesystem.py`、`context.py`、`tools/skills.py` | 注册表、来源、调用工具分开；目录仅注入名称和简介；选择后加载正文；区分模型/用户调用权限；持久目录替换与显式用户调用 |
 | `packages/fs/fs`、`fs-local`、`fs-observation-policy`、`tool-fs` | `domain/filesystem.py`、`integrations/filesystem.py`、`filesystem_io.py`、`agent/filesystem.py`、`plugins/filesystem.py`、文件工具 | 文件系统与观察策略分开；路径作用域、版本守卫、原子发布、行窗口与应用结果 diff |
 
-这是 Python 的对应实现，没有引入 Cordis 的 TypeScript 运行时。已实现文本／思考／工具内容块、图片／文件输入、图文工具结果与 replay 核心；仍未实现 surface 替换/压缩、PTC、多 Agent 委派、profile 配置装载及插件市场，不能宣称完整功能等价。中断恢复仍采用本项目的显式恢复与持久确认契约。
+这是 Python 的对应实现，没有引入 Cordis 的 TypeScript 运行时。已实现文本／思考／工具内容块、图片／文件输入、图文工具结果、SDK replay 与一层只读多 Agent 委派；子任务查看界面尚待完成。surface 替换、PTC、profile 与插件市场不属于当前四项收尾范围，不能宣称参考项目所有能力等价。中断恢复仍采用本项目的显式恢复与持久确认契约。
 
 ## 目录与运行链路
 
@@ -549,3 +549,16 @@ HTTP 服务显式选择 headers 或 oauth 认证。OAuth 选项包含可选 clie
 0023 增加私有凭据表，并给既有 MCP 配置声明 headers 认证，不增加旧配置修订。填充的 0022 数据库升级后，17 张原业务表、MCP 凭据／目录／修订保持不变，完整性与外键检查通过。原生本地 OAuth／MCP 服务验证了 PKCE、issuer、错误 state、回调重放、取消、拒绝、退出及凭据不回显；独立新进程验证了过期令牌刷新、配置修订稳定和真实工具调用。离屏 Electron 验证登录只打开一次、取消、再次授权、刷新、退出、浅色／600px 深色布局；构建和静态检查通过。仓库不保留本批验证文件，未调用真实第三方账号或付费模型服务。
 
 参考：本地 Mu `desktop/packages/desktop/src/renderer/hooks/mcp/useMcpOAuth.ts`、harness `packages/mcp/mcp-client/src/transport.ts`、安装的 MCP Python SDK `mcp/client/auth/oauth2.py`，以及 [MCP Authorization](https://modelcontextprotocol.io/specification/2025-11-25/basic/authorization)。MCP tasks、采样／elicitation 和业务作业监督尚未实现；取消登录不代表撤销已授予的远端授权，退出只清除本地凭据。
+
+
+## 一层只读多 Agent 委派
+
+`SubagentsPlugin` 安装 `SUBAGENTS` 服务与 `subagent`、`wait_subagents`、`cancel_subagent`、`subagent_result` 工具。职责分为 `agent/subagents.py` 的监督、`tools/subagents.py` 的模型接口、`persistence/subagents.py` 的同事务受理与数据访问，以及已有的运行器。默认前台等待；后台启动必须显式指定，结束或停止父任务会清理未完成的孩子。每个父 Run 最多8项，子任务不再委派。
+
+创建在一个数据库事务里保存独立会话、只读权限、冻结模型队列与父创建记录；子模型不重新从当前设置计算配置。孩子不继承对话历史和附件，调用者必须在 prompt 提供相关上下文；它继承父作用域的插件贡献，由自己的会话保存工具观察、思考与请求事实。子目录仅允许 L0 非交互工具，不包含写入、计划退出、再次委派和子任务控制。模型写出的斜杠文本不触发人类专用 Skill。当前不提供不同子模型选择或可继续发送的子会话。
+
+调度分别保留4个主任务和4个子任务执行槽，避免主任务等待占满公共槽。等待订阅实际提交通知，超时返回当前状态，不取消执行。完整报告按子日志核验并保存在父结算记录，普通返回注明2048 UTF-8字节摘要截取，subagent_result 按 Unicode 字符分页读取完整报告。
+
+父会话 journal 的 subagent/created 与 subagent/settled 重建查询投影，结果必须匹配子会话实际输入、模型、权限、停止状态与正文。记录归属同一工作区和父工具调用；同一孩子只结算一次。取消清理任务归监督器持有；执行、关闭和启动恢复均排空或取消未完成任务，崩溃快照恢复不重复调用供应商。已开始的外部工具继续遵守原不重放规则。
+
+普通会话列表隐藏孩子。它们不接受用户输入、命令、直接恢复或其他普通 Agent 控制；模型控制限制在同一父 Run。归档父会话先检查孩子是否停止，删除父归档同时删除子会话。正式子任务查看与父界面的展示仍待接入，统一 SQL 在本阶段最终收尾时整理。

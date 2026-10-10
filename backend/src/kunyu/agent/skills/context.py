@@ -65,6 +65,9 @@ async def prepare_skill_context(
         for message in decision.payload.messages
         if message.message_id in decision.payload.input_ids
     )
+    if scope.require(s.SUBAGENTS).repository.is_child(source.session.id):
+        # Delegated prompts are model-authored, so slash text cannot grant user-only skills.
+        messages = ()
     invoked = {
         item.metadata["name"]
         for item in source.injected_context

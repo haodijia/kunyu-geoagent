@@ -53,6 +53,7 @@ from kunyu.persistence.models import (
     SessionEventRecord,
     SessionPreferenceRecord,
     SessionRecord,
+    SubagentRecord,
     ToolCallRecord,
     WorkspaceRecord,
     WorkspaceRemovalRecord,
@@ -126,6 +127,10 @@ class SQLAlchemyRunAcceptanceRepository:
                 return self._load_result(existing.message_id, existing.run_id)
 
             session_record = database_session.get(SessionRecord, request.session_id)
+            if database_session.get(SubagentRecord, request.session_id) is not None:
+                raise RunAcceptanceConflictError(
+                    "Child inputs are admitted only by their parent delegation."
+                )
             if session_record is None:
                 raise RunAcceptanceNotFoundError(
                     f"Session '{request.session_id}' was not found."
@@ -332,6 +337,10 @@ class SQLAlchemyRunAcceptanceRepository:
                 database_session.rollback()
                 return self._load_result(existing_message_id, existing_run_id)
             run = database_session.get(RunRecord, run_id)
+            if database_session.get(SubagentRecord, request.session_id) is not None:
+                raise RunAcceptanceConflictError(
+                    "Delegated child inputs cannot be steered through user messages."
+                )
             snapshot = database_session.get(RunModelSnapshotRecord, run_id)
             if run is None or snapshot is None or run.session_id != request.session_id:
                 raise RunAcceptanceNotFoundError("The steering target is unavailable.")

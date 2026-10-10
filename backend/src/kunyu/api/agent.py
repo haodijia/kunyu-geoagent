@@ -1,10 +1,14 @@
 """Session-scoped Agent state and lifecycle API."""
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends
 
 from kunyu.agent.scheduler import RunQueueFullError, RunSchedulerClosingError
 from kunyu.agent.session_agent import SessionAgentIdleError
-from kunyu.api.agent_dependencies import AgentDirectoryDependency, EmptyRequest
+from kunyu.api.agent_dependencies import (
+    AgentDirectoryDependency,
+    EmptyRequest,
+    require_parent_controls,
+)
 from kunyu.api.agent_queue import router as queue_router
 from kunyu.api.errors import ApiError
 from kunyu.api.run_models import AgentTurnResponse
@@ -12,7 +16,11 @@ from kunyu.application.run_lifecycle import RunLifecycleConflictError
 from kunyu.application.sessions import SessionNotFoundError
 from kunyu.domain.confirmations import ConfirmationConflictError
 
-router = APIRouter(prefix="/api/v1/sessions/{session_id}/agent", tags=["agent"])
+router = APIRouter(
+    prefix="/api/v1/sessions/{session_id}/agent",
+    tags=["agent"],
+    dependencies=[Depends(require_parent_controls)],
+)
 router.include_router(queue_router)
 
 

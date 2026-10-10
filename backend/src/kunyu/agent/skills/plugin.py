@@ -46,6 +46,7 @@ class SkillToolsPlugin:
         s.CONTEXTS,
         s.CONTEXT_PREPARERS,
         s.PROJECTIONS,
+        s.SUBAGENTS,
     )
     provides = ()
 

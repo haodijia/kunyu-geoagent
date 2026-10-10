@@ -70,6 +70,7 @@ class RunnerPlugin:
 class ScopedRuntime:
     def __init__(self, context: Context) -> None:
         self._context = context
+        self._subagents = context.require(s.SUBAGENTS)
         self._active: dict[str, asyncio.Task] = {}
 
     async def run(self, run_id: str) -> None:
@@ -96,8 +97,11 @@ class ScopedRuntime:
             finally:
                 self._active.pop(run_id)
                 try:
-                    if not scope.disposing:
-                        await scope.close()
+                    try:
+                        await self._subagents.after_run(run_id)
+                    finally:
+                        if not scope.disposing:
+                            await scope.close()
                 finally:
                     agent.notifications.set_status("idle")
         finally:
@@ -147,6 +151,7 @@ class AgentLoopPlugin:
         s.ACCEPTANCE,
         s.LIFECYCLE,
         s.LIFECYCLE_REPOSITORY,
+        s.SUBAGENTS,
     )
     provides = (s.RUNTIME, s.SCHEDULER, s.AGENTS)
 
@@ -166,11 +171,14 @@ class AgentLoopPlugin:
             context.require(s.CONFIRMATIONS),
             context.require(s.ACCEPTANCE),
             context.require(s.QUESTIONS),
+            context.require(s.SUBAGENTS),
             interaction_config=self._queue_interactions,
         )
         context.provide(s.RUNTIME, runtime)
         context.provide(s.SCHEDULER, scheduler)
         context.provide(s.AGENTS, AgentDirectory(context))
+        subagents = context.require(s.SUBAGENTS)
+        subagents.bind(scheduler, runtime, context.require(s.LIFECYCLE))
         context.effect(runtime.shutdown, before_children=True)
         context.effect(scheduler.shutdown, before_children=True)
         # Process shutdown must drain execution before disposing Agent scopes.
@@ -178,4 +186,5 @@ class AgentLoopPlugin:
             raise RuntimeError("The loop must be installed through a plugin owner.")
         detach = context.parent.effect(scheduler.shutdown, before_children=True)
         context.effect(detach)
+        await subagents.recover()
         await scheduler.start()

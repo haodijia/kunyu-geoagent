@@ -2,6 +2,7 @@
 
 import asyncio
 import logging
+from collections.abc import Callable
 from typing import Literal
 
 from kunyu.agent.inbox import InboxQueueConflictError, SessionInbox
@@ -18,6 +19,7 @@ from kunyu.agent.runtime.events import (
 )
 from kunyu.agent.runtime.questions import QuestionAnswers
 from kunyu.agent.scope import Context
+from kunyu.agent.subagents import SubagentManager
 from kunyu.application.confirmations import ConfirmationService
 from kunyu.application.questions import UserQuestionService
 from kunyu.application.run_acceptance import RunAcceptanceService
@@ -32,6 +34,7 @@ from kunyu.domain.runs import RunDetails
 from kunyu.persistence.run_lifecycle import SQLAlchemyRunLifecycleRepository
 
 MAX_CONCURRENT_RUNS = 4
+MAX_CONCURRENT_CHILD_RUNS = 4
 MAX_QUEUED_RUNS = 32
 SHUTDOWN_TIMEOUT_SECONDS = 3
 
@@ -55,6 +58,7 @@ class RunScheduler:
         confirmations: ConfirmationService,
         acceptance: RunAcceptanceService,
         questions: UserQuestionService,
+        subagents: SubagentManager,
         *,
         interaction_config: QueueInteractionConfig = DEFAULT_QUEUE_INTERACTION_CONFIG,
     ) -> None:
@@ -64,8 +68,10 @@ class RunScheduler:
         self._confirmations = confirmations
         self._acceptance = acceptance
         self._questions = questions
+        self._subagents = subagents
         self._lock = asyncio.Lock()
         self._active: dict[str, asyncio.Task[None]] = {}
+        self._child_runs: set[str] = set()
         self._blocked: set[str] = set()
         self._drain_task: asyncio.Task[None] | None = None
         self._next_queue_sequence = 1
@@ -193,6 +199,14 @@ class RunScheduler:
             self._wake_dispatcher()
             return result
 
+    async def submit_child(self, create: Callable[[int], str]) -> str:
+        async with self._lock:
+            self._require_accepting()
+            self._require_queue_capacity()
+            child_id = create(self._allocate_queue_sequence())
+            self._wake_dispatcher()
+            return child_id
+
     async def steer(self, request: RunAcceptanceRequest) -> RunAcceptanceResult:
         existing = self._acceptance.find_idempotent(request)
         if existing is not None:
@@ -295,10 +309,11 @@ class RunScheduler:
                     )
                 else:
                     details = await self._lifecycle.cancel(run_id)
-                return details
             finally:
                 self._blocked.discard(run_id)
                 self._wake_dispatcher()
+        await self._subagents.after_run(run_id)
+        return details
 
     async def approve(self, confirmation_id: str) -> ConfirmationDecisionResult:
         async with self._lock:
@@ -361,25 +376,38 @@ class RunScheduler:
         async with self._lock:
             if self._closing:
                 return
-            available = MAX_CONCURRENT_RUNS - len(self._active)
-            if available <= 0:
-                return
-            run_ids = self._repository.list_queued_run_ids(
-                available,
-                frozenset((*self._active, *self._blocked)),
-            )
-            for session_id in self._repository.list_pending_turn_sessions(
-                available - len(run_ids),
-                excluded=self._interactions.held_sessions,
+            for children, capacity in (
+                (False, MAX_CONCURRENT_RUNS),
+                (True, MAX_CONCURRENT_CHILD_RUNS),
             ):
-                claimed = self._acceptance.claim_next_turn(session_id)
-                if claimed is not None:
-                    if claimed.run is None:
-                        raise RuntimeError("Claimed input must create a turn.")
-                    run_ids += (claimed.run.run.id,)
-            for run_id in run_ids:
-                task = asyncio.create_task(self._execute(run_id))
-                self._active[run_id] = task
+                occupied = (
+                    len(self._child_runs)
+                    if children
+                    else len(self._active) - len(self._child_runs)
+                )
+                available = capacity - occupied
+                if available <= 0:
+                    continue
+                run_ids = self._repository.list_queued_run_ids(
+                    available,
+                    frozenset((*self._active, *self._blocked)),
+                    children=children,
+                )
+                for session_id in self._repository.list_pending_turn_sessions(
+                    available - len(run_ids),
+                    excluded=self._interactions.held_sessions,
+                    children=children,
+                ):
+                    claimed = self._acceptance.claim_next_turn(session_id)
+                    if claimed is not None:
+                        if claimed.run is None:
+                            raise RuntimeError("Claimed input must create a turn.")
+                        run_ids += (claimed.run.run.id,)
+                for run_id in run_ids:
+                    task = asyncio.create_task(self._execute(run_id))
+                    self._active[run_id] = task
+                    if children:
+                        self._child_runs.add(run_id)
 
     async def _execute(self, run_id: str) -> None:
         try:
@@ -409,6 +437,7 @@ class RunScheduler:
                 finally:
                     if self._active.get(run_id) is asyncio.current_task():
                         self._active.pop(run_id, None)
+                        self._child_runs.discard(run_id)
                     self._wake_dispatcher()
 
 

@@ -17,6 +17,7 @@ from kunyu.persistence.models import (
     RunRecord,
     SessionEventRecord,
     SessionRecord,
+    SubagentRecord,
 )
 from kunyu.persistence.run_records import event_to_domain
 from kunyu.persistence.runs import SQLAlchemyEventStore
@@ -74,7 +75,7 @@ class SQLAlchemyRunLifecycleRepository:
         return tuple(run for run in runs if run is not None)
 
     def list_queued_run_ids(
-        self, limit: int, excluded: frozenset[str]
+        self, limit: int, excluded: frozenset[str], *, children: bool = False
     ) -> tuple[str, ...]:
         statement = (
             select(RunRecord.id)
@@ -87,6 +88,12 @@ class SQLAlchemyRunLifecycleRepository:
         )
         if excluded:
             statement = statement.where(~RunRecord.id.in_(excluded))
+        child = (
+            select(SubagentRecord.child_session_id)
+            .where(SubagentRecord.child_session_id == RunRecord.session_id)
+            .exists()
+        )
+        statement = statement.where(child if children else ~child)
         with self._database.sessions() as database_session:
             return tuple(database_session.scalars(statement.limit(limit)).all())
 
@@ -105,7 +112,11 @@ class SQLAlchemyRunLifecycleRepository:
         return count + self.pending_turn_count()
 
     def list_pending_turn_sessions(
-        self, limit: int | None = None, *, excluded: frozenset[str] = frozenset()
+        self,
+        limit: int | None = None,
+        *,
+        excluded: frozenset[str] = frozenset(),
+        children: bool = False,
     ) -> tuple[str, ...]:
         if limit == 0:
             return ()
@@ -130,6 +141,12 @@ class SQLAlchemyRunLifecycleRepository:
         )
         if excluded:
             statement = statement.where(~MessageRecord.session_id.in_(excluded))
+        child = (
+            select(SubagentRecord.child_session_id)
+            .where(SubagentRecord.child_session_id == MessageRecord.session_id)
+            .exists()
+        )
+        statement = statement.where(child if children else ~child)
         with self._database.sessions() as database_session:
             candidates = tuple(database_session.scalars(statement).all())
             ready = []

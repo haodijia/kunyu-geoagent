@@ -17,6 +17,7 @@ from kunyu.persistence.models import (
     SessionArchiveRecord,
     SessionEventRecord,
     SessionRecord,
+    SubagentRecord,
     WorkspaceRecord,
     WorkspaceRemovalRecord,
 )
@@ -122,6 +123,15 @@ class SQLAlchemySessionRepository:
                     "Only archived sessions can be permanently deleted."
                 )
             _require_no_unfinished_run(session, session_id=session_id)
+            child_ids = tuple(
+                session.scalars(
+                    select(SubagentRecord.child_session_id).where(
+                        SubagentRecord.parent_session_id == session_id
+                    )
+                )
+            )
+            for child_id in child_ids:
+                session.delete(session.get(SessionRecord, child_id))
             session.delete(record)
             return True
 
@@ -129,6 +139,18 @@ class SQLAlchemySessionRepository:
         with self._database.sessions.begin() as session:
             session.execute(text("BEGIN IMMEDIATE"))
             _require_no_unfinished_run(session, workspace_id=workspace_id)
+            archived = select(SessionRecord.id).where(
+                SessionRecord.workspace_id == workspace_id, SessionRecord.archive.has()
+            )
+            child_ids = tuple(
+                session.scalars(
+                    select(SubagentRecord.child_session_id).where(
+                        SubagentRecord.parent_session_id.in_(archived)
+                    )
+                )
+            )
+            for child_id in child_ids:
+                session.delete(session.get(SessionRecord, child_id))
             result = session.execute(
                 delete(SessionRecord).where(
                     SessionRecord.workspace_id == workspace_id,
@@ -185,7 +207,11 @@ class SQLAlchemySessionRepository:
         statement = (
             select(SessionRecord)
             .where(
-                SessionRecord.workspace_id == workspace_id, ~SessionRecord.archive.has()
+                SessionRecord.workspace_id == workspace_id,
+                ~SessionRecord.archive.has(),
+                ~select(SubagentRecord.child_session_id)
+                .where(SubagentRecord.child_session_id == SessionRecord.id)
+                .exists(),
             )
             .order_by(SessionRecord.updated_at.desc(), SessionRecord.id.desc())
         )
@@ -206,7 +232,12 @@ def _require_no_unfinished_run(
         RunRecord.state.in_(NONTERMINAL_RUN_STATE_VALUES)
     )
     if session_id is not None:
-        statement = statement.where(RunRecord.session_id == session_id)
+        children = select(SubagentRecord.child_session_id).where(
+            SubagentRecord.parent_session_id == session_id
+        )
+        statement = statement.where(
+            or_(RunRecord.session_id == session_id, RunRecord.session_id.in_(children))
+        )
     elif workspace_id is not None:
         statement = (
             statement.join(SessionRecord, SessionRecord.id == RunRecord.session_id)
@@ -224,7 +255,12 @@ def _require_no_unfinished_run(
         MessageRecord.status == "completed",
     )
     if session_id is not None:
-        pending = pending.where(MessageRecord.session_id == session_id)
+        pending = pending.where(
+            or_(
+                MessageRecord.session_id == session_id,
+                MessageRecord.session_id.in_(children),
+            )
+        )
     else:
         pending = pending.join(
             SessionRecord, SessionRecord.id == MessageRecord.session_id
