@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 
 import { ConversationSkillsIndicator } from "@/features/skills/ConversationSkillsIndicator";
+import { ConversationSearch } from "@/features/messages/navigation/ConversationSearch";
 import { SessionModeSwitcher } from "@/features/sessions/SessionModeSwitcher";
 import { useSessionWorkspace } from "@/features/sessions/SessionWorkspaceContext";
 
@@ -34,6 +35,7 @@ export function SessionTitlebar() {
         <div className="flex min-w-0 items-center gap-2 text-sm font-medium text-foreground">
           <MessageCircle className="size-4 shrink-0" strokeWidth={1.8} />
           <span className="truncate">{session.title}</span>
+          <ConversationSearch />
           <ConversationSkillsIndicator />
         </div>,
         targets.title

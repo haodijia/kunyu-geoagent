@@ -1,5 +1,5 @@
 import { ArrowDown, LoaderCircle, MessageCircle } from "lucide-react";
-import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
 
 import { collectImageOffloads } from "@/features/attachments/image-offloads";
 import { AttachmentStrip } from "@/features/attachments/AttachmentStrip";
@@ -25,6 +25,7 @@ import { UserSkillText } from "@/features/skills/UserSkillText";
 import { PlanCards } from "@/features/plans/PlanCards";
 import { AssistantContent } from "./AssistantContent";
 import { collectReplyCopyRows, formatMessageTime } from "./reply-actions";
+import { useMessageNavigation } from "./navigation/MessageNavigationContext";
 
 const content = zhCN.conversation;
 
@@ -49,6 +50,7 @@ export function MessageList({
   turns,
 }: MessageListProps) {
   const { events, records, activeAssistant } = useSessionEvents();
+  const navigation = useMessageNavigation();
   const imageOffloads = useMemo(() => collectImageOffloads(records), [records]);
   const repairedAttempts = useMemo(() => new Set(records.filter((record) => record.eventType === "model.attempt.finished" && record.payload.error_code === "IMAGE_OFFLOAD_REQUIRED").map((record) => record.messageId)), [records]);
   const skillsByMessage = useMemo(() => collectSessionSkills(events).byMessage, [events]);
@@ -136,6 +138,8 @@ export function MessageList({
   ), [timeline, settledBlocks, processing]);
   const endRef = useRef<HTMLDivElement>(null);
   const followStreamRef = useRef(true);
+  const jumpingRef = useRef(false);
+  const jumpTargetRef = useRef<HTMLElement | null>(null);
   const [awayFromEnd, setAwayFromEnd] = useState(false);
   const toolsByMessage = useMemo(() => {
     const grouped = new Map<string, ToolCall[]>();
@@ -156,18 +160,52 @@ export function MessageList({
     );
     if (scroller === undefined || scroller === null) return;
     const trackPosition = () => {
+      if (jumpingRef.current) { setAwayFromEnd(true); return; }
       const distanceFromEnd =
         scroller.scrollHeight - scroller.scrollTop - scroller.clientHeight;
       followStreamRef.current = distanceFromEnd < 80;
       setAwayFromEnd(!followStreamRef.current);
     };
+    const finishJump = () => { jumpingRef.current = false; trackPosition(); };
+    const releaseAnchor = () => { jumpTargetRef.current = null; jumpingRef.current = false; };
+    const keyScroll = (event: KeyboardEvent) => { if (["ArrowUp", "ArrowDown", "PageUp", "PageDown", "Home", "End", " "].includes(event.key)) releaseAnchor(); };
+    const list = endRef.current?.parentElement;
+    const observer = new ResizeObserver(() => {
+      const target = jumpTargetRef.current;
+      if (target === null) return;
+      const top = Math.max(0, Math.min(scroller.scrollHeight - scroller.clientHeight, scroller.scrollTop + target.getBoundingClientRect().top - scroller.getBoundingClientRect().top - 12));
+      if (Math.abs(top - scroller.scrollTop) > 1) scroller.scrollTo({ top, behavior: "instant" });
+    });
+    if (list !== null && list !== undefined) observer.observe(list);
     scroller.addEventListener("scroll", trackPosition, { passive: true });
-    return () => scroller.removeEventListener("scroll", trackPosition);
+    scroller.addEventListener("scrollend", finishJump);
+    scroller.addEventListener("wheel", releaseAnchor, { passive: true });
+    scroller.addEventListener("touchstart", releaseAnchor, { passive: true });
+    scroller.addEventListener("pointerdown", releaseAnchor);
+    scroller.addEventListener("keydown", keyScroll);
+    return () => { observer.disconnect(); scroller.removeEventListener("scroll", trackPosition); scroller.removeEventListener("scrollend", finishJump); scroller.removeEventListener("wheel", releaseAnchor); scroller.removeEventListener("touchstart", releaseAnchor); scroller.removeEventListener("pointerdown", releaseAnchor); scroller.removeEventListener("keydown", keyScroll); };
   }, [timeline.length === 0]);
+
+  useLayoutEffect(() => {
+    const request = navigation.pendingJump;
+    if (request === null || timeline.length === 0) return;
+    const target = document.getElementById(`message-${request.messageId}`);
+    const scroller = endRef.current?.closest<HTMLElement>("[data-message-scroll]");
+    if (target === null || scroller === undefined || scroller === null) throw new Error("The requested message anchor is not rendered in its conversation.");
+    const top = Math.max(0, Math.min(scroller.scrollHeight - scroller.clientHeight, scroller.scrollTop + target.getBoundingClientRect().top - scroller.getBoundingClientRect().top - 12));
+    followStreamRef.current = false;
+    jumpTargetRef.current = target;
+    jumpingRef.current = Math.abs(top - scroller.scrollTop) > 1;
+    setAwayFromEnd(true);
+    target.focus({ preventScroll: true });
+    scroller.scrollTo({ top, behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "instant" : "smooth" });
+    navigation.acknowledge(request.id);
+  }, [navigation.pendingJump, navigation.acknowledge, timeline]);
 
   useEffect(() => {
     if (followStreamRef.current) {
-      endRef.current?.scrollIntoView({ block: "end" });
+      const scroller = endRef.current?.closest<HTMLElement>("[data-message-scroll]");
+      scroller?.scrollTo({ top: scroller.scrollHeight, behavior: "instant" });
     }
   }, [messages, turns, timeline, reasoningByMessage]);
 
@@ -227,6 +265,7 @@ export function MessageList({
             id={`message-${message.id}`}
             data-message-id={message.id}
             data-message-role={message.role}
+            tabIndex={-1}
             className={
               message.role === "user"
                 ? "group ml-auto flex w-full flex-col items-end"
@@ -332,18 +371,17 @@ export function MessageList({
           <Button
             type="button"
             variant="outline"
-            size="icon"
-            className="-translate-y-full rounded-full bg-background shadow-sm"
+            className="h-7 -translate-y-full gap-1.5 rounded-full bg-background py-0 ps-2.5 pe-2 text-xs font-normal text-t-secondary"
             aria-label={content.scrollToBottom}
             onClick={() => {
               followStreamRef.current = true;
-              endRef.current?.scrollIntoView({
-                block: "end",
-                behavior: "smooth",
-              });
+              jumpingRef.current = false;
+              jumpTargetRef.current = null;
+              const scroller = endRef.current?.closest<HTMLElement>("[data-message-scroll]");
+              scroller?.scrollTo({ top: scroller.scrollHeight, behavior: "smooth" });
             }}
           >
-            <ArrowDown className="size-4" />
+            {content.scrollToBottom}<ArrowDown className="size-3" />
           </Button>
         </div>
       )}

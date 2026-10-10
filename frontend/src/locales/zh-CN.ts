@@ -376,6 +376,12 @@ user-invocable: true
     copied: "已复制",
     copyFailed: "复制失败，请重试。",
     scrollToBottom: "回到最新消息",
+    navigation: {
+      label: "对话消息导航", turn: (index: number) => `跳转到第 ${index} 条输入`,
+      search: "搜索当前对话", searchHint: "搜索关键词或输入序号", clear: "清除搜索",
+      count: (count: number) => `${count} 条输入`, question: "问：", answer: "答：",
+      empty: "当前对话还没有消息。", noMatch: "没有匹配的消息。",
+    },
     thinking: {
       seconds: (seconds: number) => `${seconds}秒`,
       minutes: (minutes: number, seconds: number) => `${minutes}分${seconds}秒`,

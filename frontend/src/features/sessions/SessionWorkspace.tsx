@@ -17,6 +17,7 @@ import { SessionWorkspaceProvider } from "@/features/sessions/SessionWorkspaceCo
 import { zhCN } from "@/locales/zh-CN";
 
 import { PlanDocumentProvider } from "@/features/plans/PlanDocument";
+import { MessageNavigationProvider } from "@/features/messages/navigation/MessageNavigationContext";
 
 const content = zhCN.sessionWorkspace;
 
@@ -117,10 +118,12 @@ function SessionWorkspaceContent({
           workspaceId={sessionQuery.data.workspace_id}
         >
           <PlanDocumentProvider key={sessionQuery.data.id} sessionId={sessionQuery.data.id}>
+            <MessageNavigationProvider>
             <section className="flex h-full min-h-0 flex-col bg-background">
               <SessionTitlebar />
               <div className="min-h-0 flex-1 overflow-hidden"><Outlet /></div>
             </section>
+            </MessageNavigationProvider>
           </PlanDocumentProvider>
         </SessionMessagesProvider>
       </SessionEventProvider>

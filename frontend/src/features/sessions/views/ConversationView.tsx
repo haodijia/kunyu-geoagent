@@ -7,6 +7,7 @@ import { useSessionMessages } from "@/features/messages/SessionMessagesContext";
 import { AgentControls } from "@/features/agent/AgentControls";
 import { zhCN } from "@/locales/zh-CN";
 import { conversationAssembler } from "@/features/conversation/assembler";
+import { MessageAnchorRail } from "@/features/messages/navigation/MessageAnchorRail";
 
 export function ConversationView() {
   const eventStream = useSessionEvents();
@@ -31,8 +32,9 @@ export function ConversationView() {
   );
   return (
     <div className="chat-surface-container flex h-full min-h-0 flex-col bg-background">
+      <div className="relative min-h-0 flex-1">
       <div
-        className="message-list-scroller min-h-0 flex-1 overflow-y-auto"
+        className="message-list-scroller h-full min-h-0 overflow-y-auto"
         data-message-scroll
       >
         {messagesQuery.isPending && (
@@ -66,6 +68,8 @@ export function ConversationView() {
             confirmations={snapshot.confirmations}
           />
         )}
+      </div>
+      <MessageAnchorRail />
       </div>
       <SessionComposer />
     </div>

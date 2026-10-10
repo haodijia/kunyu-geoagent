@@ -1,0 +1,11 @@
+/* Adapted from Mu's ConversationTitleMinimap (Apache-2.0). */
+.panel { width: clamp(420px, 72vw, 980px); max-width: calc(100vw - 24px); height: min(420px, calc(100vh - 96px)); min-height: 200px; border-radius: 12px; background: var(--bg-1); box-shadow: var(--mu-shadow-2); overflow: hidden; }
+.header { height: 52px; display: flex; align-items: center; gap: 8px; padding: 8px 12px 9px; border-bottom: 1px solid var(--color-border-2); }
+.input { display: flex; align-items: center; gap: 8px; height: 34px; min-width: 0; flex: 1; padding-inline: 11px; border: 1px solid var(--color-border-2); border-radius: 12px; background: linear-gradient(180deg, var(--bg-2), var(--color-fill-1)); box-shadow: 0 1px 2px rgba(15,23,42,.04); }
+.input:hover { border-color: var(--bg-4); }
+.input:focus-within { border-color: var(--mu-primary-fill); background: var(--bg-2); box-shadow: 0 0 0 3px color-mix(in srgb, var(--mu-primary-fill) 10%, transparent), 0 4px 12px rgba(15,23,42,.06); }
+.results { height: calc(100% - 52px); padding: 10px 26px 12px 12px; overflow-y: auto; overflow-x: hidden; scrollbar-gutter: stable; }
+.result { display: block; width: 100%; margin-bottom: 6px; padding: 10px 12px; border: 0; border-radius: 10px; background: transparent; cursor: pointer; text-align: start; overflow-wrap: anywhere; transition: background-color 150ms; }
+.result:hover, .result.active { background: var(--color-fill-2); }
+.result:focus-visible { outline: 2px solid var(--mu-primary-fill); outline-offset: -2px; }
+@media (max-width: 767px) { .panel { width: calc(100vw - 24px); } }
