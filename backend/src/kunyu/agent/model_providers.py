@@ -1,8 +1,12 @@
 """Provider contributions behind the shared LLM service."""
 
-from collections.abc import AsyncIterator, Callable
+from __future__ import annotations
+
+from collections.abc import AsyncIterator, Awaitable, Callable
 from dataclasses import dataclass
-from typing import Protocol
+from typing import TYPE_CHECKING, Protocol
+
+import httpx
 
 from kunyu.agent.runtime.models import (
     ModelAdapterError,
@@ -13,7 +17,9 @@ from kunyu.agent.runtime.models import (
 from kunyu.agent.scope import Context, ScopedEntries
 from kunyu.domain.model_connections import ModelProtocol, ModelProviderType
 from kunyu.integrations.model.connection import ModelConnectionConfig
-from kunyu.integrations.model.sdk import PreparedSDKModel
+
+if TYPE_CHECKING:
+    from kunyu.integrations.model.sdk import PreparedSDKModel
 
 
 class LLMService(Protocol):
@@ -29,24 +35,29 @@ class LLMService(Protocol):
 
 
 @dataclass(frozen=True, slots=True)
-class SDKProvider:
+class ModelProvider:
     name: str
     matches: Callable[[ModelConnectionConfig], bool]
     rank: int
-    prepare: Callable[..., PreparedSDKModel] = PreparedSDKModel
+    prepare: Callable[
+        [httpx.AsyncClient, ModelConnectionConfig, str, str | None], PreparedSDKModel
+    ]
+    models: Callable[
+        [httpx.AsyncClient, ModelConnectionConfig, str | None], Awaitable[dict]
+    ]
 
 
 @dataclass(frozen=True, slots=True)
 class ProviderRegistration:
     owner: Context
-    provider: SDKProvider
+    provider: ModelProvider
 
 
 class ModelProviderRegistry:
     def __init__(self) -> None:
         self.entries: ScopedEntries[ProviderRegistration] = ScopedEntries()
 
-    def register(self, owner: Context, provider: SDKProvider) -> Callable[[], None]:
+    def register(self, owner: Context, provider: ModelProvider) -> Callable[[], None]:
         return self.entries.register(
             owner, provider.name, ProviderRegistration(owner, provider)
         )

@@ -26,7 +26,7 @@ from kunyu.agent.runtime.models import (
 )
 from kunyu.agent.scope import Context
 from kunyu.domain.attachments import ImageAttachment
-from kunyu.domain.model_connections import ModelAuthMode, ModelProtocol
+from kunyu.domain.model_connections import ModelAuthMode
 from kunyu.integrations.model.connection import (
     ModelConnectionConfig,
     invalid_request,
@@ -99,28 +99,13 @@ class SDKModelAdapter:
             detach()
 
     async def models(self, config, api_key):
-        from dataclasses import replace
-        from urllib.parse import urlsplit, urlunsplit
-
         try:
             async with self._lease(self.context, config) as registration:
-                if (
-                    config.provider_type.value == "deepseek"
-                    and config.protocol is ModelProtocol.DEEPSEEK_MESSAGES
-                    and urlsplit(config.base_url).hostname == "api.deepseek.com"
-                ):
-                    parsed = urlsplit(config.base_url)
-                    config = replace(
-                        config,
-                        protocol=ModelProtocol.OPENAI_COMPATIBLE,
-                        base_url=urlunsplit((parsed.scheme, parsed.netloc, "", "", "")),
-                    )
-                async with registration.provider.prepare(
-                    self._client, config, "catalog", api_key
-                ) as prepared:
-                    result = await prepared.models()
-                    registration.owner.assert_active()
-                    return result
+                result = await registration.provider.models(
+                    self._client, config, api_key
+                )
+                registration.owner.assert_active()
+                return result
         except Exception as error:
             raise translate_error(error) from None
 

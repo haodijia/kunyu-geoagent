@@ -2,11 +2,16 @@
 
 from kunyu.agent import services as s
 from kunyu.agent.model_providers import (
+    ModelProvider,
     ModelProviderRegistry,
-    SDKProvider,
     is_official_deepseek,
 )
 from kunyu.agent.scope import Context
+from kunyu.integrations.model.sdk import PreparedSDKModel
+from kunyu.integrations.model.sdk_discovery import (
+    discover_deepseek_models,
+    discover_sdk_models,
+)
 
 
 class ModelProvidersPlugin:
@@ -25,7 +30,14 @@ class DeepSeekModelProviderPlugin:
 
     async def apply(self, context: Context) -> None:
         context.require(s.MODEL_PROVIDERS).register(
-            context, SDKProvider("deepseek-official", is_official_deepseek, 0)
+            context,
+            ModelProvider(
+                "deepseek-official",
+                is_official_deepseek,
+                0,
+                PreparedSDKModel,
+                discover_deepseek_models,
+            ),
         )
 
 
@@ -37,5 +49,11 @@ class SDKModelProviderPlugin:
     async def apply(self, context: Context) -> None:
         context.require(s.MODEL_PROVIDERS).register(
             context,
-            SDKProvider("sdk", lambda config: not is_official_deepseek(config), 100),
+            ModelProvider(
+                "sdk",
+                lambda config: not is_official_deepseek(config),
+                100,
+                PreparedSDKModel,
+                discover_sdk_models,
+            ),
         )
