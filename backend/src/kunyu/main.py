@@ -20,6 +20,7 @@ from kunyu.api.plans import router as plans_router
 from kunyu.api.questions import router as questions_router
 from kunyu.api.sessions import router as sessions_router
 from kunyu.api.skills import router as skills_router
+from kunyu.api.subagents import router as subagents_router
 from kunyu.api.system import require_desktop_session
 from kunyu.api.system import router as system_router
 from kunyu.api.workspaces import router as workspaces_router
@@ -114,6 +115,7 @@ def create_app(session_token: str | None = None) -> FastAPI:
     app.include_router(agent_router)
     app.include_router(commands_router)
     app.include_router(skills_router)
+    app.include_router(subagents_router)
     app.include_router(workspaces_router)
     app.include_router(sessions_router)
     app.include_router(messages_router)

@@ -1,0 +1,187 @@
+/* Mu Hive compact rows, adapted to the existing theme (Apache-2.0, AionUi). */
+.card {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin: 4px 0 8px 16px;
+  min-width: 0;
+}
+.heading {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 8px;
+  font-size: 13px;
+  color: var(--text-primary);
+}
+.count {
+  margin-inline-start: auto;
+  color: var(--text-secondary);
+  font-size: 12px;
+}
+.row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  min-width: 0;
+  padding: 4px 8px;
+  border-radius: 8px;
+  text-align: start;
+  cursor: pointer;
+  font-size: 12px;
+}
+.row:hover {
+  background: var(--bg-active);
+}
+.row:focus-visible {
+  outline: 2px solid var(--mu-accent-border);
+  outline-offset: 2px;
+}
+.name {
+  max-width: 35%;
+  font-weight: 500;
+  color: var(--text-primary);
+}
+.name,
+.model,
+.activity,
+.failed {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+}
+.model {
+  max-width: 20%;
+  color: var(--text-tertiary);
+}
+.activity,
+.failed {
+  flex: 1;
+  color: var(--text-secondary);
+}
+.failed {
+  color: var(--danger);
+}
+.notice {
+  padding: 4px 8px;
+  color: var(--text-secondary);
+  font-size: 12px;
+}
+.notice button {
+  margin-inline-start: 8px;
+  text-decoration: underline;
+}
+.dialog {
+  position: fixed;
+  inset: 0;
+  width: min(1000px, calc(100vw - 32px));
+  height: min(780px, calc(100dvh - 48px));
+  max-width: none;
+  max-height: none;
+  margin: auto;
+  padding: 0;
+  border: 1px solid var(--border-base);
+  border-radius: 12px;
+  background: var(--background);
+  color: var(--foreground);
+  box-shadow: var(--mu-shadow-2);
+  overflow: hidden;
+}
+.dialog::backdrop {
+  background: rgb(0 0 0 / 35%);
+}
+.shell {
+  display: flex;
+  height: 100%;
+  min-height: 0;
+  flex-direction: column;
+}
+.header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--border-base);
+}
+.title {
+  margin: 0;
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 14px;
+  font-weight: 600;
+}
+.tabs {
+  display: flex;
+  gap: 4px;
+  padding: 4px 12px;
+  border-bottom: 1px solid var(--border-base);
+}
+.tabs button {
+  height: 32px;
+  padding: 0 12px;
+  border-radius: 8px;
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+.tabs button[aria-selected="true"] {
+  color: var(--text-primary);
+  background: var(--bg-active);
+}
+.body {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  min-width: 0;
+  overflow: hidden;
+}
+.summary {
+  height: 100%;
+  overflow: auto;
+  padding: 16px 20px;
+  font-size: 13px;
+  overflow-wrap: anywhere;
+}
+.facts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 20px;
+  margin-bottom: 16px;
+  color: var(--text-secondary);
+  font-size: 12px;
+}
+.summary h3 {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  margin: 16px 0 6px;
+}
+.prompt {
+  white-space: pre-wrap;
+}
+.trace {
+  display: flex;
+  height: 100%;
+  min-height: 0;
+  position: relative;
+}
+@media (max-width: 767px) {
+  .dialog {
+    width: calc(100vw - 16px);
+    height: calc(100dvh - 24px);
+  }
+  .model {
+    display: none;
+  }
+  .header {
+    padding: 8px 12px;
+    gap: 8px;
+  }
+  .summary {
+    padding: 12px;
+  }
+}

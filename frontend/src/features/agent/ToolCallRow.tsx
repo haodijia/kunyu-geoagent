@@ -17,6 +17,7 @@ import { collectImageOffloads } from "@/features/attachments/image-offloads";
 import { ToolKindIcon, ToolStatusBadge, ToolTarget, ToolDetail } from "./ToolActivityParts";
 import { toolDuration, toolLabel, toolStatus, toolTarget } from "./tool-presentation";
 import styles from "./ToolActivity.module.css";
+import { SubagentCard } from "@/features/subagents/SubagentCard";
 
 const content = zhCN.conversation.tools;
 
@@ -77,6 +78,7 @@ export function ToolCallRow({
           {tool.error_summary}
         </p>
       ) : null}
+      {tool.name === "subagent" && <SubagentCard toolCallId={tool.id} />}
       {denied && <p className={styles.callDenied} data-tool-denied={tool.id}>{content.denied}</p>}
       {expanded ? (
         <div className={styles.detailPanel}>

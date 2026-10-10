@@ -33,6 +33,7 @@ import { SearchResult } from "@/features/agent/SearchResult";
 import { FileMutationResult } from "@/features/agent/FileMutationResult";
 import { useSessionWorkspace } from "@/features/sessions/SessionWorkspaceContext";
 import { useSessionEvents } from "./SessionEventContext";
+import { SubagentRecordLink } from "@/features/subagents/SubagentRecordLink";
 const content = zhCN.trajectory;
 type Tab =
   | "summary"
@@ -83,7 +84,7 @@ export function TrajectoryInspector({ record, onClose, onWidthChange }: Props) {
       aria-label={content.details}
       style={width === null ? undefined : { width }}
       onKeyDown={(event) => {
-        if (event.key === "Escape") onClose();
+        if (event.key === "Escape") { event.preventDefault(); event.stopPropagation(); onClose(); }
       }}
     >
       <div
@@ -301,6 +302,7 @@ function Summary({
   return (
     <>
       <div className={css.summaryText}>
+        {record.source.kind === "subagent" && typeof record.source.child_id === "string" && <div className="mb-3"><SubagentRecordLink childId={record.source.child_id}/></div>}
         {tool ? (
           String(schema?.description ?? record.source.tool_name)
         ) : (

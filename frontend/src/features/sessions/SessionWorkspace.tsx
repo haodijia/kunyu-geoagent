@@ -18,6 +18,7 @@ import { zhCN } from "@/locales/zh-CN";
 
 import { PlanDocumentProvider } from "@/features/plans/PlanDocument";
 import { MessageNavigationProvider } from "@/features/messages/navigation/MessageNavigationContext";
+import { SubagentProvider } from "@/features/subagents/SubagentContext";
 
 const content = zhCN.sessionWorkspace;
 
@@ -119,10 +120,12 @@ function SessionWorkspaceContent({
         >
           <PlanDocumentProvider key={sessionQuery.data.id} sessionId={sessionQuery.data.id}>
             <MessageNavigationProvider>
+            <SubagentProvider>
             <section className="flex h-full min-h-0 flex-col bg-background">
               <SessionTitlebar />
               <div className="min-h-0 flex-1 overflow-hidden"><Outlet /></div>
             </section>
+            </SubagentProvider>
             </MessageNavigationProvider>
           </PlanDocumentProvider>
         </SessionMessagesProvider>

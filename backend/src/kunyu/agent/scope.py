@@ -93,7 +93,18 @@ class Context:
     async def close(self) -> None:
         if self._closing is None:
             self._closing = asyncio.create_task(self._dispose())
-        await asyncio.shield(self._closing)
+        cancelled = False
+        while True:
+            try:
+                await asyncio.shield(self._closing)
+                break
+            except asyncio.CancelledError:
+                if self._closing.cancelled():
+                    raise
+                # Repeated caller cancellation must not release borrowed resources early.
+                cancelled = True
+        if cancelled:
+            raise asyncio.CancelledError
 
     async def _dispose(self) -> None:
         failures: list[BaseException] = []

@@ -47,6 +47,9 @@ export function projectSessionEvent(
   if (event.event_type === "message.user.appended") {
     return projection(event, "user", requiredString(event, "message_id"));
   }
+  if (event.event_type === "subagent/created" || event.event_type === "subagent/settled") {
+    return { ...projection(event, "context", `subagent:${requiredString(event, "child_session_id")}`), runId: requiredString(event, "owner_run_id") };
+  }
   if (event.event_type === "compaction/start" || event.event_type === "compaction/end" || event.event_type === "compaction/selection") {
     return projection(event, "context", requiredString(event, "compaction_id"));
   }

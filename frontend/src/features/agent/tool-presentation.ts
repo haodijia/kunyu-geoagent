@@ -16,7 +16,7 @@ const kinds: readonly (readonly [readonly string[], ToolKind])[] = [
   [["read", "cat", "view", "open", "file"], "read"],
   [["grep", "glob", "search", "find", "rg", "ls", "list"], "search"],
   [["web", "fetch", "browser", "url", "http", "curl", "navigate"], "web"],
-  [["hive", "delegate", "agent", "task", "bee", "swarm"], "agent"],
+  [["hive", "delegate", "agent", "subagent", "subagents", "task", "bee", "swarm"], "agent"],
 ];
 
 export function toolKind(name: string): ToolKind {
@@ -36,7 +36,7 @@ export function toolTarget(arguments_: ToolCall["arguments"]): ToolTargetValue |
       typeof item === "object" && item !== null && "question" in item && typeof item.question === "string");
     if (questions.length > 0) return { text: questions.map((item) => item.question).join(" · "), path: false };
   }
-  for (const key of ["command", "file_path", "path", "query", "pattern", "url", "prompt", "plan", "name", "content"]) {
+  for (const key of ["command", "file_path", "path", "query", "pattern", "url", "description", "prompt", "plan", "name", "content"]) {
     const value = arguments_[key];
     if (typeof value === "string" && value.length > 0) return { text: value, path: key === "file_path" || key === "path" };
   }

@@ -25,11 +25,13 @@ import { UserSkillText } from "@/features/skills/UserSkillText";
 import { PlanCards } from "@/features/plans/PlanCards";
 import { AssistantContent } from "./AssistantContent";
 import { collectReplyCopyRows, formatMessageTime } from "./reply-actions";
-import { useMessageNavigation } from "./navigation/MessageNavigationContext";
+import type { MessageNavigation } from "./navigation/MessageNavigationContext";
 
 const content = zhCN.conversation;
 
 interface MessageListProps {
+  readonly emptyState?: ReactNode;
+  readonly navigation: Pick<MessageNavigation, "pendingJump" | "acknowledge">;
   readonly footer?: ReactNode;
   readonly confirmations: readonly Confirmation[];
   readonly messages: readonly SessionMessage[];
@@ -44,13 +46,14 @@ const statusLabels: Record<Exclude<MessageStatus, "completed">, string> = {
 };
 
 export function MessageList({
+  emptyState,
+  navigation,
   confirmations,
   footer,
   messages,
   turns,
 }: MessageListProps) {
   const { events, records, activeAssistant } = useSessionEvents();
-  const navigation = useMessageNavigation();
   const imageOffloads = useMemo(() => collectImageOffloads(records), [records]);
   const repairedAttempts = useMemo(() => new Set(records.filter((record) => record.eventType === "model.attempt.finished" && record.payload.error_code === "IMAGE_OFFLOAD_REQUIRED").map((record) => record.messageId)), [records]);
   const skillsByMessage = useMemo(() => collectSessionSkills(events).byMessage, [events]);
@@ -210,6 +213,7 @@ export function MessageList({
   }, [messages, turns, timeline, reasoningByMessage]);
 
   if (timeline.length === 0) {
+    if (emptyState !== undefined) return emptyState;
     return (
       <SessionEmptyState
         description={content.emptyDescription}

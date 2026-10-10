@@ -1,4 +1,10 @@
 export const zhCN = {
+  subagents: {
+    title: "子任务", loading: "正在读取子任务…", waitingMessages: "子任务开始执行后，这里显示实际对话。", loadFailed: "无法读取子任务。", close: "关闭子任务详情", cancel: "停止子任务", cancelling: "正在停止…",
+    open: "查看子任务", inspect: (name: string) => `查看子任务：${name}`, count: (done: number, total: number) => `${done} / ${total} 已完成`,
+    tabs: { summary: "概述", conversation: "对话", trajectory: "轨迹" }, model: "模型", reasoning: "思考强度", readOnly: "只读执行", prompt: "分派的任务", report: "完整报告", noReport: "没有返回正文。", awaitingReport: "任务尚未结算，完成后显示完整报告。", step: (step: number) => `步骤 ${step}`,
+    status: { queued: "等待执行", ready: "准备执行", model_running: "正在思考", tool_running: "正在执行工具", waiting_input: "等待回答", waiting_confirmation: "等待确认", interrupted: "已中断", completed: "已完成", failed: "失败", cancelled: "已取消" },
+  },
   mcp: {
     title: "MCP 服务", description: "连接外部工具与数据资源，供对话中的 Agent 使用。",
     add: "添加服务", empty: "尚未添加 MCP 服务", emptyDescription: "添加业务服务地址或本地服务命令。连接后可查看服务提供的工具。",
@@ -561,6 +567,7 @@ user-invocable: true
       groupRunning: (count: number, label: string) => `${count} 步 · 正在执行 ${label}`,
       groupFailed: (count: number, failed: number) => `${count} 步 · ${failed} 步失败`,
       names: {
+        subagent: "委派子任务", wait_subagents: "等待子任务", cancel_subagent: "停止子任务", subagent_result: "读取子任务报告",
         memory_read: "搜索工作区记忆",
         memory_write: "保存工作区记忆",
         exit_plan_mode: "提交计划",

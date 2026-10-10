@@ -25,7 +25,7 @@ Agent 架构必须对齐本地 `deepseek-harness` 源码的服务、插件、作
 | `skill/skill`、`skill/skill-filesystem`、`skill/tool-skill` | `skills/registry.py`、`filesystem.py`、`context.py`、`tools/skills.py` | 注册表、来源、调用工具分开；目录仅注入名称和简介；选择后加载正文；区分模型/用户调用权限；持久目录替换与显式用户调用 |
 | `packages/fs/fs`、`fs-local`、`fs-observation-policy`、`tool-fs` | `domain/filesystem.py`、`integrations/filesystem.py`、`filesystem_io.py`、`agent/filesystem.py`、`plugins/filesystem.py`、文件工具 | 文件系统与观察策略分开；路径作用域、版本守卫、原子发布、行窗口与应用结果 diff |
 
-这是 Python 的对应实现，没有引入 Cordis 的 TypeScript 运行时。已实现文本／思考／工具内容块、图片／文件输入、图文工具结果、SDK replay 与一层只读多 Agent 委派；子任务查看界面尚待完成。surface 替换、PTC、profile 与插件市场不属于当前四项收尾范围，不能宣称参考项目所有能力等价。中断恢复仍采用本项目的显式恢复与持久确认契约。
+这是 Python 的对应实现，没有引入 Cordis 的 TypeScript 运行时。已实现文本／思考／工具内容块、图片／文件输入、图文工具结果、SDK replay 与一层只读多 Agent 委派；子任务卡片、完整报告、对话、工具、轨迹与父地址取消已接入。surface 替换、PTC、profile 与插件市场不属于当前四项收尾范围，不能宣称参考项目所有能力等价。中断恢复仍采用本项目的显式恢复与持久确认契约。
 
 ## 目录与运行链路
 
@@ -561,4 +561,4 @@ HTTP 服务显式选择 headers 或 oauth 认证。OAuth 选项包含可选 clie
 
 父会话 journal 的 subagent/created 与 subagent/settled 重建查询投影，结果必须匹配子会话实际输入、模型、权限、停止状态与正文。记录归属同一工作区和父工具调用；同一孩子只结算一次。取消清理任务归监督器持有；执行、关闭和启动恢复均排空或取消未完成任务，崩溃快照恢复不重复调用供应商。已开始的外部工具继续遵守原不重放规则。
 
-普通会话列表隐藏孩子。它们不接受用户输入、命令、直接恢复或其他普通 Agent 控制；模型控制限制在同一父 Run。归档父会话先检查孩子是否停止，删除父归档同时删除子会话。正式子任务查看与父界面的展示仍待接入，统一 SQL 在本阶段最终收尾时整理。
+普通会话列表隐藏孩子。它们不接受用户输入、命令、直接恢复或其他普通 Agent 控制；模型控制限制在同一父 Run。归档父会话先检查孩子是否停止，删除父归档同时删除子会话。`/sessions/{parent}/subagents` 提供列表，`/{child}` 提供详情和 `/{child}/cancel` 提供停止；均验证父地址归属。前端从委派工具卡片或父轨迹打开只读窗口，复用原消息、工具和轨迹组件，完整报告不会按模型摘要截取。统一 SQL 在本阶段最终收尾时整理。

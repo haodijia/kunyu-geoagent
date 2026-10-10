@@ -5,7 +5,7 @@ import { useSessionWorkspace } from "@/features/sessions/SessionWorkspaceContext
 import { sessionAnalysisPath } from "@/features/sessions/routes";
 import { buildMessageAnchors, type MessageAnchor } from "./model";
 
-interface Navigation {
+export interface MessageNavigation {
   readonly anchors: readonly MessageAnchor[];
   readonly loading: boolean;
   readonly error: Error | null;
@@ -16,16 +16,16 @@ interface Navigation {
   readonly acknowledge: (id: number) => void;
   readonly retry: () => void;
 }
-const NavigationContext = createContext<Navigation | null>(null);
+const NavigationContext = createContext<MessageNavigation | null>(null);
 
 export function MessageNavigationProvider({ children }: { readonly children: ReactNode }) {
   const session = useSessionWorkspace(), navigate = useNavigate();
   const { messagesQuery } = useSessionMessages();
   const [searchOpen, setSearchOpen] = useState(false);
-  const [pendingJump, setPendingJump] = useState<Navigation["pendingJump"]>(null);
+  const [pendingJump, setPendingJump] = useState<MessageNavigation["pendingJump"]>(null);
   const nextId = useRef(0);
   const anchors = useMemo(() => messagesQuery.data === undefined ? [] : buildMessageAnchors(messagesQuery.data), [messagesQuery.data]);
-  const value: Navigation = {
+  const value: MessageNavigation = {
     anchors, loading: messagesQuery.isPending, error: messagesQuery.error, searchOpen, setSearchOpen, pendingJump,
     jump: (messageId) => {
       if (!anchors.some((anchor) => anchor.messageId === messageId)) throw new Error("The message anchor does not belong to this session.");
@@ -39,7 +39,7 @@ export function MessageNavigationProvider({ children }: { readonly children: Rea
   return <NavigationContext value={value}>{children}</NavigationContext>;
 }
 
-export function useMessageNavigation(): Navigation {
+export function useMessageNavigation(): MessageNavigation {
   const context = useContext(NavigationContext);
   if (context === null) throw new Error("Message navigation requires its session provider.");
   return context;

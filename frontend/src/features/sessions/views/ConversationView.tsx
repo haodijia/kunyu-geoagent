@@ -9,8 +9,10 @@ import { zhCN } from "@/locales/zh-CN";
 import { conversationAssembler } from "@/features/conversation/assembler";
 import { MessageAnchorRail } from "@/features/messages/navigation/MessageAnchorRail";
 import { SelectionReplyButton } from "@/features/messages/SelectionReplyButton";
+import { useMessageNavigation } from "@/features/messages/navigation/MessageNavigationContext";
 
 export function ConversationView() {
+  const navigation = useMessageNavigation();
   const eventStream = useSessionEvents();
   const { messagesQuery, agentTurnsQuery, confirmationsQuery } =
     useSessionMessages();
@@ -63,6 +65,7 @@ export function ConversationView() {
         )}
         {messagesQuery.data !== undefined && (
           <MessageList
+            navigation={navigation}
             footer={<AgentControls embedded />}
             messages={snapshot.messages}
             turns={snapshot.turns}
