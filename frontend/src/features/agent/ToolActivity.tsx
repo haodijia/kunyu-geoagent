@@ -7,7 +7,7 @@ import { useSessionEvents } from "@/features/events/SessionEventContext";
 import type { GeneratingTool } from "@/features/events/stream-presentation";
 import { ToolCallRow } from "./ToolCallRow";
 import { ToolDetail, ToolKindIcon, ToolStatusBadge } from "./ToolActivityParts";
-import { isWaitingQuestion, toolErrorLine, toolLabel, toolStatus, toolTarget } from "./tool-presentation";
+import { toolErrorLine, toolGroupStatus, toolLabel, toolStatus, toolTarget } from "./tool-presentation";
 import styles from "./ToolActivity.module.css";
 
 const content = zhCN.conversation.tools;
@@ -43,12 +43,12 @@ export function ToolActivity({ confirmations, tools, runState }: {
   if (tools.length === 0) return null;
   const calls = tools.map((tool) => {
     const confirmation = confirmations.find((item) => item.tool_call_id === tool.id);
-    return { tool, confirmation, target: toolTarget(tool.arguments), status: toolStatus(tool, runState, confirmation) };
+    return { tool, confirmation, target: toolTarget(tool.arguments), status: toolStatus(tool, runState, confirmation, records) };
   });
   if (calls.length === 1) return <div className={styles.summary} role="group" aria-label={content.title}>
     <ToolCallRow tool={calls[0]!.tool} confirmation={calls[0]!.confirmation} runState={runState} />
   </div>;
-  const waitingQuestion = calls.some(({ tool, status }) => status === "running" && isWaitingQuestion(tool, records));
+  const waitingQuestion = calls.some(({ status }) => status === "waiting_input");
   const running = calls.find(({ status }) => status === "running");
   const failed = calls.filter(({ status }) => status === "failed");
   const denied = calls.filter(({ status }) => status === "denied");
@@ -57,6 +57,7 @@ export function ToolActivity({ confirmations, tools, runState }: {
   const interrupted = calls.find(({ status }) => status === "interrupted");
   const unknown = calls.find(({ status }) => status === "unknown");
   const runningTarget = running === undefined ? undefined : running.target;
+  const status = toolGroupStatus(calls.map((call) => call.status));
   const headline = waitingQuestion ? content.groupWaiting(tools.length, zhCN.questions.waiting)
     : running !== undefined ? content.groupRunning(tools.length, `${toolLabel(running.tool.name)}${runningTarget === undefined ? "" : ` ${runningTarget.text}`}`)
     : failed.length > 0 ? content.groupFailed(tools.length, failed.length)
@@ -64,8 +65,8 @@ export function ToolActivity({ confirmations, tools, runState }: {
     : pending !== undefined ? content.groupWaiting(tools.length, content.status.pending)
     : interrupted !== undefined ? content.groupWaiting(tools.length, content.status.interrupted)
     : unknown !== undefined ? content.groupWaiting(tools.length, content.status.unknown)
+    : status === "cancelled" || status === "denied" ? content.groupWaiting(tools.length, content.status[status])
     : content.groupSummary(tools.length);
-  const status = waitingQuestion ? "waiting" : running !== undefined ? "running" : failed.length > 0 ? "failed" : "pending";
   return <div className={styles.summary} role="group" aria-label={content.title}>
     <div className={styles.activity}>
       <button type="button" className={styles.activityHeader} aria-expanded={expanded} onClick={() => setExpanded((value) => !value)}>

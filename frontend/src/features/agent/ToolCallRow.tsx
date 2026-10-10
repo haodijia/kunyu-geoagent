@@ -15,7 +15,7 @@ import { parseToolContent, toolContentImages, toolContentText } from "./tool-con
 import { AttachmentStrip } from "@/features/attachments/AttachmentStrip";
 import { collectImageOffloads } from "@/features/attachments/image-offloads";
 import { ToolKindIcon, ToolStatusBadge, ToolTarget, ToolDetail } from "./ToolActivityParts";
-import { isWaitingQuestion, toolLabel, toolStatus, toolTarget } from "./tool-presentation";
+import { toolDuration, toolLabel, toolStatus, toolTarget } from "./tool-presentation";
 import styles from "./ToolActivity.module.css";
 
 const content = zhCN.conversation.tools;
@@ -34,29 +34,15 @@ export function ToolCallRow({
   const imageOffloads = useMemo(() => collectImageOffloads(records), [records]);
   const resultContent = useMemo(() => tool.status === "completed" ? parseToolContent(tool.content) : [], [tool.status, tool.content]);
   const images = useMemo(() => toolContentImages(resultContent), [resultContent]);
-  const started = records
-    .filter(
-      (record) =>
-        record.entityId === tool.id && record.eventType === "tool.started",
-    )
-    .at(-1);
   const hasDetails =
     Object.keys(tool.arguments).length > 0 ||
     resultContent.length > 0 ||
     tool.error_summary !== null ||
     confirmation !== undefined;
-  const duration =
-    started === undefined ||
-    tool.status === "pending" ||
-    tool.status === "running"
-      ? null
-      : Math.max(
-          0,
-          Date.parse(tool.updated_at) - Date.parse(started.occurredAt),
-        );
-  const status = toolStatus(tool, runState, confirmation);
+  const duration = toolDuration(tool.id, records);
+  const status = toolStatus(tool, runState, confirmation, records);
   const denied = status === "denied";
-  const waitingQuestion = status === "running" && isWaitingQuestion(tool, records);
+  const waitingQuestion = status === "waiting_input";
   const target = waitingQuestion ? { text: zhCN.questions.waiting, path: false } : images.length > 0 ? { text: images.map((ref) => ref.name).join(", "), path: false } : toolTarget(tool.arguments);
 
   return (
@@ -69,7 +55,7 @@ export function ToolCallRow({
         aria-expanded={hasDetails ? expanded : undefined}
         onClick={() => setExpanded((value) => !value)}
       >
-        <ToolStatusBadge status={waitingQuestion ? "waiting" : status} label={waitingQuestion ? zhCN.questions.waiting : content.status[status]} />
+        <ToolStatusBadge status={status} label={content.status[status]} />
         <ToolKindIcon name={tool.name} />
         <span
           className={styles.callName}

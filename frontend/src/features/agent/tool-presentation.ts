@@ -7,7 +7,7 @@ import type { TrajectoryEventProjection } from "@/features/events/projection";
 import { zhCN } from "@/locales/zh-CN";
 
 type ToolKind = "read" | "edit" | "shell" | "search" | "web" | "agent" | "other";
-export type ToolDisplayStatus = ToolCall["status"] | "denied" | "interrupted" | "unknown" | "waiting";
+export type ToolDisplayStatus = ToolCall["status"] | "denied" | "interrupted" | "unknown" | "waiting" | "waiting_input";
 export interface ToolTargetValue { readonly text: string; readonly path: boolean; }
 
 const kinds: readonly (readonly [readonly string[], ToolKind])[] = [
@@ -43,14 +43,31 @@ export function toolTarget(arguments_: ToolCall["arguments"]): ToolTargetValue |
   return undefined;
 }
 
-export function toolStatus(tool: ToolCall, runState: AgentTurnState | null, confirmation: Confirmation | undefined): ToolDisplayStatus {
+export function toolStatus(tool: ToolCall, runState: AgentTurnState | null, confirmation: Confirmation | undefined, records: readonly TrajectoryEventProjection[]): ToolDisplayStatus {
   if (confirmation?.status === "rejected") return "denied";
   if (tool.status === "completed" || tool.status === "failed" || tool.status === "cancelled") return tool.status;
   if (runState === "interrupted") return "interrupted";
   if (runState === "cancelled" || runState === "completed" || runState === "failed") return "cancelled";
   if (confirmation?.status === "pending") return "waiting";
+  if (isWaitingQuestion(tool, records)) return "waiting_input";
   if (tool.status === "running" && runState !== "tool_running" && runState !== "waiting_input") return "unknown";
   return tool.status;
+}
+
+export function toolGroupStatus(statuses: readonly ToolDisplayStatus[]): ToolDisplayStatus {
+  for (const status of ["running", "failed", "waiting_input", "waiting", "pending", "interrupted", "unknown", "cancelled", "denied"] as const) {
+    if (statuses.includes(status)) return status;
+  }
+  return "completed";
+}
+
+export function toolDuration(toolId: string, records: readonly TrajectoryEventProjection[]): number | null {
+  const events = records.filter((record) => record.entityId === toolId);
+  const start = events.findLast((record) => record.eventType === "tool.started");
+  const end = events.findLast((record) => ["tool.completed", "tool.failed", "tool.cancelled"].includes(record.eventType));
+  if (start === undefined || end === undefined || end.sequence < start.sequence) return null;
+  const milliseconds = Date.parse(end.occurredAt) - Date.parse(start.occurredAt);
+  return Number.isFinite(milliseconds) && milliseconds >= 0 ? milliseconds : null;
 }
 
 export function toolErrorLine(tool: ToolCall): string | null {

@@ -585,6 +585,7 @@ user-invocable: true
         interrupted: "执行中断，等待继续",
         unknown: "状态待同步",
         waiting: "等待确认",
+        waiting_input: "等待你的回答",
       },
       read: {
         lines: (path: string) => `文件内容：${path}`,
@@ -706,6 +707,9 @@ user-invocable: true
     injectedContext: "下一步注入上下文",
     unknownTool: "未知工具",
     statuses: {
+      denied: "未允许",
+      waiting: "等待确认",
+      unknown: "状态待同步",
       waiting_input: "等待用户回答",
       answered: "已回答",
       dismissed: "已关闭",

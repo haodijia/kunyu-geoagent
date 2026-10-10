@@ -12,6 +12,7 @@ import type { Confirmation } from "@/features/confirmations/api";
 import type { SessionMessage } from "@/features/messages/api";
 import type { AgentTurn, ToolCall } from "@/features/agent/api";
 import { parseToolContent } from "@/features/agent/tool-content";
+import { toolStatus } from "@/features/agent/tool-presentation";
 import { zhCN } from "@/locales/zh-CN";
 import type { TrajectoryEventProjection } from "./projection";
 import type {
@@ -462,8 +463,11 @@ function toolRecord(
     snapshot?.name ??
     stringValue(requested?.payload.name) ??
     zhCN.trajectory.unknownTool;
-  const status =
-    terminal?.eventType.replace("tool.", "") ?? snapshot?.status ?? "pending";
+  const confirmation = [...context.confirmations.values()].find((item) => item.tool_call_id === first.entityId);
+  const run = first.runId === null ? undefined : context.runs.get(first.runId);
+  const status = snapshot === undefined
+    ? terminal?.eventType.replace("tool.", "") ?? "pending"
+    : toolStatus(snapshot, run?.state ?? null, confirmation, context.allEvents);
   const input = sanitizeTrajectoryValue(
     snapshot?.arguments ?? requested?.payload.arguments ?? {},
   );
