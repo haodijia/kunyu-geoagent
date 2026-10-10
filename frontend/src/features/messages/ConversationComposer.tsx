@@ -1,4 +1,4 @@
-import { ArrowUp, LoaderCircle, MapPinned, Paperclip, RotateCw, Settings2, Slash, Square } from "lucide-react";
+import { ArrowUp, LoaderCircle, MapPinned, Paperclip, RotateCw, Settings2, Slash, Square, Quote, X } from "lucide-react";
 import {
   useEffect, useId, useRef, useState,
   type ChangeEvent, type FormEvent, type KeyboardEvent,
@@ -17,6 +17,7 @@ import { DraftBoxIcon } from "./composer/DraftBoxIcon";
 import { ContextUsageIndicator } from "./composer/ContextUsageIndicator";
 import type { ContextUsage } from "./composer/context-usage";
 import { ComposerPlanChip } from "./composer/ComposerPlanChip";
+import type { ReplyQuote } from "./reply-quote";
 
 const content = zhCN.conversation;
 const MAX_TEXTAREA_HEIGHT = 120;
@@ -27,6 +28,8 @@ interface ConversationComposerProps {
   readonly sessionId: string;
   readonly attachmentState: ReturnType<typeof useComposerAttachments>;
   readonly draft: string;
+  readonly quote: ReplyQuote | null;
+  readonly onQuoteClear: () => void;
   readonly queuedDraft: boolean;
   readonly error: string | null;
   readonly draftFrozen: boolean;
@@ -60,7 +63,7 @@ interface ConversationComposerProps {
 }
 
 export function ConversationComposer({
-  contextLabel, contextUsage, sessionId, attachmentState, draft, queuedDraft, error, draftFrozen, modelDisabled, modelGroups,
+  contextLabel, contextUsage, sessionId, attachmentState, draft, quote, onQuoteClear, queuedDraft, error, draftFrozen, modelDisabled, modelGroups,
   pending, interactionLocked, running, stopPending, reasoningOptions, selectedModel,
   defaultReasoningEffort,
   selectedReasoningEffort, sendDisabled, showModelSettings, commands,
@@ -76,9 +79,9 @@ export function ConversationComposer({
   const commandMenuId = useId();
   const [activeIndex, setActiveIndex] = useState(0);
   const [dismissedDraft, setDismissedDraft] = useState<string | null>(null);
-  const isCommand = draft.trimStart().startsWith("/");
+  const isCommand = quote === null && draft.trimStart().startsWith("/");
   const inputLocked = pending || draftFrozen || commandPending || interactionLocked;
-  const matchingCommands = filterComposerCommands(commands, draft);
+  const matchingCommands = quote === null ? filterComposerCommands(commands, draft) : null;
   const menuOpen = matchingCommands !== null && dismissedDraft !== draft && !inputLocked;
   const activeCommand = matchingCommands?.[activeIndex];
   const queueable = !isCommand || commands.some((item) => item.kind === "skill" && item.name === parseComposerCommand(draft)?.name && item.unavailableReason === null);
@@ -208,9 +211,15 @@ export function ConversationComposer({
           if (!inputLocked) void attachmentState.addFiles(files);
         }} />
         <AttachmentStrip sessionId={sessionId} attachments={attachmentState.attachments} disabled={inputLocked || attachmentState.pending} onRemove={attachmentState.remove} />
+        {quote !== null && <div className="mb-2 flex items-start gap-2.5 rounded-[10px] bg-fill-1 px-3 py-2.5" data-reply-preview>
+          <Quote className="mt-0.5 size-4 shrink-0 text-t-tertiary"/>
+          <div className="min-w-0 flex-1 line-clamp-3 text-[13px] leading-5 whitespace-pre-wrap break-all text-t-primary">{quote.content}</div>
+          <button type="button" disabled={inputLocked} aria-label={content.reply.clear} className="mt-0.5 shrink-0 rounded-full p-0.5 text-t-secondary transition-colors hover:bg-fill-3 disabled:opacity-50" onClick={onQuoteClear}><X className="size-3.5"/></button>
+        </div>}
         {draggingFiles && <div className="pointer-events-none absolute inset-0 z-20 flex items-center justify-center rounded-[20px] border-2 border-dashed border-foreground/30 bg-[var(--mu-composer-bg)]/95 text-[13px] text-foreground">{content.attachments.drop}</div>}
         <Textarea
           ref={textareaRef}
+          data-composer-input={sessionId}
           role="combobox"
           aria-autocomplete="list"
           aria-haspopup="listbox"

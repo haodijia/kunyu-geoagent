@@ -374,6 +374,7 @@ user-invocable: true
     },
     copy: "复制",
     copied: "已复制",
+    reply: { action: "回复", clear: "取消引用", openLink: "在系统浏览器中打开" },
     copyFailed: "复制失败，请重试。",
     scrollToBottom: "回到最新消息",
     navigation: {

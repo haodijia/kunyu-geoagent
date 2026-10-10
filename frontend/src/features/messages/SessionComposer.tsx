@@ -23,6 +23,9 @@ export function SessionComposer() {
   const [queueEditing, setQueueEditing] = useState(false);
   const {
     draft,
+    quote,
+    quotedDraft,
+    changeQuote,
     attachmentState,
     queuedDraft,
     mapContext,
@@ -95,7 +98,7 @@ export function SessionComposer() {
     sendDisabled,
     sendSkill: sendMessage,
     message: selectedModel === undefined ? null : {
-      content: draft,
+      content: quotedDraft,
       attachmentIds: attachmentState.attachments.map((ref) => ref.id),
       delivery: activeTurn === undefined || queuedDraft ? "followup" : "steer",
       connectionId: selectedModel.connection.id,
@@ -153,6 +156,8 @@ export function SessionComposer() {
         zoom.toFixed(1)
       )}
       draft={draft}
+      quote={quote}
+      onQuoteClear={() => changeQuote(null)}
       queuedDraft={queuedDraft}
       onDraftChange={(value) => {
         commandState.resetFeedback();

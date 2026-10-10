@@ -54,7 +54,7 @@ export function AssistantContent({
       );
     if (group.type === "text")
       return group.text === "" ? null : (
-        <MessageMarkdown key={`text:${group.index}`} text={group.text} />
+        <div key={`text:${group.index}`} className="w-full" data-reply-content={messageId}><MessageMarkdown text={group.text} /></div>
       );
     const identities = new Set(group.blocks.map((block) => block.id));
     const committed = tools.filter((tool) =>

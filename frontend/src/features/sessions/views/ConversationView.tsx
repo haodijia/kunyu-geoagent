@@ -8,6 +8,7 @@ import { AgentControls } from "@/features/agent/AgentControls";
 import { zhCN } from "@/locales/zh-CN";
 import { conversationAssembler } from "@/features/conversation/assembler";
 import { MessageAnchorRail } from "@/features/messages/navigation/MessageAnchorRail";
+import { SelectionReplyButton } from "@/features/messages/SelectionReplyButton";
 
 export function ConversationView() {
   const eventStream = useSessionEvents();
@@ -72,6 +73,7 @@ export function ConversationView() {
       <MessageAnchorRail />
       </div>
       <SessionComposer />
+      <SelectionReplyButton />
     </div>
   );
 }

@@ -274,7 +274,7 @@ export function MessageList({
           >
             {message.role === "user" ? (
               <div className="max-w-full [--attachment-surface:var(--message-user-bg)] rounded-[8px_0_8px_8px] bg-[var(--message-user-bg)] p-1.5 md:p-2 text-[13px] leading-5 whitespace-pre-wrap text-foreground [overflow-wrap:anywhere]">
-                {message.content.length > 0 && <UserSkillText text={message.content} skills={skillsByMessage.get(message.id) ?? new Map()} />}
+                {message.content.length > 0 && <span data-reply-content={message.id}><UserSkillText text={message.content} skills={skillsByMessage.get(message.id) ?? new Map()} /></span>}
                 <AttachmentStrip sessionId={message.session_id} attachments={message.attachments} offloadedIds={imageOffloads.get(message.id)} />
                 {imageOffloads.has(message.id) && <p className="text-[11px] text-muted-foreground">{content.attachments.offloadSummary(imageOffloads.get(message.id)!.size)}</p>}
               </div>

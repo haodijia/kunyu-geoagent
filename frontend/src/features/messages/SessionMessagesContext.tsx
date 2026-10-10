@@ -35,6 +35,7 @@ import type {
   ModelConnection
 } from "@/features/settings/models/api";
 import { zhCN } from "@/locales/zh-CN";
+import { quotedMessage, type ReplyQuote } from "./reply-quote";
 import {
   appendUserMessage,
   listMessages,
@@ -84,6 +85,8 @@ function useMessages(sessionId: string, workspaceId: string) {
   );
   const clearComposerDraft = useAppUiStore((state) => state.clearComposerDraft);
   const setComposerDraft = useAppUiStore((state) => state.setComposerDraft);
+  const quote = useAppUiStore((state) => state.composerQuoteBySession[sessionId] ?? null);
+  const setComposerQuote = useAppUiStore((state) => state.setComposerQuote);
   const restoreComposerDraft = useAppUiStore((state) => state.restoreComposerDraft);
   const setModelSelection = useAppUiStore((state) => state.setModelSelection);
   const { events } = useSessionEvents();
@@ -321,7 +324,7 @@ function useMessages(sessionId: string, workspaceId: string) {
     if ((!draft.trim() && attachmentState.attachments.length === 0) || attachmentState.blocked() || attachmentState.attachments.reduce((sum, ref) => sum + ref.bytes, 0) > 32 * 1024 * 1024 || selectedModel === undefined) return;
     const submission: FrozenSubmission = {
       idempotencyKey: crypto.randomUUID(),
-      content: draft,
+      content: quotedMessage(draft, quote),
       attachmentIds: attachmentState.attachments.map((ref) => ref.id),
       delivery: delivery ?? (queuedDraft ? "followup" : agentTurnsQuery.data?.some(
         (turn) => !["completed", "failed", "cancelled"].includes(turn.state)
@@ -340,6 +343,14 @@ function useMessages(sessionId: string, workspaceId: string) {
 
   return {
     draft,
+    quote,
+    quotedDraft: quotedMessage(draft, quote),
+    changeQuote: (next: ReplyQuote | null) => {
+      if (requestFrozen || mutation.isPending) return;
+      if (next !== null && !messagesQuery.data?.some((message) => message.id === next.messageId && message.session_id === sessionId)) throw new Error("The reply source does not belong to this conversation.");
+      mutation.reset();
+      setComposerQuote(sessionId, next);
+    },
     attachmentState,
     queuedDraft,
     mapContext,
