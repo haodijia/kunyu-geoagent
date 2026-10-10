@@ -132,6 +132,35 @@ class SessionRecord(Base):
     )
 
 
+class SubagentRecord(Base):
+    __tablename__ = "subagents"
+    __table_args__ = (
+        Index("ix_subagents_parent_created", "parent_session_id", "created_sequence"),
+        UniqueConstraint("tool_call_id", name="uq_subagents_tool_call"),
+        UniqueConstraint("child_run_id", name="uq_subagents_child_run"),
+        CheckConstraint(
+            "child_session_id != parent_session_id AND created_sequence > 0",
+            name="ck_subagents_identity",
+        ),
+    )
+
+    child_session_id: Mapped[str] = mapped_column(
+        ForeignKey("sessions.id", ondelete="CASCADE"), primary_key=True
+    )
+    parent_session_id: Mapped[str] = mapped_column(
+        ForeignKey("sessions.id", ondelete="CASCADE"), nullable=False
+    )
+    parent_run_id: Mapped[str] = mapped_column(String(64), nullable=False)
+    child_run_id: Mapped[str] = mapped_column(String(64), nullable=False)
+    tool_call_id: Mapped[str] = mapped_column(String(64), nullable=False)
+    created: Mapped[dict] = mapped_column(JSON, nullable=False)
+    settled: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    settled_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    created_sequence: Mapped[int] = mapped_column(Integer, nullable=False)
+    settled_sequence: Mapped[int | None] = mapped_column(Integer)
+
+
 class SessionAttachmentRecord(Base):
     __tablename__ = "session_attachments"
     __table_args__ = (

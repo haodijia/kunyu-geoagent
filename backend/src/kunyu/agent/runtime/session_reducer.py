@@ -19,6 +19,8 @@ from kunyu.agent.runtime.events import (
     RunState,
     SessionCreatedEvent,
     StepDecisionEvent,
+    SubagentCreatedEvent,
+    SubagentSettledEvent,
     TodoWriteEvent,
     UserMessageAppendedEvent,
     validate_event_draft,
@@ -32,6 +34,7 @@ from kunyu.agent.runtime.session_state import (
     ReducedUserMessage,
     SessionReductionError,
 )
+from kunyu.agent.runtime.subagents import SubagentProjection
 
 
 def reduce_session(events: Iterable[AgentEvent]) -> ReducedSession:
@@ -51,6 +54,7 @@ def reduce_session(events: Iterable[AgentEvent]) -> ReducedSession:
     image_offloads = ImageOffloadProjection()
     controls = ControlProjection()
     compactions = CompactionProjection()
+    subagents = SubagentProjection()
 
     for envelope in events:
         if envelope.sequence != expected_sequence:
@@ -138,6 +142,16 @@ def reduce_session(events: Iterable[AgentEvent]) -> ReducedSession:
             raise SessionReductionError(
                 "Session events cannot precede session.created."
             )
+
+        if isinstance(event, (SubagentCreatedEvent, SubagentSettledEvent)):
+            try:
+                owner_events = run_events.get(event.payload.owner_run_id)
+                if not owner_events:
+                    raise ValueError("Delegation requires an existing parent run.")
+                subagents.accept(event, envelope.sequence, reduce_run(owner_events))
+            except (ValueError, RunReductionError) as error:
+                raise SessionReductionError(str(error)) from error
+            continue
 
         if event.event_type == "run.started" and envelope.run_id != todos_run_id:
             todos = None
@@ -403,6 +417,7 @@ def reduce_session(events: Iterable[AgentEvent]) -> ReducedSession:
         todos=todos,
         todos_run_id=todos_run_id,
         offloaded_images=tuple(image_offloads.targets),
+        subagents=tuple(subagents.children.values()),
     )
 
 

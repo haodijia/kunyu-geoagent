@@ -6,6 +6,7 @@ from typing import Literal
 
 from kunyu.agent.runtime.events import ImageOffloadTarget, InboxMessagePayload
 from kunyu.agent.runtime.run_state import ReducedRun
+from kunyu.agent.runtime.subagents import ReducedSubagent
 from kunyu.agent.runtime.todos import TodoItem
 from kunyu.domain.attachments import Attachment
 from kunyu.domain.commands import SessionControls
@@ -44,3 +45,4 @@ class ReducedSession:
     todos: tuple[TodoItem, ...] | None = None
     todos_run_id: str | None = None
     offloaded_images: tuple[ImageOffloadTarget, ...] = ()
+    subagents: tuple[ReducedSubagent, ...] = ()

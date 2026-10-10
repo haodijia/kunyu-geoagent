@@ -53,8 +53,10 @@ from kunyu.persistence.models import (
     RunRecord,
     SessionEventRecord,
     SessionRecord,
+    SubagentRecord,
     ToolCallRecord,
 )
+from kunyu.persistence.subagent_receipts import validate_subagent_receipts
 
 
 class SQLAlchemyAgentProjectionService:
@@ -159,6 +161,7 @@ class SQLAlchemyAgentProjectionService:
     def _replace_session_projections(
         self, database_session: Session, reduced: ReducedSession
     ) -> None:
+        validate_subagent_receipts(database_session, reduced)
         session_id = reduced.session_id
         database_session.execute(
             delete(ConfirmationRecord).where(
@@ -197,6 +200,30 @@ class SQLAlchemyAgentProjectionService:
             for confirmation in run.confirmations
         )
         database_session.add_all(confirmations)
+        database_session.flush()
+
+        database_session.execute(
+            delete(SubagentRecord).where(SubagentRecord.parent_session_id == session_id)
+        )
+        for child in reduced.subagents:
+            created = child.created
+            database_session.add(
+                SubagentRecord(
+                    child_session_id=created.child_session_id,
+                    parent_session_id=session_id,
+                    parent_run_id=created.owner_run_id,
+                    child_run_id=created.child_run_id,
+                    tool_call_id=created.tool_call_id,
+                    created=created.model_dump(mode="json"),
+                    settled=child.settled.model_dump(mode="json")
+                    if child.settled is not None
+                    else None,
+                    created_at=child.created_at,
+                    settled_at=child.settled_at,
+                    created_sequence=child.created_sequence,
+                    settled_sequence=child.settled_sequence,
+                )
+            )
         database_session.flush()
 
 

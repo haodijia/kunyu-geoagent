@@ -15,18 +15,17 @@ from pydantic import (
     model_validator,
 )
 
-from kunyu.agent.runtime.questions import QuestionAnswers, QuestionSet
-from kunyu.domain.model_images import ModelImageInput
-from kunyu.domain.model_reasoning import ReasoningParameters, require_parameter_protocol
-
-type NonNegativeInt = Annotated[int, Field(ge=0)]
 from kunyu.agent.runtime.assistant_stream import AssistantStreamRecord
 from kunyu.agent.runtime.content import ContentBlock, ReplayEnvelope
+from kunyu.agent.runtime.questions import QuestionAnswers, QuestionSet
 from kunyu.agent.runtime.retry_policy import RetryPolicy
 from kunyu.agent.runtime.todos import TodoList
 from kunyu.agent.runtime.tool_content import ToolContent
 from kunyu.domain.attachments import MAX_ATTACHMENTS, MAX_BATCH_BYTES, Attachment
+from kunyu.domain.model_images import ModelImageInput
+from kunyu.domain.model_reasoning import ReasoningParameters, require_parameter_protocol
 
+type NonNegativeInt = Annotated[int, Field(ge=0)]
 type PositiveInt = Annotated[int, Field(gt=0)]
 
 
@@ -162,6 +161,25 @@ class PlanChangedPayload(EventPayload):
 
 class PermissionChangedPayload(EventPayload):
     preset: Literal["read-only", "workspace-write"]
+
+
+class SubagentCreatedPayload(EventPayload):
+    child_session_id: str = Field(min_length=1, max_length=64)
+    child_run_id: str = Field(min_length=1, max_length=64)
+    owner_run_id: str = Field(min_length=1, max_length=64)
+    tool_call_id: str = Field(min_length=1, max_length=64)
+    description: str = Field(min_length=1, max_length=200)
+    prompt: str = Field(min_length=1, max_length=32_768)
+    permission: Literal["read-only"]
+    model_snapshot: "ModelSnapshotPayload"
+
+
+class SubagentSettledPayload(EventPayload):
+    child_session_id: str = Field(min_length=1, max_length=64)
+    owner_run_id: str = Field(min_length=1, max_length=64)
+    status: Literal["completed", "failed", "cancelled", "interrupted"]
+    output: str = Field(max_length=32_768)
+    reason: str | None
 
 
 class FeedbackRecordedPayload(EventPayload):
@@ -642,6 +660,16 @@ class PermissionChangedEvent(_SessionEventDraft):
     payload: PermissionChangedPayload
 
 
+class SubagentCreatedEvent(_SessionEventDraft):
+    event_type: Literal["subagent/created"]
+    payload: SubagentCreatedPayload
+
+
+class SubagentSettledEvent(_SessionEventDraft):
+    event_type: Literal["subagent/settled"]
+    payload: SubagentSettledPayload
+
+
 class FeedbackRecordedEvent(_SessionEventDraft):
     event_type: Literal["feedback/record"]
     payload: FeedbackRecordedPayload
@@ -837,6 +865,8 @@ type EventDraft = Annotated[
     | PlanSelectedEvent
     | PlanExitSelectedEvent
     | PermissionChangedEvent
+    | SubagentCreatedEvent
+    | SubagentSettledEvent
     | FeedbackRecordedEvent
     | HistoryCompactedEvent
     | CompactionStartedEvent
