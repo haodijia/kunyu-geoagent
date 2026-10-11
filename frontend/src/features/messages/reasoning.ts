@@ -15,6 +15,15 @@ export interface MessageReasoning {
   readonly finishedAt: string | null;
 }
 
+// Mu's fixed tail keeps live thinking stable and starts at a nearby word boundary.
+export function thoughtTail(text: string): string {
+  const characters = Array.from(text.replace(/\s+/g, " ").trim());
+  if (characters.length <= 120) return characters.join("");
+  const tail = characters.slice(-120);
+  const space = tail.indexOf(" ");
+  return `…${(space > 0 && space < 24 ? tail.slice(space + 1) : tail).join("")}`;
+}
+
 // Reasoning and its timing come from the same durable events used by the trajectory.
 export function collectMessageReasoning(
   records: readonly TrajectoryEventProjection[],

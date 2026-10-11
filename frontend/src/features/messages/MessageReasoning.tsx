@@ -3,7 +3,7 @@ import { Brain, ChevronRight, LoaderCircle } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 
 import { zhCN } from "@/locales/zh-CN";
-import type { MessageReasoning as Reasoning } from "./reasoning";
+import { thoughtTail, type MessageReasoning as Reasoning } from "./reasoning";
 
 const content = zhCN.conversation.thinking;
 
@@ -33,8 +33,7 @@ export function MessageReasoning({
   const ended = reasoning.finishedAt === null ? (active ? now : Date.parse(updatedAt)) : Date.parse(reasoning.finishedAt);
   const seconds = Math.max(0, Math.floor((ended - Date.parse(reasoning.startedAt)) / 1_000));
   const duration = seconds >= 60 ? content.minutes(Math.floor(seconds / 60), seconds % 60) : content.seconds(seconds);
-  const chars = Array.from(reasoning.text.replace(/\s+/g, " ").trim());
-  const tail = chars.length > 120 ? `…${chars.slice(-120).join("")}` : chars.join("");
+  const tail = thoughtTail(reasoning.text);
 
   return (
     <div className="message-thinking">
