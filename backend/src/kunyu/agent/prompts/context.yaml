@@ -1,0 +1,49 @@
+"workspace": |-
+  Use the server-bound workspace and session scope below. Do not invent or replace scope identifiers.
+  {{scope}}
+"skill_catalog": |-
+  <system-reminder>
+  This is the complete current skill catalog and replaces earlier catalogs. Skills are task instructions, not executable tools. When a task names or clearly matches a skill, call skill with its exact name before following it. A directly invoked skill already supplies its full <skill_content> instructions; follow them without calling skill again for that skill. Read referenced text resources with skill_resource only when needed.
+  <available_skills>
+  {{entries}}
+  </available_skills>
+  </system-reminder>
+"skill_content": |-
+  <skill_content name="{{name}}">
+  <skill_resources>
+  {{resources}}
+  Use skill_resource with this skill name and a relative path to read explicitly referenced text resources. Loading a skill does not execute scripts or install dependencies.
+  </skill_resources>
+  <skill_instructions>
+  {{instructions}}
+  </skill_instructions>
+  </skill_content>
+"skill_provider": |-
+  Resources for this skill are managed by provider "{{provider}}".
+"skill_directory": |-
+  Base directory for this skill: {{path}}
+"skill_url": |-
+  Base URL for this skill: {{url}}
+"skill_resources": |-
+  Resources for this skill: {{description}}
+"compaction_summary": |-
+  This is an automatically generated checkpoint condensing an earlier span of the conversation. Treat the captured context as established background and continue directly from the messages that follow, without acknowledging this checkpoint.
+
+  <compacted-summary>
+  {{summary}}
+  </compacted-summary>
+"plan_entered": |-
+  The user switched this session to plan mode.
+"plan_exited": |-
+  The user switched this session back to the default mode.
+"mcp_server": |-
+  MCP server "{{name}}" is connected. Resources declared: {{resources}}.
+"mcp_instructions": |-
+  Server instructions (literal text):
+  {{instructions}}
+"attached_file": |-
+  Attached file (use read with this file_path): {{attachment}}
+"attached_image": |-
+  Attached image: {{attachment}}
+"omitted_image": |-
+  [image omitted to fit request image limits; file_path={{path}}, name={{name}}, normalized={{width}}x{{height}}px, media_type={{media_type}}, bytes={{bytes}}. Use read_image with this file_path to inspect its pixels again.]

@@ -1,8 +1,8 @@
 import json
 from dataclasses import dataclass
-from pathlib import Path
 
 from kunyu.agent.inbox import SessionInbox
+from kunyu.agent.prompt_files import read_prompt
 from kunyu.agent.runtime.content import ToolCallBlock, text_content
 from kunyu.agent.runtime.context import (
     AgentContext,
@@ -16,13 +16,12 @@ from kunyu.agent.runtime.input_content import InputMessageSource, user_content
 from kunyu.agent.runtime.models import ModelMessage, ModelRole
 from kunyu.agent.runtime.run_state import ReducedAssistant, ReducedRun, ReducedToolCall
 from kunyu.agent.scope import Context
+from kunyu.agent.workspace_context import prepare_workspace_context
 from kunyu.domain.agent_context import (
     InjectedContext,
     RunContextRepository,
     RunContextSource,
 )
-
-SYSTEM_PROMPT_PATH = Path(__file__).parent / "prompts" / "system.md"
 
 
 class RunContextNotFoundError(LookupError):
@@ -80,6 +79,7 @@ class ScopedAgentContextProvider:
         )
 
     async def build(self, run_id: str) -> AgentContext:
+        await prepare_workspace_context(self._require_source(run_id), self._events)
         await self._preparers.prepare(run_id, self._scope)
         source = self._require_source(run_id)
         return AgentContext(
@@ -87,11 +87,6 @@ class ScopedAgentContextProvider:
                 ModelMessage(
                     role=ModelRole.SYSTEM,
                     content=text_content(self._prompts.render(source, self._scope)),
-                ),
-                ModelMessage(
-                    role=ModelRole.USER,
-                    content=text_content(_scope_prompt(source)),
-                    context_source="workspace",
                 ),
                 *build_model_history(source),
             )
@@ -298,7 +293,7 @@ def build_model_history_nodes(source: RunContextSource) -> tuple[ModelHistoryNod
 
 
 def _visible_injection(item: InjectedContext, source: RunContextSource) -> bool:
-    if item.producer != "skill-invocation":
+    if item.producer not in {"skill-invocation", "workspace"}:
         return True
     owner = next(
         run
@@ -432,25 +427,9 @@ def _require_source(value: object) -> RunContextSource:
     return value
 
 
-def _scope_prompt(value: object) -> str:
-    source = _require_source(value)
-    payload = {
-        "workspace": {"id": source.workspace.id, "name": source.workspace.name},
-        "session": {"id": source.session.id, "title": source.session.title},
-        "map_context": dict(source.run.map_snapshot),
-    }
-    return (
-        "Use the server-bound workspace and session scope below. "
-        "Do not invent or replace scope identifiers.\n" + _json_text(payload)
-    )
-
-
 def _identity_prompt(value: object) -> str:
     _require_source(value)
-    content = SYSTEM_PROMPT_PATH.read_text(encoding="utf-8").strip()
-    if not content:
-        raise ValueError("The system prompt must not be empty.")
-    return content
+    return read_prompt("system.md")
 
 
 def _json_text(value: object) -> str:

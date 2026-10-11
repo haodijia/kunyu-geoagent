@@ -1,0 +1,24 @@
+"read_capped": |-
+  (Output capped. Showing lines {{offset}}-{{end}}. Use offset={{next_offset}} to continue.)
+"read_more": |-
+  (Showing lines {{offset}}-{{end}} of {{total}}. Use offset={{next_offset}} to continue.)
+"read_end": |-
+  (End of file - total {{total}} lines)
+"glob_sampled": |-
+  , sampled across {{shown}} of the {{total}} top-level entries this pattern matched instead of taken in modification-time order.
+"glob_narrow": |2-
+   Narrow path to inspect a specific subtree.
+"glob_capped": |-
+  (Showing {{shown}} of {{total}} paths{{basis}} Full sorted result stored at: {{path}}. Use read with this file_path to retrieve the complete result.)
+"grep_capped": |-
+  Found {{shown}} of {{total}} matches
+
+  {{matches}}
+
+  (Full grep result stored at: {{path}}. Use read with this file_path to retrieve the complete result.)
+"image_scaled_uniform": |-
+  multiply coordinates by {{scale}}
+"image_scaled_axes": |-
+  multiply x coordinates by {{scale_x}} and y coordinates by {{scale_y}}
+"image_scaled": |2-
+   (downscaled from {{width}}x{{height}} px; {{advice}} to locate features in the original file)

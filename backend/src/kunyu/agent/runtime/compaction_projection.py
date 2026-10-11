@@ -3,11 +3,7 @@
 from dataclasses import asdict
 
 from kunyu.agent.compaction_pressure import PressurePolicy, measure_pressure
-from kunyu.agent.compaction_prompt import (
-    COMPACTION_INSTRUCTION,
-    SECTIONS,
-    frame_summary,
-)
+from kunyu.agent.compaction_prompt import checkpoint_headings, frame_summary
 from kunyu.agent.runtime.assistant_stream import expand_assistant_stream
 from kunyu.agent.runtime.block_assembler import BlockAssembler
 from kunyu.agent.runtime.content import ToolCallBlock, content_text, text_content
@@ -94,10 +90,17 @@ class CompactionProjection:
                 )
             if any(identity not in self.finished for identity in self.started):
                 raise ValueError("A session cannot have concurrent compaction calls.")
-            if payload.tools != tuple(header.payload.tools) or payload.messages[-1].get(
-                "content"
-            ) != [{"type": "text", "text": COMPACTION_INSTRUCTION}]:
-                raise ValueError("The compaction instruction or tool schemas changed.")
+            instruction = snapshot_message(payload.messages[-1])
+            if (
+                payload.tools != tuple(header.payload.tools)
+                or instruction.role is not ModelRole.USER
+                or instruction.context_source != "compaction-instruction"
+                or len(instruction.content) != 1
+                or instruction.content[0].type != "text"
+            ):
+                raise ValueError("Invalid compaction instruction or tool schemas.")
+            checkpoint_headings(content_text(instruction.content))
+            frame_summary("", payload.summary_template)
             self.started[payload.compaction_id] = event
         elif isinstance(event, CompactionSelectionEvent):
             payload = event.payload
@@ -242,7 +245,9 @@ class CompactionProjection:
                     )
                 if [
                     line for line in summary.splitlines() if line.startswith("## ")
-                ] != [f"## {section}" for section in SECTIONS]:
+                ] != checkpoint_headings(
+                    content_text(snapshot_message(started.payload.messages[-1]).content)
+                ):
                     raise ValueError(
                         "A checkpoint must preserve its required sections."
                     )
@@ -250,7 +255,9 @@ class CompactionProjection:
                     tokens = estimate_message(
                         ModelMessage(
                             ModelRole.USER,
-                            text_content(frame_summary(summary)),
+                            text_content(
+                                frame_summary(summary, started.payload.summary_template)
+                            ),
                             context_source="compaction",
                         )
                     )
@@ -270,7 +277,7 @@ class CompactionProjection:
                     selection.payload.compact_through_sequence
                     if selection is not None
                     else started.payload.through_sequence,
-                    frame_summary(summary),
+                    frame_summary(summary, started.payload.summary_template),
                 )
 
     def finish(self) -> None:

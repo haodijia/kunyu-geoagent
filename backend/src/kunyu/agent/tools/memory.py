@@ -7,6 +7,7 @@ from typing import Annotated
 from pydantic import Field, JsonValue, StringConstraints
 from sqlalchemy.orm import Session
 
+from kunyu.agent.prompt_files import tool_description
 from kunyu.agent.runtime.tools import (
     ToolApproval,
     ToolCall,
@@ -61,10 +62,7 @@ class MemoryReadTool:
         self._memories = memories
         self._spec = ToolSpec(
             name="memory_read",
-            description=(
-                "Search confirmed memories in the current server-bound workspace "
-                "using a literal substring."
-            ),
+            description=tool_description("memory_read"),
             parameters=_MemoryReadArguments.model_json_schema(),
             risk_level=ToolRiskLevel.L0,
             execution="parallel",
@@ -103,10 +101,7 @@ class MemoryWriteTool:
         self._contexts = contexts
         self._spec = ToolSpec(
             name="memory_write",
-            description=(
-                "Propose a workspace preference or concern for exact user "
-                "confirmation before it is saved."
-            ),
+            description=tool_description("memory_write"),
             parameters=_MemoryWriteArguments.model_json_schema(),
             risk_level=ToolRiskLevel.L2,
             approval=MEMORY_WRITE_APPROVAL,

@@ -83,7 +83,7 @@ class ToolRegistryFactory:
                 is not None
             )
         tools = []
-        for name, entry in entries.items():
+        for name, entry in sorted(entries.items()):
             tool = entry.build(run_id)
             if tool.spec.name != name:
                 raise ToolExecutionError(

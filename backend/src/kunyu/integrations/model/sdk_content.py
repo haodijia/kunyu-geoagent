@@ -6,6 +6,7 @@ from dataclasses import replace
 
 from pydantic_ai import messages as sdk
 
+from kunyu.agent.prompt_files import prompt_text
 from kunyu.agent.runtime.content import (
     ReasoningBlock,
     ReplayEnvelope,
@@ -135,14 +136,17 @@ def _input(block, images: Mapping):
         return [block.text]
     if isinstance(block, FileInputBlock):
         return [
-            "Attached file (use read with this file_path): "
-            + json.dumps(
-                {
-                    "file_path": attachment_path(block.attachment),
-                    "name": block.attachment.name,
-                    "bytes": block.attachment.bytes,
-                },
-                ensure_ascii=False,
+            prompt_text(
+                "context.yaml",
+                "attached_file",
+                attachment=json.dumps(
+                    {
+                        "file_path": attachment_path(block.attachment),
+                        "name": block.attachment.name,
+                        "bytes": block.attachment.bytes,
+                    },
+                    ensure_ascii=False,
+                ),
             )
         ]
     if isinstance(block, ImageInputBlock):
@@ -157,16 +161,19 @@ def _input(block, images: Mapping):
             )
         image = images[block.attachment.id]
         return [
-            "Attached image: "
-            + json.dumps(
-                {
-                    "file_path": attachment_path(image.attachment),
-                    "name": image.attachment.name,
-                    "width": image.width,
-                    "height": image.height,
-                    "bytes": len(image.data),
-                },
-                ensure_ascii=False,
+            prompt_text(
+                "context.yaml",
+                "attached_image",
+                attachment=json.dumps(
+                    {
+                        "file_path": attachment_path(image.attachment),
+                        "name": image.attachment.name,
+                        "width": image.width,
+                        "height": image.height,
+                        "bytes": len(image.data),
+                    },
+                    ensure_ascii=False,
+                ),
             ),
             sdk.BinaryContent(
                 data=image.data,

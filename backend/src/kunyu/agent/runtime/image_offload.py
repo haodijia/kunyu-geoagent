@@ -3,6 +3,7 @@
 from collections.abc import Iterable
 from dataclasses import replace
 
+from kunyu.agent.prompt_files import prompt_text
 from kunyu.agent.runtime.events import ImageOffloadTarget
 from kunyu.agent.runtime.input_content import ImageInputBlock
 from kunyu.agent.runtime.models import ModelMessage
@@ -72,9 +73,13 @@ def select_oldest_images(
 
 
 def offloaded_image_text(ref: ImageAttachment) -> str:
-    return (
-        f"[image omitted to fit request image limits; file_path={attachment_path(ref)!r}, "
-        f"name={ref.name!r}, normalized={ref.width}x{ref.height}px, "
-        f"media_type={ref.media_type}, bytes={ref.bytes}. "
-        "Use read_image with this file_path to inspect its pixels again.]"
+    return prompt_text(
+        "context.yaml",
+        "omitted_image",
+        path=repr(attachment_path(ref)),
+        name=repr(ref.name),
+        width=str(ref.width),
+        height=str(ref.height),
+        media_type=ref.media_type,
+        bytes=str(ref.bytes),
     )

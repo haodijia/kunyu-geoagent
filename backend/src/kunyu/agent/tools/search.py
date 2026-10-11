@@ -7,6 +7,7 @@ from pathlib import Path
 
 from pydantic import Field, field_validator
 
+from kunyu.agent.prompt_files import prompt_text, tool_description
 from kunyu.agent.runtime.content import TextBlock
 from kunyu.agent.runtime.tools import (
     ToolCall,
@@ -104,11 +105,7 @@ class SearchTool:
         self._arguments = _GlobArguments if name == "glob" else _GrepArguments
         self.spec = ToolSpec(
             name=name,
-            description=(
-                "Find files by glob in /workspace, including hidden and ignored files except VCS internals. Sorted by modification time; over 100 results are sampled across top-level entries."
-                if name == "glob"
-                else "Search file contents with a ripgrep regular expression in /workspace. Defaults to ignore and hidden-file rules; a positive include glob overrides those rules for matching files. Retains up to 250 matches with 2000-byte line previews."
-            ),
+            description=tool_description(name),
             parameters=self._arguments.model_json_schema(),
             risk_level=ToolRiskLevel.L0,
             execution="parallel",
@@ -196,13 +193,26 @@ class SearchTool:
                     basis = (
                         "."
                         if total == len(paths)
-                        else f", sampled across {shown} of the {total} top-level entries this pattern matched instead of taken in modification-time order."
+                        else prompt_text(
+                            "tool-results.yaml",
+                            "glob_sampled",
+                            shown=str(shown),
+                            total=str(total),
+                        )
                     )
                     if total != len(paths) and shown < total:
-                        basis += " Narrow path to inspect a specific subtree."
+                        basis += " " + prompt_text("tool-results.yaml", "glob_narrow")
                     rendered = (
                         "\n".join(page)
-                        + f"\n\n(Showing {len(page)} of {len(paths)} paths{basis} Full sorted result stored at: {locator}. Use read with this file_path to retrieve the complete result.)"
+                        + "\n\n"
+                        + prompt_text(
+                            "tool-results.yaml",
+                            "glob_capped",
+                            shown=str(len(page)),
+                            total=str(len(paths)),
+                            basis=basis,
+                            path=locator,
+                        )
                     )
                 metadata = {
                     "shape": "paths",
@@ -225,7 +235,14 @@ class SearchTool:
                             scope, "grep", rendered, cancelled
                         )
                     )
-                    rendered = f"Found {len(page_matches)} of {len(matches)} matches\n\n{format_matches(page_matches)}\n\n(Full grep result stored at: {locator}. Use read with this file_path to retrieve the complete result.)"
+                    rendered = prompt_text(
+                        "tool-results.yaml",
+                        "grep_capped",
+                        shown=str(len(page_matches)),
+                        total=str(len(matches)),
+                        matches=format_matches(page_matches),
+                        path=locator,
+                    )
                 metadata = {
                     "shape": "matches",
                     "files": grouped_matches(page_matches),

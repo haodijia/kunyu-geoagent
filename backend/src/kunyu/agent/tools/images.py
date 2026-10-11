@@ -9,6 +9,7 @@ from uuid import uuid4
 from pydantic import Field
 
 from kunyu.agent.filesystem import FilesystemHooks
+from kunyu.agent.prompt_files import prompt_text, tool_description
 from kunyu.agent.runtime.content import TextBlock
 from kunyu.agent.runtime.input_content import ImageInputBlock
 from kunyu.agent.runtime.models import ModelAdapterError
@@ -76,7 +77,7 @@ class ReadImageTool:
         self._filesystem, self._hooks, self._scopes = filesystem, hooks, scopes
         self.spec = ToolSpec(
             name="read_image",
-            description="Read a PNG/JPEG/WebP/GIF file and return the image itself. Paths resolve relative to /workspace; admitted attachments use their exact /attachments path, including omitted images. Extension-less image paths are identified from their bytes. Large supported images are normalized before the next model request; use this directly instead of creating thumbnails just to inspect pixels. Requires the exact calling model to declare image input. Independent files may be read concurrently in small batches.",
+            description=tool_description("read_image"),
             parameters=_ImageReadArguments.model_json_schema(),
             risk_level=ToolRiskLevel.L0,
             execution="parallel",
@@ -233,9 +234,17 @@ def _image_text(path: str, ref: ImageAttachment) -> str:
             f"{ref.original_height / ref.height:.2f}",
         )
         advice = (
-            f"multiply coordinates by {x}"
+            prompt_text("tool-results.yaml", "image_scaled_uniform", scale=x)
             if x == y
-            else f"multiply x coordinates by {x} and y coordinates by {y}"
+            else prompt_text(
+                "tool-results.yaml", "image_scaled_axes", scale_x=x, scale_y=y
+            )
         )
-        scaled = f" (downscaled from {ref.original_width}x{ref.original_height} px; {advice} to locate features in the original file)"
+        scaled = " " + prompt_text(
+            "tool-results.yaml",
+            "image_scaled",
+            width=str(ref.original_width),
+            height=str(ref.original_height),
+            advice=advice,
+        )
     return f"<path>{path}</path>\n<type>image</type>\n<content>\n{ref.media_type} image, {ref.width}x{ref.height} px, {ref.bytes} bytes{scaled}\n</content>"

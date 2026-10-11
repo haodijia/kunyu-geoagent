@@ -5,6 +5,7 @@ from typing import Literal
 
 from pydantic import Field, model_validator
 
+from kunyu.agent.prompt_files import tool_description
 from kunyu.agent.runtime.subagents import ReducedSubagent
 from kunyu.agent.runtime.tools import (
     ToolCall,
@@ -95,16 +96,10 @@ class SubagentTool:
             "cancel_subagent": CancelArguments,
             "subagent_result": ResultArguments,
         }
-        descriptions = {
-            "subagent": "Delegate an independent read-only task to a subagent. Supply all relevant context in prompt; the child does not inherit conversation history or attachments. It uses the exact current model configuration and cannot delegate, modify data or ask the user. Waits for completion by default; set run_in_background=true to return its child_id and collect with wait_subagents. Parent stopping cancels unfinished children. Results include at most 2048 UTF-8 bytes of the final report, with explicit clipping; full reports remain in the child journal.",
-            "wait_subagents": "Wait for up to four children owned by this parent run. Return their outcomes or current status when timeout_seconds expires; timeout does not cancel them. Full reports remain in each child journal.",
-            "cancel_subagent": "Cancel a child owned by this parent run, drain its active execution, and return the persisted outcome.",
-            "subagent_result": "Read a completed child's full report in pages. Supply child_id owned by this parent run, a zero-based Unicode character offset and a limit up to 2048. Use next_offset until it is null. Refuses children without a persisted outcome.",
-        }
         self.arguments = models[name]
         self._spec = ToolSpec(
             name=name,
-            description=descriptions[name],
+            description=tool_description(name),
             parameters=self.arguments.model_json_schema(),
             risk_level=ToolRiskLevel.L0,
             execution="parallel",

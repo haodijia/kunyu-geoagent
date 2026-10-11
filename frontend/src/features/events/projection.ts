@@ -41,7 +41,7 @@ const RUN_CONTROL_EVENTS = new Set([
 export function projectSessionEvent(
   event: SessionEvent
 ): TrajectoryEventProjection | null {
-  if (event.event_type === "session.created" || RUN_CONTROL_EVENTS.has(event.event_type)) {
+  if (event.event_type.startsWith("agent/") || event.event_type === "session.created" || RUN_CONTROL_EVENTS.has(event.event_type)) {
     return null;
   }
   if (event.event_type === "message.user.appended") {
@@ -62,8 +62,14 @@ export function projectSessionEvent(
   if (["todo/write", "plan/changed", "plan/selected", "plan/exit-selected", "permission/changed", "feedback/record", "history/compacted", "image/offload"].includes(event.event_type)) {
     return projection(event, "context", event.id);
   }
-  if (event.event_type === "context.injected" || event.event_type === "agent/inbox/spliced" || event.event_type === "agent/step/decision" || event.event_type.startsWith("agent/queue/")) {
-    return projection(event, "context", event.id);
+  if (event.event_type === "context.injected") {
+    const metadata = event.payload.metadata;
+    if (typeof metadata !== "object" || metadata === null || Array.isArray(metadata)) {
+      throw new Error(zhCN.trajectory.invalidProjection(event.event_type, "metadata"));
+    }
+    const owner = (metadata as Readonly<Record<string, unknown>>).run_id;
+    const record = projection(event, "context", event.id);
+    return typeof owner === "string" ? { ...record, runId: owner } : record;
   }
   if (event.event_type === "question.requested" || event.event_type === "question.resolved") {
     return projection(event, "context", requiredString(event, "question_id"));

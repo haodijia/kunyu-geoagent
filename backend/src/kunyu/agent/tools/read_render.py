@@ -4,6 +4,7 @@ from collections.abc import Iterable
 from dataclasses import dataclass
 from pathlib import PurePosixPath
 
+from kunyu.agent.prompt_files import prompt_text
 from kunyu.domain.filesystem import FilesystemError
 
 READ_LIMIT = 2000
@@ -78,11 +79,26 @@ def build_window(
 def format_read_output(path: str, window: ReadWindow) -> str:
     end = window.lines[-1].number if window.lines else max(0, window.offset - 1)
     if window.truncated_by_bytes:
-        footer = f"(Output capped. Showing lines {window.offset}-{end}. Use offset={end + 1} to continue.)"
+        footer = prompt_text(
+            "tool-results.yaml",
+            "read_capped",
+            offset=str(window.offset),
+            end=str(end),
+            next_offset=str(end + 1),
+        )
     elif end < window.total_lines:
-        footer = f"(Showing lines {window.offset}-{end} of {window.total_lines}. Use offset={end + 1} to continue.)"
+        footer = prompt_text(
+            "tool-results.yaml",
+            "read_more",
+            offset=str(window.offset),
+            end=str(end),
+            total=str(window.total_lines),
+            next_offset=str(end + 1),
+        )
     else:
-        footer = f"(End of file - total {window.total_lines} lines)"
+        footer = prompt_text(
+            "tool-results.yaml", "read_end", total=str(window.total_lines)
+        )
     body = "\n".join(f"{line.number}: {line.text}" for line in window.lines)
     if window.lines:
         body += "\n\n"

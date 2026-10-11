@@ -2,6 +2,7 @@
 
 from html import escape
 
+from kunyu.agent.prompt_files import prompt_text
 from kunyu.agent.skills.definitions import (
     DirectoryResourceBase,
     OpaqueResourceBase,
@@ -47,40 +48,32 @@ def render_catalog(entries: list[dict[str, str]]) -> str:
         f"{escape(entry['description'])}</skill>"
         for entry in entries
     ]
-    return (
-        "<system-reminder>\n"
-        "This is the complete current skill catalog and replaces earlier catalogs. "
-        "Skills are task instructions, not executable tools. When a task names or "
-        "clearly matches a skill, call skill with its exact name before following it. "
-        "A directly invoked skill already supplies its full <skill_content> instructions; "
-        "follow them without calling skill again for that skill. "
-        "Read referenced text resources with skill_resource only when needed.\n"
-        "<available_skills>\n" + "\n".join(lines) + "\n</available_skills>\n"
-        "</system-reminder>"
-    )
+    return prompt_text("context.yaml", "skill_catalog", entries="\n".join(lines))
 
 
 def render_skill(skill: SkillDefinition) -> str:
     summary = skill.summary
     base = summary.resource_base
     if base is None:
-        resource_hint = f'Resources for this skill are managed by provider "{escape(summary.provider)}".'
+        resource_hint = prompt_text(
+            "context.yaml", "skill_provider", provider=escape(summary.provider)
+        )
     elif isinstance(base, DirectoryResourceBase):
-        resource_hint = f"Base directory for this skill: {escape(base.path)}"
+        resource_hint = prompt_text(
+            "context.yaml", "skill_directory", path=escape(base.path)
+        )
     elif isinstance(base, UrlResourceBase):
-        resource_hint = f"Base URL for this skill: {escape(base.url)}"
+        resource_hint = prompt_text("context.yaml", "skill_url", url=escape(base.url))
     elif isinstance(base, OpaqueResourceBase):
-        resource_hint = f"Resources for this skill: {escape(base.description)}"
+        resource_hint = prompt_text(
+            "context.yaml", "skill_resources", description=escape(base.description)
+        )
     else:
         raise TypeError("Unknown skill resource location.")
-    return (
-        f'<skill_content name="{escape(summary.name, quote=True)}">\n'
-        "<skill_resources>\n"
-        f"{resource_hint}\n"
-        "Use skill_resource with this skill name and a relative path to read "
-        "explicitly referenced text resources. Loading a skill does not execute "
-        "scripts or install dependencies.\n"
-        "</skill_resources>\n<skill_instructions>\n"
-        + skill.content
-        + "\n</skill_instructions>\n</skill_content>"
+    return prompt_text(
+        "context.yaml",
+        "skill_content",
+        name=escape(summary.name, quote=True),
+        resources=resource_hint,
+        instructions=skill.content,
     )

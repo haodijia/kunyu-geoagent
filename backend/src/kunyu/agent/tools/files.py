@@ -7,6 +7,7 @@ from threading import Event
 from pydantic import Field
 
 from kunyu.agent.filesystem import FilesystemHooks
+from kunyu.agent.prompt_files import tool_description
 from kunyu.agent.runtime.content import TextBlock
 from kunyu.agent.runtime.tools import (
     ToolCall,
@@ -62,7 +63,7 @@ class ReadTool:
         self._hooks, self._scopes = hooks, scopes
         self.spec = ToolSpec(
             name="read",
-            description="Read a UTF-8 text file and return line-numbered content. Paths resolve relative to /workspace; admitted file attachments use their exact /attachments path. Offset is the 1-based first line, default 1. Limit defaults to 2000 lines. Results cap each line to 2000 UTF-16 characters and selected text to 50 KiB; use the reported offset to continue. Binary files require a dedicated reader.",
+            description=tool_description("read"),
             parameters=_ReadArguments.model_json_schema(),
             risk_level=ToolRiskLevel.L0,
             execution="parallel",

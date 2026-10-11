@@ -54,7 +54,9 @@ backend/src/kunyu/agent/
 ├── filesystem.py         # 文件观察通知、写入/编辑意图槽与会话观察策略
 ├── commands/             # 作用域命令注册、计划/权限、压缩和执行日志
 ├── plan_mode.py          # 计划提示词与接受步骤通知
-├── prompts/              # 用户维护的系统及计划指令
+├── prompts/              # 用户维护的 System、工具说明、上下文、Skill 包装及压缩提示词
+├── prompt_files.py       # 严格加载提示词文件，缺失与变量不匹配直接报错
+├── workspace_context.py  # 变化的工作区/地图快照按步骤追加，不改写历史前缀
 ├── runtime/              # 模型/工具契约、循环、类型事件、Reducer
 │   └── assistant_stream.py # 带时间的不可变分块、紧凑记录和记录级读取
 ├── tools/

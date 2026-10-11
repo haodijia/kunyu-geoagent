@@ -4,6 +4,7 @@ from collections.abc import Mapping
 
 from pydantic import Field
 
+from kunyu.agent.prompt_files import tool_description
 from kunyu.agent.runtime.questions import (
     Question,
     QuestionAnswers,
@@ -34,7 +35,7 @@ class AskUserQuestionTool:
         self._run_id = run_id
         self.spec = ToolSpec(
             name="ask_user_question",
-            description="Ask the user a concise question when you need confirmation, a choice, or missing information before proceeding. Send one or more questions, each with a stable id echoed in the answer. Put a recommended option first and append (Recommended) to its label.",
+            description=tool_description("ask_user_question"),
             parameters=_AskArguments.model_json_schema(),
             risk_level=ToolRiskLevel.L0,
             execution="exclusive",

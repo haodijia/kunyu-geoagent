@@ -4,6 +4,7 @@ from functools import partial
 
 from kunyu.agent import services as s
 from kunyu.agent.filesystem import FilesystemHooks, ObservedStateGate
+from kunyu.agent.prompt_files import prompt_text
 from kunyu.agent.runtime.context import PromptSection
 from kunyu.agent.scope import Context
 from kunyu.agent.tools.file_mutations import FileMutationTool
@@ -86,9 +87,7 @@ class FilesystemToolsPlugin:
             PromptSection(
                 "tool:write",
                 41,
-                lambda _: (
-                    "Use write to create files or completely replace file contents in /workspace. Read an existing file first and prefer edit for targeted changes. Use edit to replace literal old_string with new_string; old_string must match exactly once unless replace_all is true. Read the file first unless you just created or edited it in this session. A changed file must be re-read before retrying. /attachments mounts are read-only."
-                ),
+                lambda _: prompt_text("tool-guidance.yaml", "tool:write"),
             ),
         )
         context.require(s.PROMPTS).register(
@@ -96,8 +95,6 @@ class FilesystemToolsPlugin:
             PromptSection(
                 "tool:read",
                 40,
-                lambda _: (
-                    "Current working directory: /workspace. Use the read tool to inspect UTF-8 text files; results include line numbers. Use offset and limit to continue large files. /workspace mounts the current workspace's managed files. /attachments paths are read-only and must already appear in this run's current history. Only use tools actually provided by this request."
-                ),
+                lambda _: prompt_text("tool-guidance.yaml", "tool:read"),
             ),
         )

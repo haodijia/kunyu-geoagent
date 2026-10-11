@@ -211,6 +211,7 @@ class CompactionStartedPayload(EventPayload):
     model_snapshot: "ModelSnapshotPayload"
     messages: tuple[dict[str, JsonValue], ...]
     tools: tuple[dict[str, JsonValue], ...]
+    summary_template: str = Field(min_length=1)
 
 
 class CompactionSelectionPayload(EventPayload):

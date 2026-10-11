@@ -12,6 +12,15 @@
 - mu：`desktop/packages/desktop/src/renderer/styles/themes/mu-color-scheme.css`、`mu-shell.css`、`mu-arco.css`、`pages/conversation/Messages/messages.css`、`components/chat/SendBox/sendbox.css`。
 - deepseek-harness：`packages/client/ui-trajectory/src/client/` 的时间线、记录表格、请求头解释、消息分类、工具生命周期和详情页；`packages/core/agent-loop/src/` 的上下文与请求边界。
 
+## 运行轨迹与提示词归属修正（2026-10-11）
+
+- 按用户反馈，轨迹不再展示 `agent/*` 输入队列、步骤决策等内部事件；它们仍保留在日志中供运行和回放使用。工作区注入归属实际轮次，不再从请求头重复生成同一快照卡。
+- 实际参考 `core/system-prompt/src/index.ts`、`core/agent-loop/src/agent.ts`、`core/agent-loop/src/runtime-context.ts` 与 `skill/tool-skill/src/index.ts`：System 与工具 schema 独立组装，历史按已提交顺序保留；当前输入之后追加变化的动态快照，再追加需要更新的 Skill 目录和用户明确调用的 Skill 全文。不是把所有 Skill 和工具结果提前拼成固定四段提示词。
+- 移除每次构造请求时将最新工作区/地图快照放在历史前面的实现；现在快照作为带来源的 `context.injected` 事实追加，相同内容不重复注入。新轮次地图变化不会改写此前请求的消息前缀。工具 schema 按名称稳定排序。
+- 内置模型指导、20 个工具说明、Skill 包装、压缩指令、结果中的续读提醒和能力检查指令移到 `backend/src/kunyu/agent/prompts/`；编辑入口见该目录的 [README](../backend/src/kunyu/agent/prompts/README.md)。保留原文，仅转移编辑归属。具体 Skill 正文仍由各自 `SKILL.md` 维护；MCP 服务自己的说明来自服务端。
+- 压缩开始记录冻结当次指令和摘要包装模板，摘要标题由当次指令的 `## ` 标题决定。回放验证已保存的请求，不读取修改后的提示词来解释旧摘要。
+- 验证：前端构建与类型检查；四轮真实 API/Agent 本地执行验证首次/不变/地图变化/直接 Skill 的顺序及历史前缀；五类提供方 SDK 路由、本地三 API 压缩和日志重建通过。只使用本地协议响应，没有调用付费模型，也没有新增仓库测试文件。
+
 ## 修正
 
 - 对话与输入框共用 mu 的容器宽度规则，统一消息字号、工具行、圆角、模型胶囊和浅色／深色状态。

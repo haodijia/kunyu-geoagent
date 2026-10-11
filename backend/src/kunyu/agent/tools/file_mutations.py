@@ -5,6 +5,7 @@ from collections.abc import Mapping
 from pydantic import Field, model_validator
 
 from kunyu.agent.filesystem import FilesystemHooks
+from kunyu.agent.prompt_files import tool_description
 from kunyu.agent.runtime.content import TextBlock
 from kunyu.agent.runtime.tools import ToolCall, ToolResult, ToolRiskLevel, ToolSpec
 from kunyu.agent.scope import AgentScopes
@@ -66,9 +67,7 @@ class FileMutationTool:
         self._arguments = _WriteArguments if name == "write" else _EditArguments
         self.spec = ToolSpec(
             name=name,
-            description="Create or fully replace a UTF-8 text file."
-            if name == "write"
-            else "Edit an existing UTF-8 text file by replacing literal text. Read first; old_string must match exactly once unless replace_all is true.",
+            description=tool_description(name),
             parameters=self._arguments.model_json_schema(),
             risk_level=ToolRiskLevel.L1,
             execution="exclusive",

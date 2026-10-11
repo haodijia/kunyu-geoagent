@@ -5,6 +5,7 @@ from typing import Annotated
 
 from pydantic import JsonValue, StringConstraints, TypeAdapter
 
+from kunyu.agent.prompt_files import tool_description
 from kunyu.agent.runtime.content import TextBlock
 from kunyu.agent.runtime.tools import ToolCall, ToolResult, ToolRiskLevel, ToolSpec
 from kunyu.agent.scope import AgentScopes
@@ -47,13 +48,7 @@ class SkillTool:
         self._arguments = SkillResourceArguments if resource else SkillArguments
         self._spec = ToolSpec(
             name="skill_resource" if resource else "skill",
-            description=(
-                "Read one explicitly referenced UTF-8 resource using a relative path "
-                "from the provider of an available skill. This does not execute scripts."
-                if resource
-                else "Load the complete instructions of an available skill by its exact "
-                "catalog name before acting on a task that names or matches it."
-            ),
+            description=tool_description("skill_resource" if resource else "skill"),
             parameters=self._arguments.model_json_schema(),
             risk_level=ToolRiskLevel.L0,
             execution="parallel",

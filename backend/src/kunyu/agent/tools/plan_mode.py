@@ -6,6 +6,7 @@ from typing import Self
 
 from pydantic import Field, model_validator
 
+from kunyu.agent.prompt_files import tool_description
 from kunyu.agent.runtime.content import TextBlock
 from kunyu.agent.runtime.events import PlanExitSelectedEvent, PlanExitSelectedPayload
 from kunyu.agent.runtime.questions import (
@@ -40,7 +41,7 @@ class ExitPlanArguments(ToolArguments):
     plan: str = Field(
         min_length=1,
         max_length=32768,
-        description="The complete plan as Markdown, starting with a # heading that names it.",
+        description=tool_description("exit_plan_mode.plan"),
     )
 
     @model_validator(mode="after")
@@ -54,7 +55,7 @@ class ExitPlanModeTool:
         self._run_id = run_id
         self.spec = ToolSpec(
             name="exit_plan_mode",
-            description="Use only in plan mode. Present your COMPLETE plan as Markdown, starting with a # heading that names it, for user review. On approval leave plan mode and carry out the plan from your next step. Feedback means keep planning, revise and present again.",
+            description=tool_description("exit_plan_mode"),
             parameters=ExitPlanArguments.model_json_schema(),
             risk_level=ToolRiskLevel.L0,
             execution="exclusive",

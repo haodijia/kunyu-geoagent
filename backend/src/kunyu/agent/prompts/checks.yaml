@@ -1,0 +1,6 @@
+text_reply: |-
+  Reply with a short plain-text acknowledgement.
+tool_call: |-
+  Call {{tool}} with token '{{token}}'.
+tool_description: |-
+  Checks structured tool-call support.

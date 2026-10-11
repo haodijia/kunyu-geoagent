@@ -12,13 +12,10 @@ from sqlalchemy import func, select, text
 
 from kunyu.agent import services as s
 from kunyu.agent.compaction_pressure import PressurePolicy, measure_pressure
-from kunyu.agent.compaction_prompt import (
-    COMPACTION_INSTRUCTION,
-    SECTIONS,
-    frame_summary,
-)
+from kunyu.agent.compaction_prompt import checkpoint_headings, frame_summary
 from kunyu.agent.compaction_selection import select_prefix
 from kunyu.agent.context import build_model_history, build_model_history_nodes
+from kunyu.agent.prompt_files import prompt_template, read_prompt
 from kunyu.agent.runtime.assistant_stream import AssistantStreamAccumulator
 from kunyu.agent.runtime.block_assembler import BlockAssembler
 from kunyu.agent.runtime.content import ToolCallBlock, content_text, text_content
@@ -140,12 +137,15 @@ async def compact_context(
     )
     require_balanced_tools(selected)
     require_balanced_tools(retained)
+    instruction = read_prompt("compaction.md")
+    headings = checkpoint_headings(instruction)
+    summary_template = prompt_template("context.yaml", "compaction_summary")
     messages = (
         *prefix[:protected],
         *selected,
         ModelMessage(
             ModelRole.USER,
-            text_content(COMPACTION_INSTRUCTION),
+            text_content(instruction),
             context_source="compaction-instruction",
         ),
     )
@@ -179,6 +179,7 @@ async def compact_context(
         model_snapshot=header.model_snapshot,
         messages=tuple(message_snapshot(message) for message in messages),
         tools=tuple(header.tools),
+        summary_template=summary_template,
     )
     selected_payload = CompactionSelectionPayload(
         compaction_id=identity,
@@ -244,8 +245,9 @@ async def compact_context(
             or not summary
         ):
             raise ValueError("Compaction did not return complete text.")
-        headings = [line for line in summary.splitlines() if line.startswith("## ")]
-        if headings != [f"## {section}" for section in SECTIONS]:
+        if [
+            line for line in summary.splitlines() if line.startswith("## ")
+        ] != headings:
             raise ValueError(
                 "Compaction did not return the required checkpoint sections."
             )
@@ -285,7 +287,7 @@ async def compact_context(
         )
     replacement = ModelMessage(
         ModelRole.USER,
-        text_content(frame_summary(summary)),
+        text_content(frame_summary(summary, summary_template)),
         context_source="compaction",
     )
     if estimate_message(replacement) >= selection.estimated_tokens:
@@ -349,7 +351,7 @@ async def compact_context(
                         session_id=agent.session_id,
                         event_type="history/compacted",
                         payload=HistoryCompactedPayload(
-                            summary=frame_summary(summary),
+                            summary=frame_summary(summary, summary_template),
                             through_sequence=selected_payload.compact_through_sequence,
                         ),
                         occurred_at=datetime.now(UTC),

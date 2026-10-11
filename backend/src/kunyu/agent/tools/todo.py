@@ -3,6 +3,7 @@
 from collections.abc import Mapping
 from datetime import UTC, datetime
 
+from kunyu.agent.prompt_files import tool_description
 from kunyu.agent.runtime.events import TodoWriteEvent, TodoWritePayload
 from kunyu.agent.runtime.todos import TodoList
 from kunyu.agent.runtime.tools import ToolCall, ToolResult, ToolRiskLevel, ToolSpec
@@ -26,13 +27,7 @@ class TodoWriteTool:
         self._run_id, self._contexts = run_id, contexts
         self._spec = ToolSpec(
             name="todo_write",
-            description=(
-                "Record and update the structured task list for current work. Send the ENTIRE "
-                "list every call; it REPLACES the previous list. Add one todo per concrete "
-                "step before multi-step work. Keep at most one task in_progress; while work "
-                "remains, exactly one should be active. Mark tasks completed immediately. "
-                "Skip the list for trivial single-step tasks. Statuses: pending, in_progress, completed."
-            ),
+            description=tool_description("todo_write"),
             parameters=TodoArguments.model_json_schema(),
             risk_level=ToolRiskLevel.L0,
             execution="exclusive",

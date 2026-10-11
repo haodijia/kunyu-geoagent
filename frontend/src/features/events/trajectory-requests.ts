@@ -63,7 +63,7 @@ export function attachRequestDetails(
         !isObject(message) ||
         !isObject(message.source) ||
         message.source.kind !== "context" ||
-        ["injected", "skill-catalog", "skill-invocation"].includes(
+        ["injected", "skill-catalog", "skill-invocation", "workspace"].includes(
           String(message.source.producer),
         )
       )

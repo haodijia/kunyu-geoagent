@@ -8,6 +8,7 @@ from kunyu.agent import services as s
 from kunyu.agent.mcp.oauth import McpOAuthManager
 from kunyu.agent.mcp.resources import register_resources
 from kunyu.agent.mcp.tools import McpTool
+from kunyu.agent.prompt_files import prompt_text
 from kunyu.agent.runtime.context import PromptSection
 from kunyu.agent.tools.registry import ToolRegistration
 from kunyu.integrations.mcp.connection import McpConnection
@@ -110,9 +111,16 @@ class McpManager:
                 continue
             catalog = self.repository.get(name)["catalog"]
             literal = catalog["instructions"]
-            text = f'MCP server "{name}" is connected. Resources declared: {"resources" in catalog["capabilities"]}.'
+            text = prompt_text(
+                "context.yaml",
+                "mcp_server",
+                name=name,
+                resources=str("resources" in catalog["capabilities"]),
+            )
             if literal:
-                text += f"\nServer instructions (literal text):\n{literal}"
+                text += "\n" + prompt_text(
+                    "context.yaml", "mcp_instructions", instructions=literal
+                )
             sections.append(text)
         return "\n\n".join(sections)
 

@@ -6,6 +6,7 @@ from functools import partial
 from pydantic import Field
 
 from kunyu.agent.mcp.results import project_result
+from kunyu.agent.prompt_files import tool_description
 from kunyu.agent.runtime.content import TextBlock
 from kunyu.agent.runtime.tools import (
     ToolCall,
@@ -43,11 +44,7 @@ class McpResourceTool:
         )
         self.spec = ToolSpec(
             name=operation,
-            description={
-                "list_mcp_resources": "List resources on the named configured MCP server. Pass its returned cursor to continue.",
-                "list_mcp_resource_templates": "List parameterized resource URI templates on the named configured MCP server.",
-                "read_mcp_resource": "Read a listed resource URI or an expanded resource template from the named MCP server.",
-            }[operation],
+            description=tool_description(operation),
             parameters=self.arguments.model_json_schema(),
             risk_level=ToolRiskLevel.L0,
             execution="parallel",

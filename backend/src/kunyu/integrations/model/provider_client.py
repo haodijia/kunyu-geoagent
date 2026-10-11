@@ -7,6 +7,7 @@ from time import monotonic
 from typing import Any
 
 from kunyu.agent.model_providers import LLMService
+from kunyu.agent.prompt_files import prompt_text
 from kunyu.agent.runtime.content import TextBlock, ToolCallBlock
 from kunyu.agent.runtime.models import (
     BlockEnd,
@@ -233,9 +234,14 @@ class ModelProviderClient:
                     content=(
                         TextBlock(
                             text=(
-                                f"Call {PROBE_TOOL_NAME} with token '{PROBE_TOKEN}'."
+                                prompt_text(
+                                    "checks.yaml",
+                                    "tool_call",
+                                    tool=PROBE_TOOL_NAME,
+                                    token=PROBE_TOKEN,
+                                )
                                 if tool
-                                else "Reply with a short plain-text acknowledgement."
+                                else prompt_text("checks.yaml", "text_reply")
                             )
                         ),
                     ),
@@ -244,7 +250,7 @@ class ModelProviderClient:
             tools=(
                 ToolSchema(
                     name=PROBE_TOOL_NAME,
-                    description="Checks structured tool-call support.",
+                    description=prompt_text("checks.yaml", "tool_description"),
                     parameters={
                         "type": "object",
                         "properties": {
