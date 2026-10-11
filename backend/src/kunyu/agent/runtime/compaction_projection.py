@@ -128,7 +128,6 @@ class CompactionProjection:
                     index
                     for index, message in enumerate(header.payload.messages)
                     if message["role"] != "system"
-                    and snapshot_message(message).context_source != "skill-catalog"
                 ),
                 len(header.payload.messages),
             )

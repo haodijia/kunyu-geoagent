@@ -1,0 +1,4 @@
+time_enabled: false
+time_zone: Asia/Shanghai
+time_refresh_seconds: 300
+project_instructions_enabled: false

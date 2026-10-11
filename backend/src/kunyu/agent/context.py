@@ -86,7 +86,6 @@ class ScopedAgentContextProvider:
                     role=ModelRole.SYSTEM,
                     content=text_content(self._prompts.render(source, self._scope)),
                 ),
-                *build_skill_catalog(source),
                 *build_model_history(source),
             )
         )
@@ -105,21 +104,6 @@ class ScopedAgentContextProvider:
             message.run_id == run_id and message.message_id in pending
             for message in source.reduced_session.user_messages
         )
-
-
-def build_skill_catalog(source: RunContextSource) -> tuple[ModelMessage, ...]:
-    catalogs = tuple(
-        item for item in source.injected_context if item.producer == "skill-catalog"
-    )
-    if not catalogs:
-        return ()
-    return (
-        ModelMessage(
-            role=ModelRole.USER,
-            content=text_content(catalogs[-1].content),
-            context_source="skill-catalog",
-        ),
-    )
 
 
 def build_model_history(source: RunContextSource) -> tuple[ModelMessage, ...]:
@@ -272,9 +256,14 @@ def build_model_history_nodes(source: RunContextSource) -> tuple[ModelHistoryNod
 
 
 def _visible_injection(item: InjectedContext, source: RunContextSource) -> bool:
-    if item.producer in {"skill-catalog", "workspace"}:
+    if item.producer == "workspace":
         return False
-    if item.producer != "skill-invocation":
+    if item.producer not in {
+        "skill-invocation",
+        "runtime-context",
+        "agent-instructions",
+        "time-context",
+    }:
         return True
     owner = next(
         run

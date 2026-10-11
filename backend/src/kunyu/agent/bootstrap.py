@@ -33,6 +33,7 @@ from kunyu.agent.plugins.model_providers import (
 )
 from kunyu.agent.plugins.plan_mode import PlanModePlugin
 from kunyu.agent.plugins.questions import UserQuestionsPlugin
+from kunyu.agent.plugins.runtime_context import RuntimeContextPlugin
 from kunyu.agent.plugins.search import SearchPlugin
 from kunyu.agent.plugins.subagents import SubagentsPlugin
 from kunyu.agent.plugins.todo import TodoToolsPlugin
@@ -108,6 +109,7 @@ async def create_agent_runtime(
         SearchPlugin(),
         TodoToolsPlugin(),
         SubagentsPlugin(),
+        RuntimeContextPlugin(),
         SkillPlugin(),
         FilesystemSkillsPlugin(),
         SkillToolsPlugin(),

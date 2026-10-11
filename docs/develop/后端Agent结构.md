@@ -56,6 +56,8 @@ backend/src/kunyu/agent/
 ├── plan_mode.py          # 计划提示词与接受步骤通知
 ├── prompts/              # 用户维护的 System、工具说明、上下文、Skill 包装及压缩提示词
 ├── prompt_files.py       # 严格加载提示词文件，缺失与变量不匹配直接报错
+├── runtime_context.py    # 已变化/被压缩的运行快照、可选时间读取
+├── project_instructions.py # 可选托管 AGENTS.md 指令快照与明确清除
 ├── runtime/              # 模型/工具契约、循环、类型事件、Reducer
 │   └── assistant_stream.py # 带时间的不可变分块、紧凑记录和记录级读取
 ├── tools/

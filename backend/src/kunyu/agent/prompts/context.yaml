@@ -5,6 +5,32 @@
   {{entries}}
   </available_skills>
   </system-reminder>
+"runtime_snapshot": |-
+  当前运行上下文。此快照替换此前的运行上下文快照。
+
+  {{sections}}
+"permission_read_only": |-
+  当前文件工具权限：read-only。当前会话只能读取，不能通过工具写入或修改文件。
+"permission_workspace_write": |-
+  当前文件工具权限：workspace-write。当前请求提供的写入和编辑工具可操作 /workspace；/attachments 只读。
+"approval_required": |-
+  当前审批规则：需要确认的工具必须获得用户确认后才能执行；其他工具仍受当前权限约束。
+"approval_denied": |-
+  当前工具执行审批规则：只读或计划模式下，写入及需要执行审批的工具操作会被拒绝。不要自行扩大权限；提问和计划审阅使用独立的交互工具。
+"subagent_delegation": |-
+  你是受委派的只读子 Agent。权限在创建时确定，不能在此会话中扩大；不能写入、请求用户输入或再次委派。超出权限时，向父 Agent 报告限制。
+"current_time": |-
+  本次请求读取的时间：{{timestamp}}。时区：{{timezone}}。
+"project_instructions": |-
+  当前适用的项目指令。此完整快照替换此前的项目指令快照；子目录指令仅适用于对应目录。
+
+  {{instructions}}
+"project_instruction_file": |-
+  <agent_instructions path="{{path}}">
+  {{instructions}}
+  </agent_instructions>
+"project_instructions_cleared": |-
+  当前没有适用的项目指令文件；此前的项目指令快照不再适用。
 "skill_content": |-
   <skill_content name="{{name}}">
   <skill_resources>
