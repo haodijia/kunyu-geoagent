@@ -7,7 +7,7 @@ from sqlalchemy.engine import URL
 from sqlalchemy.orm import Session, sessionmaker
 
 from kunyu.persistence.event_publications import SessionEventPublications
-from kunyu.persistence.migration_runner import upgrade_database
+from kunyu.persistence.schema import initialize_database
 from kunyu.settings import get_app_data_directory
 
 DATABASE_FILE_NAME = "kunyu.db"
@@ -34,7 +34,7 @@ class Database:
         database_path.chmod(0o600)
         engine = create_database_engine(database_path)
         try:
-            upgrade_database(engine)
+            initialize_database(engine)
         except Exception:
             engine.dispose()
             raise
