@@ -11,7 +11,6 @@ from kunyu.persistence.schema import initialize_database
 from kunyu.settings import get_app_data_directory
 
 DATABASE_FILE_NAME = "kunyu.db"
-APP_DATA_SUBDIRECTORIES = ("artifacts", "results", "exports", "logs")
 
 
 @dataclass(frozen=True, slots=True)
@@ -25,8 +24,6 @@ class Database:
     def open(cls) -> "Database":
         data_directory = get_app_data_directory()
         data_directory.mkdir(parents=True, exist_ok=True)
-        for directory_name in APP_DATA_SUBDIRECTORIES:
-            (data_directory / directory_name).mkdir(exist_ok=True)
 
         database_path = data_directory / DATABASE_FILE_NAME
         if not database_path.exists():
