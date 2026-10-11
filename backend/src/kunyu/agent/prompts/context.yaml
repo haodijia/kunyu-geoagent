@@ -1,6 +1,3 @@
-"workspace": |-
-  Use the server-bound workspace and session scope below. Do not invent or replace scope identifiers.
-  {{scope}}
 "skill_catalog": |-
   <system-reminder>
   This is the complete current skill catalog and replaces earlier catalogs. Skills are task instructions, not executable tools. When a task names or clearly matches a skill, call skill with its exact name before following it. A directly invoked skill already supplies its full <skill_content> instructions; follow them without calling skill again for that skill. Read referenced text resources with skill_resource only when needed.

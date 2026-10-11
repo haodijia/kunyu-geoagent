@@ -42,17 +42,14 @@ async def prepare_skill_context(
         item for item in source.injected_context if item.producer == "skill-catalog"
     ]
     payloads = []
-    visible_catalogs = [
-        item for item in catalogs if item.sequence > source.controls.compacted_through
-    ]
     catalog_content = render_catalog(entries)
     if (
-        visible_catalogs
+        catalogs
         and (
-            visible_catalogs[-1].metadata["entries"] != entries
-            or visible_catalogs[-1].content != catalog_content
+            catalogs[-1].metadata["entries"] != entries
+            or catalogs[-1].content != catalog_content
         )
-    ) or (not visible_catalogs and (entries or catalogs)):
+    ) or (not catalogs and entries):
         payloads.append(
             ContextInjectedPayload(
                 content=catalog_content,

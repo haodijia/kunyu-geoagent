@@ -16,7 +16,6 @@ from kunyu.agent.runtime.input_content import InputMessageSource, user_content
 from kunyu.agent.runtime.models import ModelMessage, ModelRole
 from kunyu.agent.runtime.run_state import ReducedAssistant, ReducedRun, ReducedToolCall
 from kunyu.agent.scope import Context
-from kunyu.agent.workspace_context import prepare_workspace_context
 from kunyu.domain.agent_context import (
     InjectedContext,
     RunContextRepository,
@@ -79,7 +78,6 @@ class ScopedAgentContextProvider:
         )
 
     async def build(self, run_id: str) -> AgentContext:
-        await prepare_workspace_context(self._require_source(run_id), self._events)
         await self._preparers.prepare(run_id, self._scope)
         source = self._require_source(run_id)
         return AgentContext(
@@ -88,6 +86,7 @@ class ScopedAgentContextProvider:
                     role=ModelRole.SYSTEM,
                     content=text_content(self._prompts.render(source, self._scope)),
                 ),
+                *build_skill_catalog(source),
                 *build_model_history(source),
             )
         )
@@ -106,6 +105,21 @@ class ScopedAgentContextProvider:
             message.run_id == run_id and message.message_id in pending
             for message in source.reduced_session.user_messages
         )
+
+
+def build_skill_catalog(source: RunContextSource) -> tuple[ModelMessage, ...]:
+    catalogs = tuple(
+        item for item in source.injected_context if item.producer == "skill-catalog"
+    )
+    if not catalogs:
+        return ()
+    return (
+        ModelMessage(
+            role=ModelRole.USER,
+            content=text_content(catalogs[-1].content),
+            context_source="skill-catalog",
+        ),
+    )
 
 
 def build_model_history(source: RunContextSource) -> tuple[ModelMessage, ...]:
@@ -150,17 +164,6 @@ def build_model_history_nodes(source: RunContextSource) -> tuple[ModelHistoryNod
                         sequence=message.created_sequence, message_id=message.message_id
                     ),
                 ),
-            )
-            + (
-                (
-                    ModelMessage(
-                        role=ModelRole.USER,
-                        content=text_content(_json_text(message.map_context)),
-                        context_source="steering-map",
-                    ),
-                )
-                if message.delivery == "steer"
-                else ()
             ),
         )
         for message in source.reduced_session.user_messages
@@ -186,42 +189,18 @@ def build_model_history_nodes(source: RunContextSource) -> tuple[ModelHistoryNod
             )
         )
     ]
-    original_messages = {
-        item.message_id: item for item in source.reduced_session.user_messages
-    }
     steps.extend(
         ModelHistoryNode(
             sequence=decision.sequence,
             messages=tuple(
-                model_message
-                for message in decision.payload.messages
-                for model_message in (
-                    ModelMessage(
-                        ModelRole.USER,
-                        user_content(message.content, message.attachments),
-                        input_source=InputMessageSource(
-                            sequence=decision.sequence, message_id=message.message_id
-                        ),
-                    ),
-                    *(
-                        (
-                            ModelMessage(
-                                ModelRole.USER,
-                                text_content(
-                                    _json_text(
-                                        original_messages[
-                                            message.message_id
-                                        ].map_context
-                                    )
-                                ),
-                                context_source="steering-map",
-                            ),
-                        )
-                        if message.message_id in original_messages
-                        and original_messages[message.message_id].delivery == "steer"
-                        else ()
+                ModelMessage(
+                    ModelRole.USER,
+                    user_content(message.content, message.attachments),
+                    input_source=InputMessageSource(
+                        sequence=decision.sequence, message_id=message.message_id
                     ),
                 )
+                for message in decision.payload.messages
             ),
         )
         for decision in admitted
@@ -293,7 +272,9 @@ def build_model_history_nodes(source: RunContextSource) -> tuple[ModelHistoryNod
 
 
 def _visible_injection(item: InjectedContext, source: RunContextSource) -> bool:
-    if item.producer not in {"skill-invocation", "workspace"}:
+    if item.producer in {"skill-catalog", "workspace"}:
+        return False
+    if item.producer != "skill-invocation":
         return True
     owner = next(
         run
