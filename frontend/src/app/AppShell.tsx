@@ -9,6 +9,8 @@ import { useAppUiStore } from "@/app/store";
 import { AppTitlebar } from "@/components/layout/AppTitlebar";
 import { SidebarItem } from "@/components/navigation/SidebarItem";
 import { TaskSidebarContent } from "@/features/workspaces/TaskSidebarContent";
+import { WorkspaceUploadDialog } from "@/features/workspaces/WorkspaceUploadDialog";
+import type { Workspace } from "@/features/workspaces/api";
 import { cn } from "@/lib/utils";
 import { zhCN } from "@/locales/zh-CN";
 
@@ -30,6 +32,8 @@ export function AppShell() {
   const setThemeMode = useAppUiStore((state) => state.setThemeMode);
   const toggleSidebar = useAppUiStore((state) => state.toggleSidebar);
   const [mobile, setMobile] = useState(false);
+  const [uploadWorkspace, setUploadWorkspace] = useState<Workspace | null>(null);
+  useEffect(() => setUploadWorkspace(null), [location.pathname]);
   const [searchOpen, setSearchOpen] = useState(false);
   const [search, setSearch] = useState("");
   const searchInput = useRef<HTMLInputElement>(null);
@@ -172,6 +176,7 @@ export function AppShell() {
               collapsed={sidebarCollapsed}
               onRequestExpand={toggleSidebar}
               search={search}
+              onUpload={setUploadWorkspace}
             />
           )}
 
@@ -246,6 +251,7 @@ export function AppShell() {
           <Outlet />
         </main>
       </div>
+      {uploadWorkspace !== null && <WorkspaceUploadDialog workspace={uploadWorkspace} onClose={() => setUploadWorkspace(null)} />}
     </div>
   );
 }

@@ -4,6 +4,7 @@ from sqlalchemy import select, text, update
 from sqlalchemy.dialects.sqlite import insert
 
 from kunyu.domain.runs import NONTERMINAL_RUN_STATE_VALUES, UnfinishedRunConflictError
+from kunyu.domain.workspace_files import WorkspaceDirectory
 from kunyu.domain.workspaces import Workspace
 from kunyu.persistence.database import Database
 from kunyu.persistence.models import (
@@ -18,8 +19,9 @@ from kunyu.persistence.time import as_utc
 
 
 class SQLAlchemyWorkspaceRepository:
-    def __init__(self, database: Database) -> None:
+    def __init__(self, database: Database, directories: WorkspaceDirectory) -> None:
         self._database = database
+        self._directories = directories
 
     def rename(
         self, workspace_id: str, name: str, updated_at: datetime
@@ -95,6 +97,8 @@ class SQLAlchemyWorkspaceRepository:
         )
         with self._database.sessions.begin() as session:
             session.add(record)
+            session.flush()
+            self._directories.prepare(workspace.id)
         return _to_domain(record)
 
     def get(self, workspace_id: str) -> Workspace | None:

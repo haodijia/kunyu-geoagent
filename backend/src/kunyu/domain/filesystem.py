@@ -17,7 +17,7 @@ class FilesystemError(RuntimeError):
 @dataclass(frozen=True, slots=True)
 class FilesystemScope:
     workspace_id: str
-    session_id: str
+    session_id: str | None
     attachments: tuple[Attachment, ...]
 
 

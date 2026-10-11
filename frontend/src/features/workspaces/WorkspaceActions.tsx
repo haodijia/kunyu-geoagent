@@ -5,7 +5,7 @@ import {
   DropdownMenuContent,
   DropdownMenuItem
 } from "@/components/ui/dropdown-menu";
-import { Ellipsis, Pencil, X } from "lucide-react";
+import { Ellipsis, Pencil, Upload, X } from "lucide-react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useLocation, useNavigate } from "react-router-dom";
 import { ApiError } from "@/api/client";
@@ -19,11 +19,13 @@ const content = zhCN.workspaceSidebar;
 export function WorkspaceActions({
   workspace,
   disabled,
-  onRename
+  onRename,
+  onUpload,
 }: {
   readonly workspace: Workspace;
   readonly disabled: boolean;
   readonly onRename: () => void;
+  readonly onUpload: () => void;
 }) {
   const navigate = useNavigate();
   const location = useLocation();
@@ -68,6 +70,10 @@ export function WorkspaceActions({
         </button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="start" alignOffset={-8}>
+        <DropdownMenuItem onSelect={onUpload}>
+          <Upload strokeWidth={1.75} aria-hidden="true" />
+          {zhCN.workspaceFiles.title}
+        </DropdownMenuItem>
         <DropdownMenuItem onSelect={onRename}>
           <Pencil strokeWidth={1.75} aria-hidden="true" />
           {content.renameWorkspace}

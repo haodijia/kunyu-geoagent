@@ -23,16 +23,21 @@ from kunyu.api.skills import router as skills_router
 from kunyu.api.subagents import router as subagents_router
 from kunyu.api.system import require_desktop_session
 from kunyu.api.system import router as system_router
+from kunyu.api.workspace_files import router as workspace_files_router
 from kunyu.api.workspaces import router as workspaces_router
 from kunyu.application.connection_locks import ConnectionOperationLocks
 from kunyu.application.model_catalog import ModelCatalogService
 from kunyu.application.model_discovery_tasks import ModelDiscoveryTasks
 from kunyu.application.skills import SkillManagementService
 from kunyu.desktop import DesktopConfigurationError, run_desktop
+from kunyu.integrations.filesystem_io import check_cancelled
+from kunyu.integrations.filesystem_operation import filesystem_operation
 from kunyu.integrations.model.provider_client import ModelProviderClient
+from kunyu.integrations.workspace_files import ManagedWorkspaceFiles
 from kunyu.persistence.database import Database
 from kunyu.persistence.model_connections import SQLAlchemyModelConnectionRepository
 from kunyu.persistence.sessions import SQLAlchemySessionRepository
+from kunyu.persistence.workspaces import SQLAlchemyWorkspaceRepository
 from kunyu.settings import (
     DESKTOP_RENDERER_ORIGINS,
     SESSION_HEADER,
@@ -45,6 +50,15 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     async with AsyncExitStack() as resources:
         database = Database.open()
         resources.callback(database.close)
+        directories = ManagedWorkspaceFiles(database.path.parent)
+        workspaces = SQLAlchemyWorkspaceRepository(database, directories).list_recent()
+
+        def prepare_directories(cancelled) -> None:
+            for workspace in workspaces:
+                check_cancelled(cancelled, "prepare workspace")
+                directories.prepare(workspace.id)
+
+        await filesystem_operation(prepare_directories)
         locks = ConnectionOperationLocks()
         http_client = await resources.enter_async_context(
             httpx.AsyncClient(
@@ -117,6 +131,7 @@ def create_app(session_token: str | None = None) -> FastAPI:
     app.include_router(skills_router)
     app.include_router(subagents_router)
     app.include_router(workspaces_router)
+    app.include_router(workspace_files_router)
     app.include_router(sessions_router)
     app.include_router(messages_router)
     app.include_router(attachments_router)

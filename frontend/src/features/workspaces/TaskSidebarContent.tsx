@@ -14,6 +14,7 @@ import {
   createWorkspace,
   listWorkspaces,
   workspaceQueryKeys,
+  type Workspace,
 } from "@/features/workspaces/api";
 import { zhCN } from "@/locales/zh-CN";
 
@@ -24,12 +25,14 @@ interface TaskSidebarContentProps {
   readonly collapsed: boolean;
   readonly onRequestExpand: () => void;
   readonly search: string;
+  readonly onUpload: (workspace: Workspace) => void;
 }
 
 export function TaskSidebarContent({
   collapsed,
   onRequestExpand,
   search,
+  onUpload,
 }: TaskSidebarContentProps) {
   const navigate = useNavigate();
   const location = useLocation();
@@ -194,6 +197,7 @@ export function TaskSidebarContent({
                 activeSessionId={activeSessionId}
                 workspace={workspace}
                 search={search}
+                onUpload={onUpload}
               />
             ))}
           </div>

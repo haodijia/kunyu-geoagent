@@ -1,4 +1,11 @@
 export const zhCN = {
+  workspaceFiles: {
+    title: "上传工作区文件", close: "关闭上传", choose: "选择工作区文件", chooseOrDrop: "选择文件，或拖动文件到这里", limit: "每个文件最多 64 MB",
+    description: "文件可供此工作区的所有对话使用。图片保留原始内容，重名文件会自动编号；上传后复制文件路径，在对话中引用。",
+    tooLarge: "文件超过 64 MB，请选择较小的文件。", uploadFailed: "上传失败，请重新选择文件重试。", invalidReceipt: "上传结果与所选文件不一致。",
+    uploading: "正在上传…", saved: "文件已保存", cancelUploads: "停止上传", done: "完成",
+    status: { queued: "等待上传", uploading: "正在上传", completed: "已保存到工作区", failed: "上传失败", cancelled: "已取消" },
+  },
   subagents: {
     title: "子任务", loading: "正在读取子任务…", waitingMessages: "子任务开始执行后，这里显示实际对话。", loadFailed: "无法读取子任务。", close: "关闭子任务详情", cancel: "停止子任务", cancelling: "正在停止…",
     open: "查看子任务", inspect: (name: string) => `查看子任务：${name}`, count: (done: number, total: number) => `${done} / ${total} 已完成`,

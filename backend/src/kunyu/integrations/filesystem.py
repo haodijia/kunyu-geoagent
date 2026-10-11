@@ -284,7 +284,7 @@ class MountedFilesystem:
                 version = atomic_write(
                     parent,
                     target.parts[-1],
-                    content,
+                    content.encode("utf-8"),
                     existing,
                     target,
                     intent is not None and intent.kind == "create_if_absent",
@@ -356,7 +356,7 @@ class MountedFilesystem:
                 updated = atomic_write(
                     parent,
                     target.parts[-1],
-                    storage,
+                    storage.encode("utf-8"),
                     existing,
                     target,
                     False,

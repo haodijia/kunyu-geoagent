@@ -25,12 +25,14 @@ interface WorkspaceGroupProps {
   readonly activeSessionId: string | null;
   readonly workspace: Workspace;
   readonly search: string;
+  readonly onUpload: (workspace: Workspace) => void;
 }
 
 export function WorkspaceGroup({
   activeSessionId,
   workspace,
   search,
+  onUpload,
 }: WorkspaceGroupProps) {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
@@ -106,6 +108,7 @@ export function WorkspaceGroup({
             workspace={workspace}
             disabled={createMutation.isPending || renameMutation.isPending}
             onRename={() => openForm("rename")}
+            onUpload={() => onUpload(workspace)}
           />
         </span>
       }

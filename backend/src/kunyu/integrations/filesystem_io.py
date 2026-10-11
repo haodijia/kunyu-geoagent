@@ -75,6 +75,7 @@ def _open_path(
             if create:
                 try:
                     os.mkdir(name, 0o700, dir_fd=descriptor)
+                    os.fsync(descriptor)
                 except FileExistsError:
                     pass  # The descriptor open below verifies the existing directory.
             descriptor = os.open(
@@ -157,7 +158,7 @@ def open_file(root: Path, target: FsTarget) -> Iterator[int]:
 def atomic_write(
     parent: int,
     name: str,
-    content: str,
+    content: bytes,
     existing: os.stat_result | None,
     target: FsTarget,
     create_if_absent: bool,
@@ -186,7 +187,7 @@ def atomic_write(
         staged_file = True
         try:
             os.fchmod(descriptor, 0o600)
-            data = content.encode("utf-8")
+            data = content
             offset = 0
             while offset < len(data):
                 check_cancelled(cancelled, "write")

@@ -1,3 +1,4 @@
+import logging
 from datetime import datetime
 from typing import Annotated
 
@@ -11,8 +12,10 @@ from kunyu.application.workspaces import (
     WorkspaceNotFoundError,
     WorkspaceService,
 )
+from kunyu.domain.filesystem import FilesystemError
 from kunyu.domain.runs import UnfinishedRunConflictError
 from kunyu.domain.workspaces import Workspace
+from kunyu.integrations.workspace_files import ManagedWorkspaceFiles
 from kunyu.persistence.database import Database
 from kunyu.persistence.workspaces import SQLAlchemyWorkspaceRepository
 
@@ -44,7 +47,11 @@ class WorkspaceResponse(BaseModel):
 def get_workspace_service(
     database: Annotated[Database, Depends(get_database)],
 ) -> WorkspaceService:
-    return WorkspaceService(SQLAlchemyWorkspaceRepository(database))
+    return WorkspaceService(
+        SQLAlchemyWorkspaceRepository(
+            database, ManagedWorkspaceFiles(database.path.parent)
+        )
+    )
 
 
 WorkspaceServiceDependency = Annotated[WorkspaceService, Depends(get_workspace_service)]
@@ -65,6 +72,15 @@ def create_workspace(
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail=str(error),
+        ) from error
+    except FilesystemError as error:
+        logging.getLogger(__name__).exception(
+            "Workspace directory initialization failed"
+        )
+        raise ApiError(
+            503,
+            "WORKSPACE_STORAGE_FAILED",
+            "The workspace directory could not be created.",
         ) from error
     return WorkspaceResponse.from_domain(workspace)
 

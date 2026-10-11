@@ -93,6 +93,7 @@ class WorkspaceSearchStorage:
     ) -> str:
         if (
             name not in {"glob", "grep"}
+            or scope.session_id is None
             or re.fullmatch(r"[A-Za-z0-9_-]{1,64}", scope.session_id) is None
         ):
             raise FilesystemError("FS_INVALID_SCOPE", "Invalid search artifact owner.")
@@ -107,5 +108,7 @@ class WorkspaceSearchStorage:
         with open_parent(
             self._root, target, create=True, cancelled=cancelled
         ) as parent:
-            atomic_write(parent, parts[-1], text, None, target, True, cancelled)
+            atomic_write(
+                parent, parts[-1], text.encode("utf-8"), None, target, True, cancelled
+            )
         return path
