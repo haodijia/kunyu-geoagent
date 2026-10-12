@@ -14,6 +14,7 @@ from kunyu.domain.model_connections import (
     ModelProtocol,
     ModelProviderType,
 )
+from kunyu.domain.model_image_defaults import default_image_input
 from kunyu.integrations.model.provider_client import DiscoveredModel
 
 
@@ -44,6 +45,7 @@ def merge_discovery(
                         (CatalogSource.FETCHED,),
                         connection.revision,
                         discovered_at,
+                        connection.provider_type,
                     ),
                     reasoning_efforts=efforts,
                     reasoning_default=model.reasoning_default,
@@ -147,6 +149,7 @@ def new_catalog_entry(
     sources: tuple[CatalogSource, ...],
     revision: int,
     discovered_at: datetime | None,
+    provider_type: ModelProviderType,
 ) -> ModelCatalogEntry:
     return ModelCatalogEntry(
         model_id=model_id,
@@ -162,6 +165,7 @@ def new_catalog_entry(
         reasoning_efforts=(),
         reasoning_source=CapabilitySource.UNKNOWN,
         discovered_at=discovered_at,
+        image_input=default_image_input(provider_type, model_id),
     )
 
 

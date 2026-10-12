@@ -163,6 +163,7 @@ class ModelCatalogService:
                     (CatalogSource.MANUAL,),
                     connection.revision,
                     now,
+                    connection.provider_type,
                 )
                 catalog = (*connection.catalog, entry)
             else:

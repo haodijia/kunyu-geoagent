@@ -98,7 +98,11 @@ class ReadImageTool:
             )
         if not snapshot.image_input.enabled:
             raise ToolExecutionError(
-                f"Model '{snapshot.model_id}' does not declare image input; select an image-capable model before reading images."
+                f"Image input is disabled in the saved settings for model '{snapshot.model_id}'. "
+                "No image was sent to the provider. Enable image input in Settings > Models > "
+                "Model parameters only if the provider documents vision support for this exact model, "
+                "then send a new message; the current run keeps its original settings.",
+                code="IMAGE_INPUT_DISABLED",
             )
         path = arguments.file_path
         actor = self._scopes.for_session(source.session.id)
