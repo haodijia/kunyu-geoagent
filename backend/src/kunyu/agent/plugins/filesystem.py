@@ -7,8 +7,8 @@ from kunyu.agent.filesystem import FilesystemHooks, ObservedStateGate
 from kunyu.agent.prompt_files import prompt_text
 from kunyu.agent.runtime.context import PromptSection
 from kunyu.agent.scope import Context
-from kunyu.agent.tools.file_mutations import FileMutationTool
-from kunyu.agent.tools.files import ReadTool
+from kunyu.agent.tools.filesystem.file_mutations import FileMutationTool
+from kunyu.agent.tools.filesystem.files import ReadTool
 from kunyu.agent.tools.registry import ToolRegistration
 from kunyu.integrations.filesystem import MountedFilesystem
 

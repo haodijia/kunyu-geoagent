@@ -29,6 +29,7 @@ if TYPE_CHECKING:
     from kunyu.application.confirmations import ConfirmationService
     from kunyu.application.connection_locks import ConnectionOperationLocks
     from kunyu.application.questions import UserQuestionService
+    from kunyu.application.oge import OgeService
     from kunyu.application.run_acceptance import RunAcceptanceService
     from kunyu.application.run_lifecycle import RunLifecycleService
     from kunyu.domain.filesystem import Filesystem
@@ -89,3 +90,4 @@ RUNNER: ServiceKey[Runner] = ServiceKey("runner")
 SKILLS: ServiceKey[SkillRegistry] = ServiceKey("skills")
 MCP: ServiceKey[McpManager] = ServiceKey("mcp")
 COMMANDS: ServiceKey[CommandRegistry] = ServiceKey("commands")
+OGE: ServiceKey[OgeService] = ServiceKey("oge")

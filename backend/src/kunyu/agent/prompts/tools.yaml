@@ -40,3 +40,11 @@
   Use only in plan mode. Present your COMPLETE plan as Markdown, starting with a # heading that names it, for user review. On approval leave plan mode and carry out the plan from your next step. Feedback means keep planning, revise and present again.
 "exit_plan_mode.plan": |-
   The complete plan as Markdown, starting with a # heading that names it.
+"oge_find_regions": |-
+  Resolve an administrative region name to OGE's code, level and full ancestor path. Supports Chinese and English, exact or substring matching, optional exact ancestor name, and offset pagination. Never guess codes from place names. Return all ambiguous candidates; ask the user to choose when the task context does not disambiguate. The complete upstream tree is cached for one hour and is not returned to the model.
+"oge_search_images": |-
+  Search OGE satellite imagery by acquisition interval and ONE WGS84 region: administrative code/level from oge_find_regions, a closed polygon ring, or a bounding box. Times use yyyy-MM-dd HH:mm:ss. Optional product_ids restrict numeric OGE product IDs; absent product_ids searches across products. Optional cloud enables a percentage range; null disables cloud filtering. Returns up to 10 compact image records per page with explicit next_page; use oge_get_image_detail for full metadata. Records intersect the region and may represent multiple processing levels of the same acquisition. Public endpoint; OGE login is not required.
+"oge_get_image_detail": |-
+  Read full metadata for one numeric imageId from oge_search_images. A nonexistent image is an explicit error even when the upstream business code is successful. The returned path is an internal OGE data path, not a download URL. Public endpoint; OGE login is not required.
+"oge_get_image_preview": |-
+  Fetch and return the PNG thumbnail for one OGE imageId as a durable, model-visible image. Requires the calling model to have image input enabled. The preview is not a full-resolution analysis product and has no georeferencing; do not treat its pixels as a map layer or invent a download URL. Public endpoint; OGE login is not required.

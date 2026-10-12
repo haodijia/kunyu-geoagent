@@ -9,6 +9,7 @@ import { ModelProviderCatalogPage } from "@/features/settings/models/ModelProvid
 import { McpServersPage } from "@/features/settings/mcp/McpServersPage";
 import { McpServerEditorPage } from "@/features/settings/mcp/McpServerEditorPage";
 import { SkillsPage } from "@/features/settings/skills/SkillsPage";
+import { OgeSettingsPage } from "@/features/settings/oge/OgeSettingsPage";
 import { SkillEditorPage } from "@/features/settings/skills/SkillEditorPage";
 import { SessionWorkspace } from "@/features/sessions/SessionWorkspace";
 import { ConversationView } from "@/features/sessions/views/ConversationView";
@@ -32,6 +33,7 @@ export const router = createHashRouter([
     path: "/",
     element: <AppShell />,
     children: [
+      { path: "settings/oge", element: <OgeSettingsPage /> },
       { path: "settings/mcp", element: <McpServersPage /> },
       { path: "settings/mcp/new", element: <McpServerEditorPage /> },
       { path: "settings/mcp/:serverName", element: <McpServerEditorPage /> },

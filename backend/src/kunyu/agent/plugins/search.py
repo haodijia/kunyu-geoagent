@@ -7,7 +7,7 @@ from kunyu.agent.prompt_files import prompt_text
 from kunyu.agent.runtime.context import PromptSection
 from kunyu.agent.scope import Context
 from kunyu.agent.tools.registry import ToolRegistration
-from kunyu.agent.tools.search import SearchTool
+from kunyu.agent.tools.filesystem.search import SearchTool
 from kunyu.integrations.search_storage import WorkspaceSearchStorage
 from kunyu.integrations.subprocess import LocalSubprocess
 

@@ -20,6 +20,7 @@ const kinds: readonly (readonly [readonly string[], ToolKind])[] = [
 ];
 
 export function toolKind(name: string): ToolKind {
+  if (name.startsWith("oge_")) return "web";
   const words = name.replace(/([a-z0-9])([A-Z])/g, "$1 $2").toLowerCase().split(/[^a-z0-9]+/);
   for (const [terms, kind] of kinds) if (words.some((word) => terms.includes(word))) return kind;
   return "other";
@@ -31,6 +32,10 @@ export function toolLabel(name: string): string {
 }
 
 export function toolTarget(arguments_: ToolCall["arguments"]): ToolTargetValue | undefined {
+  if (typeof arguments_.image_id === "number") return { text: String(arguments_.image_id), path: false };
+  if (typeof arguments_.start_time === "string" && typeof arguments_.end_time === "string") {
+    return { text: `${arguments_.start_time} → ${arguments_.end_time}`, path: false };
+  }
   if (Array.isArray(arguments_.questions)) {
     const questions = arguments_.questions.filter((item): item is { question: string } =>
       typeof item === "object" && item !== null && "question" in item && typeof item.question === "string");

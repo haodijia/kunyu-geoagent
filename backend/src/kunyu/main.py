@@ -16,6 +16,7 @@ from kunyu.api.errors import install_error_handlers
 from kunyu.api.mcp import router as mcp_router
 from kunyu.api.messages import router as messages_router
 from kunyu.api.model_connections import router as model_connections_router
+from kunyu.api.oge import router as oge_router
 from kunyu.api.plans import router as plans_router
 from kunyu.api.questions import router as questions_router
 from kunyu.api.sessions import router as sessions_router
@@ -90,6 +91,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         app.state.question_service = agent_runtime.kernel.context.require(s.QUESTIONS)
         app.state.agent_directory = agent_runtime.agents
         app.state.mcp_manager = agent_runtime.kernel.context.require(s.MCP)
+        app.state.oge_service = agent_runtime.kernel.context.require(s.OGE)
         app.state.skill_service = SkillManagementService(
             agent_runtime.kernel.context,
             SQLAlchemySessionRepository(database),
@@ -122,6 +124,7 @@ def create_app(session_token: str | None = None) -> FastAPI:
     install_error_handlers(app)
     app.include_router(system_router)
     app.include_router(model_connections_router)
+    app.include_router(oge_router)
     app.include_router(mcp_router)
     app.include_router(confirmations_router)
     app.include_router(questions_router)

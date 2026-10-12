@@ -2,7 +2,7 @@
 
 from kunyu.agent import services as s
 from kunyu.agent.scope import Context
-from kunyu.agent.tools.questions import AskUserQuestionHandler, AskUserQuestionTool
+from kunyu.agent.tools.workflow.questions import AskUserQuestionHandler, AskUserQuestionTool
 from kunyu.agent.tools.registry import ToolRegistration
 from kunyu.application.questions import UserQuestionService
 

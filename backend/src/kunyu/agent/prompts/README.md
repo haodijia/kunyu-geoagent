@@ -7,7 +7,7 @@
 | `system.md` | 助手身份、业务定位、回答方式和行为边界 |
 | `plan.md` | 计划模式指导，仅在计划模式启用时加入 System |
 | `tool-guidance.yaml` | System 中的文件搜索、读取、写入操作指导；按插件是否启用贡献对应段 |
-| `tools.yaml` | 20 个内置工具的模型可见说明，以及 `exit_plan_mode.plan` 参数说明 |
+| `tools.yaml` | 24 个内置工具的模型可见说明，以及 `exit_plan_mode.plan` 参数说明 |
 | `context.yaml` | 权限、审批、子 Agent 委派、时间、项目指令、Skill 目录和全文包装，以及计划／MCP／附件／压缩摘要包装 |
 | `context-settings.yaml` | 可选时间和项目指令的开关、时区与刷新间隔；这里是运行配置，不是提示词正文 |
 | `compaction.md` | `/compact` 和自动压缩使用的模型指令；至少保留一组不重复的 `## ` 标题，标题名称和数量可修改 |

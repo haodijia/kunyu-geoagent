@@ -18,11 +18,11 @@ Agent 架构必须对齐本地 `deepseek-harness` 源码的服务、插件、作
 | `api/session-controller/src/history.ts`、`assistant-stream.ts`、`client/sessions/assistant-stream.ts` | `api/session_follow.py`、`notifications.py`、前端 `events/live-assistant.ts` | 统一 opening、连续持久事件、cursorless 原始帧与精确重连前缀；结算替换暂态 |
 | `core/session` | `runtime/events.py`、`session_reducer.py`、`persistence/` | 追加日志为事实源，确定性重放得到查询投影 |
 | `core/system-prompt` | `runtime/context.py`、`plugins/core.py`、`prompts/system.md` | 有序、带作用域的提示词段注册；指令正文由用户维护 |
-| `interaction/user-questions`、`interaction/tool-ask-user` | `runtime/questions.py`、`plugins/questions.py`、`application/questions.py`、`tools/questions.py` | 日志持有问题与决定，独占工具等待释放执行槽，原子结算后继续当前工具批次 |
-| `plan/plan-mode`、`ui-plan` | `plugins/plan_mode.py`、`agent/plan_mode.py`、`tools/plan_mode.py`、`application/plans.py`、前端 `features/plans/` | 完整计划工具、人工审阅、静默退出选择和原调用文档 |
+| `interaction/user-questions`、`interaction/tool-ask-user` | `runtime/questions.py`、`plugins/questions.py`、`application/questions.py`、`tools/workflow/questions.py` | 日志持有问题与决定，独占工具等待释放执行槽，原子结算后继续当前工具批次 |
+| `plan/plan-mode`、`ui-plan` | `plugins/plan_mode.py`、`agent/plan_mode.py`、`tools/workflow/plan_mode.py`、`application/plans.py`、前端 `features/plans/` | 完整计划工具、人工审阅、静默退出选择和原调用文档 |
 | `core/tools` | `runtime/tools.py`、`runner_tools.py`、`tools/registry.py` | 工具注册与实现分开；模型 Schema 来自实际注册；有界并行/独占调度；风险策略与确认接缝 |
 | `packages/context` | `agent/context.py`、`persistence/agent_context.py` | 注入正文成为有顺序的持久会话内容，后续步骤及轮次按原位置重放 |
-| `skill/skill`、`skill/skill-filesystem`、`skill/tool-skill` | `skills/registry.py`、`filesystem.py`、`context.py`、`tools/skills.py` | 注册表、来源、调用工具分开；目录仅注入名称和简介；选择后加载正文；区分模型/用户调用权限；持久目录替换与显式用户调用 |
+| `skill/skill`、`skill/skill-filesystem`、`skill/tool-skill` | `skills/registry.py`、`filesystem.py`、`context.py`、`tools/context/skills.py` | 注册表、来源、调用工具分开；目录仅注入名称和简介；选择后加载正文；区分模型/用户调用权限；持久目录替换与显式用户调用 |
 | `packages/fs/fs`、`fs-local`、`fs-observation-policy`、`tool-fs` | `domain/filesystem.py`、`integrations/filesystem.py`、`filesystem_io.py`、`agent/filesystem.py`、`plugins/filesystem.py`、文件工具 | 文件系统与观察策略分开；路径作用域、版本守卫、原子发布、行窗口与应用结果 diff |
 
 这是 Python 的对应实现，没有引入 Cordis 的 TypeScript 运行时。已实现文本／思考／工具内容块、图片／文件输入、图文工具结果、SDK replay 与一层只读多 Agent 委派；子任务卡片、完整报告、对话、工具、轨迹与父地址取消已接入。surface 替换、PTC、profile 与插件市场不属于当前四项收尾范围，不能宣称参考项目所有能力等价。中断恢复仍采用本项目的显式恢复与持久确认契约。
@@ -61,13 +61,10 @@ backend/src/kunyu/agent/
 ├── runtime/              # 模型/工具契约、循环、类型事件、Reducer
 │   └── assistant_stream.py # 带时间的不可变分块、紧凑记录和记录级读取
 ├── tools/
-│   ├── memory.py         # 记忆 Schema、描述、执行和确认事务处理器
-│   ├── files.py          # 按路径与行号读取，授权来自当前模型历史
-│   ├── read_render.py    # 有界行窗口、语言和模型读取正文
-│   ├── file_mutations.py # write/edit 参数、守卫和模型结果
-│   ├── file_diff.py      # 与 jsdiff 9 一致的上下文 hunk
-│   ├── files_shared.py   # 当前历史挂载与模型文件错误说明
-│   ├── plan_mode.py      # 完整计划 Schema、审阅问题与决定处理器
+│   ├── filesystem/       # 文本/图片读取、write/edit、glob/grep 与结果辅助
+│   ├── context/          # 工作区记忆、技能与资源加载
+│   ├── workflow/         # 用户提问、计划审批、todo 与子任务
+│   ├── oge/              # 行政区、影像检索、详情与预览；工具平铺
 │   ├── registry.py       # 作用域工具贡献、写处理器与风险策略
 │   └── shared.py         # 参数、归属与结果校验
 └── skills/
@@ -149,7 +146,7 @@ DeepSeek 新连接默认 `deepseek_messages` 与 `https://api.deepseek.com/anthr
 
 同类工具放一个功能文件；变大后再拆同名目录。工具自带 Schema、描述、风险级别、执行方式和校验。
 
-1. 在 `agent/tools/<功能>.py` 实现工具。
+1. 在 `agent/tools/<分类>/<功能>.py` 实现工具；同一平台的工具统一放在该平台目录，公共注册和校验保留在根目录。
 2. 在贡献插件中声明 `requires`，从 Context 获取服务或仓储。
 3. 调用 `TOOLS.register(owner, name, ToolRegistration(builder, write_handler))`，贡献随 owner 释放。
 4. 在产品组合的 `plugins` 参数中启用插件；会话专属扩展通过 `install_plugin(agent.ctx, plugin)` 安装。
@@ -174,7 +171,7 @@ L0 工具可直接执行；L1 工作区文件工具为独占调用，在 workspa
 
 默认组合分别启用 `SkillPlugin`、`FilesystemSkillsPlugin` 和 `SkillToolsPlugin`。`SkillRegistry` 支持作用域 Provider 注册、运行时技能贡献、元数据目录、模型/用户调用限制，以及显式读取正文。同名技能由最近作用域优先；同层按来源 rank 决定。来源报错和不匹配的正文直接报错并记录日志。
 
-来源实现放 `agent/skills/`，模型调用工具放 `agent/tools/skills.py`，内置指令放 `agent/skills/bundled/<name>/SKILL.md` 与相邻资源。用户技能保存在应用数据目录的 `skills/`，工作区技能保存在 `workspaces/<workspace_id>/skills/`，也会发现 `~/.agents/skills`。
+来源实现放 `agent/skills/`，模型调用工具放 `agent/tools/context/skills.py`，内置指令放 `agent/skills/bundled/<name>/SKILL.md` 与相邻资源。用户技能保存在应用数据目录的 `skills/`，工作区技能保存在 `workspaces/<workspace_id>/skills/`，也会发现 `~/.agents/skills`。
 
 `ContextPreparationRegistry` 在每次模型步骤组装历史前运行带作用域的异步贡献。技能消费者重新发现目录，比较实际名称和简介列表；变化时追加 `context.injected` 完整替换，不计算文件 hash。目录只在原 `skill` 注册实例可见时发布，同名工具遮蔽发布空目录；压缩后不可见的目录会重新发布。目录事件携带 `producer=skill-catalog` 和实际条目。
 
@@ -556,7 +553,7 @@ HTTP 服务显式选择 headers 或 oauth 认证。OAuth 选项包含可选 clie
 
 ## 一层只读多 Agent 委派
 
-`SubagentsPlugin` 安装 `SUBAGENTS` 服务与 `subagent`、`wait_subagents`、`cancel_subagent`、`subagent_result` 工具。职责分为 `agent/subagents.py` 的监督、`tools/subagents.py` 的模型接口、`persistence/subagents.py` 的同事务受理与数据访问，以及已有的运行器。默认前台等待；后台启动必须显式指定，结束或停止父任务会清理未完成的孩子。每个父 Run 最多8项，子任务不再委派。
+`SubagentsPlugin` 安装 `SUBAGENTS` 服务与 `subagent`、`wait_subagents`、`cancel_subagent`、`subagent_result` 工具。职责分为 `agent/subagents.py` 的监督、`tools/workflow/subagents.py` 的模型接口、`persistence/subagents.py` 的同事务受理与数据访问，以及已有的运行器。默认前台等待；后台启动必须显式指定，结束或停止父任务会清理未完成的孩子。每个父 Run 最多8项，子任务不再委派。
 
 创建在一个数据库事务里保存独立会话、只读权限、冻结模型队列与父创建记录；子模型不重新从当前设置计算配置。孩子不继承对话历史和附件，调用者必须在 prompt 提供相关上下文；它继承父作用域的插件贡献，由自己的会话保存工具观察、思考与请求事实。子目录仅允许 L0 非交互工具，不包含写入、计划退出、再次委派和子任务控制。模型写出的斜杠文本不触发人类专用 Skill。当前不提供不同子模型选择或可继续发送的子会话。
 
@@ -569,3 +566,7 @@ HTTP 服务显式选择 headers 或 oauth 认证。OAuth 选项包含可选 clie
 ## 开发数据库基线
 
 `persistence/schema.sql` 是唯一初始化SQL，包含本阶段20张表与完整约束。`schema.py` 在同一事务初始化，并使用 SQLite user_version=1 校验版本及结构；异常不改成清库。原 Alembic 迁移源码与依赖已经移除，旧开发库不兼容升级，也不会自动删除。保留旧库时使用新的 KUNYU_APP_DATA_DIR，重建需由开发者明确执行。打包包含SQL，安装后使用相同基线；ORM只描述访问结构，不参与初始化兜底。
+
+## OGE 数据工具
+
+`OgePlugin` 提供共享 OGE 服务，并注册 `oge_find_regions`、`oge_search_images`、`oge_get_image_detail`、`oge_get_image_preview` 四个并行 L0 工具，计划模式及只读子任务也可使用。账号登录由独立设置页管理，不向 Agent 注册登录工具或暴露凭据。HTTP 协议、账号与缓存、令牌存储分别位于 integrations/application/persistence；见 [OGE 平台接入](OGE平台接入.md)。

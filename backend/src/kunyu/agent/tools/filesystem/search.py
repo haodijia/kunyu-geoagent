@@ -16,11 +16,11 @@ from kunyu.agent.runtime.tools import (
     ToolRiskLevel,
     ToolSpec,
 )
-from kunyu.agent.tools.files_shared import (
+from kunyu.agent.tools.filesystem.files_shared import (
     filesystem_scope,
     tool_filesystem_error,
 )
-from kunyu.agent.tools.search_results import (
+from kunyu.agent.tools.filesystem.search_results import (
     MAX_MATCHES,
     MAX_PATHS,
     cap_metadata,

@@ -26,6 +26,7 @@ from kunyu.agent.plugins.image_offload import ImageOffloadPlugin
 from kunyu.agent.plugins.infrastructure import ModelPlugin, PersistencePlugin
 from kunyu.agent.plugins.loop import AgentLoopPlugin
 from kunyu.agent.plugins.memory import MemoryToolsPlugin
+from kunyu.agent.plugins.oge import OgePlugin
 from kunyu.agent.plugins.model_providers import (
     DeepSeekModelProviderPlugin,
     ModelProvidersPlugin,
@@ -105,6 +106,7 @@ async def create_agent_runtime(
         ToolsPlugin(),
         MemoryToolsPlugin(),
         AttachmentToolsPlugin(),
+        OgePlugin(),
         FilesystemToolsPlugin(),
         SearchPlugin(),
         TodoToolsPlugin(),

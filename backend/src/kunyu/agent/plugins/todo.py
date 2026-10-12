@@ -5,7 +5,7 @@ from functools import partial
 from kunyu.agent import services as s
 from kunyu.agent.scope import Context
 from kunyu.agent.tools.registry import ToolRegistration
-from kunyu.agent.tools.todo import TodoWriteTool
+from kunyu.agent.tools.workflow.todo import TodoWriteTool
 
 
 class TodoToolsPlugin:

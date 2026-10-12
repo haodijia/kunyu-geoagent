@@ -9,7 +9,7 @@ from kunyu.agent.skills.context import prepare_skill_context
 from kunyu.agent.skills.filesystem import FilesystemSkillProvider
 from kunyu.agent.skills.registry import SkillRegistry
 from kunyu.agent.tools.registry import ToolRegistration
-from kunyu.agent.tools.skills import SkillTool
+from kunyu.agent.tools.context.skills import SkillTool
 from kunyu.settings import get_app_data_directory
 
 

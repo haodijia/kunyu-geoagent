@@ -6,7 +6,7 @@ from kunyu.agent import services as s
 from kunyu.agent.scope import Context
 from kunyu.agent.subagents import SubagentManager
 from kunyu.agent.tools.registry import ToolRegistration
-from kunyu.agent.tools.subagents import SubagentTool
+from kunyu.agent.tools.workflow.subagents import SubagentTool
 from kunyu.persistence.subagents import SQLAlchemySubagentRepository
 
 

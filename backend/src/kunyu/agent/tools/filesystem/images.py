@@ -21,7 +21,7 @@ from kunyu.agent.runtime.tools import (
     ToolSpec,
 )
 from kunyu.agent.scope import AgentScopes
-from kunyu.agent.tools.files_shared import filesystem_scope, tool_filesystem_error
+from kunyu.agent.tools.filesystem.files_shared import filesystem_scope, tool_filesystem_error
 from kunyu.agent.tools.shared import (
     ToolArguments,
     load_source,

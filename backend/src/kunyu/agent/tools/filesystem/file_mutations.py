@@ -9,8 +9,8 @@ from kunyu.agent.prompt_files import tool_description
 from kunyu.agent.runtime.content import TextBlock
 from kunyu.agent.runtime.tools import ToolCall, ToolResult, ToolRiskLevel, ToolSpec
 from kunyu.agent.scope import AgentScopes
-from kunyu.agent.tools.file_diff import compute_hunk_diffs
-from kunyu.agent.tools.files_shared import (
+from kunyu.agent.tools.filesystem.file_diff import compute_hunk_diffs
+from kunyu.agent.tools.filesystem.files_shared import (
     filesystem_scope,
     tool_filesystem_error,
 )
