@@ -14,7 +14,7 @@ import { parseTodos } from "./todos";
 import { parseToolContent, toolContentImages, toolContentText } from "./tool-content";
 import { AttachmentStrip } from "@/features/attachments/AttachmentStrip";
 import { collectImageOffloads } from "@/features/attachments/image-offloads";
-import { ToolKindIcon, ToolStatusBadge, ToolTarget, ToolDetail } from "./ToolActivityParts";
+import { ToolKindIcon, ToolStatusBadge, ToolTarget, ToolDetail, ToolParameters } from "./ToolActivityParts";
 import { toolDuration, toolLabel, toolStatus, toolTarget } from "./tool-presentation";
 import styles from "./ToolActivity.module.css";
 import { SubagentCard } from "@/features/subagents/SubagentCard";
@@ -64,7 +64,11 @@ export function ToolCallRow({
         >
           {toolLabel(tool.name)}
         </span>
+        {target !== undefined && <span className={styles.separator} aria-hidden="true" />}
         <ToolTarget target={target} />
+        {duration !== null && <span className={styles.callDuration} title={`${content.duration} · ${formatDuration(duration)}`}>
+          {formatDuration(duration)}
+        </span>}
         {hasDetails ? (
           expanded ? (
             <Down size={12} aria-hidden="true" />
@@ -82,11 +86,6 @@ export function ToolCallRow({
       {denied && <p className={styles.callDenied} data-tool-denied={tool.id}>{content.denied}</p>}
       {expanded ? (
         <div className={styles.detailPanel}>
-          {Object.keys(tool.arguments).length > 0 ? (
-            <ToolDetail label={content.input}>
-              {formatDetail(tool.arguments)}
-            </ToolDetail>
-          ) : null}
           {tool.status === "completed" ? tool.name === "todo_write" ? (
             <div className="mb-2">
               <div className="mb-1 flex items-center justify-between text-[11px] text-secondary-foreground">
@@ -98,7 +97,7 @@ export function ToolCallRow({
           ) : tool.name === "read" ? (
             <ReadResult value={tool.result} text={toolContentText(resultContent)} />
           ) : tool.name === "read_image" ? (
-            <ImageReadResult value={tool.result} text={toolContentText(resultContent)} />
+            <ImageReadResult value={tool.result} text={toolContentText(resultContent)} images={images} sessionId={tool.session_id} offloadedIds={imageOffloads.get(tool.id)} />
           ) : tool.name === "glob" || tool.name === "grep" ? (
             <SearchResult value={tool.result} text={toolContentText(resultContent)} />
           ) : tool.name === "write" || tool.name === "edit" ? (
@@ -108,25 +107,19 @@ export function ToolCallRow({
               {formatToolResult(tool)}
             </ToolDetail>
           ) : null}
-          {images.length > 0 && <AttachmentStrip sessionId={tool.session_id} attachments={images} offloadedIds={imageOffloads.get(tool.id)} />}
+          {tool.name !== "read_image" && images.length > 0 && <AttachmentStrip sessionId={tool.session_id} attachments={images} offloadedIds={imageOffloads.get(tool.id)} />}
           {!denied && tool.error_summary !== null ? (
             <ToolDetail label={content.error} danger>
               {tool.error_summary}
             </ToolDetail>
           ) : null}
-          <div className="flex flex-wrap gap-x-4 gap-y-1 py-1 text-[11px] text-secondary-foreground">
-            {confirmation !== undefined ? (
-              <span>
-                {content.confirmation} ·{" "}
-                {content.confirmationStatus[confirmation.status]}
-              </span>
-            ) : null}
-            {duration !== null && (
-              <span>
-                {content.duration} · {formatDuration(duration)}
-              </span>
-            )}
-          </div>
+          {Object.keys(tool.arguments).length > 0 && <ToolParameters arguments={tool.arguments} />}
+          {confirmation !== undefined && <div className={styles.detailMetadata}>
+            <span>
+              {content.confirmation} ·{" "}
+              {content.confirmationStatus[confirmation.status]}
+            </span>
+          </div>}
         </div>
       ) : null}
     </div>
@@ -137,10 +130,6 @@ function formatDuration(milliseconds: number): string {
   return milliseconds < 1_000
     ? `${milliseconds} ms`
     : `${(milliseconds / 1_000).toFixed(2)} s`;
-}
-
-function formatDetail(value: unknown): string {
-  return typeof value === "string" ? value : JSON.stringify(value, null, 2);
 }
 
 function formatToolResult(tool: ToolCall): string {

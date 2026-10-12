@@ -388,15 +388,16 @@ function ToolResultPresentation({ record }: { readonly record: TrajectoryRecord 
     return <SearchResult value={output.result} text={toolContentText(parseToolContent(output.content))} />;
   }
   const blocks = parseToolContent(output.content);
-  const imageResult = record.source.tool_name === "read_image" ? (() => {
-    if (!("result" in output)) throw new Error("Image read result has no presentation metadata.");
-    return <ImageReadResult value={output.result} text={toolContentText(blocks)} />;
-  })() : null;
   const images = toolContentImages(blocks);
-  if (images.length === 0) return imageResult;
   const id = record.source.tool_call_id;
+  if (record.source.tool_name === "read_image") {
+    if (!("result" in output)) throw new Error("Image read result has no presentation metadata.");
+    if (typeof id !== "string") throw new Error("Tool image result has no source identity.");
+    return <ImageReadResult value={output.result} text={toolContentText(blocks)} images={images} sessionId={session.id} offloadedIds={offloads.get(id)} />;
+  }
+  if (images.length === 0) return null;
   if (typeof id !== "string") throw new Error("Tool image result has no source identity.");
-  return <>{imageResult}<AttachmentStrip sessionId={session.id} attachments={images} offloadedIds={offloads.get(id)} /></>;
+  return <AttachmentStrip sessionId={session.id} attachments={images} offloadedIds={offloads.get(id)} />;
 }
 function Preview({ record }: { record: TrajectoryRecord }) {
   const text =

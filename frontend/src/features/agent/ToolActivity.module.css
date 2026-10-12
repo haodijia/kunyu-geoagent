@@ -15,15 +15,17 @@
   width: 100%;
   min-width: 0;
   height: auto;
-  gap: 8px;
-  padding: 4px 8px;
-  border-radius: 8px;
-  color: var(--text-primary);
+  gap: 6px;
+  min-height: 28px;
+  padding: 2px 6px;
+  border-radius: 6px;
+  color: var(--text-secondary);
   font-size: 13px;
+  line-height: 24px;
   text-align: start;
   cursor: pointer;
 }
-.callButton:hover, .activityHeader:hover { background: var(--bg-active); }
+.callButton:hover, .activityHeader:hover { background: var(--color-fill-1); color: var(--text-primary); }
 .callButton:disabled { cursor: default; }
 .callButton:disabled:hover { background: transparent; }
 .callButton:focus-visible, .activityHeader:focus-visible {
@@ -35,7 +37,9 @@
   color: var(--text-secondary);
 }
 .kindIcon { display: inline-flex; flex-shrink: 0; align-items: center; color: var(--text-secondary); opacity: 0.7; }
-.callName { flex: 0 1 auto; max-width: 35%; overflow: hidden; text-overflow: ellipsis; font-weight: 500; white-space: nowrap; }
+.callName { flex: 0 1 auto; max-width: 35%; overflow: hidden; text-overflow: ellipsis; font-weight: 400; white-space: nowrap; }
+.separator { flex: none; width: 2px; height: 2px; margin-inline: 2px; border-radius: 50%; background: var(--color-text-3); }
+.callDuration { flex: none; margin-inline-start: auto; color: var(--color-text-3); font-size: 11px; line-height: 20px; font-variant-numeric: tabular-nums; white-space: nowrap; }
 .callPreview {
   min-width: 0;
   flex: 1;
@@ -58,7 +62,23 @@
 .activityErrorLine, .activityDeniedLine { min-width: 0; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .activityErrorLine { color: var(--danger); font: 12px/1.6 var(--font-mono); }
 .activityDeniedLine { color: var(--text-secondary); font-size: 12px; line-height: 1.6; }
-.detailPanel { margin: 2px 0 6px 16px; padding: 6px 0 2px 12px; border-inline-start: 2px solid var(--border-base); }
+.detailPanel { display: flex; flex-direction: column; gap: 6px; margin: 4px 6px 8px 26px; min-width: 0; font-size: 13px; line-height: 20px; }
+.resultCard { min-width: 0; overflow: hidden; border: 1px solid var(--border-base); border-radius: 10px; background: var(--color-fill-1); }
+.resultHeader { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-height: 32px; padding: 2px 10px 2px 12px; border-bottom: 1px solid var(--border-base); color: var(--text-secondary); font-size: 12px; line-height: 20px; }
+.resultLabel { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.resultList { max-height: 320px; overflow: auto; font: 12px/20px var(--font-mono); }
+.resultPath { display: flex; align-items: start; gap: 8px; min-width: 0; padding: 6px 12px; }
+.resultPath + .resultPath { border-top: 1px solid var(--border-base); }
+.resultPath > span { min-width: 0; overflow-wrap: anywhere; }
+.resultEmpty { margin: 0; padding: 8px 12px; color: var(--text-secondary); font-size: 12px; }
+.parameters { min-width: 0; color: var(--color-text-3); font-size: 11px; }
+.parameters > summary { display: flex; width: fit-content; align-items: center; gap: 4px; padding: 2px 0; cursor: pointer; list-style: none; }
+.parameters > summary::-webkit-details-marker { display: none; }
+.parameters > summary:hover { color: var(--text-primary); }
+.parameters > summary:focus-visible { outline: 2px solid var(--mu-accent-border); outline-offset: 2px; border-radius: 4px; }
+.parameters[open] > summary > svg { transform: rotate(90deg); }
+.parameters > .resultCard { margin-top: 4px; }
+.detailMetadata { color: var(--color-text-3); font-size: 11px; }
 .statusDot { display: inline-block; width: 6px; height: 6px; flex-shrink: 0; border-radius: 50%; background: var(--text-disabled); }
 .statusDot[data-tool-status="running"] { background: var(--mu-tool-processing); animation: tool-breathing 1.5s ease-in-out infinite; }
 .statusDot[data-tool-status="completed"] { background: var(--success); }

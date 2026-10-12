@@ -1,14 +1,27 @@
-import { CopyButton } from "@/features/messages/CopyButton";
+import { ToolResultPanel } from "./ToolActivityParts";
+import { AttachmentStrip } from "@/features/attachments/AttachmentStrip";
+import type { Attachment } from "@/features/attachments/api";
 import { zhCN } from "@/locales/zh-CN";
 
-export function ImageReadResult({ value, text }: { readonly value: unknown; readonly text: string }) {
+export function ImageReadResult({ value, text, images, sessionId, offloadedIds }: {
+  readonly value: unknown;
+  readonly text: string;
+  readonly images: readonly Extract<Attachment, { readonly kind: "image" }>[];
+  readonly sessionId: string;
+  readonly offloadedIds?: ReadonlySet<string>;
+}) {
   if (typeof value !== "object" || value === null || !("path" in value) || typeof value.path !== "string" || !value.path) throw new Error("Invalid image read result.");
+  if (images.length === 0) throw new Error("Image read result has no image receipt.");
   const path = value.path;
-  return <div className="mb-2 min-w-0" data-read-image-path={path}>
-    <div className="mb-1 flex items-center justify-between gap-2 text-[11px] text-secondary-foreground">
-      <span className="min-w-0 truncate [overflow-wrap:anywhere]">{zhCN.conversation.tools.output} · {path}</span>
-      <CopyButton text={text} />
-    </div>
-    <pre className="m-0 max-h-80 overflow-auto rounded-md bg-muted p-2.5 font-mono text-xs leading-relaxed text-secondary-foreground whitespace-pre-wrap [overflow-wrap:anywhere]">{text}</pre>
+  return <div className="min-w-0" data-read-image-path={path}>
+    <ToolResultPanel label={path} copyText={text}>
+      <div className="px-3 py-2">
+        <AttachmentStrip sessionId={sessionId} attachments={images} offloadedIds={offloadedIds} />
+        {images.map(image => <div key={image.id} className="text-xs leading-5 text-secondary-foreground">
+          {zhCN.conversation.tools.imageMetadata(image.width, image.height, image.media_type.slice(6).toUpperCase(), image.bytes)}
+          {(image.width !== image.original_width || image.height !== image.original_height) && <span className="ml-2 text-muted-foreground">{zhCN.conversation.tools.imageOriginal(image.original_width, image.original_height)}</span>}
+        </div>)}
+      </div>
+    </ToolResultPanel>
   </div>;
 }
