@@ -28,7 +28,7 @@
 /* The generous hover target, and the scroll host for long conversations. Ticks
    live inside so they inherit the pointer events, but the viewport itself is what
    the pointer tracks. `top`/`height` are set inline: the viewport takes whatever
-   the search button leaves behind, so a long conversation scrolls here rather
+   the chat area leaves available, so a long conversation scrolls here rather
    than compressing its ticks into an unreadable bar. */
 .viewport {
   position: absolute;
@@ -53,51 +53,6 @@
 .viewportScrollable::-webkit-scrollbar {
   width: 0;
   height: 0;
-}
-
-/* Search entry: a real button, stacked above the tick hover zone so it wins the
-   pointer and hovering it never magnet-selects a tick. Sits at the head of the
-   stack and stays deliberately small and muted like the ticks, resolving only on
-   hover — it should read as the first anchor, not as a toolbar bolted on top. */
-.searchButton {
-  position: absolute;
-  /* `top` is set inline: the button travels with the tick stack so the two read
-     as one group, rather than being stranded at the rail's top edge. */
-  /* Centres the glyph on the tick column's axis. Ticks span 2px–8px, so their
-     centre is x=5; the glyph is 11px inside a 16px box, so the box starts at
-     5 - 16/2 = -3. Anything less pushes the magnifier right of the column and it
-     visibly juts out of the stack. */
-  inset-inline-start: -3px;
-  width: 16px;
-  height: 16px;
-  padding: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border: 1px solid transparent;
-  border-radius: 999px;
-  background: transparent;
-  color: color-mix(in srgb, var(--color-text-3) 88%, transparent);
-  cursor: pointer;
-  pointer-events: auto;
-  /* Above .viewport so the button owns its band and wins the pointer. */
-  z-index: 1;
-  transition:
-    color 120ms ease,
-    background-color 120ms ease,
-    border-color 120ms ease;
-}
-
-.searchButton:hover,
-.searchButton:focus-visible {
-  color: var(--mu-primary-fill);
-  background: var(--color-fill-2);
-  border-color: color-mix(in srgb, var(--color-border-2) 72%, transparent);
-  outline: none;
-}
-
-.searchIcon {
-  font-size: 11px;
 }
 
 /* The stack itself. Static (not absolute) so it establishes the viewport's scroll

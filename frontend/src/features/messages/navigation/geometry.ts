@@ -18,17 +18,8 @@ export const TICK_HEIGHT = 2;
  */
 export const TICK_GAP = 10;
 
-/**
- * Vertical space the search button occupies at the head of the stack.
- *
- * The band is carved out of the rail rather than overlaid on it, so the button
- * never sits on top of a tick and hovering it cannot magnet-select one.
- *
- * Sized to fit the 16px button *plus* the "more above" hint that appears between
- * it and the ticks once the rail scrolls. At 26px the hint collided with the
- * button by 4px; the band now reserves room for both so the two never overlap.
- */
-export const SEARCH_BUTTON_BAND = 38;
+/** Room for the continuation hints above and below a scrolling tick stack. */
+const RAIL_EDGE_PADDING = 16;
 
 /**
  * Most ticks the rail will ever show at once.
@@ -61,13 +52,13 @@ export const tickCenterOffset = (index: number): number => index * TICK_STRIDE +
 /**
  * Height the rail's scroll viewport gets.
  *
- * Bounded twice over: it never exceeds what the search button leaves behind (so
+ * Bounded twice over: it leaves room for the continuation hints (so
  * it cannot overflow a short rail), and never exceeds `MAX_VIEWPORT_HEIGHT` (so a
  * tall window does not turn the strip into a wall of ticks). Whichever limit is
  * tighter wins, and a short conversation shrinks below both.
  */
 export const resolveViewportHeight = (railHeight: number, count = MAX_VISIBLE_TICKS): number => {
-  const available = Math.max(0, railHeight - SEARCH_BUTTON_BAND);
+  const available = Math.max(0, railHeight - RAIL_EDGE_PADDING * 2);
   return Math.min(available, MAX_VIEWPORT_HEIGHT, Math.max(0, tickStackHeight(count)));
 };
 
@@ -81,23 +72,9 @@ export const resolveViewportHeight = (railHeight: number, count = MAX_VISIBLE_TI
 export const needsScroll = (railHeight: number, count: number): boolean =>
   tickStackHeight(count) > resolveViewportHeight(railHeight, count);
 
-/**
- * Top offset of the search button.
- *
- * The button leads the strip and the pair is always centred in the rail: because
- * the viewport is capped, the group stays compact even for a long conversation,
- * so there is no case where centring would strand the button far from its ticks.
- */
-export const resolveSearchButtonTop = (railHeight: number, count: number): number => {
-  const group = SEARCH_BUTTON_BAND + resolveViewportHeight(railHeight, count);
-  return Math.max(0, (railHeight - group) / 2);
-};
-
-/**
- * Top offset of the tick viewport: directly under the search button.
- */
+/** Centre the tick viewport in the chat area. */
 export const resolveStackTop = (railHeight: number, count: number): number =>
-  resolveSearchButtonTop(railHeight, count) + SEARCH_BUTTON_BAND;
+  Math.max(0, (railHeight - resolveViewportHeight(railHeight, count)) / 2);
 
 /**
  * Map a pointer offset (relative to the top of the tick *stack*, i.e. already

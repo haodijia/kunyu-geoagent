@@ -42,8 +42,8 @@ export function ConversationSearch() {
     navigation.jump(results[index]!.messageId);
   }
   return <Popover open={navigation.searchOpen} onOpenChange={navigation.setSearchOpen}>
-    <PopoverTrigger asChild><Button type="button" variant="ghost" size="icon" className="size-6 shrink-0 rounded-full border border-transparent text-t-secondary hover:border-border hover:bg-fill-3" aria-label={content.search} title={content.search} data-conversation-search><Search className="size-[15px]"/></Button></PopoverTrigger>
-    <PopoverContent className={cn(styles.panel, "p-0")} side="bottom" align="center" sideOffset={8} aria-label={content.search}
+    <PopoverTrigger asChild><Button type="button" variant="ghost" size="icon" className="size-7 shrink-0 rounded-md text-t-secondary hover:bg-fill-3" aria-label={content.search} title={content.search} data-conversation-search><Search className="size-[18px]"/></Button></PopoverTrigger>
+    <PopoverContent className={cn(styles.panel, "p-0")} side="bottom" align="start" sideOffset={10} collisionPadding={16} aria-label={content.search}
       onOpenAutoFocus={(event) => { event.preventDefault(); inputRef.current?.focus(); }}
       onCloseAutoFocus={(event) => { if (jumping.current) { event.preventDefault(); jumping.current = false; } }}>
       <div className={styles.header}>

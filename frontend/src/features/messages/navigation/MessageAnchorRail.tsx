@@ -1,11 +1,10 @@
 /** Hover geometry and rail interaction adapted from Mu (Apache-2.0). */
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
-import { Search } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { zhCN } from "@/locales/zh-CN";
 import { useMessageNavigation } from "./MessageNavigationContext";
 import { truncate } from "./model";
-import { needsScroll, resolveScrollTopForIndex, resolveSearchButtonTop, resolveStackTop, resolveTickIndexAtOffset, resolveViewportHeight, TICK_GAP, tickCenterOffset, tickStackHeight } from "./geometry";
+import { needsScroll, resolveScrollTopForIndex, resolveStackTop, resolveTickIndexAtOffset, resolveViewportHeight, TICK_GAP, tickCenterOffset, tickStackHeight } from "./geometry";
 import styles from "./MessageAnchorRail.module.css";
 
 const content = zhCN.conversation.navigation;
@@ -14,7 +13,7 @@ function tone(distance: number): string | undefined {
 }
 
 export function MessageAnchorRail() {
-  const { anchors, jump, setSearchOpen } = useMessageNavigation();
+  const { anchors, jump } = useMessageNavigation();
   const [railNode, setRailNode] = useState<HTMLElement | null>(null);
   const [railHeight, setRailHeight] = useState(0), [cardHeight, setCardHeight] = useState(0);
   const [activeIndex, setActiveIndex] = useState<number | null>(null), [scrollTop, setScrollTop] = useState(0);
@@ -69,7 +68,6 @@ export function MessageAnchorRail() {
     </div>
     {scrollable && scrollTop > 1 && <div className={cn(styles.scrollHint, styles.scrollHintUp)} style={{ top: stackTop - 7 }} aria-hidden="true"><span className={styles.scrollHintDot}/><span className={styles.scrollHintDot}/><span className={styles.scrollHintDot}/></div>}
     {scrollable && scrollTop + viewportHeight < stackHeight - 1 && <div className={cn(styles.scrollHint, styles.scrollHintDown)} style={{ top: stackTop + viewportHeight + 7 }} aria-hidden="true"><span className={styles.scrollHintDot}/><span className={styles.scrollHintDot}/><span className={styles.scrollHintDot}/></div>}
-    <button type="button" className={styles.searchButton} style={{ top: resolveSearchButtonTop(railHeight, anchors.length) }} aria-label={content.search} title={content.search} onClick={() => setSearchOpen(true)} data-anchor-search><Search className="size-[11px]" /></button>
     {active !== undefined && <button type="button" ref={cardRef} className={styles.card} style={{ top: cardTop }} onClick={() => jump(active.messageId)} onPointerEnter={keepPreview} onPointerLeave={closePreview} data-anchor-preview>
       <span className={cn(styles.cardQuestion, "text-start text-[13px] font-medium leading-[18px] text-t-primary")}>{truncate(active.question)}</span>
       {active.answer !== "" && <span className={cn(styles.cardAnswer, "text-start text-xs leading-[18px] text-t-secondary")}>{truncate(active.answer)}</span>}

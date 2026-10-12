@@ -32,8 +32,8 @@ export function SessionTitlebar() {
   return (
     <>
       {createPortal(
-        <div className="flex min-w-0 items-center gap-2 text-sm font-medium text-foreground">
-          <MessageCircle className="size-4 shrink-0" strokeWidth={1.8} />
+        <div className="pointer-events-auto flex min-w-0 items-center gap-2 text-base font-semibold text-foreground [-webkit-app-region:no-drag]">
+          <MessageCircle className="size-[18px] shrink-0" strokeWidth={1.8} />
           <span className="truncate">{session.title}</span>
           <ConversationSearch />
           <ConversationSkillsIndicator />
