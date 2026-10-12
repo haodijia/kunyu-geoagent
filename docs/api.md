@@ -412,3 +412,64 @@ Content-Disposition: inline; filename=3537347.png
 ```
 
 响应体为 PNG 图片二进制；实测可正常解码为 `262 × 249` 像素的 RGBA 图片。
+
+## 5. 行政区树
+
+### 怎么请求
+
+- 方法：`GET`
+- 地址：`http://openge.org.cn/api/data-product/administrative-region/tree`
+- 鉴权：实测无需 Token
+
+### 输入是什么
+
+无需 Query 参数或请求体。接口返回完整行政区树，地名匹配由调用方在树中完成。
+
+### 输出是什么
+
+返回 JSON，成功时 HTTP `200`、`code=20000`，响应 `Content-Type` 为 `application/json`。
+
+| 字段 | 类型 | 说明 |
+| --- | --- | --- |
+| code | integer | `20000` 表示查询成功 |
+| msg | string | 本次实测为 `获取所有地区数据(树形结构)` |
+| data | array | 行政区根节点数组，实测根节点为“全球” |
+| 节点.id | string / null | 平台记录 ID，根节点为空；影像检索使用 `code` |
+| 节点.code | string | 行政区代码，保持字符串类型，如榕江县 `522632` |
+| 节点.parentCode | string / null | 父级行政区代码，根节点为空 |
+| 节点.name | string | 中文名称，如 `榕江县` |
+| 节点.nameEn | string | 英文名称，如 `Rongjiang County` |
+| 节点.level | integer | `0` 全球、`1` 全国、`2` 省级、`3` 地级、`4` 县级 |
+| 节点.childrenNum | integer / null | 平台返回的子节点数量字段，可能为空 |
+| 节点.children | array | 下级行政区节点，无下级时为空数组；各级节点结构相同 |
+
+Agent 工具内部递归遍历 `data` 和各级 `children`，按 `name` 及上级行政区匹配地名，返回匹配节点的 `code`、`level` 和完整行政区路径。重名时返回候选供确认，完整树可以缓存。
+
+### 一个例子
+
+获取行政区树，从中定位“贵州省 → 黔东南苗族侗族自治州 → 榕江县”。
+
+请求：
+
+```bash
+curl --get 'http://openge.org.cn/api/data-product/administrative-region/tree'
+```
+
+响应（2026-10-12 实测）：外层 `code=20000`、`msg="获取所有地区数据(树形结构)"`，`data` 为完整行政区树。下面摘录树中的榕江县节点，节点字段完整：
+
+```json
+{
+  "id": "594",
+  "code": "522632",
+  "parentCode": "522600",
+  "name": "榕江县",
+  "nameEn": "Rongjiang County",
+  "level": 4,
+  "childrenNum": null,
+  "children": []
+}
+```
+
+该节点的完整路径为“全球 → 全国 → 贵州省 → 黔东南苗族侗族自治州 → 榕江县”。
+
+取得 `code=522632`、`level=4` 后，第 2 个影像检索接口传 `type=0`、`code=522632`、`level=4`，再传时间范围和分页参数，即可按榕江县行政区域检索，无需转经纬度。
