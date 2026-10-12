@@ -4,6 +4,7 @@ import type { ReplyQuote } from "@/features/messages/reply-quote";
 
 import {
   createMapContext,
+  type MapCamera,
   type MapContext,
   type MapViewport
 } from "@/features/sessions/map-context";
@@ -43,10 +44,10 @@ interface AppUiState {
   readonly setAnalysisMode: (sessionId: string, mode: AnalysisMode) => void;
   readonly setComposerDraft: (sessionId: string, draft: string) => void;
   readonly restoreComposerDraft: (sessionId: string, draft: string, map: MapContext, model: SessionModelSelection, attachments: readonly Attachment[]) => void;
-  readonly setMapViewport: (
+  readonly setMapView: (
     sessionId: string,
-    workspaceId: string,
-    viewport: MapViewport
+    viewport: MapViewport,
+    camera: MapCamera
   ) => void;
   readonly setModelSelection: (
     sessionId: string,
@@ -121,15 +122,19 @@ export const useAppUiStore = create<AppUiState>((set) => ({
       modelSelectionBySession: { ...state.modelSelectionBySession, [sessionId]: model },
     };
   }),
-  setMapViewport: (sessionId, workspaceId, viewport) =>
+  setMapView: (sessionId, viewport, camera) =>
     set((state) => {
-      const current = state.mapContextBySession[sessionId] ?? createMapContext(workspaceId);
+      const current = state.mapContextBySession[sessionId];
+      if (current === undefined) {
+        throw new Error("Map context must be initialized before updating its view.");
+      }
       return {
         mapContextBySession: {
           ...state.mapContextBySession,
           [sessionId]: {
             ...current,
-            viewport
+            viewport,
+            camera
           }
         }
       };

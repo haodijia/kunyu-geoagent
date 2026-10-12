@@ -16,6 +16,16 @@ export default defineConfig({
     }
   },
   plugins: [react(), tailwindcss()],
+  worker: {
+    format: "es",
+    rollupOptions: {
+      output: {
+        entryFileNames: "assets/[name].js",
+        chunkFileNames: "assets/[name].js",
+        assetFileNames: "assets/[name][extname]"
+      }
+    }
+  },
   optimizeDeps: {
     include: ["@radix-ui/react-tooltip"]
   },

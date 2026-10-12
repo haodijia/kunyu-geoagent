@@ -1,0 +1,35 @@
+.kunyu-map > .maplibregl-map {
+  position: absolute;
+  inset: 0;
+}
+
+.kunyu-map .maplibregl-canvas:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: -2px;
+}
+
+.kunyu-map .maplibregl-ctrl-bottom-left,
+.kunyu-map .maplibregl-ctrl-bottom-right {
+  bottom: var(--map-overlay-height);
+}
+
+.kunyu-map .maplibregl-ctrl-attrib,
+.kunyu-map .maplibregl-ctrl-scale {
+  border-color: var(--border);
+  background: var(--background);
+  color: var(--secondary-foreground);
+  font-family: inherit;
+  font-size: 10px;
+}
+
+.kunyu-map .maplibregl-ctrl-attrib a {
+  color: var(--secondary-foreground);
+}
+
+.kunyu-map .maplibregl-ctrl-attrib-button {
+  background-color: var(--background);
+}
+
+:root[data-theme="dark"] .kunyu-map .maplibregl-ctrl-attrib-button {
+  filter: invert(1);
+}

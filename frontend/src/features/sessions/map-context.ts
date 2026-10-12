@@ -6,12 +6,33 @@ export interface MapViewport {
   readonly zoom: number;
 }
 
+export type MapDimension = "2d" | "3d";
+
+export interface MapCamera {
+  readonly dimension: MapDimension;
+  readonly bearing: number;
+  readonly pitch: number;
+}
+
+export const INITIAL_MAP_VIEWPORT: MapViewport = {
+  latitude: 25.932,
+  longitude: 108.521,
+  zoom: 11
+};
+
+export const INITIAL_MAP_CAMERA: MapCamera = {
+  dimension: "2d",
+  bearing: 0,
+  pitch: 0
+};
+
 export interface SelectedMapFeature {
   readonly featureId: string;
   readonly layerId: string;
 }
 
 export interface MapContext {
+  readonly camera: MapCamera;
   readonly activeObservationId: string | null;
   readonly activeResultLayerId: string | null;
   readonly comparisonObservationIds: readonly string[];
@@ -25,17 +46,14 @@ export interface MapContext {
 
 export function createMapContext(workspaceId: string): MapContext {
   return {
+    camera: INITIAL_MAP_CAMERA,
     activeObservationId: null,
     activeResultLayerId: null,
     comparisonObservationIds: [],
     eventId: null,
     selectedAoiId: null,
     selectedFeature: null,
-    viewport: {
-      latitude: 0,
-      longitude: 0,
-      zoom: 2
-    },
+    viewport: INITIAL_MAP_VIEWPORT,
     visibleLayerIds: [],
     workspaceId
   };
@@ -43,6 +61,7 @@ export function createMapContext(workspaceId: string): MapContext {
 
 export function mapContextFromSnapshot(snapshot: TurnMapContext): MapContext {
   return {
+    camera: INITIAL_MAP_CAMERA,
     activeObservationId: snapshot.active_observation_id,
     activeResultLayerId: snapshot.active_result_layer_id,
     comparisonObservationIds: snapshot.comparison_observation_ids,
