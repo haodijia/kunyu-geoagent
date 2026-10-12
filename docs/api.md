@@ -518,7 +518,7 @@ curl --get 'http://openge.org.cn/api/data-product/administrative-region/tree'
 
 矢量上传页只列出 GeoJSON，Shapefile 建议先转换为 GeoJSON。上述格式为当前前端的允许列表，服务端上传结果以实际响应为准。
 
-Agent 工具可接收 `file_path`、`asset_name`、`data_type`，由工具内部读取文件、管理登录 Token 并构造表单；其他数据还需填写对应类别和扩展名。平台前端上传前会检查同名文件并提示覆盖，工具也应先确认是否重名。
+Agent 工具可接收 `file_path`、`asset_name`、`data_type`，由工具内部读取文件、管理登录 Token 并构造表单；其他数据还需填写对应类别和扩展名。上传前可用第 9 个查重接口检查同名文件；查重的 `assetName` 传带后缀的完整文件名，上传的 `assetName` 则不带后缀。
 
 ### 输出是什么
 
@@ -554,5 +554,293 @@ curl --request POST 'http://openge.org.cn/api/asset/myData/upload' \
   "code": 20000,
   "msg": "成功",
   "data": true
+}
+```
+
+## 7. 我的数据列表
+
+### 怎么请求
+
+- 方法：`POST`
+- 地址：`http://openge.org.cn/api/asset/myData/list`
+- Content-Type：`application/json`
+- 鉴权：`Authorization: Bearer 登录返回的token`
+
+### 输入是什么
+
+| 参数 | 位置 | 类型 | 必填 | 值 / 说明 |
+| --- | --- | --- | --- | --- |
+| pageNumber | JSON body | integer | 否 | 页码，从 `1` 开始，实测默认 `1`；参数名不是 pageNum |
+| pageSize | JSON body | integer | 否 | 每页条数，实测默认 `10` |
+| keywords | JSON body | string | 否 | 数据名称关键词 |
+| dataType | JSON body | string | 否 | `grid` 栅格、`vector` 矢量、`other` 其他数据；不传则查询全部类型 |
+
+当前平台前端查询其他数据时还会传 `fileType`、`dataFormat`，值为第 6 个接口的类别值；本轮未验证这两个字段的筛选效果。
+
+### 输出是什么
+
+返回 JSON，成功时 HTTP `200`、`code=20000`。本次账号共有 6 条栅格数据，按示例名称筛选后为 1 条。
+
+| 字段 | 类型 | 说明 |
+| --- | --- | --- |
+| code | integer | `20000` 查询成功；无登录 Token 时实测为 `40003` |
+| msg | string | 成功时为 `操作成功`，无 Token 时为 `无效token` |
+| data.pages | integer | 总页数 |
+| data.currentPage | integer | 当前页码 |
+| data.total | integer | 符合条件的记录总数 |
+| data.pageSize | integer | 每页条数 |
+| data.records | array | 当前页用户数据记录 |
+| records[].assetId | integer | 平台数据记录 ID |
+| records[].assetUuid | string | 用户资产 UUID，用于详情、下载和后续算子引用 |
+| records[].assetType | string | 资产类型，本例为 `myData` |
+| records[].assetName | string | 数据名称，不带后缀 |
+| records[].assetExt | string | 扩展名，不带点；完整文件名为 assetName + 点 + assetExt |
+| records[].assetSize | integer | 文件字节数 |
+| records[].dataType | string | 数据类型，本例为 `grid` |
+| records[].fileType | string / null | 其他数据的类别，本例为空 |
+| records[].phenomenonTime | string / null | 采集日期 |
+| records[].belongingArea | string / null | 所属区域 |
+| records[].productLevel | string / null | 产品等级 |
+| records[].productResolution | number / null | 产品分辨率，本例为 `10.0` 米 |
+| records[].assetStatus | string | 平台返回的状态，本例为 `UNPROCESSED` |
+| records[].filePath | string | 平台内部文件路径 |
+| records[].createTime / uploadTime | string / null | 创建、上传时间 |
+| records[].bandStats | object / null | 栅格预览和空间信息，字段见第 8 个接口 |
+
+无登录 Token 时，本轮实际响应为 `{"code":40003,"msg":"无效token"}`，未包含 `data` 字段。
+
+### 一个例子
+
+查询名为 `guigang_20260712_optical10m` 的栅格数据，每页取 1 条。`TOKEN` 为第 1 个接口返回的有效访问令牌。
+
+请求：
+
+```bash
+curl --request POST 'http://openge.org.cn/api/asset/myData/list' \
+  --header "Authorization: Bearer ${TOKEN}" \
+  --header 'Content-Type: application/json' \
+  --data '{"pageNumber":1,"pageSize":1,"keywords":"guigang_20260712_optical10m","dataType":"grid"}'
+```
+
+响应（2026-10-12 实测，完整响应）：
+
+```json
+{
+  "code": 20000,
+  "msg": "操作成功",
+  "data": {
+    "pages": 1,
+    "currentPage": 1,
+    "total": 1,
+    "pageSize": 1,
+    "records": [
+      {
+        "assetId": 72027,
+        "assetUuid": "58d769a5-61fc-4759-b101-18bf26edf403",
+        "assetType": "myData",
+        "assetName": "guigang_20260712_optical10m",
+        "assetExt": "tif",
+        "description": null,
+        "assetSize": 555495038,
+        "dataType": "grid",
+        "fileType": null,
+        "phenomenonTime": "2026-07-12",
+        "belongingArea": "贵港市",
+        "productLevel": "L2A",
+        "productResolution": 10.0,
+        "assetStatus": "UNPROCESSED",
+        "createTime": "2026-10-12 17:09:48.202032",
+        "filePath": "oge-user/9b02baa0-0201-49bc-943e-2f8db5656099/myData/guigang_20260712_optical10m.tif",
+        "content": null,
+        "bandStats": {
+          "id": 2109572229828653056,
+          "name": "guigang_20260712_optical10m.tif",
+          "imageId": "72027",
+          "imageType": 3,
+          "cogPath": "oge-user/9b02baa0-0201-49bc-943e-2f8db5656099/myData/guigang_20260712_optical10m_cog.tif",
+          "width": 10980,
+          "height": 10980,
+          "crs": "EPSG:32649",
+          "upperLeftLong": 300000.0,
+          "upperLeftLat": 2600040.0,
+          "lowerRightLong": 409800.0,
+          "lowerRightLat": 2490240.0,
+          "wgs84UpperLeftX": 109.04142756505485,
+          "wgs84UpperLeftY": 23.498241253368384,
+          "wgs84LowerRightX": 110.12295965758297,
+          "wgs84LowerRightY": 22.51629709051051
+        },
+        "complete": null,
+        "uploadTime": "2026-10-12 17:09:48.197181"
+      }
+    ]
+  }
+}
+```
+
+## 8. 用户数据详情
+
+### 怎么请求
+
+- 方法：`GET`
+- 地址：`http://openge.org.cn/api/asset/myData/detail`
+- 鉴权：`Authorization: Bearer 登录返回的token`
+
+### 输入是什么
+
+| 参数 | 位置 | 类型 | 必填 | 说明 |
+| --- | --- | --- | --- | --- |
+| assetUuid | Query | string | 是 | 第 7 个接口返回的 `data.records[].assetUuid` |
+
+### 输出是什么
+
+返回 JSON，成功时 HTTP `200`、`code=20000`、`msg="操作成功"`。`data` 为单条用户数据详情，基础字段与第 7 个接口的记录相同。
+
+栅格详情中的 `data.bandStats` 实测字段：
+
+| 字段 | 类型 | 说明 |
+| --- | --- | --- |
+| id | integer | 平台栅格统计记录 ID |
+| name | string | 带后缀的完整文件名 |
+| imageId | string | 栅格预览使用的 key，本例为 `72027` |
+| imageType | integer | 栅格预览使用的 type，本例为 `3` |
+| cogPath | string | 平台内部 COG 文件路径 |
+| width / height | integer | 栅格宽、高，单位为像素 |
+| crs | string | 栅格坐标系，本例为 `EPSG:32649` |
+| upperLeftLong / upperLeftLat | number | 原始坐标系下的左上角坐标；本例为投影坐标，单位米 |
+| lowerRightLong / lowerRightLat | number | 原始坐标系下的右下角坐标；本例为投影坐标，单位米 |
+| wgs84UpperLeftX / wgs84UpperLeftY | number | WGS84 左上角经度、纬度 |
+| wgs84LowerRightX / wgs84LowerRightY | number | WGS84 右下角经度、纬度 |
+
+地图定位使用 WGS84 字段。`bandStats` 描述的是栅格数据；本轮只验证了栅格详情，矢量及其他数据的详情结构尚待验证。
+
+| 场景 | HTTP 状态 | code | msg | data |
+| --- | --- | --- | --- | --- |
+| 未传 assetUuid | `200` | `50000` | `服务器内部错误: Required String parameter 'assetUuid' is not present` | `null` |
+| assetUuid 为全零 UUID，无对应记录 | `200` | `50000` | `数据库服务访问异常` | `null` |
+| 无登录 Token | `200` | `40003` | `无效token` | 字段未返回 |
+
+### 一个例子
+
+使用第 7 个接口返回的 UUID 查询详情。`TOKEN` 为有效登录访问令牌。
+
+请求：
+
+```bash
+curl --get 'http://openge.org.cn/api/asset/myData/detail' \
+  --header "Authorization: Bearer ${TOKEN}" \
+  --data-urlencode 'assetUuid=58d769a5-61fc-4759-b101-18bf26edf403'
+```
+
+响应（2026-10-12 实测，完整响应）：
+
+```json
+{
+  "code": 20000,
+  "msg": "操作成功",
+  "data": {
+    "assetId": 72027,
+    "assetUuid": "58d769a5-61fc-4759-b101-18bf26edf403",
+    "assetType": "myData",
+    "assetName": "guigang_20260712_optical10m",
+    "assetExt": "tif",
+    "description": null,
+    "assetSize": 555495038,
+    "dataType": "grid",
+    "fileType": null,
+    "phenomenonTime": "2026-07-12",
+    "belongingArea": "贵港市",
+    "productLevel": "L2A",
+    "productResolution": 10.0,
+    "assetStatus": "UNPROCESSED",
+    "createTime": "2026-10-12 17:09:48.197181",
+    "filePath": "oge-user/9b02baa0-0201-49bc-943e-2f8db5656099/myData/guigang_20260712_optical10m.tif",
+    "content": null,
+    "bandStats": {
+      "id": 2109572229828653056,
+      "name": "guigang_20260712_optical10m.tif",
+      "imageId": "72027",
+      "imageType": 3,
+      "cogPath": "oge-user/9b02baa0-0201-49bc-943e-2f8db5656099/myData/guigang_20260712_optical10m_cog.tif",
+      "width": 10980,
+      "height": 10980,
+      "crs": "EPSG:32649",
+      "upperLeftLong": 300000.0,
+      "upperLeftLat": 2600040.0,
+      "lowerRightLong": 409800.0,
+      "lowerRightLat": 2490240.0,
+      "wgs84UpperLeftX": 109.04142756505485,
+      "wgs84UpperLeftY": 23.498241253368384,
+      "wgs84LowerRightX": 110.12295965758297,
+      "wgs84LowerRightY": 22.51629709051051
+    },
+    "complete": null,
+    "uploadTime": null
+  }
+}
+```
+
+后续算子输入可引用 `Personal:Asset:58d769a5-61fc-4759-b101-18bf26edf403`。
+
+## 9. 上传文件查重
+
+### 怎么请求
+
+- 方法：`GET`
+- 地址：`http://openge.org.cn/api/asset/myData/checkDuplicate`
+- 鉴权：`Authorization: Bearer 登录返回的token`
+
+### 输入是什么
+
+| 参数 | 位置 | 类型 | 必填 | 值 / 说明 |
+| --- | --- | --- | --- | --- |
+| assetType | Query | string | 是 | `myData` |
+| assetName | Query | string | 是 | 带后缀的完整文件名，如 `guigang_20260712_optical10m.tif` |
+
+此处的 `assetName` 要包含后缀。与第 6 个上传接口中不带后缀的 `assetName` 含义不同。本轮对同一已存在文件验证：
+
+| assetName | hasDuplicate | duplicateCount |
+| --- | --- | --- |
+| `guigang_20260712_optical10m` | `false` | `0` |
+| `guigang_20260712_optical10m.tif` | `true` | `1` |
+
+Agent 工具应按最终上传文件名进行查重，例如上传名称为 `rongjiang`、扩展名为 `tif` 时，查重名称为 `rongjiang.tif`。
+
+### 输出是什么
+
+返回 JSON，成功时 HTTP `200`、`code=20000`、`msg="操作成功"`。
+
+| 字段 | 类型 | 说明 |
+| --- | --- | --- |
+| data.hasDuplicate | boolean | `true` 表示检测到重名，`false` 表示未检测到 |
+| data.duplicateCount | integer | 重名记录数量，本次已有文件为 `1`，未匹配文件为 `0` |
+
+缺少 `assetType` 或 `assetName` 时，HTTP 仍为 `200`、`code=50000`、`data=null`，`msg` 提示对应必填参数未传。无登录 Token 时实测为 `{"code":40003,"msg":"无效token"}`。
+
+此接口只查询重名情况。Agent 收到 `hasDuplicate=true` 后应让用户确认是否覆盖，再执行上传。
+
+### 一个例子
+
+检查第 7、8 个接口中的文件是否存在同名记录。`TOKEN` 为有效登录访问令牌。
+
+请求：
+
+```bash
+curl --get 'http://openge.org.cn/api/asset/myData/checkDuplicate' \
+  --header "Authorization: Bearer ${TOKEN}" \
+  --data-urlencode 'assetType=myData' \
+  --data-urlencode 'assetName=guigang_20260712_optical10m.tif'
+```
+
+响应（2026-10-12 实测，完整响应）：
+
+```json
+{
+  "code": 20000,
+  "msg": "操作成功",
+  "data": {
+    "hasDuplicate": true,
+    "duplicateCount": 1
+  }
 }
 ```
