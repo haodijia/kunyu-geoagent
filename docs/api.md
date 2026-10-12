@@ -473,3 +473,86 @@ curl --get 'http://openge.org.cn/api/data-product/administrative-region/tree'
 该节点的完整路径为“全球 → 全国 → 贵州省 → 黔东南苗族侗族自治州 → 榕江县”。
 
 取得 `code=522632`、`level=4` 后，第 2 个影像检索接口传 `type=0`、`code=522632`、`level=4`，再传时间范围和分页参数，即可按榕江县行政区域检索，无需转经纬度。
+
+## 6. 上传用户数据
+
+### 怎么请求
+
+- 方法：`POST`
+- 地址：`http://openge.org.cn/api/asset/myData/upload`
+- Content-Type：`multipart/form-data`（客户端自动生成 boundary）
+- 鉴权：`Authorization: Bearer 登录返回的token`
+
+文件以二进制表单上传到用户的“我的数据”。以下参数和格式依据 2026-10-12 的平台上传页及平台手册整理，本轮未实际上传文件验证。
+
+### 输入是什么
+
+| 参数 | 位置 | 类型 | 必填 | 值 / 说明 |
+| --- | --- | --- | --- | --- |
+| file | 表单 | file | 是 | 本机文件的二进制内容 |
+| assetName | 表单 | string | 是 | 数据名称，不带后缀；当前上传页限制最多 50 个字符，支持字母、数字、中文、下划线、中划线和点，首字符为字母、数字或中文 |
+| assetType | 表单 | string | 示例传入 | 当前平台前端固定传 `myData`，注意大小写 |
+| dataType | 表单 | string | 是 | `grid` 栅格、`vector` 矢量、`other` 其他数据 |
+| phenomenonTime | 表单 | string | 否 | 栅格采集时间，当前前端按 `yyyy-MM-dd HH:mm:ss` 提交 |
+| belongingArea | 表单 | string | 否 | 所属区域，当前前端提交选中的地区名称 |
+| productLevel | 表单 | string | 否 | 栅格产品等级，如 `L1T` |
+| productResolution | 表单 | number | 否 | 栅格分辨率，上传页以米显示 |
+| fileType | 表单 | string | dataType=other 时 | 文件类别，使用下表中的类别值 |
+| dataFormat | 表单 | string | dataType=other 时 | 当前前端与 `fileType` 传相同值 |
+| assetExt | 表单 | string | dataType=other 时 | 不带点的扩展名，如 `csv`；倾斜摄影 ZIP 使用包内识别到的格式，如 `osgb` |
+| description | 表单 | string | 否 | 其他数据的描述信息 |
+
+平台上传页允许选择的文件格式：
+
+| 数据类别 | dataType | fileType / dataFormat | 文件格式 |
+| --- | --- | --- | --- |
+| 栅格影像 | `grid` | 不传 | `.tif`、`.tiff` |
+| 矢量数据 | `vector` | 不传 | `.geojson` |
+| 三维模型 | `other` | `3d_model` | `.obj`、`.fbx`、`.gltf`、`.glb`、`.abc`、`.stl` |
+| 倾斜摄影 | `other` | `oblique_photogrammetry` | `.zip`，包内需包含 `.osgb`、`.b3dm`、OpenGDB 或 `.gdb` 数据 |
+| 点云 | `other` | `point_cloud` | `.las`、`.laz`、`.ply`、`.pcd`、`.xyz` |
+| 表格 | `other` | `spreadsheet` | `.xls`、`.xlsx`、`.csv` |
+| 文档 | `other` | `document` | `.doc`、`.docx`、`.pdf`、`.ofd` |
+| CAD | `other` | `cad_data` | `.dwg`、`.dxf` |
+| 其他文件 | `other` | `other` | `.json`、`.txt`、`.gpkg`、`.db`、`.sqlite`、`.sqlite3`、`.png`、`.jpg`、`.jpeg`、`.bmp`、`.ini`、`.hdf`、`.hdf4`、`.h4`、`.h5`、`.hdf5`、`.jp2` |
+
+矢量上传页只列出 GeoJSON，Shapefile 建议先转换为 GeoJSON。上述格式为当前前端的允许列表，服务端上传结果以实际响应为准。
+
+Agent 工具可接收 `file_path`、`asset_name`、`data_type`，由工具内部读取文件、管理登录 Token 并构造表单；其他数据还需填写对应类别和扩展名。平台前端上传前会检查同名文件并提示覆盖，工具也应先确认是否重名。
+
+### 输出是什么
+
+平台手册中的成功响应为 JSON，`code=20000`、`data=true`；尚未实测成功上传响应。
+
+| 字段 | 类型 | 说明 |
+| --- | --- | --- |
+| code | integer | 平台手册中 `20000` 表示上传成功 |
+| msg | string | 平台手册示例为 `成功`，开发时按业务码判断结果 |
+| data | boolean | 平台手册示例为 `true`，不直接返回 assetUuid |
+
+上传后可调用 `POST /api/asset/myData/list` 查询数据记录，取得 `assetUuid`、`assetName`、`assetExt`。后续算子输入可使用 `Personal:Asset:{assetUuid}` 引用该数据。
+
+### 一个例子
+
+上传本机的 `rongjiang.tif` 栅格影像。`TOKEN` 为第 1 个接口返回的有效访问令牌，文件路径换成实际本机路径。
+
+请求：
+
+```bash
+curl --request POST 'http://openge.org.cn/api/asset/myData/upload' \
+  --header "Authorization: Bearer ${TOKEN}" \
+  --form 'file=@/path/to/rongjiang.tif' \
+  --form-string 'assetName=rongjiang' \
+  --form-string 'assetType=myData' \
+  --form-string 'dataType=grid'
+```
+
+平台手册的成功响应示例（非本轮上传实测）：
+
+```json
+{
+  "code": 20000,
+  "msg": "成功",
+  "data": true
+}
+```
