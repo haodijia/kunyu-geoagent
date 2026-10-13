@@ -1,0 +1,1168 @@
+{
+  "version": 2,
+  "service": "NDVI",
+  "input_mode": "service_defaults",
+  "submit_attempts": 1,
+  "state": "complete",
+  "exchanges": [
+    {
+      "name": "submit",
+      "started_at": "2026-10-13T09:04:46.329266+00:00",
+      "request": {
+        "method": "POST",
+        "url": "https://openge.org.cn/api/management/gp-service/process/NDVI/api",
+        "body": {},
+        "headers": {
+          "Authorization": "<redacted>"
+        }
+      },
+      "response": {
+        "status": 200,
+        "headers": {
+          "server": "nginx",
+          "date": "Tue, 13 Oct 2026 09:04:47 GMT",
+          "content-type": "application/json"
+        },
+        "body_file": "submit-response.json",
+        "bytes": 122,
+        "storage": "case",
+        "body_offset": 0,
+        "complete": true
+      },
+      "finished_at": "2026-10-13T09:04:47.898803+00:00",
+      "elapsed_ms": 1569
+    },
+    {
+      "name": "status-0001",
+      "started_at": "2026-10-13T09:06:12.617955+00:00",
+      "request": {
+        "method": "GET",
+        "url": "https://openge.org.cn/api/computation-api/process/job-8d0c5c44-8710-4b7d-bf0a-e237b674cb06",
+        "body": null,
+        "headers": {
+          "Authorization": "<redacted>"
+        }
+      },
+      "response": {
+        "status": 200,
+        "headers": {
+          "server": "nginx",
+          "date": "Tue, 13 Oct 2026 09:06:12 GMT",
+          "content-type": "application/json"
+        },
+        "body_file": "status-0001-response.json",
+        "bytes": 827,
+        "storage": "case",
+        "body_offset": 0,
+        "complete": true
+      },
+      "finished_at": "2026-10-13T09:06:12.868803+00:00",
+      "elapsed_ms": 250
+    },
+    {
+      "name": "status-0002",
+      "started_at": "2026-10-13T09:06:33.264313+00:00",
+      "request": {
+        "method": "GET",
+        "url": "https://openge.org.cn/api/computation-api/process/job-8d0c5c44-8710-4b7d-bf0a-e237b674cb06",
+        "body": null,
+        "headers": {
+          "Authorization": "<redacted>"
+        }
+      },
+      "response": {
+        "status": 200,
+        "headers": {
+          "server": "nginx",
+          "date": "Tue, 13 Oct 2026 09:06:33 GMT",
+          "content-type": "application/json"
+        },
+        "body_file": "status-0002-response.json",
+        "bytes": 827,
+        "storage": "case",
+        "body_offset": 0,
+        "complete": true
+      },
+      "finished_at": "2026-10-13T09:06:33.458202+00:00",
+      "elapsed_ms": 194
+    },
+    {
+      "name": "status-0003",
+      "started_at": "2026-10-13T09:06:43.464406+00:00",
+      "request": {
+        "method": "GET",
+        "url": "https://openge.org.cn/api/computation-api/process/job-8d0c5c44-8710-4b7d-bf0a-e237b674cb06",
+        "body": null,
+        "headers": {
+          "Authorization": "<redacted>"
+        }
+      },
+      "response": {
+        "status": 200,
+        "headers": {
+          "server": "nginx",
+          "date": "Tue, 13 Oct 2026 09:06:43 GMT",
+          "content-type": "application/json"
+        },
+        "body_file": "status-0003-response.json",
+        "bytes": 827,
+        "storage": "case",
+        "body_offset": 0,
+        "complete": true
+      },
+      "finished_at": "2026-10-13T09:06:43.591093+00:00",
+      "elapsed_ms": 124
+    },
+    {
+      "name": "status-0004",
+      "started_at": "2026-10-13T09:06:53.596171+00:00",
+      "request": {
+        "method": "GET",
+        "url": "https://openge.org.cn/api/computation-api/process/job-8d0c5c44-8710-4b7d-bf0a-e237b674cb06",
+        "body": null,
+        "headers": {
+          "Authorization": "<redacted>"
+        }
+      },
+      "response": {
+        "status": 200,
+        "headers": {
+          "server": "nginx",
+          "date": "Tue, 13 Oct 2026 09:06:53 GMT",
+          "content-type": "application/json"
+        },
+        "body_file": "status-0004-response.json",
+        "bytes": 827,
+        "storage": "case",
+        "body_offset": 0,
+        "complete": true
+      },
+      "finished_at": "2026-10-13T09:06:53.806616+00:00",
+      "elapsed_ms": 210
+    },
+    {
+      "name": "status-0005",
+      "started_at": "2026-10-13T09:07:03.807946+00:00",
+      "request": {
+        "method": "GET",
+        "url": "https://openge.org.cn/api/computation-api/process/job-8d0c5c44-8710-4b7d-bf0a-e237b674cb06",
+        "body": null,
+        "headers": {
+          "Authorization": "<redacted>"
+        }
+      },
+      "response": {
+        "status": 200,
+        "headers": {
+          "server": "nginx",
+          "date": "Tue, 13 Oct 2026 09:07:03 GMT",
+          "content-type": "application/json"
+        },
+        "body_file": "status-0005-response.json",
+        "bytes": 827,
+        "storage": "case",
+        "body_offset": 0,
+        "complete": true
+      },
+      "finished_at": "2026-10-13T09:07:03.991274+00:00",
+      "elapsed_ms": 182
+    },
+    {
+      "name": "status-0006",
+      "started_at": "2026-10-13T09:07:13.997186+00:00",
+      "request": {
+        "method": "GET",
+        "url": "https://openge.org.cn/api/computation-api/process/job-8d0c5c44-8710-4b7d-bf0a-e237b674cb06",
+        "body": null,
+        "headers": {
+          "Authorization": "<redacted>"
+        }
+      },
+      "response": {
+        "status": 200,
+        "headers": {
+          "server": "nginx",
+          "date": "Tue, 13 Oct 2026 09:07:14 GMT",
+          "content-type": "application/json"
+        },
+        "body_file": "status-0006-response.json",
+        "bytes": 827,
+        "storage": "case",
+        "body_offset": 0,
+        "complete": true
+      },
+      "finished_at": "2026-10-13T09:07:14.216791+00:00",
+      "elapsed_ms": 219
+    },
+    {
+      "name": "status-0007",
+      "started_at": "2026-10-13T09:07:24.218018+00:00",
+      "request": {
+        "method": "GET",
+        "url": "https://openge.org.cn/api/computation-api/process/job-8d0c5c44-8710-4b7d-bf0a-e237b674cb06",
+        "body": null,
+        "headers": {
+          "Authorization": "<redacted>"
+        }
+      },
+      "response": {
+        "status": 200,
+        "headers": {
+          "server": "nginx",
+          "date": "Tue, 13 Oct 2026 09:07:24 GMT",
+          "content-type": "application/json"
+        },
+        "body_file": "status-0007-response.json",
+        "bytes": 827,
+        "storage": "case",
+        "body_offset": 0,
+        "complete": true
+      },
+      "finished_at": "2026-10-13T09:07:24.427328+00:00",
+      "elapsed_ms": 209
+    },
+    {
+      "name": "status-0008",
+      "started_at": "2026-10-13T09:07:34.429318+00:00",
+      "request": {
+        "method": "GET",
+        "url": "https://openge.org.cn/api/computation-api/process/job-8d0c5c44-8710-4b7d-bf0a-e237b674cb06",
+        "body": null,
+        "headers": {
+          "Authorization": "<redacted>"
+        }
+      },
+      "response": {
+        "status": 200,
+        "headers": {
+          "server": "nginx",
+          "date": "Tue, 13 Oct 2026 09:07:34 GMT",
+          "content-type": "application/json"
+        },
+        "body_file": "status-0008-response.json",
+        "bytes": 827,
+        "storage": "case",
+        "body_offset": 0,
+        "complete": true
+      },
+      "finished_at": "2026-10-13T09:07:34.641544+00:00",
+      "elapsed_ms": 212
+    },
+    {
+      "name": "status-0009",
+      "started_at": "2026-10-13T09:07:44.646630+00:00",
+      "request": {
+        "method": "GET",
+        "url": "https://openge.org.cn/api/computation-api/process/job-8d0c5c44-8710-4b7d-bf0a-e237b674cb06",
+        "body": null,
+        "headers": {
+          "Authorization": "<redacted>"
+        }
+      },
+      "response": {
+        "status": 200,
+        "headers": {
+          "server": "nginx",
+          "date": "Tue, 13 Oct 2026 09:07:44 GMT",
+          "content-type": "application/json"
+        },
+        "body_file": "status-0009-response.json",
+        "bytes": 827,
+        "storage": "case",
+        "body_offset": 0,
+        "complete": true
+      },
+      "finished_at": "2026-10-13T09:07:44.844582+00:00",
+      "elapsed_ms": 197
+    },
+    {
+      "name": "status-0010",
+      "started_at": "2026-10-13T09:07:54.846404+00:00",
+      "request": {
+        "method": "GET",
+        "url": "https://openge.org.cn/api/computation-api/process/job-8d0c5c44-8710-4b7d-bf0a-e237b674cb06",
+        "body": null,
+        "headers": {
+          "Authorization": "<redacted>"
+        }
+      },
+      "response": {
+        "status": 200,
+        "headers": {
+          "server": "nginx",
+          "date": "Tue, 13 Oct 2026 09:07:54 GMT",
+          "content-type": "application/json"
+        },
+        "body_file": "status-0010-response.json",
+        "bytes": 827,
+        "storage": "case",
+        "body_offset": 0,
+        "complete": true
+      },
+      "finished_at": "2026-10-13T09:07:55.048823+00:00",
+      "elapsed_ms": 202
+    },
+    {
+      "name": "status-0011",
+      "started_at": "2026-10-13T09:08:05.053118+00:00",
+      "request": {
+        "method": "GET",
+        "url": "https://openge.org.cn/api/computation-api/process/job-8d0c5c44-8710-4b7d-bf0a-e237b674cb06",
+        "body": null,
+        "headers": {
+          "Authorization": "<redacted>"
+        }
+      },
+      "response": {
+        "status": 200,
+        "headers": {
+          "server": "nginx",
+          "date": "Tue, 13 Oct 2026 09:08:05 GMT",
+          "content-type": "application/json"
+        },
+        "body_file": "status-0011-response.json",
+        "bytes": 827,
+        "storage": "case",
+        "body_offset": 0,
+        "complete": true
+      },
+      "finished_at": "2026-10-13T09:08:05.263748+00:00",
+      "elapsed_ms": 210
+    },
+    {
+      "name": "status-0012",
+      "started_at": "2026-10-13T09:08:15.272234+00:00",
+      "request": {
+        "method": "GET",
+        "url": "https://openge.org.cn/api/computation-api/process/job-8d0c5c44-8710-4b7d-bf0a-e237b674cb06",
+        "body": null,
+        "headers": {
+          "Authorization": "<redacted>"
+        }
+      },
+      "response": {
+        "status": 200,
+        "headers": {
+          "server": "nginx",
+          "date": "Tue, 13 Oct 2026 09:08:15 GMT",
+          "content-type": "application/json"
+        },
+        "body_file": "status-0012-response.json",
+        "bytes": 827,
+        "storage": "case",
+        "body_offset": 0,
+        "complete": true
+      },
+      "finished_at": "2026-10-13T09:08:15.390874+00:00",
+      "elapsed_ms": 118
+    },
+    {
+      "name": "status-0013",
+      "started_at": "2026-10-13T09:08:25.396490+00:00",
+      "request": {
+        "method": "GET",
+        "url": "https://openge.org.cn/api/computation-api/process/job-8d0c5c44-8710-4b7d-bf0a-e237b674cb06",
+        "body": null,
+        "headers": {
+          "Authorization": "<redacted>"
+        }
+      },
+      "response": {
+        "status": 200,
+        "headers": {
+          "server": "nginx",
+          "date": "Tue, 13 Oct 2026 09:08:25 GMT",
+          "content-type": "application/json"
+        },
+        "body_file": "status-0013-response.json",
+        "bytes": 827,
+        "storage": "case",
+        "body_offset": 0,
+        "complete": true
+      },
+      "finished_at": "2026-10-13T09:08:25.545415+00:00",
+      "elapsed_ms": 148
+    },
+    {
+      "name": "status-0014",
+      "started_at": "2026-10-13T09:08:35.548470+00:00",
+      "request": {
+        "method": "GET",
+        "url": "https://openge.org.cn/api/computation-api/process/job-8d0c5c44-8710-4b7d-bf0a-e237b674cb06",
+        "body": null,
+        "headers": {
+          "Authorization": "<redacted>"
+        }
+      },
+      "response": {
+        "status": 200,
+        "headers": {
+          "server": "nginx",
+          "date": "Tue, 13 Oct 2026 09:08:35 GMT",
+          "content-type": "application/json"
+        },
+        "body_file": "status-0014-response.json",
+        "bytes": 827,
+        "storage": "case",
+        "body_offset": 0,
+        "complete": true
+      },
+      "finished_at": "2026-10-13T09:08:35.770316+00:00",
+      "elapsed_ms": 221
+    },
+    {
+      "name": "status-0015",
+      "started_at": "2026-10-13T09:08:45.776920+00:00",
+      "request": {
+        "method": "GET",
+        "url": "https://openge.org.cn/api/computation-api/process/job-8d0c5c44-8710-4b7d-bf0a-e237b674cb06",
+        "body": null,
+        "headers": {
+          "Authorization": "<redacted>"
+        }
+      },
+      "response": {
+        "status": 200,
+        "headers": {
+          "server": "nginx",
+          "date": "Tue, 13 Oct 2026 09:08:45 GMT",
+          "content-type": "application/json"
+        },
+        "body_file": "status-0015-response.json",
+        "bytes": 827,
+        "storage": "case",
+        "body_offset": 0,
+        "complete": true
+      },
+      "finished_at": "2026-10-13T09:08:45.951833+00:00",
+      "elapsed_ms": 174
+    },
+    {
+      "name": "status-0016",
+      "started_at": "2026-10-13T09:08:55.958085+00:00",
+      "request": {
+        "method": "GET",
+        "url": "https://openge.org.cn/api/computation-api/process/job-8d0c5c44-8710-4b7d-bf0a-e237b674cb06",
+        "body": null,
+        "headers": {
+          "Authorization": "<redacted>"
+        }
+      },
+      "response": {
+        "status": 200,
+        "headers": {
+          "server": "nginx",
+          "date": "Tue, 13 Oct 2026 09:08:56 GMT",
+          "content-type": "application/json"
+        },
+        "body_file": "status-0016-response.json",
+        "bytes": 827,
+        "storage": "case",
+        "body_offset": 0,
+        "complete": true
+      },
+      "finished_at": "2026-10-13T09:08:56.169972+00:00",
+      "elapsed_ms": 211
+    },
+    {
+      "name": "status-0017",
+      "started_at": "2026-10-13T09:09:06.176143+00:00",
+      "request": {
+        "method": "GET",
+        "url": "https://openge.org.cn/api/computation-api/process/job-8d0c5c44-8710-4b7d-bf0a-e237b674cb06",
+        "body": null,
+        "headers": {
+          "Authorization": "<redacted>"
+        }
+      },
+      "response": {
+        "status": 200,
+        "headers": {
+          "server": "nginx",
+          "date": "Tue, 13 Oct 2026 09:09:06 GMT",
+          "content-type": "application/json"
+        },
+        "body_file": "status-0017-response.json",
+        "bytes": 827,
+        "storage": "case",
+        "body_offset": 0,
+        "complete": true
+      },
+      "finished_at": "2026-10-13T09:09:06.358538+00:00",
+      "elapsed_ms": 182
+    },
+    {
+      "name": "status-0018",
+      "started_at": "2026-10-13T09:09:16.361949+00:00",
+      "request": {
+        "method": "GET",
+        "url": "https://openge.org.cn/api/computation-api/process/job-8d0c5c44-8710-4b7d-bf0a-e237b674cb06",
+        "body": null,
+        "headers": {
+          "Authorization": "<redacted>"
+        }
+      },
+      "response": {
+        "status": 200,
+        "headers": {
+          "server": "nginx",
+          "date": "Tue, 13 Oct 2026 09:09:16 GMT",
+          "content-type": "application/json"
+        },
+        "body_file": "status-0018-response.json",
+        "bytes": 843,
+        "storage": "case",
+        "body_offset": 0,
+        "complete": true
+      },
+      "finished_at": "2026-10-13T09:09:16.544395+00:00",
+      "elapsed_ms": 182
+    },
+    {
+      "name": "status-0019",
+      "started_at": "2026-10-13T09:09:26.550591+00:00",
+      "request": {
+        "method": "GET",
+        "url": "https://openge.org.cn/api/computation-api/process/job-8d0c5c44-8710-4b7d-bf0a-e237b674cb06",
+        "body": null,
+        "headers": {
+          "Authorization": "<redacted>"
+        }
+      },
+      "response": {
+        "status": 200,
+        "headers": {
+          "server": "nginx",
+          "date": "Tue, 13 Oct 2026 09:09:26 GMT",
+          "content-type": "application/json"
+        },
+        "body_file": "status-0019-response.json",
+        "bytes": 843,
+        "storage": "case",
+        "body_offset": 0,
+        "complete": true
+      },
+      "finished_at": "2026-10-13T09:09:26.672001+00:00",
+      "elapsed_ms": 121
+    },
+    {
+      "name": "status-0020",
+      "started_at": "2026-10-13T09:09:36.678384+00:00",
+      "request": {
+        "method": "GET",
+        "url": "https://openge.org.cn/api/computation-api/process/job-8d0c5c44-8710-4b7d-bf0a-e237b674cb06",
+        "body": null,
+        "headers": {
+          "Authorization": "<redacted>"
+        }
+      },
+      "response": {
+        "status": 200,
+        "headers": {
+          "server": "nginx",
+          "date": "Tue, 13 Oct 2026 09:09:36 GMT",
+          "content-type": "application/json"
+        },
+        "body_file": "status-0020-response.json",
+        "bytes": 843,
+        "storage": "case",
+        "body_offset": 0,
+        "complete": true
+      },
+      "finished_at": "2026-10-13T09:09:36.965492+00:00",
+      "elapsed_ms": 286
+    },
+    {
+      "name": "status-0021",
+      "started_at": "2026-10-13T09:09:46.971672+00:00",
+      "request": {
+        "method": "GET",
+        "url": "https://openge.org.cn/api/computation-api/process/job-8d0c5c44-8710-4b7d-bf0a-e237b674cb06",
+        "body": null,
+        "headers": {
+          "Authorization": "<redacted>"
+        }
+      },
+      "response": {
+        "status": 200,
+        "headers": {
+          "server": "nginx",
+          "date": "Tue, 13 Oct 2026 09:09:47 GMT",
+          "content-type": "application/json"
+        },
+        "body_file": "status-0021-response.json",
+        "bytes": 843,
+        "storage": "case",
+        "body_offset": 0,
+        "complete": true
+      },
+      "finished_at": "2026-10-13T09:09:47.123179+00:00",
+      "elapsed_ms": 151
+    },
+    {
+      "name": "status-0022",
+      "started_at": "2026-10-13T09:09:57.128957+00:00",
+      "request": {
+        "method": "GET",
+        "url": "https://openge.org.cn/api/computation-api/process/job-8d0c5c44-8710-4b7d-bf0a-e237b674cb06",
+        "body": null,
+        "headers": {
+          "Authorization": "<redacted>"
+        }
+      },
+      "response": {
+        "status": 200,
+        "headers": {
+          "server": "nginx",
+          "date": "Tue, 13 Oct 2026 09:09:57 GMT",
+          "content-type": "application/json"
+        },
+        "body_file": "status-0022-response.json",
+        "bytes": 843,
+        "storage": "case",
+        "body_offset": 0,
+        "complete": true
+      },
+      "finished_at": "2026-10-13T09:09:57.452916+00:00",
+      "elapsed_ms": 323
+    },
+    {
+      "name": "status-0023",
+      "started_at": "2026-10-13T09:10:07.459552+00:00",
+      "request": {
+        "method": "GET",
+        "url": "https://openge.org.cn/api/computation-api/process/job-8d0c5c44-8710-4b7d-bf0a-e237b674cb06",
+        "body": null,
+        "headers": {
+          "Authorization": "<redacted>"
+        }
+      },
+      "response": {
+        "status": 200,
+        "headers": {
+          "server": "nginx",
+          "date": "Tue, 13 Oct 2026 09:10:07 GMT",
+          "content-type": "application/json"
+        },
+        "body_file": "status-0023-response.json",
+        "bytes": 843,
+        "storage": "case",
+        "body_offset": 0,
+        "complete": true
+      },
+      "finished_at": "2026-10-13T09:10:07.570999+00:00",
+      "elapsed_ms": 111
+    },
+    {
+      "name": "status-0024",
+      "started_at": "2026-10-13T09:10:17.572544+00:00",
+      "request": {
+        "method": "GET",
+        "url": "https://openge.org.cn/api/computation-api/process/job-8d0c5c44-8710-4b7d-bf0a-e237b674cb06",
+        "body": null,
+        "headers": {
+          "Authorization": "<redacted>"
+        }
+      },
+      "response": {
+        "status": 200,
+        "headers": {
+          "server": "nginx",
+          "date": "Tue, 13 Oct 2026 09:10:17 GMT",
+          "content-type": "application/json"
+        },
+        "body_file": "status-0024-response.json",
+        "bytes": 1400,
+        "storage": "case",
+        "body_offset": 0,
+        "complete": true
+      },
+      "finished_at": "2026-10-13T09:10:17.850580+00:00",
+      "elapsed_ms": 277
+    },
+    {
+      "name": "status-0025",
+      "started_at": "2026-10-13T09:10:27.856948+00:00",
+      "request": {
+        "method": "GET",
+        "url": "https://openge.org.cn/api/computation-api/process/job-8d0c5c44-8710-4b7d-bf0a-e237b674cb06",
+        "body": null,
+        "headers": {
+          "Authorization": "<redacted>"
+        }
+      },
+      "response": {
+        "status": 200,
+        "headers": {
+          "server": "nginx",
+          "date": "Tue, 13 Oct 2026 09:10:27 GMT",
+          "content-type": "application/json"
+        },
+        "body_file": "status-0025-response.json",
+        "bytes": 1400,
+        "storage": "case",
+        "body_offset": 0,
+        "complete": true
+      },
+      "finished_at": "2026-10-13T09:10:28.004289+00:00",
+      "elapsed_ms": 147
+    },
+    {
+      "name": "status-0026",
+      "started_at": "2026-10-13T09:10:38.006178+00:00",
+      "request": {
+        "method": "GET",
+        "url": "https://openge.org.cn/api/computation-api/process/job-8d0c5c44-8710-4b7d-bf0a-e237b674cb06",
+        "body": null,
+        "headers": {
+          "Authorization": "<redacted>"
+        }
+      },
+      "response": {
+        "status": 200,
+        "headers": {
+          "server": "nginx",
+          "date": "Tue, 13 Oct 2026 09:10:38 GMT",
+          "content-type": "application/json"
+        },
+        "body_file": "status-0026-response.json",
+        "bytes": 1400,
+        "storage": "case",
+        "body_offset": 0,
+        "complete": true
+      },
+      "finished_at": "2026-10-13T09:10:38.219001+00:00",
+      "elapsed_ms": 212
+    },
+    {
+      "name": "status-0027",
+      "started_at": "2026-10-13T09:10:48.221690+00:00",
+      "request": {
+        "method": "GET",
+        "url": "https://openge.org.cn/api/computation-api/process/job-8d0c5c44-8710-4b7d-bf0a-e237b674cb06",
+        "body": null,
+        "headers": {
+          "Authorization": "<redacted>"
+        }
+      },
+      "response": {
+        "status": 200,
+        "headers": {
+          "server": "nginx",
+          "date": "Tue, 13 Oct 2026 09:10:48 GMT",
+          "content-type": "application/json"
+        },
+        "body_file": "status-0027-response.json",
+        "bytes": 1400,
+        "storage": "case",
+        "body_offset": 0,
+        "complete": true
+      },
+      "finished_at": "2026-10-13T09:10:48.392285+00:00",
+      "elapsed_ms": 170
+    },
+    {
+      "name": "status-0028",
+      "started_at": "2026-10-13T09:10:58.394987+00:00",
+      "request": {
+        "method": "GET",
+        "url": "https://openge.org.cn/api/computation-api/process/job-8d0c5c44-8710-4b7d-bf0a-e237b674cb06",
+        "body": null,
+        "headers": {
+          "Authorization": "<redacted>"
+        }
+      },
+      "response": {
+        "status": 200,
+        "headers": {
+          "server": "nginx",
+          "date": "Tue, 13 Oct 2026 09:10:58 GMT",
+          "content-type": "application/json"
+        },
+        "body_file": "status-0028-response.json",
+        "bytes": 1400,
+        "storage": "case",
+        "body_offset": 0,
+        "complete": true
+      },
+      "finished_at": "2026-10-13T09:10:58.614572+00:00",
+      "elapsed_ms": 217
+    },
+    {
+      "name": "status-0029",
+      "started_at": "2026-10-13T09:11:08.622159+00:00",
+      "request": {
+        "method": "GET",
+        "url": "https://openge.org.cn/api/computation-api/process/job-8d0c5c44-8710-4b7d-bf0a-e237b674cb06",
+        "body": null,
+        "headers": {
+          "Authorization": "<redacted>"
+        }
+      },
+      "response": {
+        "status": 200,
+        "headers": {
+          "server": "nginx",
+          "date": "Tue, 13 Oct 2026 09:11:08 GMT",
+          "content-type": "application/json"
+        },
+        "body_file": "status-0029-response.json",
+        "bytes": 1400,
+        "storage": "case",
+        "body_offset": 0,
+        "complete": true
+      },
+      "finished_at": "2026-10-13T09:11:08.792246+00:00",
+      "elapsed_ms": 169
+    },
+    {
+      "name": "status-0030",
+      "started_at": "2026-10-13T09:11:18.797547+00:00",
+      "request": {
+        "method": "GET",
+        "url": "https://openge.org.cn/api/computation-api/process/job-8d0c5c44-8710-4b7d-bf0a-e237b674cb06",
+        "body": null,
+        "headers": {
+          "Authorization": "<redacted>"
+        }
+      },
+      "response": {
+        "status": 200,
+        "headers": {
+          "server": "nginx",
+          "date": "Tue, 13 Oct 2026 09:11:18 GMT",
+          "content-type": "application/json"
+        },
+        "body_file": "status-0030-response.json",
+        "bytes": 1400,
+        "storage": "case",
+        "body_offset": 0,
+        "complete": true
+      },
+      "finished_at": "2026-10-13T09:11:18.999143+00:00",
+      "elapsed_ms": 198
+    },
+    {
+      "name": "status-0031",
+      "started_at": "2026-10-13T09:11:29.006012+00:00",
+      "request": {
+        "method": "GET",
+        "url": "https://openge.org.cn/api/computation-api/process/job-8d0c5c44-8710-4b7d-bf0a-e237b674cb06",
+        "body": null,
+        "headers": {
+          "Authorization": "<redacted>"
+        }
+      },
+      "response": {
+        "status": 200,
+        "headers": {
+          "server": "nginx",
+          "date": "Tue, 13 Oct 2026 09:11:29 GMT",
+          "content-type": "application/json"
+        },
+        "body_file": "status-0031-response.json",
+        "bytes": 1400,
+        "storage": "case",
+        "body_offset": 0,
+        "complete": true
+      },
+      "finished_at": "2026-10-13T09:11:29.189463+00:00",
+      "elapsed_ms": 183
+    },
+    {
+      "name": "status-0032",
+      "started_at": "2026-10-13T09:11:39.196479+00:00",
+      "request": {
+        "method": "GET",
+        "url": "https://openge.org.cn/api/computation-api/process/job-8d0c5c44-8710-4b7d-bf0a-e237b674cb06",
+        "body": null,
+        "headers": {
+          "Authorization": "<redacted>"
+        }
+      },
+      "response": {
+        "status": 200,
+        "headers": {
+          "server": "nginx",
+          "date": "Tue, 13 Oct 2026 09:11:39 GMT",
+          "content-type": "application/json"
+        },
+        "body_file": "status-0032-response.json",
+        "bytes": 1400,
+        "storage": "case",
+        "body_offset": 0,
+        "complete": true
+      },
+      "finished_at": "2026-10-13T09:11:39.447408+00:00",
+      "elapsed_ms": 250
+    },
+    {
+      "name": "status-0033",
+      "started_at": "2026-10-13T09:11:49.452292+00:00",
+      "request": {
+        "method": "GET",
+        "url": "https://openge.org.cn/api/computation-api/process/job-8d0c5c44-8710-4b7d-bf0a-e237b674cb06",
+        "body": null,
+        "headers": {
+          "Authorization": "<redacted>"
+        }
+      },
+      "response": {
+        "status": 200,
+        "headers": {
+          "server": "nginx",
+          "date": "Tue, 13 Oct 2026 09:11:49 GMT",
+          "content-type": "application/json"
+        },
+        "body_file": "status-0033-response.json",
+        "bytes": 1400,
+        "storage": "case",
+        "body_offset": 0,
+        "complete": true
+      },
+      "finished_at": "2026-10-13T09:11:49.652351+00:00",
+      "elapsed_ms": 199
+    },
+    {
+      "name": "result-status-0001",
+      "started_at": "2026-10-13T09:13:29.606614+00:00",
+      "request": {
+        "method": "GET",
+        "url": "https://openge.org.cn/api/computation-api/process/result/job-8d0c5c44-8710-4b7d-bf0a-e237b674cb06",
+        "body": null,
+        "headers": {
+          "Authorization": "<redacted>"
+        }
+      },
+      "response": {
+        "status": 200,
+        "headers": {
+          "server": "nginx",
+          "date": "Tue, 13 Oct 2026 09:13:29 GMT",
+          "content-type": "application/json"
+        },
+        "body_file": "result-status-0001-response.json",
+        "bytes": 382,
+        "storage": "case",
+        "body_offset": 0,
+        "complete": true
+      },
+      "finished_at": "2026-10-13T09:13:29.866928+00:00",
+      "elapsed_ms": 260
+    },
+    {
+      "name": "result",
+      "started_at": "2026-10-13T09:13:29.867173+00:00",
+      "request": {
+        "method": "GET",
+        "url": "https://openge.org.cn/api/computation-api/process/result/job-8d0c5c44-8710-4b7d-bf0a-e237b674cb06",
+        "body": null,
+        "headers": {
+          "Authorization": "<redacted>"
+        }
+      },
+      "response": {
+        "status": 200,
+        "headers": {
+          "server": "nginx",
+          "date": "Tue, 13 Oct 2026 09:13:29 GMT",
+          "content-type": "application/json"
+        },
+        "body_file": "result-response.json",
+        "bytes": 382,
+        "storage": "case",
+        "body_offset": 0,
+        "complete": true
+      },
+      "finished_at": "2026-10-13T09:13:29.916990+00:00",
+      "elapsed_ms": 50
+    },
+    {
+      "name": "preview",
+      "started_at": "2026-10-13T09:13:29.917382+00:00",
+      "request": {
+        "method": "GET",
+        "url": "https://openge.org.cn/api/computation-api/styles/cog/job-8d0c5c44-8710-4b7d-bf0a-e237b674cb06",
+        "body": null,
+        "headers": {
+          "Authorization": "<redacted>"
+        }
+      },
+      "response": null,
+      "error": {
+        "type": "RuntimeError"
+      },
+      "finished_at": "2026-10-13T09:14:05.614434+00:00",
+      "elapsed_ms": 35697,
+      "replayable": false
+    },
+    {
+      "name": "preview-range",
+      "started_at": "2026-10-13T09:29:12.302005+00:00",
+      "request": {
+        "method": "GET",
+        "url": "https://openge.org.cn/api/computation-api/styles/cog/job-8d0c5c44-8710-4b7d-bf0a-e237b674cb06",
+        "body": null,
+        "headers": {
+          "Authorization": "<redacted>",
+          "Range": "bytes=67108457-"
+        }
+      },
+      "response": {
+        "status": 206,
+        "headers": {
+          "content-type": "image/tiff",
+          "content-range": "bytes 67108457-1030114823/1030114824"
+        },
+        "body_file": "ndvi-result.tif",
+        "storage": "asset",
+        "body_offset": 67108457,
+        "bytes": 963006367,
+        "complete": true
+      },
+      "finished_at": "2026-10-13T09:33:39.855514+00:00",
+      "elapsed_ms": 267548
+    },
+    {
+      "name": "download",
+      "started_at": "2026-10-13T09:33:39.859833+00:00",
+      "request": {
+        "method": "GET",
+        "url": "https://openge.org.cn/api/computation-api/process/result/download/job-8d0c5c44-8710-4b7d-bf0a-e237b674cb06",
+        "body": null,
+        "headers": {
+          "Authorization": "<redacted>"
+        }
+      },
+      "response": {
+        "status": 404,
+        "headers": {
+          "server": "nginx",
+          "date": "Tue, 13 Oct 2026 09:33:40 GMT",
+          "content-type": "application/json"
+        },
+        "body_file": "download-response.json",
+        "bytes": 204,
+        "storage": "case",
+        "body_offset": 0,
+        "complete": true
+      },
+      "finished_at": "2026-10-13T09:33:40.044893+00:00",
+      "elapsed_ms": 184
+    },
+    {
+      "name": "status-final",
+      "started_at": "2026-10-13T09:56:00.653062+00:00",
+      "request": {
+        "method": "GET",
+        "url": "https://openge.org.cn/api/computation-api/process/job-8d0c5c44-8710-4b7d-bf0a-e237b674cb06",
+        "body": null,
+        "headers": {
+          "Authorization": "<redacted>"
+        }
+      },
+      "response": {
+        "status": 200,
+        "headers": {
+          "server": "nginx",
+          "date": "Tue, 13 Oct 2026 09:56:00 GMT",
+          "content-type": "application/json"
+        },
+        "body_file": "status-final-response.json",
+        "storage": "case",
+        "body_offset": 0,
+        "complete": true,
+        "bytes": 1400
+      },
+      "finished_at": "2026-10-13T09:56:00.883878+00:00",
+      "elapsed_ms": 230
+    }
+  ],
+  "job_id": "job-8d0c5c44-8710-4b7d-bf0a-e237b674cb06",
+  "outputs": {
+    "result": {
+      "http_status": 200,
+      "content_type": "application/json",
+      "available": true
+    },
+    "preview": {
+      "http_status": 200,
+      "content_type": "image/tiff",
+      "available": true,
+      "source_file": "ndvi-result.tif",
+      "storage": "asset"
+    },
+    "download": {
+      "http_status": 404,
+      "content_type": "application/json",
+      "available": false
+    }
+  },
+  "cog_source": {
+    "url": "https://openge.org.cn/api/computation-api/styles/cog/job-8d0c5c44-8710-4b7d-bf0a-e237b674cb06",
+    "expected_bytes": 1030114824,
+    "initial_recorded_bytes": 67108457,
+    "head_status": 200,
+    "head_headers": {
+      "content-type": "image/tiff",
+      "content-length": "1030114824",
+      "accept-ranges": "bytes"
+    },
+    "local_file": "ndvi-result.tif"
+  },
+  "effective_parameters": {
+    "status": "not_returned_by_service",
+    "submitted": {}
+  },
+  "original_asset_directory": "oge/recordings/ndvi-default",
+  "mock_resources": [
+    {
+      "name": "preview-mock",
+      "source": "explicit_downsample_of_recorded_cog_overview",
+      "request": {
+        "method": "GET",
+        "url": "https://openge.org.cn/api/computation-api/styles/cog/job-8d0c5c44-8710-4b7d-bf0a-e237b674cb06",
+        "headers": {},
+        "body": null
+      },
+      "response": {
+        "status": 200,
+        "headers": {
+          "content-type": "image/tiff"
+        },
+        "body_file": "preview-mock.tif",
+        "storage": "case",
+        "body_offset": 0,
+        "bytes": 46163,
+        "complete": true
+      }
+    }
+  ],
+  "observed_status_contract": {
+    "resultStatus": {
+      "0": "pending",
+      "1": "succeeded"
+    },
+    "failure_codes": "not_observed",
+    "success_resultFileStatus": 1,
+    "success_message": "任务执行成功",
+    "server_processing_time": "2026-10-13 17:04:47",
+    "server_success_update_time": "2026-10-13 17:09:09"
+  },
+  "capture_finished_at": "2026-10-13T10:03:13.382459+00:00",
+  "observed_service_elapsed_seconds": 262,
+  "offline_verification": {
+    "submit_response": 200,
+    "initial_result_status": 0,
+    "success_result_status": 1,
+    "engine_status": "success",
+    "mock_cog_size": [
+      512,
+      512
+    ],
+    "original_download_status": 404,
+    "second_submit_refused": true,
+    "unrecorded_request_refused": true,
+    "credentials_found": false
+  }
+}

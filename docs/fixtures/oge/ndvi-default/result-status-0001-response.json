@@ -1,0 +1,18 @@
+{
+  "code": 20000,
+  "msg": "操作成功",
+  "data": {
+    "jobId": "job-8d0c5c44-8710-4b7d-bf0a-e237b674cb06",
+    "processId": "DAGJSON",
+    "status": "success",
+    "outputs": {
+      "callback": {
+        "info": [
+          {
+            "path": "9b02baa0-0201-49bc-943e-2f8db5656099/result/19ca7c4a-f9de-40bf-8de2-b08820dd6525.tif"
+          }
+        ]
+      }
+    }
+  }
+}

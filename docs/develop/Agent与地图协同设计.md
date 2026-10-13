@@ -19,7 +19,7 @@
 | 项目 | 内容 |
 | --- | --- |
 | 服务 | NDVI |
-| 提交地址 | `https://api.openge.org.cn/gateway/management/go-service/process/NDVI/api` |
+| 提交地址 | `https://api.openge.org.cn/gateway/management/gp-service/process/NDVI/api` |
 | 方法 | POST |
 | 鉴权 | Authorization，登录接口取得的凭据 |
 | 输入 | `coverageID`、`productID`，均为 String |
@@ -28,18 +28,18 @@
 
 按用户说明，参数可全部省略。默认执行应省略这两个字段，不发送空字符串、不补造被截断的 coverageID。
 
-尚不能由截图确认：请求体编码、Authorization 的完整格式、成功响应字段、同步还是异步、远端任务 ID、结果的实际存储格式、状态与下载接口能否复用旧网关、默认参数是否可从响应完整还原。
+单次实测已确认：JSON 空对象请求、Bearer 鉴权、异步返回 data.processId、GP 状态 0→1、结果元数据、TIFF/COG 获取与独立下载的 404。仍未确认完整默认输入、自选影像映射、失败状态码及独立原始下载的正确契约。
 
-2026-10-13 在当前环境尝试使用标准 TLS 校验向该地址 POST 空 JSON，证书主机名不匹配，HTTP 请求未发出。不能据此宣称已成功运行 NDVI，也不通过关闭 TLS 校验、更换协议或猜测入口继续执行。
+初次按截图子域名核查时发现证书主机名不匹配，未发出计算请求。随后核对官网前端的 /api 路由，使用证书匹配的 https://openge.org.cn/api/management/gp-service/process/NDVI/api 完成唯一一次真实提交。全程保持 TLS 校验，详见第 13 节。
 
-现有《OGE OpenAPI 开发者手册》列出了以下查询路径，但它们目前只是该 NDVI 服务的待验证候选：
+现有《OGE OpenAPI 开发者手册》列出了以下路径；已验证官网 /api 对应的状态、元数据和 COG 路由，独立 download 路由实测为 404：
 
 - `/gateway/computation-api/process/{processId}`：状态。
 - `/gateway/computation-api/process/result/{processId}`：结果元数据。
 - `/gateway/computation-api/styles/cog/{processId}`：图片预览。
 - `/gateway/computation-api/process/result/download/{processId}`：原始文件下载。
 
-本次服务入口与现有账号的 `http://openge.org.cn/api` 不同。正确入口、凭据复用和任务命名空间都必须联调确认。Coverage 是平台逻辑类型，不等于已经取得 TIFF、COG 或可用 XYZ 瓦片。
+此次官网 HTTPS /api 入口复用了现有登录令牌，任务 ID 可用于同一 computation-api 的查询。Coverage 是平台逻辑类型；本例实际取得三波段 uint8 COG，没有取得独立 NDVI 数值波段或 XYZ 瓦片。
 
 ## 3. 两种输入模式
 
@@ -248,12 +248,18 @@ NDVI 是连续数值结果，需要固定数值到颜色的映射与数值图例
 
 验收：一个真实灾害案例从选区、选影像、计算到结果上图运行完成，结论可定位到成果和参数。面积等统计按原始数据与合适的计算坐标系处理，不从 Web Mercator 显示像素估算。
 
-## 12. 当前必须解决的前置项
+## 12. 联调状态与后续确认项
 
-1. NDVI 正式地址的 TLS 证书与域名匹配。
-2. 这个已发布服务的真实请求编码、返回结构及鉴权。
-3. 它与手册里的状态、元数据、预览、下载接口是否属于同一任务体系。
-4. 原始成果是否带完整地理元数据，以及是否有可直接使用的瓦片入口。
-5. 公开影像标识和我的数据引用与该服务输入的准确映射。
+1. 已确认证书匹配的官网 HTTPS /api 入口、Bearer 鉴权、空 JSON 提交与异步 job ID。
+2. 已确认状态、结果元数据和 COG 读取；GP 成功码为 1，失败码仍未实测。
+3. 仍需确认独立原始下载的正确接口，当前手册路径返回 404。
+4. 已取得显示用 RGB COG 和空间信息；仍需确认用于统计的 NDVI 数值波段。
+5. 仍需确认公开影像标识、我的数据引用与服务输入的准确映射，以及完整默认参数。
 
-这些项先通过联调确认，再实现对应 Adapter。产品结构、任务与成果模型、页面协同按上述方案推进。
+下一阶段使用此次录制数据显式离线重放，开发任务、成果和地图协同；不为重复联调再次提交默认 NDVI。
+
+## 13. 一次录制、后续离线开发
+
+2026-10-13 完成唯一一次默认 NDVI 提交，服务正确路径为 gp-service，官网 HTTPS /api 路由可用。真实响应与轻量 mock 位于 [默认 NDVI 录制](../fixtures/oge/ndvi-default/README.md)。后续以显式离线重放推进任务卡片、结果上图与地图协同，不重复提交真实计算。
+
+实测补充：该服务异步返回 data.processId；结果查询用 data.jobId 标识任务，data.processId=DAGJSON 是引擎过程类型。本 GP 服务实际成功状态为 resultStatus=1、resultFileStatus=1，并返回“任务执行成功”和引擎 status=success；不得套用旧手册的 2=成功。失败码尚未实测。styles/cog 返回约 1.03 GB 的 image/tiff，而不是 PNG；独立 result/download 返回 404。源栅格是三波段 uint8 RGB，数值分析仍需验证独立的 NDVI 数值波段。默认使用真实 overview 派生的 512 × 512 TIFF/PNG 做轻量地图与预览 mock，保留原始元数据与下载失败响应。

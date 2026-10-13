@@ -1,0 +1,40 @@
+{
+  "width": 15838,
+  "height": 16098,
+  "bands": 3,
+  "dtypes": [
+    "uint8",
+    "uint8",
+    "uint8"
+  ],
+  "crs": "EPSG:32651",
+  "bounds": [
+    130852.5,
+    3395677.5,
+    368422.5,
+    3637147.5
+  ],
+  "wgs84_bounds": [
+    119.05805008697445,
+    30.636786497752027,
+    121.62627088182238,
+    32.86455021627293
+  ],
+  "nodata": 0.0,
+  "overviews": [
+    2,
+    4,
+    8,
+    16,
+    32,
+    64
+  ],
+  "mock": {
+    "file": "preview-mock.tif",
+    "width": 512,
+    "height": 512,
+    "resampling": "nearest",
+    "derived_from_recorded_overview": true,
+    "is_original_resolution": false
+  }
+}

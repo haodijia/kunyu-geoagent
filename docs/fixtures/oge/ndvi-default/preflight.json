@@ -1,0 +1,17 @@
+{
+  "advertised_url": "https://api.openge.org.cn/gateway/management/gp-service/process/NDVI/api",
+  "recorded_submit_url": "https://openge.org.cn/api/management/gp-service/process/NDVI/api",
+  "certificate_observation": {
+    "advertised_hostname_matches": false,
+    "certificate_dns_names": ["openge.org.cn", "www.openge.org.cn"],
+    "tls_verification_disabled": false
+  },
+  "canonical_route_evidence": {
+    "official_site": "https://openge.org.cn/",
+    "frontend_api_base": "/api",
+    "authenticated_head_status": 200
+  },
+  "request_encoding": "application/json",
+  "request_body": {},
+  "note": "The earlier go-service spelling was incorrect. The confirmed service uses gp-service. Discovery used read requests; exactly one analysis POST was sent."
+}
