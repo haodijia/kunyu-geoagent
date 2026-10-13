@@ -639,6 +639,8 @@ user-invocable: true
         oge_search_images: "检索卫星影像",
         oge_get_image_detail: "读取影像详情",
         oge_get_image_preview: "查看影像预览",
+        oge_list_my_data: "查询我的数据",
+        oge_get_my_data_detail: "读取我的数据详情",
       },
       status: {
         pending: "等待执行",

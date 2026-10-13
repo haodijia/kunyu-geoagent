@@ -4,7 +4,14 @@ import logging
 from typing import TypeVar
 
 import httpx
-from pydantic import BaseModel, ConfigDict, JsonValue, TypeAdapter, ValidationError
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    JsonValue,
+    SecretStr,
+    TypeAdapter,
+    ValidationError,
+)
 
 from kunyu.domain.attachments import MAX_ATTACHMENT_BYTES
 from kunyu.domain.oge import OgeError, OgeLogin, OgeTokens
@@ -18,7 +25,7 @@ class _Envelope(BaseModel):
     model_config = ConfigDict(extra="ignore", strict=True)
     code: int
     msg: str
-    data: JsonValue
+    data: JsonValue = None
 
 
 class OgeClient:
@@ -52,9 +59,19 @@ class OgeClient:
         *,
         params: dict[str, str] | None = None,
         fields: dict[str, str] | None = None,
+        body: dict[str, JsonValue] | None = None,
+        token: SecretStr | None = None,
     ) -> JsonValue:
         return self._envelope(
-            await self._request(base_url, method, path, params=params, fields=fields)
+            await self._request(
+                base_url,
+                method,
+                path,
+                params=params,
+                fields=fields,
+                body=body,
+                token=token,
+            )
         )
 
     async def preview(self, base_url: str, image_id: int) -> bytes:
@@ -88,6 +105,8 @@ class OgeClient:
         *,
         params: dict[str, str] | None = None,
         fields: dict[str, str] | None = None,
+        body: dict[str, JsonValue] | None = None,
+        token: SecretStr | None = None,
         limit: int = MAX_JSON_BYTES,
     ) -> httpx.Response:
         try:
@@ -95,6 +114,10 @@ class OgeClient:
                 method,
                 base_url + path,
                 params=params,
+                json=body,
+                headers={"Authorization": "Bearer " + token.get_secret_value()}
+                if token is not None
+                else None,
                 files={key: (None, value) for key, value in fields.items()}
                 if fields is not None
                 else None,
@@ -153,6 +176,9 @@ class OgeClient:
                 f"OGE request failed (code={envelope.code}).",
                 401 if code == "OGE_AUTH_REJECTED" else 502,
             )
+        if "data" not in envelope.model_fields_set:
+            logger.warning("OGE successful response is missing data.")
+            raise OgeError("OGE_PROTOCOL_ERROR", "OGE response is missing data.")
         return envelope.data
 
     @staticmethod

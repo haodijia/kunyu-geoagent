@@ -1,10 +1,10 @@
-"""Typed model-facing discovery inputs, translated into OGE's form protocol."""
+"""Typed model-facing OGE inputs, translated into form and JSON requests."""
 
 import json
 from datetime import datetime
 from typing import Annotated, Literal, Self
 
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, JsonValue, model_validator
 
 from kunyu.agent.tools.shared import ToolArguments
 
@@ -139,6 +139,31 @@ class SearchImagesArguments(ToolArguments):
 class ImageArguments(ToolArguments):
     image_id: int = Field(
         gt=0, description="Numeric imageId from OGE retrieval results."
+    )
+
+
+class ListMyDataArguments(ToolArguments):
+    page: int = Field(default=1, ge=1)
+    page_size: int = Field(default=10, ge=1, le=10)
+    keywords: str | None = Field(default=None, min_length=1, max_length=200)
+    data_type: Literal["grid", "vector", "other"] | None = None
+
+    def body(self) -> dict[str, JsonValue]:
+        body: dict[str, JsonValue] = {
+            "pageNumber": self.page,
+            "pageSize": self.page_size,
+        }
+        if self.keywords is not None:
+            body["keywords"] = self.keywords
+        if self.data_type is not None:
+            body["dataType"] = self.data_type
+        return body
+
+
+class MyDataDetailArguments(ToolArguments):
+    asset_uuid: str = Field(
+        pattern=r"^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$",
+        description="assetUuid returned by oge_list_my_data, not a numeric assetId.",
     )
 
 

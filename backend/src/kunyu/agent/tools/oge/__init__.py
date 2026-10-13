@@ -1,1 +1,1 @@
-"""OGE imagery and administrative-region tools; login is owned by settings."""
+"""OGE imagery, personal assets and regions; login is owned by settings."""

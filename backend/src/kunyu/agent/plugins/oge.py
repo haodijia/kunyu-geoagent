@@ -1,4 +1,4 @@
-"""Expose OGE's account service and four scoped, read-only discovery tools."""
+"""Expose OGE's account service and scoped, read-only discovery tools."""
 
 from functools import partial
 
@@ -7,6 +7,7 @@ from kunyu.agent.scope import Context
 from kunyu.agent.tools.oge.find_regions import FindRegionsTool
 from kunyu.agent.tools.oge.image_detail import ImageDetailTool
 from kunyu.agent.tools.oge.image_preview import ImagePreviewTool
+from kunyu.agent.tools.oge.my_data import ListMyDataTool, MyDataDetailTool
 from kunyu.agent.tools.oge.search_images import SearchImagesTool
 from kunyu.agent.tools.registry import ToolRegistration
 from kunyu.application.oge import OgeService
@@ -29,6 +30,8 @@ class OgePlugin:
             ("oge_find_regions", FindRegionsTool),
             ("oge_search_images", SearchImagesTool),
             ("oge_get_image_detail", ImageDetailTool),
+            ("oge_list_my_data", ListMyDataTool),
+            ("oge_get_my_data_detail", MyDataDetailTool),
         ):
             context.require(s.TOOLS).register(
                 context,

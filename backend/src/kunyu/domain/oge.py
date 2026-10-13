@@ -133,3 +133,36 @@ class OgeImagePage(BaseModel):
         if len(self.records) > self.pageSize or len(self.records) > self.total:
             raise ValueError("OGE pagination is inconsistent.")
         return self
+
+
+class OgeAssetRecord(BaseModel):
+    model_config = ConfigDict(extra="ignore", frozen=True)
+
+    assetId: int = Field(gt=0)
+    assetUuid: str = Field(min_length=1)
+    assetName: str
+    assetExt: str
+    assetSize: int = Field(ge=0)
+    dataType: Literal["grid", "vector", "other"]
+    assetStatus: str
+    fileType: str | None = None
+    phenomenonTime: str | None = None
+    belongingArea: str | None = None
+    productLevel: str | None = None
+    productResolution: float | None = None
+
+
+class OgeAssetPage(BaseModel):
+    model_config = ConfigDict(extra="ignore", frozen=True)
+
+    pages: int = Field(ge=0)
+    currentPage: int = Field(ge=1)
+    total: int = Field(ge=0)
+    pageSize: int = Field(ge=1)
+    records: list[OgeAssetRecord]
+
+    @model_validator(mode="after")
+    def page_shape(self) -> Self:
+        if len(self.records) > self.pageSize or len(self.records) > self.total:
+            raise ValueError("OGE pagination is inconsistent.")
+        return self

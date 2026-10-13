@@ -1,6 +1,7 @@
-"""Human-owned OGE login and public imagery discovery services."""
+"""Human-owned OGE login, public imagery and personal asset discovery."""
 
 import asyncio
+import logging
 import time
 from datetime import UTC, datetime
 
@@ -10,6 +11,8 @@ from kunyu.domain.oge import (
     DEFAULT_OGE_BASE_URL,
     OgeAccount,
     OgeAccountStatus,
+    OgeAssetPage,
+    OgeAssetRecord,
     OgeError,
     OgeImagePage,
     OgeImageRecord,
@@ -20,6 +23,7 @@ from kunyu.integrations.oge.client import OgeClient
 from kunyu.persistence.oge import OgeAccountStore
 
 REGION_CACHE_SECONDS = 3600
+logger = logging.getLogger(__name__)
 
 
 class OgeService:
@@ -102,6 +106,56 @@ class OgeService:
 
     async def image_preview(self, image_id: int) -> bytes:
         return await self._client.preview(self._base_url(), image_id)
+
+    def _require_account(self) -> OgeAccount:
+        account = self._accounts.read()
+        if account is None:
+            logger.warning("OGE personal data request requires login.")
+            raise OgeError(
+                "OGE_AUTH_REQUIRED",
+                "Log in to OGE in settings before reading personal data.",
+                401,
+            )
+        if account.tokens.exp <= time.time():
+            logger.warning("OGE personal data request has an expired login.")
+            raise OgeError(
+                "OGE_AUTH_EXPIRED", "OGE login expired; log in again in settings.", 401
+            )
+        return account
+
+    async def list_my_data(self, body: dict[str, JsonValue]) -> OgeAssetPage:
+        account = self._require_account()
+        data = await self._client.json(
+            account.base_url,
+            "POST",
+            "/asset/myData/list",
+            body=body,
+            token=account.tokens.token,
+        )
+        return self._client.validate(OgeAssetPage, data)
+
+    async def my_data_detail(self, asset_uuid: str) -> dict[str, JsonValue]:
+        account = self._require_account()
+        data = await self._client.json(
+            account.base_url,
+            "GET",
+            "/asset/myData/detail",
+            params={"assetUuid": asset_uuid},
+            token=account.tokens.token,
+        )
+        if data is None:
+            raise OgeError(
+                "OGE_ASSET_NOT_FOUND", f"OGE asset {asset_uuid} does not exist.", 404
+            )
+        record = self._client.validate(OgeAssetRecord, data)
+        if record.assetUuid.lower() != asset_uuid.lower():
+            logger.warning("OGE returned a different personal asset identity.")
+            raise OgeError(
+                "OGE_PROTOCOL_ERROR", "OGE returned a different asset identity."
+            )
+        detail = self._client.validate(dict[str, JsonValue], data)
+        detail["reference"] = f"Personal:Asset:{record.assetUuid}"
+        return detail
 
     async def find_regions(
         self,
