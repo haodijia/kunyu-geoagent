@@ -399,4 +399,78 @@ CREATE UNIQUE INDEX uq_tool_calls_batch_index ON tool_calls (run_id, step, attem
 
 CREATE UNIQUE INDEX uq_tool_calls_provider_attempt ON tool_calls (run_id, step, attempt, provider_call_id);
 
-PRAGMA user_version = 1;
+
+
+CREATE TABLE analysis_jobs (
+	id VARCHAR(64) NOT NULL,
+	session_id VARCHAR(64) NOT NULL,
+	workspace_id VARCHAR(64) NOT NULL,
+	run_id VARCHAR(64),
+	tool_call_id VARCHAR(64) NOT NULL,
+	mode VARCHAR(16) NOT NULL,
+	service VARCHAR(32) NOT NULL,
+	state VARCHAR(32) NOT NULL,
+	query_state VARCHAR(32) NOT NULL,
+	remote_id VARCHAR(100),
+	account_subject VARCHAR(200),
+	account_base_url VARCHAR(2048),
+	parameters JSON NOT NULL,
+	revision INTEGER NOT NULL,
+	next_poll_at FLOAT NOT NULL,
+	error_code VARCHAR(100),
+	error_message TEXT,
+	created_at DATETIME NOT NULL,
+	updated_at DATETIME NOT NULL,
+	PRIMARY KEY (id),
+	CONSTRAINT uq_analysis_jobs_call UNIQUE (session_id, tool_call_id),
+	CONSTRAINT ck_analysis_jobs_mode CHECK (mode IN ('replay','live')),
+	FOREIGN KEY(session_id) REFERENCES sessions (id) ON DELETE CASCADE,
+	FOREIGN KEY(workspace_id) REFERENCES workspaces (id)
+);
+CREATE INDEX ix_analysis_jobs_due ON analysis_jobs (state, next_poll_at);
+
+CREATE TABLE analysis_outputs (
+	id VARCHAR(64) NOT NULL,
+	job_id VARCHAR(64) NOT NULL,
+	session_id VARCHAR(64) NOT NULL,
+	title VARCHAR(200) NOT NULL,
+	mode VARCHAR(16) NOT NULL,
+	kind VARCHAR(32) NOT NULL,
+	raster_metadata JSON NOT NULL,
+	source_metadata JSON NOT NULL,
+	bounds JSON NOT NULL,
+	cog_file VARCHAR(500) NOT NULL,
+	preview_file VARCHAR(500) NOT NULL,
+	original_status INTEGER NOT NULL,
+	revision INTEGER NOT NULL,
+	created_at DATETIME NOT NULL,
+	PRIMARY KEY (id),
+	UNIQUE (job_id),
+	FOREIGN KEY(job_id) REFERENCES analysis_jobs (id) ON DELETE CASCADE,
+	FOREIGN KEY(session_id) REFERENCES sessions (id) ON DELETE CASCADE
+);
+
+CREATE TABLE map_states (
+	session_id VARCHAR(64) NOT NULL,
+	value JSON NOT NULL,
+	PRIMARY KEY (session_id),
+	FOREIGN KEY(session_id) REFERENCES sessions (id) ON DELETE CASCADE
+);
+
+CREATE TABLE map_layers (
+	id VARCHAR(64) NOT NULL,
+	session_id VARCHAR(64) NOT NULL,
+	output_id VARCHAR(64) NOT NULL,
+	title VARCHAR(200) NOT NULL,
+	visible BOOLEAN NOT NULL,
+	opacity FLOAT NOT NULL,
+	position INTEGER NOT NULL,
+	revision INTEGER NOT NULL,
+	PRIMARY KEY (id),
+	CONSTRAINT uq_map_layers_output UNIQUE (session_id, output_id),
+	CONSTRAINT ck_map_layers_opacity CHECK (opacity >= 0 AND opacity <= 1),
+	FOREIGN KEY(session_id) REFERENCES sessions (id) ON DELETE CASCADE,
+	FOREIGN KEY(output_id) REFERENCES analysis_outputs (id) ON DELETE CASCADE
+);
+
+PRAGMA user_version = 2;

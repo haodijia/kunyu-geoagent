@@ -26,10 +26,11 @@ if TYPE_CHECKING:
     from kunyu.agent.skills.registry import SkillRegistry
     from kunyu.agent.subagents import SubagentManager
     from kunyu.agent.tools.registry import ToolPolicyGate, ToolRegistryFactory
+    from kunyu.application.analysis import AnalysisService
     from kunyu.application.confirmations import ConfirmationService
     from kunyu.application.connection_locks import ConnectionOperationLocks
-    from kunyu.application.questions import UserQuestionService
     from kunyu.application.oge import OgeService
+    from kunyu.application.questions import UserQuestionService
     from kunyu.application.run_acceptance import RunAcceptanceService
     from kunyu.application.run_lifecycle import RunLifecycleService
     from kunyu.domain.filesystem import Filesystem
@@ -38,6 +39,7 @@ if TYPE_CHECKING:
     from kunyu.persistence.agent_projections import SQLAlchemyAgentProjectionService
     from kunyu.persistence.attachments import SQLAlchemyAttachmentStore
     from kunyu.persistence.database import Database
+    from kunyu.persistence.maps import MapRepository
     from kunyu.persistence.model_connections import SQLAlchemyModelConnectionRepository
     from kunyu.persistence.run_lifecycle import SQLAlchemyRunLifecycleRepository
     from kunyu.persistence.runs import SQLAlchemyEventStore
@@ -91,3 +93,6 @@ SKILLS: ServiceKey[SkillRegistry] = ServiceKey("skills")
 MCP: ServiceKey[McpManager] = ServiceKey("mcp")
 COMMANDS: ServiceKey[CommandRegistry] = ServiceKey("commands")
 OGE: ServiceKey[OgeService] = ServiceKey("oge")
+
+ANALYSIS: ServiceKey[AnalysisService] = ServiceKey("analysis")
+MAPS: ServiceKey[MapRepository] = ServiceKey("maps")

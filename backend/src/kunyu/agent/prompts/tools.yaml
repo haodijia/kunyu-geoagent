@@ -52,3 +52,23 @@
   List the logged-in user's uploaded OGE data, with optional asset-name keywords and grid/vector/other type filtering. Returns up to 10 compact assets per page, explicit next_page, assetUuid and Personal:Asset references. Use oge_get_my_data_detail for full metadata. Login is managed in settings; missing or expired login is an explicit error. Do not request or pass passwords or tokens through tool arguments.
 "oge_get_my_data_detail": |-
   Read full metadata for an assetUuid returned by oge_list_my_data, including bandStats when present and a Personal:Asset reference. Requires OGE login in settings. Numeric assetId and imagery imageId are not assetUuid. filePath and cogPath are internal storage paths, not download URLs. Use bandStats WGS84 fields for map positioning; upperLeftLong/Lat and lowerRightLong/Lat may instead be projected coordinates. Asset status alone does not confirm processing readiness. Missing assets and upstream failures are explicit errors.
+"oge_calculate_ndvi": |-
+  Create one NDVI job using the service-default input, through the existing approval flow. The backend execution mode is fixed: recorded replay creates a local demonstration and does not call OGE; live mode submits one remote computation. This tool does NOT analyze the map selection or a user-selected image. Input mapping is not verified for those sources. It returns analysis_job_id; use oge_wait_job to collect completion. The verified result is an RGB display COG, not a numeric NDVI band.
+"oge_get_job": |-
+  Read a job owned by the calling session, its actual execution mode, status and immutable output references. Query/authentication errors are separate from calculation state. Do not resubmit a job with unknown submission status.
+"oge_wait_job": |-
+  Wait up to timeout_seconds for one session-owned job to finish or require action. Waiting consumes no extra model requests. An unfinished job remains active after the timeout; do not start a replacement computation.
+"oge_get_result": |-
+  Read a session-owned output's provenance, raster metadata, spatial bounds and availability. Replay outputs are downsampled recorded examples. RGB bands and their colors do not provide numeric NDVI values. Use map_add_layer and map_fit_bounds for viewing; do not invent quantitative statistics.
+"oge_download_preview": |-
+  Return a prepared RGB result PNG through the existing model image receipt mechanism. Requires image input enabled for the exact calling model. The display is not a numeric NDVI raster.
+"oge_download_result": |-
+  Return the authenticated local download reference for a rendered COG. kind=original requests the separate original interface and explicitly errors when unavailable; it never replaces an original with a rendered image. Large binary files are not inserted into model history.
+"map_get_context": |-
+  Read the calling session's current persisted viewport, camera, selected output and layer references. Use it when the user refers to map objects; this information is not continuously injected into System.
+"map_add_layer": |-
+  Add an existing result owned by this session to MapLibre. Reuses the layer when already added. This changes map presentation only and never submits analysis.
+"map_fit_bounds": |-
+  Request the current session map to focus on one verified output's spatial bounds. The map uses its actual screen size and persists the resulting view.
+"map_set_layer_style": |-
+  Update a session-owned layer's visibility, opacity and order with its current expected_revision. A conflict requires rereading map_get_context. This changes presentation only, not values or analysis parameters.

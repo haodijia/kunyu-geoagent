@@ -1,0 +1,156 @@
+"""Result metadata, durable model previews and explicit COG/original references."""
+
+from collections.abc import Mapping
+from typing import Literal
+from uuid import uuid4
+
+from pydantic import Field
+
+from kunyu.agent.prompt_files import tool_description
+from kunyu.agent.runtime.input_content import ImageInputBlock
+from kunyu.agent.runtime.models import ModelAdapterError
+from kunyu.agent.runtime.tools import (
+    ToolCall,
+    ToolExecutionError,
+    ToolResult,
+    ToolRiskLevel,
+    ToolSpec,
+)
+from kunyu.agent.tools.shared import (
+    ToolArguments,
+    load_source,
+    require_bound_call,
+    tool_result,
+    validate_arguments,
+    validate_model,
+)
+from kunyu.application.analysis import AnalysisService
+from kunyu.application.attachment_preparation import PreparedAttachment, normalize_image
+from kunyu.domain.agent_context import RunContextRepository
+from kunyu.domain.analysis import AnalysisError
+from kunyu.domain.attachments import AttachmentError, ToolImageProducer, attachment_path
+from kunyu.integrations.filesystem_io import check_cancelled
+from kunyu.integrations.filesystem_operation import filesystem_operation
+from kunyu.integrations.model.request_images import prepare_image
+from kunyu.persistence.attachments import SQLAlchemyAttachmentStore
+
+
+class OutputArguments(ToolArguments):
+    output_id: str = Field(min_length=1, max_length=64)
+
+
+class DownloadArguments(OutputArguments):
+    kind: Literal["rendered_cog", "original"] = "rendered_cog"
+
+
+class ResultTool:
+    def __init__(
+        self,
+        run_id: str,
+        contexts: RunContextRepository,
+        service: AnalysisService,
+        attachments: SQLAlchemyAttachmentStore,
+        *,
+        name: str,
+    ) -> None:
+        self._run_id, self._contexts, self._service, self._attachments = (
+            run_id,
+            contexts,
+            service,
+            attachments,
+        )
+        self._arguments = (
+            DownloadArguments if name == "oge_download_result" else OutputArguments
+        )
+        self.spec = ToolSpec(
+            name=name,
+            description=tool_description(name),
+            parameters=self._arguments.model_json_schema(),
+            risk_level=ToolRiskLevel.L0,
+            execution="parallel",
+            presentation="search",
+            timeout_ms=30_000,
+        )
+
+    def validate(self, arguments: object) -> Mapping[str, object]:
+        return validate_arguments(self.spec.name, self._arguments, arguments)
+
+    async def execute(self, call: ToolCall) -> ToolResult:
+        require_bound_call(call, self._run_id, self.spec.name)
+        args = validate_model(self.spec.name, self._arguments, call.arguments)
+        source = load_source(self._contexts, self._run_id)
+        try:
+            output = self._service.repository.output(source.session.id, args.output_id)
+            _cog, preview = self._service.repository.files(source.session.id, output.id)
+        except AnalysisError as error:
+            raise ToolExecutionError(str(error), code=error.code) from None
+        if isinstance(args, DownloadArguments):
+            if args.kind == "original":
+                raise ToolExecutionError(
+                    f"The independent original download interface returned HTTP {output.original_status}; it is not a verified available original product.",
+                    code="OGE_ORIGINAL_UNAVAILABLE",
+                )
+            return tool_result(
+                {
+                    "analysis_output_id": output.id,
+                    "kind": "rendered_cog",
+                    "available": True,
+                    "download_endpoint": f"/api/v1/sessions/{source.session.id}/analysis/outputs/{output.id}/download",
+                    "numeric_ndvi_available": False,
+                }
+            )
+        if self.spec.name == "oge_get_result":
+            return tool_result(
+                {
+                    "analysis_output_id": output.id,
+                    "output": output.model_dump(mode="json"),
+                }
+            )
+        snapshot = source.run.request_snapshot
+        if snapshot is None or not snapshot.image_input.enabled:
+            raise ToolExecutionError(
+                "Enable image input for the calling model and start a new turn before reading a result image.",
+                code="IMAGE_INPUT_DISABLED",
+            )
+
+        def publish(cancelled):
+            check_cancelled(cancelled, "analysis preview")
+            raw = self._service.raster.path(preview).read_bytes()
+            ref, data = normalize_image(
+                str(uuid4()), "ndvi-preview.png", "image/png", raw
+            )
+            ref = ref.model_copy(
+                update={
+                    "producer": ToolImageProducer(
+                        run_id=call.run_id, tool_call_id=call.call_id
+                    )
+                }
+            )
+            prepare_image(ref, data, snapshot.image_input)
+            check_cancelled(cancelled, "publish analysis preview")
+            self._attachments.save_batch(
+                source.session.id, (PreparedAttachment(ref, data, raw, "image/png"),)
+            )
+            return ref
+
+        try:
+            ref = await filesystem_operation(publish)
+        except (AttachmentError, ModelAdapterError) as error:
+            raise ToolExecutionError(
+                str(error),
+                code=error.code.value
+                if isinstance(error, ModelAdapterError)
+                else error.code,
+            ) from error
+        result = tool_result(
+            {
+                "analysis_output_id": output.id,
+                "path": attachment_path(ref),
+                "kind": "rgb_preview",
+                "numeric_ndvi_available": False,
+            }
+        )
+        return ToolResult(
+            content=(*result.content, ImageInputBlock(attachment=ref)),
+            result=result.result,
+        )

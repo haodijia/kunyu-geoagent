@@ -16,38 +16,47 @@ from sqlalchemy import (
     func,
 )
 from sqlalchemy import text as sql_text
-from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from kunyu.agent.runtime.retry_policy import NormalRetryPolicy
 from kunyu.domain.model_settings import DEFAULT_MODEL_OUTPUT_TOKENS
-
-
-class Base(DeclarativeBase):
-    pass
+from kunyu.persistence.model_base import Base
 
 
 class McpServerRecord(Base):
     __tablename__ = "mcp_servers"
-    __table_args__ = (CheckConstraint("revision > 0 AND catalog_revision >= 0", name="ck_mcp_server_revision"),)
+    __table_args__ = (
+        CheckConstraint(
+            "revision > 0 AND catalog_revision >= 0", name="ck_mcp_server_revision"
+        ),
+    )
     name: Mapped[str] = mapped_column(String(32), primary_key=True)
     config: Mapped[dict] = mapped_column(JSON, nullable=False)
     secrets: Mapped[dict] = mapped_column(JSON, nullable=False)
     revision: Mapped[int] = mapped_column(Integer, nullable=False)
     catalog_revision: Mapped[int] = mapped_column(Integer, nullable=False)
     catalog: Mapped[dict | None] = mapped_column(JSON, nullable=True)
-    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False
+    )
 
 
 class McpOAuthRecord(Base):
     __tablename__ = "mcp_oauth"
-    name: Mapped[str] = mapped_column(ForeignKey("mcp_servers.name", ondelete="CASCADE"), primary_key=True)
+    name: Mapped[str] = mapped_column(
+        ForeignKey("mcp_servers.name", ondelete="CASCADE"), primary_key=True
+    )
     server_url: Mapped[str] = mapped_column(String(2048), nullable=False)
     tokens: Mapped[dict] = mapped_column(JSON, nullable=False)
     client_info: Mapped[dict] = mapped_column(JSON, nullable=False)
     client_metadata: Mapped[dict] = mapped_column(JSON, nullable=False)
     discovery: Mapped[dict] = mapped_column(JSON, nullable=False)
-    expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
-    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    expires_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False
+    )
 
 
 class WorkspaceRecord(Base):
@@ -155,7 +164,9 @@ class SubagentRecord(Base):
     tool_call_id: Mapped[str] = mapped_column(String(64), nullable=False)
     created: Mapped[dict] = mapped_column(JSON, nullable=False)
     settled: Mapped[dict | None] = mapped_column(JSON, nullable=True)
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False
+    )
     settled_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     created_sequence: Mapped[int] = mapped_column(Integer, nullable=False)
     settled_sequence: Mapped[int | None] = mapped_column(Integer)
@@ -758,3 +769,12 @@ class ModelCredentialRecord(Base):
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False
     )
+
+
+# Import after Base and session tables exist; these records are not Agent projections.
+from kunyu.persistence.analysis_models import (  # noqa: F401
+    AnalysisJobRecord,
+    AnalysisOutputRecord,
+    MapLayerRecord,
+    MapStateRecord,
+)

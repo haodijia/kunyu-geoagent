@@ -852,8 +852,20 @@ class RunTerminalEvent(_RunEventDraft):
         return self
 
 
+class BusinessObjectPayload(EventPayload):
+    object_id: str
+    revision: int = Field(ge=1)
+    state: str | None = None
+
+
+class BusinessObjectChangedEvent(_SessionEventDraft):
+    event_type: Literal["analysis/job", "analysis/output", "map/changed"]
+    payload: BusinessObjectPayload
+
+
 type EventDraft = Annotated[
     SessionCreatedEvent
+    | BusinessObjectChangedEvent
     | UserMessageAppendedEvent
     | ContextInjectedEvent
     | InboxSplicedEvent

@@ -45,7 +45,15 @@ uv sync --project backend
 
 Electron 二进制默认从 npmmirror 下载，避免无法连接 GitHub 时安装失败；镜像地址配置在 `electron/.npmrc`。
 
-数据库统一由 `backend/src/kunyu/persistence/schema.sql` 初始化，版本保存在 SQLite `user_version`，不再运行 Alembic 迁移链。旧开发库不会自动升级或删除；保留备份后使用新的 `KUNYU_APP_DATA_DIR`，或由开发者显式重建数据库。当前基线含模型、会话日志、审批、MCP、OAuth 和子任务共20张表。
+数据库统一由 `backend/src/kunyu/persistence/schema.sql` 初始化，版本保存在 SQLite `user_version`，不再运行 Alembic 迁移链。旧开发库不会自动升级或删除；保留备份后使用新的 `KUNYU_APP_DATA_DIR`，或由开发者显式重建数据库。当前基线为版本 2，含模型、会话日志、审批、MCP、OAuth、子任务、分析成果和地图共 24 张表。
+
+版本 1 的开发库可以在应用关闭后显式升级：
+
+```bash
+uv run --project backend python scripts/upgrade_analysis_schema.py "/数据库目录/kunyu.db"
+```
+
+该命令先保存 `kunyu.before-analysis.db` 备份，再从同一份 SQL 基线添加分析和地图表。
 
 在项目根目录用一条命令启动 Vite、Electron 和由 Electron 管理的 FastAPI：
 
@@ -63,6 +71,10 @@ uv run --project backend python -m kunyu.main
 ```
 
 Agent 系统提示词可直接编辑 [system.md](backend/src/kunyu/agent/prompts/system.md)，下一次模型请求生效。记忆工具及上下文代码入口见[记忆工具与上下文](docs/develop/记忆工具与上下文.md)，目录职责及 Tool、Skill 扩展约定见[后端 Agent 结构](docs/develop/后端Agent结构.md)。
+
+默认 NDVI 已支持 Agent 提交、后台任务跟踪、结果预览／下载、MapLibre 二维／三维叠加及图层和视角持久化。开发默认 `KUNYU_OGE_EXECUTION_MODE=replay`，使用已录制的 512 × 512 样例，全程不重新提交 OGE 计算。在会话输入“运行默认 NDVI，完成后添加到地图并定位”即可；地图的“任务 → 准备默认 NDVI”也会填写同一条 Agent 指令。读取预览需要为所选模型开启图片输入。
+
+仅在明确需要真实计算时设置 `KUNYU_OGE_EXECUTION_MODE=live` 并重启应用；需使用设置中原提交账户的有效登录。计算通过已有审批流程，提交状态不确定时不会自动重试。当前成果是 RGB 显示影像，独立原始下载接口仍返回 404，自选影像、研究区裁剪和数值 NDVI 统计尚未接入。实现与接口详见 [Agent 与地图协同设计](docs/develop/Agent与地图协同设计.md)。
 
 模型图片输入默认值、设置生效范围与各供应商官方指南见[模型图片输入](docs/develop/模型图片输入.md)。
 

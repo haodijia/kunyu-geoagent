@@ -8,6 +8,7 @@ from kunyu.agent import services as s
 from kunyu.agent.commands.plugin import CommandsPlugin
 from kunyu.agent.kernel import Kernel, Plugin
 from kunyu.agent.mcp.plugin import McpPlugin
+from kunyu.agent.plugins.analysis import AnalysisPlugin
 from kunyu.agent.plugins.attachments import AttachmentToolsPlugin
 from kunyu.agent.plugins.compaction import CompactionPlugin
 from kunyu.agent.plugins.core import (
@@ -26,12 +27,12 @@ from kunyu.agent.plugins.image_offload import ImageOffloadPlugin
 from kunyu.agent.plugins.infrastructure import ModelPlugin, PersistencePlugin
 from kunyu.agent.plugins.loop import AgentLoopPlugin
 from kunyu.agent.plugins.memory import MemoryToolsPlugin
-from kunyu.agent.plugins.oge import OgePlugin
 from kunyu.agent.plugins.model_providers import (
     DeepSeekModelProviderPlugin,
     ModelProvidersPlugin,
     SDKModelProviderPlugin,
 )
+from kunyu.agent.plugins.oge import OgePlugin
 from kunyu.agent.plugins.plan_mode import PlanModePlugin
 from kunyu.agent.plugins.questions import UserQuestionsPlugin
 from kunyu.agent.plugins.runtime_context import RuntimeContextPlugin
@@ -107,6 +108,7 @@ async def create_agent_runtime(
         MemoryToolsPlugin(),
         AttachmentToolsPlugin(),
         OgePlugin(),
+        AnalysisPlugin(),
         FilesystemToolsPlugin(),
         SearchPlugin(),
         TodoToolsPlugin(),

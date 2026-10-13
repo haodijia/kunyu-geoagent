@@ -46,7 +46,7 @@ from pathlib import Path
 import httpx
 from kunyu.integrations.oge.recording import OgeReplayTransport
 
-case = Path("docs/fixtures/oge/ndvi-default")
+case = Path("backend/src/kunyu/integrations/oge/fixtures/ndvi-default")
 transport = OgeReplayTransport(case)
 async with httpx.AsyncClient(transport=transport) as client:
     response = await client.post(

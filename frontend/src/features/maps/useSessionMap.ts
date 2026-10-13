@@ -1,11 +1,30 @@
-import { AttributionControl, Map, ScaleControl, setWorkerUrl, type ErrorEvent } from "maplibre-gl";
+import {
+  AttributionControl,
+  Map,
+  ScaleControl,
+  setWorkerUrl,
+  type ErrorEvent,
+} from "maplibre-gl";
 import workerUrl from "maplibre-gl/dist/maplibre-gl-worker.mjs?worker&url";
 import { useEffect, useRef, useState, type RefObject } from "react";
 
 import { useAppUiStore } from "@/app/store";
-import { MAP_HILLSHADE_COLORS, MAP_LOAD_TIMEOUT_MS, MAP_STYLES, MAP_TERRAIN } from "@/features/maps/config";
-import { INITIAL_MAP_VIEWPORT, type MapDimension } from "@/features/sessions/map-context";
+import {
+  MAP_HILLSHADE_COLORS,
+  MAP_LOAD_TIMEOUT_MS,
+  MAP_STYLES,
+  MAP_TERRAIN,
+} from "@/features/maps/config";
+import {
+  INITIAL_MAP_VIEWPORT,
+  type MapCamera,
+  type MapViewport,
+  type MapDimension,
+} from "@/features/sessions/map-context";
 import { zhCN } from "@/locales/zh-CN";
+
+import type { MapState } from "@/features/analysis/api";
+import { getRuntimeConnection } from "@/api/runtime";
 
 setWorkerUrl(workerUrl);
 
@@ -23,7 +42,10 @@ function currentStyle() {
 
 function applyDimension(map: Map, dimension: MapDimension) {
   if (dimension === "3d") {
-    for (const sourceId of [MAP_TERRAIN.sourceId, MAP_TERRAIN.hillshadeSourceId]) {
+    for (const sourceId of [
+      MAP_TERRAIN.sourceId,
+      MAP_TERRAIN.hillshadeSourceId,
+    ]) {
       if (map.getSource(sourceId) !== undefined) continue;
       map.addSource(sourceId, {
         type: "raster-dem",
@@ -31,33 +53,46 @@ function applyDimension(map: Map, dimension: MapDimension) {
         encoding: MAP_TERRAIN.encoding,
         tileSize: MAP_TERRAIN.tileSize,
         maxzoom: MAP_TERRAIN.maxzoom,
-        attribution: MAP_TERRAIN.attribution
+        attribution: MAP_TERRAIN.attribution,
       });
     }
     if (map.getLayer(MAP_TERRAIN.hillshadeLayerId) === undefined) {
       const colors = MAP_HILLSHADE_COLORS[currentTheme()];
-      const firstLineOrLabel = map.getStyle().layers.find((layer) => layer.type === "line" || layer.type === "symbol");
-      map.addLayer({
-        id: MAP_TERRAIN.hillshadeLayerId,
-        type: "hillshade",
-        source: MAP_TERRAIN.hillshadeSourceId,
-        paint: {
-          "hillshade-exaggeration": 0.4,
-          "hillshade-shadow-color": colors.shadow,
-          "hillshade-highlight-color": colors.highlight,
-          "hillshade-accent-color": colors.accent
-        }
-      }, firstLineOrLabel?.id);
+      const firstLineOrLabel = map
+        .getStyle()
+        .layers.find(
+          (layer) => layer.type === "line" || layer.type === "symbol",
+        );
+      map.addLayer(
+        {
+          id: MAP_TERRAIN.hillshadeLayerId,
+          type: "hillshade",
+          source: MAP_TERRAIN.hillshadeSourceId,
+          paint: {
+            "hillshade-exaggeration": 0.4,
+            "hillshade-shadow-color": colors.shadow,
+            "hillshade-highlight-color": colors.highlight,
+            "hillshade-accent-color": colors.accent,
+          },
+        },
+        firstLineOrLabel?.id,
+      );
     }
     map.setMaxPitch(MAP_TERRAIN.maxPitch);
-    map.setTerrain({ source: MAP_TERRAIN.sourceId, exaggeration: MAP_TERRAIN.exaggeration });
+    map.setTerrain({
+      source: MAP_TERRAIN.sourceId,
+      exaggeration: MAP_TERRAIN.exaggeration,
+    });
   } else {
     map.setTerrain(null);
     map.setMaxPitch(0);
     if (map.getLayer(MAP_TERRAIN.hillshadeLayerId) !== undefined) {
       map.removeLayer(MAP_TERRAIN.hillshadeLayerId);
     }
-    for (const sourceId of [MAP_TERRAIN.sourceId, MAP_TERRAIN.hillshadeSourceId]) {
+    for (const sourceId of [
+      MAP_TERRAIN.sourceId,
+      MAP_TERRAIN.hillshadeSourceId,
+    ]) {
       if (map.getSource(sourceId) !== undefined) map.removeSource(sourceId);
     }
   }
@@ -67,8 +102,19 @@ export function useSessionMap(
   targetRef: RefObject<HTMLDivElement | null>,
   overlayRef: RefObject<HTMLDivElement | null>,
   sessionId: string,
-  workspaceId: string
+  workspaceId: string,
+  initialState: MapState,
+  onViewChange: (
+    viewport: MapViewport,
+    camera: MapCamera,
+    appliedFocusRevision: number,
+  ) => void,
 ) {
+  const initial = useRef(initialState);
+  initial.current = initialState;
+  const onView = useRef(onViewChange);
+  onView.current = onViewChange;
+  const appliedFocus = useRef(initialState.applied_focus_revision);
   const mapRef = useRef<Map | null>(null);
   const dimensionRef = useRef<MapDimension>("2d");
   const [dimension, setDimension] = useState<MapDimension>("2d");
@@ -86,8 +132,8 @@ export function useSessionMap(
     const container = target.parentElement;
     const store = useAppUiStore.getState();
     store.initializeMapContext(sessionId, workspaceId);
-    const context = useAppUiStore.getState().mapContextBySession[sessionId];
-    if (context === undefined) throw new Error("Map context was not initialized.");
+    const context = initial.current;
+    store.setMapView(sessionId, context.viewport, context.camera);
 
     dimensionRef.current = context.camera.dimension;
     setDimension(context.camera.dimension);
@@ -96,7 +142,10 @@ export function useSessionMap(
     setFailed(false);
 
     const reportError = (error: unknown) => {
-      console.error("[map] MapLibre resource or rendering failure.", { sessionId, error });
+      console.error("[map] MapLibre resource or rendering failure.", {
+        sessionId,
+        error,
+      });
       setFailed(true);
       setLoading(false);
     };
@@ -113,7 +162,21 @@ export function useSessionMap(
         pitch: context.camera.pitch,
         maxPitch: context.camera.dimension === "3d" ? MAP_TERRAIN.maxPitch : 0,
         attributionControl: false,
-        canvasContextAttributes: { antialias: true }
+        canvasContextAttributes: { antialias: true },
+        transformRequest: (url) => {
+          const runtime = getRuntimeConnection();
+          const targetUrl = new URL(url, runtime.baseUrl);
+          if (
+            targetUrl.origin === new URL(runtime.baseUrl).origin &&
+            targetUrl.pathname.startsWith("/api/")
+          ) {
+            return {
+              url,
+              headers: { "X-Kunyu-Session": runtime.sessionToken },
+            };
+          }
+          return { url };
+        },
       });
     } catch (error) {
       reportError(error);
@@ -121,20 +184,26 @@ export function useSessionMap(
     }
     mapRef.current = map;
     map.addControl(new AttributionControl({ compact: true }), "bottom-right");
-    map.addControl(new ScaleControl({ unit: "metric", maxWidth: 100 }), "bottom-left");
+    map.addControl(
+      new ScaleControl({ unit: "metric", maxWidth: 100 }),
+      "bottom-left",
+    );
     map.getCanvas().setAttribute("aria-label", zhCN.map.label);
 
     const persistView = () => {
       const center = map.getCenter().wrap();
-      useAppUiStore.getState().setMapView(sessionId, {
+      const viewport = {
         longitude: center.lng,
         latitude: center.lat,
-        zoom: map.getZoom()
-      }, {
+        zoom: map.getZoom(),
+      };
+      const camera = {
         dimension: dimensionRef.current,
         bearing: map.getBearing(),
-        pitch: map.getPitch()
-      });
+        pitch: map.getPitch(),
+      };
+      useAppUiStore.getState().setMapView(sessionId, viewport, camera);
+      onView.current(viewport, camera, appliedFocus.current);
     };
     const onStyleLoad = () => {
       applyDimension(map, dimensionRef.current);
@@ -152,7 +221,13 @@ export function useSessionMap(
     };
     const startLoadTimer = () => {
       clearTimeout(loadTimer);
-      loadTimer = setTimeout(() => reportError(new Error("Map resources did not finish loading in time.")), MAP_LOAD_TIMEOUT_MS);
+      loadTimer = setTimeout(
+        () =>
+          reportError(
+            new Error("Map resources did not finish loading in time."),
+          ),
+        MAP_LOAD_TIMEOUT_MS,
+      );
     };
     let styleUrl = currentStyle();
     const themeObserver = new MutationObserver(() => {
@@ -164,7 +239,10 @@ export function useSessionMap(
       startLoadTimer();
       map.setStyle(nextStyle, { diff: false });
     });
-    themeObserver.observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
+    themeObserver.observe(document.documentElement, {
+      attributes: true,
+      attributeFilter: ["data-theme"],
+    });
     const resize = () => {
       const overlayHeight = overlay.getBoundingClientRect().height;
       container.style.setProperty("--map-overlay-height", `${overlayHeight}px`);
@@ -212,11 +290,16 @@ export function useSessionMap(
       zoom: INITIAL_MAP_VIEWPORT.zoom,
       bearing: 0,
       pitch: dimensionRef.current === "3d" ? MAP_TERRAIN.pitch : 0,
-      duration: 600
+      duration: 600,
     });
   }
 
   return {
+    getMap: () => mapRef.current,
+    markFocusApplied: (revision: number) => {
+      appliedFocus.current = revision;
+    },
+    appliedFocusRevision: appliedFocus,
     dimension,
     ready,
     loading,
@@ -226,6 +309,6 @@ export function useSessionMap(
     resetNorth: () => mapRef.current?.easeTo({ bearing: 0, duration: 400 }),
     zoomIn: () => mapRef.current?.zoomIn(),
     zoomOut: () => mapRef.current?.zoomOut(),
-    reload: () => setAttempt((value) => value + 1)
+    reload: () => setAttempt((value) => value + 1),
   };
 }

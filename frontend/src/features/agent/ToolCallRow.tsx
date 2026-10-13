@@ -19,6 +19,8 @@ import { toolDuration, toolLabel, toolStatus, toolTarget } from "./tool-presenta
 import styles from "./ToolActivity.module.css";
 import { SubagentCard } from "@/features/subagents/SubagentCard";
 
+import { AnalysisToolResult } from "@/features/analysis/AnalysisToolResult";
+
 const content = zhCN.conversation.tools;
 
 export function ToolCallRow({
@@ -82,6 +84,7 @@ export function ToolCallRow({
           {tool.error_summary}
         </p>
       ) : null}
+      {tool.status === "completed" && <AnalysisToolResult value={tool.result} sessionId={tool.session_id} />}
       {tool.name === "subagent" && <SubagentCard toolCallId={tool.id} />}
       {denied && <p className={styles.callDenied} data-tool-denied={tool.id}>{content.denied}</p>}
       {expanded ? (

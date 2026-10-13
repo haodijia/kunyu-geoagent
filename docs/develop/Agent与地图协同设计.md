@@ -193,11 +193,11 @@ NDVI 是连续数值结果，需要固定数值到颜色的映射与数值图例
 | --- | --- |
 | GET /api/v1/oge/services | 返回已注册且经过验证的服务说明，不暴露凭据 |
 | GET /api/v1/sessions/{session_id}/analysis-jobs | 当前会话的分析任务 |
-| GET /api/v1/analysis-jobs/{job_id} | 任务、输入模式、状态和成果摘要 |
-| GET /api/v1/analysis-outputs/{output_id} | 成果元数据与可用操作 |
-| GET /api/v1/analysis-outputs/{output_id}/preview | 已准备的预览图片 |
-| GET /api/v1/analysis-outputs/{output_id}/download | 原始成果下载 |
-| GET /api/v1/analysis-outputs/{output_id}/tiles/{z}/{x}/{y}.png | 已准备的栅格瓦片 |
+| GET /api/v1/sessions/{session_id}/analysis/jobs/{job_id} | 任务、输入模式、状态和成果摘要 |
+| GET /api/v1/sessions/{session_id}/analysis/outputs/{output_id} | 成果元数据与可用操作 |
+| GET /api/v1/sessions/{session_id}/analysis/outputs/{output_id}/preview | 已准备的预览图片 |
+| GET /api/v1/sessions/{session_id}/analysis/outputs/{output_id}/download | 显示影像下载；`kind=original` 返回明确不可用错误 |
+| GET /api/v1/sessions/{session_id}/analysis/outputs/{output_id}/tiles/{z}/{x}/{y}.png | 已准备的栅格瓦片 |
 | GET/PUT /api/v1/sessions/{session_id}/map | 地图配置与视口，写入带版本 |
 | GET/POST /api/v1/sessions/{session_id}/rois | 研究区管理，后续阶段实现 |
 
@@ -260,6 +260,26 @@ NDVI 是连续数值结果，需要固定数值到颜色的映射与数值图例
 
 ## 13. 一次录制、后续离线开发
 
-2026-10-13 完成唯一一次默认 NDVI 提交，服务正确路径为 gp-service，官网 HTTPS /api 路由可用。真实响应与轻量 mock 位于 [默认 NDVI 录制](../fixtures/oge/ndvi-default/README.md)。后续以显式离线重放推进任务卡片、结果上图与地图协同，不重复提交真实计算。
+2026-10-13 完成唯一一次默认 NDVI 提交，服务正确路径为 gp-service，官网 HTTPS /api 路由可用。真实响应与轻量 mock 位于 [默认 NDVI 录制](../../backend/src/kunyu/integrations/oge/fixtures/ndvi-default/README.md)。后续以显式离线重放推进任务卡片、结果上图与地图协同，不重复提交真实计算。
 
 实测补充：该服务异步返回 data.processId；结果查询用 data.jobId 标识任务，data.processId=DAGJSON 是引擎过程类型。本 GP 服务实际成功状态为 resultStatus=1、resultFileStatus=1，并返回“任务执行成功”和引擎 status=success；不得套用旧手册的 2=成功。失败码尚未实测。styles/cog 返回约 1.03 GB 的 image/tiff，而不是 PNG；独立 result/download 返回 404。源栅格是三波段 uint8 RGB，数值分析仍需验证独立的 NDVI 数值波段。默认使用真实 overview 派生的 512 × 512 TIFF/PNG 做轻量地图与预览 mock，保留原始元数据与下载失败响应。
+
+
+## 14. 第一阶段实现（2026-10-13）
+
+已完成 B、C 阶段中经过协议验证的链路：
+
+- 新增 6 个 OGE 工具：`oge_calculate_ndvi`（无参数）、`oge_get_job`、`oge_wait_job`、`oge_get_result`、`oge_download_preview`、`oge_download_result`。继续放在 `agent/tools/oge/`。
+- 新增 `agent/tools/maps/` 中的 4 个地图工具：`map_get_context`、`map_add_layer`、`map_fit_bounds`、`map_set_layer_style`。
+- NDVI 复用 L2 审批、持久工具收据和模型图片输入机制。一个工具调用只登记一个本地任务；接收远程 ID 后由后台监督器查询。停止 Agent、切换页面或重启不触发重新提交；发送后未保存确定响应的任务标记 `submission_unknown`。
+- `analysis_jobs`、`analysis_outputs`、`map_states`、`map_layers` 与会话关联。业务事件与同一 SQLite 事务提交，更新界面查询缓存；不把成果当作新的用户或助手消息注入模型。
+- 对话与轨迹共用任务／结果卡片；地图包含任务、图层、结果三个面板。支持显隐、透明度、排序、移除、空间定位、结果加入对话和下载。地图选中栅格的覆盖范围时记录成果引用，不声称返回像元数值或矢量要素。
+- 本地鉴权瓦片经过 Rasterio 转成 Web Mercator，图层保留底图标签；二维与地形三维共用同一空间栅格。相机、选择和样式持久化，版本冲突明确报错；已消费的定位请求不会在重开地图时覆盖保存的视角。
+- 当前只提供服务默认输入。`replay` 使用真实录制派生的 512 × 512 显示 TIFF，保留源 15838 × 16098 影像元数据；卡片明确标记回放。`live` 使用原账户读取实际 COG；模式在启动时选择，不会因网络错误切换模式。
+- 下载明确区分显示影像与独立原始产品；后者尚未验证可用。没有伪造数值 NDVI 色带或统计，研究区、自选影像、裁剪和灾害服务留待对应协议验证。
+
+当前 HTTP 接口均在 `/api/v1/sessions/{session_id}/analysis/` 和 `/api/v1/sessions/{session_id}/map` 下，另有 `GET /api/v1/oge/services`。成果支持 `outputs/{output_id}/preview`、`download?kind=rendered_cog|original`、`tiles/{z}/{x}/{y}.png`；地图支持 layers、select、focus。前端的运行按钮仅准备 Agent 输入，不直接调用计算接口。
+
+数据库统一 SQL 基线已更新到版本 2；版本 1 的现有开发库用 `scripts/upgrade_analysis_schema.py` 显式备份升级。活动分析及提交状态未知的会话不能永久删除，已归档会话可保留后台状态查询。
+
+手工验证完成：完整 Agent 审批 → NDVI → 有界等待 → 模型图片收据 → 图层 → 定位，无外部请求；显示 TIFF／PNG／瓦片读取；跨会话隔离；鉴权拒绝；重复工具调用幂等；版本冲突；后端重启恢复。Electron 实际界面已验证二维／三维叠加、512 像素预览、显示影像下载和结果加入对话。未新增测试文件，也未再次提交真实 NDVI。

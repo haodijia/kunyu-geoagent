@@ -9,6 +9,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from kunyu.agent import services as s
 from kunyu.agent.bootstrap import create_agent_runtime
 from kunyu.api.agent import router as agent_router
+from kunyu.api.analysis import router as analysis_router
 from kunyu.api.attachments import router as attachments_router
 from kunyu.api.commands import router as commands_router
 from kunyu.api.confirmations import router as confirmations_router
@@ -91,6 +92,8 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         app.state.question_service = agent_runtime.kernel.context.require(s.QUESTIONS)
         app.state.agent_directory = agent_runtime.agents
         app.state.mcp_manager = agent_runtime.kernel.context.require(s.MCP)
+        app.state.analysis_service = agent_runtime.kernel.context.require(s.ANALYSIS)
+        app.state.map_repository = agent_runtime.kernel.context.require(s.MAPS)
         app.state.oge_service = agent_runtime.kernel.context.require(s.OGE)
         app.state.skill_service = SkillManagementService(
             agent_runtime.kernel.context,
@@ -125,6 +128,7 @@ def create_app(session_token: str | None = None) -> FastAPI:
     app.include_router(system_router)
     app.include_router(model_connections_router)
     app.include_router(oge_router)
+    app.include_router(analysis_router)
     app.include_router(mcp_router)
     app.include_router(confirmations_router)
     app.include_router(questions_router)

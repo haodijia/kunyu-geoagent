@@ -1,6 +1,7 @@
 from sqlalchemy import and_, delete, or_, select, text
 from sqlalchemy.dialects.sqlite import insert
 
+from kunyu.domain.analysis import EXECUTING_STATES, AnalysisError
 from kunyu.domain.events import AgentEvent
 from kunyu.domain.runs import NONTERMINAL_RUN_STATE_VALUES, UnfinishedRunConflictError
 from kunyu.domain.sessions import (
@@ -10,6 +11,7 @@ from kunyu.domain.sessions import (
     Session,
     SessionNotArchivedError,
 )
+from kunyu.persistence.analysis_models import AnalysisJobRecord
 from kunyu.persistence.database import Database
 from kunyu.persistence.models import (
     MessageRecord,
@@ -130,6 +132,7 @@ class SQLAlchemySessionRepository:
                     )
                 )
             )
+            _require_no_analysis(session, (session_id, *child_ids))
             for child_id in child_ids:
                 session.delete(session.get(SessionRecord, child_id))
             session.delete(record)
@@ -149,6 +152,8 @@ class SQLAlchemySessionRepository:
                     )
                 )
             )
+            archived_ids = tuple(session.scalars(archived))
+            _require_no_analysis(session, (*archived_ids, *child_ids))
             for child_id in child_ids:
                 session.delete(session.get(SessionRecord, child_id))
             result = session.execute(
@@ -285,3 +290,19 @@ def _to_domain(record: SessionRecord) -> Session:
         created_at=as_utc(record.created_at),
         updated_at=as_utc(record.updated_at),
     )
+
+
+def _require_no_analysis(tx, session_ids: tuple[str, ...]) -> None:
+    active = tx.scalar(
+        select(AnalysisJobRecord.id)
+        .where(
+            AnalysisJobRecord.session_id.in_(session_ids),
+            AnalysisJobRecord.state.in_((*EXECUTING_STATES, "submission_unknown")),
+        )
+        .limit(1)
+    )
+    if active is not None:
+        raise AnalysisError(
+            "ANALYSIS_ACTIVE",
+            "Retain this session while an analysis is active or its submission status is unknown.",
+        )

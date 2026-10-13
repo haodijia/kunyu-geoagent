@@ -10,6 +10,7 @@ from kunyu.agent.runtime.control_projection import ControlProjection
 from kunyu.agent.runtime.events import (
     TERMINAL_RUN_STATES,
     AgentEvent,
+    BusinessObjectChangedEvent,
     CompactionStartedEvent,
     InboxMessagePayload,
     InboxSplicedEvent,
@@ -142,6 +143,9 @@ def reduce_session(events: Iterable[AgentEvent]) -> ReducedSession:
             raise SessionReductionError(
                 "Session events cannot precede session.created."
             )
+
+        if isinstance(event, BusinessObjectChangedEvent):
+            continue
 
         if isinstance(event, (SubagentCreatedEvent, SubagentSettledEvent)):
             try:

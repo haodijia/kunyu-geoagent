@@ -7,7 +7,7 @@ from sqlalchemy import Engine, inspect
 
 from kunyu.persistence.models import Base
 
-SCHEMA_VERSION = 1
+SCHEMA_VERSION = 2
 SCHEMA_PATH = Path(__file__).with_name("schema.sql")
 
 

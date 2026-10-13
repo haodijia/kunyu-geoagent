@@ -34,6 +34,7 @@ import { FileMutationResult } from "@/features/agent/FileMutationResult";
 import { useSessionWorkspace } from "@/features/sessions/SessionWorkspaceContext";
 import { useSessionEvents } from "./SessionEventContext";
 import { SubagentRecordLink } from "@/features/subagents/SubagentRecordLink";
+import { AnalysisToolResult } from "@/features/analysis/AnalysisToolResult";
 const content = zhCN.trajectory;
 type Tab =
   | "summary"
@@ -374,6 +375,7 @@ function ToolResultPresentation({ record }: { readonly record: TrajectoryRecord 
   const offloads = useMemo(() => collectImageOffloads(records), [records]);
   const output = record.output;
   if (record.kind !== "tool" || output === null || typeof output !== "object" || !("content" in output)) return null;
+  if ("result" in output && output.result !== null && typeof output.result === "object" && ("analysis_job_id" in output.result || "analysis_output_id" in output.result)) return <AnalysisToolResult value={output.result} sessionId={session.id} />;
   if (record.source.tool_name === "read") {
     if (!("result" in output)) throw new Error("Read result has no presentation metadata.");
     return <ReadResult value={output.result} text={toolContentText(parseToolContent(output.content))} />;

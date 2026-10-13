@@ -6,6 +6,8 @@ from fastapi.exceptions import RequestValidationError
 from pydantic import BaseModel
 from starlette.responses import JSONResponse
 
+from kunyu.domain.analysis import AnalysisError
+
 
 class ErrorDetail(BaseModel):
     code: str
@@ -34,6 +36,7 @@ class ApiError(Exception):
 
 def install_error_handlers(app: FastAPI) -> None:
     app.add_exception_handler(ApiError, _handle_api_error)
+    app.add_exception_handler(AnalysisError, _handle_analysis_error)
     app.add_exception_handler(RequestValidationError, _handle_validation_error)
     app.add_exception_handler(HTTPException, _handle_http_error)
 
@@ -128,3 +131,9 @@ def _require_http_error(error: Exception) -> HTTPException:
     if not isinstance(error, HTTPException):
         raise TypeError("Expected HTTPException.")
     return error
+
+
+def _handle_analysis_error(_: Request, error: Exception) -> JSONResponse:
+    if not isinstance(error, AnalysisError):
+        raise TypeError("Expected AnalysisError.")
+    return _response(error.status, error.code, str(error), {})

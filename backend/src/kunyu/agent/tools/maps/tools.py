@@ -1,0 +1,105 @@
+"""Map tools read and mutate only the calling session's typed map objects."""
+
+from collections.abc import Mapping
+
+from pydantic import Field
+
+from kunyu.agent.prompt_files import tool_description
+from kunyu.agent.runtime.tools import (
+    ToolCall,
+    ToolExecutionError,
+    ToolResult,
+    ToolRiskLevel,
+    ToolSpec,
+)
+from kunyu.agent.tools.shared import (
+    ToolArguments,
+    load_source,
+    require_bound_call,
+    tool_result,
+    validate_arguments,
+    validate_model,
+)
+from kunyu.domain.agent_context import RunContextRepository
+from kunyu.domain.analysis import AnalysisError, LayerStyleWrite
+from kunyu.persistence.maps import MapRepository
+
+
+class ContextArguments(ToolArguments):
+    pass
+
+
+class OutputArguments(ToolArguments):
+    output_id: str = Field(min_length=1, max_length=64)
+
+
+class StyleArguments(ToolArguments):
+    layer_id: str = Field(min_length=1, max_length=64)
+    expected_revision: int = Field(ge=1)
+    visible: bool
+    opacity: float = Field(ge=0, le=1, allow_inf_nan=False)
+    position: int = Field(ge=0, le=1000)
+
+
+class MapTool:
+    def __init__(
+        self,
+        run_id: str,
+        contexts: RunContextRepository,
+        maps: MapRepository,
+        *,
+        name: str,
+    ) -> None:
+        self._run_id, self._contexts, self._maps = run_id, contexts, maps
+        self._arguments = (
+            ContextArguments
+            if name == "map_get_context"
+            else StyleArguments
+            if name == "map_set_layer_style"
+            else OutputArguments
+        )
+        self.spec = ToolSpec(
+            name=name,
+            description=tool_description(name),
+            parameters=self._arguments.model_json_schema(),
+            risk_level=ToolRiskLevel.L0
+            if name == "map_get_context"
+            else ToolRiskLevel.L1,
+            execution="parallel" if name == "map_get_context" else "exclusive",
+            presentation="search" if name == "map_get_context" else "write",
+        )
+
+    def validate(self, arguments: object) -> Mapping[str, object]:
+        return validate_arguments(self.spec.name, self._arguments, arguments)
+
+    async def execute(self, call: ToolCall) -> ToolResult:
+        require_bound_call(call, self._run_id, self.spec.name)
+        args = validate_model(self.spec.name, self._arguments, call.arguments)
+        source = load_source(self._contexts, self._run_id)
+        session_id = source.session.id
+        try:
+            if self.spec.name == "map_get_context":
+                value = {
+                    "state": self._maps.state(session_id).model_dump(mode="json"),
+                    "layers": [
+                        layer.model_dump(mode="json")
+                        for layer in self._maps.layers(session_id)
+                    ],
+                }
+            elif self.spec.name == "map_add_layer":
+                value = self._maps.add(session_id, args.output_id).model_dump(
+                    mode="json"
+                )
+            elif self.spec.name == "map_fit_bounds":
+                value = self._maps.select(
+                    session_id, args.output_id, focus=True
+                ).model_dump(mode="json")
+            else:
+                value = self._maps.style(
+                    session_id,
+                    args.layer_id,
+                    LayerStyleWrite(**args.model_dump(exclude={"layer_id"})),
+                ).model_dump(mode="json")
+        except AnalysisError as error:
+            raise ToolExecutionError(str(error), code=error.code) from None
+        return tool_result(value)
