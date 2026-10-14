@@ -31,7 +31,7 @@ class RunBudget:
     model_calls: int = 0
     max_tool_calls: int = 16
     tool_calls: int = 0
-    max_active_milliseconds: int = 1_200_000
+    max_active_milliseconds: int = 300_000
     active_milliseconds: int = 0
     max_output_codepoints: int = 32_768
     output_codepoints: int = 0

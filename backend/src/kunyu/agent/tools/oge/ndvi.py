@@ -26,7 +26,7 @@ from kunyu.domain.analysis import AnalysisError
 from kunyu.domain.oge import OgeError
 
 logger = logging.getLogger(__name__)
-NDVI_WAIT_TIMEOUT_SECONDS = 15 * 60
+NDVI_TIMEOUT_MILLISECONDS = 10_000
 
 
 class NdviArguments(ToolArguments):
@@ -46,7 +46,7 @@ class NdviTool:
             risk_level=ToolRiskLevel.L2,
             execution="exclusive",
             presentation="write",
-            timeout_ms=(NDVI_WAIT_TIMEOUT_SECONDS + 30) * 1_000,
+            timeout_ms=NDVI_TIMEOUT_MILLISECONDS,
             timeout_error_code="ANALYSIS_WAIT_TIMEOUT",
             approval=ToolApproval(
                 execution="tool",
@@ -74,15 +74,7 @@ class NdviTool:
         except (AnalysisError, OgeError) as error:
             raise ToolExecutionError(str(error), code=error.code) from None
         try:
-            async with asyncio.timeout(NDVI_WAIT_TIMEOUT_SECONDS):
-                job, output = await self._service.wait_for_output(
-                    source.session.id, job.id
-                )
-        except TimeoutError:
-            raise ToolExecutionError(
-                f"Stopped waiting after {NDVI_WAIT_TIMEOUT_SECONDS} seconds for NDVI job {job.id}. The existing job remains supervised in the background; use oge_get_job to inspect it and do not submit a replacement calculation.",
-                code="ANALYSIS_WAIT_TIMEOUT",
-            ) from None
+            job, output = await self._service.wait_for_output(source.session.id, job.id)
         except AnalysisError as error:
             raise ToolExecutionError(str(error), code=error.code) from None
         except asyncio.CancelledError:
