@@ -1,5 +1,7 @@
-"""NDVI submission participates in the existing deferred approval contract."""
+"""One approved NDVI call waits for a prepared output before succeeding."""
 
+import asyncio
+import logging
 from collections.abc import Mapping
 
 from kunyu.agent.prompt_files import tool_description
@@ -23,6 +25,9 @@ from kunyu.domain.agent_context import RunContextRepository
 from kunyu.domain.analysis import AnalysisError
 from kunyu.domain.oge import OgeError
 
+logger = logging.getLogger(__name__)
+NDVI_WAIT_TIMEOUT_SECONDS = 15 * 60
+
 
 class NdviArguments(ToolArguments):
     pass
@@ -41,13 +46,14 @@ class NdviTool:
             risk_level=ToolRiskLevel.L2,
             execution="exclusive",
             presentation="write",
-            timeout_ms=30_000,
+            timeout_ms=(NDVI_WAIT_TIMEOUT_SECONDS + 30) * 1_000,
+            timeout_error_code="ANALYSIS_WAIT_TIMEOUT",
             approval=ToolApproval(
                 execution="tool",
                 binding=service.binding,
-                summary="Create an NDVI recorded demonstration."
+                summary="Create an NDVI recorded demonstration and wait for its result."
                 if replay
-                else "Submit one default NDVI calculation to OGE.",
+                else "Calculate default NDVI through OGE and wait for its result.",
                 side_effect="Creates a persistent local analysis job using recorded data; no remote calculation is submitted."
                 if replay
                 else "Submits one remote OGE computation and records its job identity.",
@@ -67,10 +73,29 @@ class NdviTool:
             )
         except (AnalysisError, OgeError) as error:
             raise ToolExecutionError(str(error), code=error.code) from None
+        try:
+            async with asyncio.timeout(NDVI_WAIT_TIMEOUT_SECONDS):
+                job, output = await self._service.wait_for_output(
+                    source.session.id, job.id
+                )
+        except TimeoutError:
+            raise ToolExecutionError(
+                f"Stopped waiting after {NDVI_WAIT_TIMEOUT_SECONDS} seconds for NDVI job {job.id}. The existing job remains supervised in the background; use oge_get_job to inspect it and do not submit a replacement calculation.",
+                code="ANALYSIS_WAIT_TIMEOUT",
+            ) from None
+        except AnalysisError as error:
+            raise ToolExecutionError(str(error), code=error.code) from None
+        except asyncio.CancelledError:
+            logger.info(
+                "Stopped waiting for NDVI job %s; background supervision continues.",
+                job.id,
+            )
+            raise
         return tool_result(
             {
                 "analysis_job_id": job.id,
+                "analysis_output_id": output.id,
                 "job": job.model_dump(mode="json"),
-                "next_action": "Use oge_wait_job or oge_get_job; the background supervisor owns status reads.",
+                "output": output.model_dump(mode="json"),
             }
         )

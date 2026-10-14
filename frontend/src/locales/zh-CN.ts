@@ -650,7 +650,7 @@ user-invocable: true
         write: "写入文件",
         edit: "编辑文件",
         read_image: "读取图片",
-        oge_calculate_ndvi: "计算 NDVI", oge_get_job: "查询分析任务", oge_wait_job: "等待分析任务",
+        oge_calculate_ndvi: "计算 NDVI", oge_get_job: "查询分析任务",
         oge_get_result: "读取分析结果", oge_download_preview: "读取结果预览", oge_download_result: "下载分析结果",
         map_get_context: "读取地图状态", map_add_layer: "添加结果图层", map_fit_bounds: "定位结果范围", map_set_layer_style: "调整地图图层",
         oge_find_regions: "查询行政区",

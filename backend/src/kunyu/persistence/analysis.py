@@ -173,6 +173,22 @@ class AnalysisRepository:
                 raise AnalysisError("NOT_FOUND", "Analysis output was not found.", 404)
             return output_value(row)
 
+    def output_for_job(self, session_id: str, job_id: str) -> AnalysisOutput:
+        with self.database.sessions() as tx:
+            require_session(tx, session_id)
+            row = tx.scalar(
+                select(AnalysisOutputRecord).where(
+                    AnalysisOutputRecord.session_id == session_id,
+                    AnalysisOutputRecord.job_id == job_id,
+                )
+            )
+            if row is None:
+                raise AnalysisError(
+                    "ANALYSIS_OUTPUT_MISSING",
+                    f"NDVI job {job_id} has no prepared output.",
+                )
+            return output_value(row)
+
     def files(self, session_id: str, output_id: str) -> tuple[str, str]:
         with self.database.sessions() as tx:
             require_session(tx, session_id)

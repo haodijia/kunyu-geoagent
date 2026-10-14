@@ -46,14 +46,11 @@ class AnalysisPlugin:
             "oge_calculate_ndvi",
             ToolRegistration(partial(NdviTool, contexts=contexts, service=service)),
         )
-        for wait in (False, True):
-            tools.register(
-                context,
-                "oge_wait_job" if wait else "oge_get_job",
-                ToolRegistration(
-                    partial(JobTool, contexts=contexts, service=service, wait=wait)
-                ),
-            )
+        tools.register(
+            context,
+            "oge_get_job",
+            ToolRegistration(partial(JobTool, contexts=contexts, service=service)),
+        )
         for name in ("oge_get_result", "oge_download_preview", "oge_download_result"):
             tools.register(
                 context,

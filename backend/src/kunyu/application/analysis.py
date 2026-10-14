@@ -6,7 +6,12 @@ import time
 
 import httpx
 
-from kunyu.domain.analysis import AnalysisJob
+from kunyu.domain.analysis import (
+    EXECUTING_STATES,
+    AnalysisError,
+    AnalysisJob,
+    AnalysisOutput,
+)
 from kunyu.domain.oge import OgeError
 from kunyu.integrations.analysis_raster import AnalysisRaster
 from kunyu.integrations.filesystem_operation import filesystem_operation
@@ -133,24 +138,25 @@ class AnalysisService:
         )
         await self.notify()
 
-    async def wait(self, session_id: str, job_id: str, seconds: int) -> AnalysisJob:
-        deadline = time.monotonic() + seconds
+    async def wait_for_output(
+        self, session_id: str, job_id: str
+    ) -> tuple[AnalysisJob, AnalysisOutput]:
         async with self._changed:
             while True:
                 job = self.repository.job(session_id, job_id)
-                if (
-                    job.state not in {"submitting", "queued", "running", "collecting"}
-                    or job.query_state != "ready"
-                    or time.monotonic() >= deadline
-                ):
-                    return job
-                try:
-                    await asyncio.wait_for(
-                        self._changed.wait(),
-                        timeout=max(0.01, deadline - time.monotonic()),
+                if job.state == "succeeded":
+                    return job, self.repository.output_for_job(session_id, job.id)
+                if job.state not in EXECUTING_STATES or job.query_state != "ready":
+                    if job.error_code is None or job.error_message is None:
+                        raise AnalysisError(
+                            "INVALID_JOB_STATE",
+                            f"NDVI job {job.id} cannot continue without recorded error details.",
+                        )
+                    raise AnalysisError(
+                        job.error_code,
+                        f"NDVI job {job.id}: {job.error_message} Read this existing job with oge_get_job; do not resubmit it automatically.",
                     )
-                except TimeoutError:
-                    return self.repository.job(session_id, job_id)
+                await self._changed.wait()
 
     async def notify(self) -> None:
         async with self._changed:
