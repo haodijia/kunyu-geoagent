@@ -19,6 +19,7 @@ from kunyu.integrations.oge.execution import ExecutionGateway
 from kunyu.persistence.analysis import AnalysisRepository
 
 logger = logging.getLogger(__name__)
+NDVI_REPLAY_DURATION_SECONDS = 10
 
 
 class AnalysisService:
@@ -65,8 +66,13 @@ class AnalysisService:
                 error_message="Submission ended without a saved response; the calculation will not be repeated.",
             )
             raise
+        replay = job.mode == "replay"
         job = self.repository.change(
-            job.id, remote_id=remote, state="queued", next_poll_at=time.time() + 0.5
+            job.id,
+            remote_id=remote,
+            state="running" if replay else "queued",
+            next_poll_at=time.time()
+            + (NDVI_REPLAY_DURATION_SECONDS if replay else 0.5),
         )
         await self.notify()
         return job
