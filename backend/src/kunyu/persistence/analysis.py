@@ -185,7 +185,7 @@ class AnalysisRepository:
             if row is None:
                 raise AnalysisError(
                     "ANALYSIS_OUTPUT_MISSING",
-                    f"NDVI job {job_id} has no prepared output.",
+                    f"Analysis job {job_id} has no prepared output.",
                 )
             return output_value(row)
 

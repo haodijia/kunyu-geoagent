@@ -156,11 +156,11 @@ class AnalysisService:
                     if job.error_code is None or job.error_message is None:
                         raise AnalysisError(
                             "INVALID_JOB_STATE",
-                            f"NDVI job {job.id} cannot continue without recorded error details.",
+                            f"Analysis job {job.id} cannot continue without recorded error details.",
                         )
                     raise AnalysisError(
                         job.error_code,
-                        f"NDVI job {job.id}: {job.error_message} Read this existing job with oge_get_job; do not resubmit it automatically.",
+                        f"Analysis job {job.id}: {job.error_message}",
                     )
                 await self._changed.wait()
 

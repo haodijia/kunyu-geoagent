@@ -1,4 +1,4 @@
-"""Result metadata, durable model previews and explicit COG/original references."""
+"""Durable model previews and explicit COG/original download references."""
 
 from collections.abc import Mapping
 from typing import Literal
@@ -97,13 +97,6 @@ class ResultTool:
                     "available": True,
                     "download_endpoint": f"/api/v1/sessions/{source.session.id}/analysis/outputs/{output.id}/download",
                     "numeric_ndvi_available": False,
-                }
-            )
-        if self.spec.name == "oge_get_result":
-            return tool_result(
-                {
-                    "analysis_output_id": output.id,
-                    "output": output.model_dump(mode="json"),
                 }
             )
         snapshot = source.run.request_snapshot
