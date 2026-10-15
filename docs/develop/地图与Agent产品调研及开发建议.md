@@ -6,7 +6,7 @@
 
 继续沿用 **MapLibre + 现有 Python Agent + OGE + 持久任务与成果**。体验重点参考 Felt，服务封装参考 CARTO，专业分析的计划与来源展示参考 Google Earth AI，浏览器实时地图读取参考 opengeos/GeoAgent。
 
-下一阶段的核心问题是：用户怎样准确地告诉 Agent“分析这里、这两景影像、这份结果”，以及怎样核对 Agent 的计算和结论。优先补齐结构化地图引用、AOI 与选景、真实数值分析和一个灾害案例。现有通用 Agent、审批、轨迹、地图持久化均应复用，依据见第 4 节。
+用户后续明确的优先路径是：新会话提问 → Agent 检索并主动切地图展示 → 用户在地图内选景与计算 → 长工具等待 → 成果直接显示 → 地图内继续对话。下一阶段优先完成这条连续体验及逐行淡出的地图消息流，具体约定见 [地图会话交互设计](/Users/dijkstra/project/01-python/kunyu-geoagent/docs/develop/地图会话交互设计.md:1)。结构化引用、AOI 和数值分析作为支撑能力逐步接入。现有通用 Agent、审批、轨迹、地图持久化均应复用，依据见第 4 节。
 
 这里用五项标准判断交互是否值得借鉴：空间范围明确、步骤可检查、结果能继续操作、修改影响可解释、来源能追溯。公开演示的视觉表现不能证明分析准确率或生产稳定性。
 
@@ -92,7 +92,9 @@ flowchart LR
 
 这与本地参考已采用的模式一致：[Mu 样式](/Users/dijkstra/project/02-ts/mu/desktop/packages/desktop/src/renderer/styles/themes/mu-color-scheme.css:1)、[现有输入标签样式](/Users/dijkstra/project/01-python/kunyu-geoagent/frontend/src/styles/conversation.css:48)、[deepseek-harness 轨迹架构](/Users/dijkstra/project/02-ts/deepseek-harness/packages/client/ui-trajectory/README.md:54)。
 
-## 6. 开发顺序与验收边界
+## 6. 能力依赖与验收边界
+
+以下为支撑地图会话闭环的能力依赖；交互实现顺序以用户补充后的 [地图会话交互设计](/Users/dijkstra/project/01-python/kunyu-geoagent/docs/develop/地图会话交互设计.md:1) 为准。
 
 ### 并行前置：验证 OGE 的真实输入和成果契约
 
@@ -128,7 +130,7 @@ flowchart LR
 
 ## 7. 下一次开发的具体范围
 
-建议下一次开发集中交付 **“成果引用标签 → 后端解析和快照 → 模型收到引用 → 定位查看”**，同时开展 OGE 输入/数值接口核验。它复用现有成果和录制数据，能先把地图与 Agent 的连接做准确，并为 AOI、影像选择建立可复用路径。
+根据用户补充，下一次开发优先交付 **“地图轻消息流 → 常驻任务状态 → Agent 展示请求切地图 → 成果自动上图”**，先以已有默认 NDVI 与录制成果验证视觉和时序。同时接入检索候选及真实对象引用，并核验 OGE 选景输入映射；不能用默认输入计算冒充所选影像计算。
 
 当前暂缓：新 Agent loop、通用 DAG 编辑器、插件市场、地图引擎替换，以及没有数值数据支撑的统计面板。这与项目 [当前开发目标](/Users/dijkstra/project/01-python/kunyu-geoagent/docs/develop/当前开发目标.md:3) 中完成通用底座后转向地理业务的方向一致。
 
