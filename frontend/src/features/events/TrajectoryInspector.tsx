@@ -376,6 +376,7 @@ function ToolResultPresentation({ record }: { readonly record: TrajectoryRecord 
   const output = record.output;
   if (record.kind !== "tool" || output === null || typeof output !== "object" || !("content" in output)) return null;
   if ("result" in output && output.result !== null && typeof output.result === "object" && ("analysis_job_id" in output.result || "analysis_output_id" in output.result)) return <AnalysisToolResult value={output.result} sessionId={session.id} />;
+  if ((record.source.tool_name === "oge_calculate_ndvi" || record.source.tool_name === "job_output") && "result" in output && output.result !== null && typeof output.result === "object" && "result" in output.result) return <AnalysisToolResult value={output.result.result} sessionId={session.id} />;
   if (record.source.tool_name === "read") {
     if (!("result" in output)) throw new Error("Read result has no presentation metadata.");
     return <ReadResult value={output.result} text={toolContentText(parseToolContent(output.content))} />;

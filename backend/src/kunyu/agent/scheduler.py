@@ -228,6 +228,31 @@ class RunScheduler:
                 return self._acceptance.steer(request, active.run.id)
         return await self.accept(request)
 
+    async def notify(
+        self, request: RunAcceptanceRequest, relevant: Callable[[], bool]
+    ) -> None:
+        """Deliver an internal notice at the same atomic admission boundary as input."""
+        async with self._lock:
+            if not relevant():
+                return
+            self._require_accepting()
+            if self._acceptance.find_idempotent(request) is not None:
+                return
+            active = next(
+                (
+                    turn
+                    for turn in self._lifecycle.list_for_session(request.session_id)
+                    if turn.run.state not in TERMINAL_RUN_STATES
+                ),
+                None,
+            )
+            if active is not None:
+                self._acceptance.steer(request, active.run.id)
+            else:
+                self._require_queue_capacity()
+                self._acceptance.accept(request, self._allocate_queue_sequence())
+                self._wake_dispatcher()
+
     async def resume(self, run_id: str) -> RunDetails:
         async with self._lock:
             self._require_accepting()

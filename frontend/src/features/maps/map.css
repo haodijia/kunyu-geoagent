@@ -3,6 +3,28 @@
   inset: 0;
 }
 
+.map-conversation {
+  position: relative;
+  isolation: isolate;
+}
+.map-conversation::before {
+  content: "";
+  position: absolute;
+  z-index: -1;
+  inset: -2rem -1rem -.5rem;
+  background: linear-gradient(to top, color-mix(in srgb, var(--background) 96%, transparent), color-mix(in srgb, var(--background) 84%, transparent) 55%, transparent);
+  pointer-events: none;
+}
+.map-flow {
+  mask-image: linear-gradient(to bottom, transparent, black 14px);
+}
+.map-flow-line {
+  transition: transform 260ms cubic-bezier(.22,1,.36,1), opacity 260ms ease;
+}
+@media (prefers-reduced-motion: reduce) {
+  .map-flow-line { transition: none; }
+}
+
 .kunyu-map .maplibregl-canvas:focus-visible {
   outline: 2px solid var(--ring);
   outline-offset: -2px;

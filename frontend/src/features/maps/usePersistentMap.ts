@@ -12,12 +12,15 @@ type View = {
   camera: MapCamera;
   appliedFocusRevision: number;
 };
-export function usePersistentMap(sessionId: string) {
-  const client = useQueryClient();
-  const state = useQuery({
+export function useMapState(sessionId: string) {
+  return useQuery({
     queryKey: analysisKeys.map(sessionId),
     queryFn: () => analysisApi.map(sessionId),
   });
+}
+export function usePersistentMap(sessionId: string) {
+  const client = useQueryClient();
+  const state = useMapState(sessionId);
   const layers = useQuery({
     queryKey: analysisKeys.layers(sessionId),
     queryFn: () => analysisApi.layers(sessionId),
@@ -40,7 +43,7 @@ export function usePersistentMap(sessionId: string) {
           throw new Error("Map state is required before saving its view.");
         const next = await analysisApi.saveView(
           sessionId,
-          current.revision,
+          current.view_revision,
           view.viewport,
           view.camera,
           view.appliedFocusRevision,

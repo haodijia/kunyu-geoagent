@@ -80,19 +80,35 @@ class MapCamera(AnalysisValue):
         return self
 
 
+class MapPresentation(AnalysisValue):
+    request_id: str
+    target: Literal["candidates", "output"]
+    reference_id: str
+    image_id: int | None = None
+    open_map: bool
+    focus: bool
+    bounds: tuple[float, float, float, float] | None
+    status: Literal["requested", "applied", "failed"] = "requested"
+    error: str | None = None
+
+
 class MapState(AnalysisValue):
     session_id: str
     revision: int
+    view_revision: int = 1
     viewport: MapViewport
     camera: MapCamera
     selected_output_id: str | None = None
     focus_output_id: str | None = None
     focus_revision: int = 0
     applied_focus_revision: int = 0
+    presentation: MapPresentation | None = None
+    candidate_set_id: str | None = None
+    selected_image_id: int | None = None
 
 
 class MapViewWrite(AnalysisValue):
-    expected_revision: int = Field(ge=1)
+    expected_view_revision: int = Field(ge=1)
     applied_focus_revision: int = Field(ge=0)
     viewport: MapViewport
     camera: MapCamera

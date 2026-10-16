@@ -1,8 +1,9 @@
 """Map tools read and mutate only the calling session's typed map objects."""
 
 from collections.abc import Mapping
+from typing import Literal
 
-from pydantic import Field
+from pydantic import Field, model_validator
 
 from kunyu.agent.prompt_files import tool_description
 from kunyu.agent.runtime.tools import (
@@ -29,8 +30,22 @@ class ContextArguments(ToolArguments):
     pass
 
 
-class OutputArguments(ToolArguments):
-    output_id: str = Field(min_length=1, max_length=64)
+class PresentArguments(ToolArguments):
+    target: Literal["candidates", "output"]
+    reference_id: str = Field(min_length=1, max_length=128)
+    open_map: bool = True
+    focus: bool = True
+    image_id: int | None = Field(
+        default=None,
+        gt=0,
+        description="Record the user's explicit image choice from this candidate set. Only valid for target=candidates.",
+    )
+
+    @model_validator(mode="after")
+    def image_target(self):
+        if self.target == "output" and self.image_id is not None:
+            raise ValueError("Only candidates can carry an image selection.")
+        return self
 
 
 class StyleArguments(ToolArguments):
@@ -56,7 +71,7 @@ class MapTool:
             if name == "map_get_context"
             else StyleArguments
             if name == "map_set_layer_style"
-            else OutputArguments
+            else PresentArguments
         )
         self.spec = ToolSpec(
             name=name,
@@ -86,14 +101,20 @@ class MapTool:
                         for layer in self._maps.layers(session_id)
                     ],
                 }
-            elif self.spec.name == "map_add_layer":
-                value = self._maps.add(session_id, args.output_id).model_dump(
-                    mode="json"
+            elif self.spec.name == "map_present":
+                state = self._maps.present(
+                    session_id,
+                    call.call_id,
+                    args.target,
+                    args.reference_id,
+                    open_map=args.open_map,
+                    focus=args.focus,
+                    image_id=args.image_id,
                 )
-            elif self.spec.name == "map_fit_bounds":
-                value = self._maps.select(
-                    session_id, args.output_id, focus=True
-                ).model_dump(mode="json")
+                value = {
+                    "presentation": state.presentation.model_dump(mode="json"),
+                    "state_revision": state.revision,
+                }
             else:
                 value = self._maps.style(
                     session_id,

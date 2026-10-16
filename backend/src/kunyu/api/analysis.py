@@ -1,11 +1,12 @@
 """Session-scoped analysis, raster bytes and map presentation endpoints."""
 
-from typing import Annotated
+from typing import Annotated, Literal, Self
 
 from fastapi import APIRouter, Depends, Query, Request, Response
 from fastapi.responses import FileResponse
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
+from kunyu.api.errors import ApiError
 from kunyu.application.analysis import AnalysisService
 from kunyu.domain.analysis import (
     AnalysisError,
@@ -16,6 +17,8 @@ from kunyu.domain.analysis import (
     MapState,
     MapViewWrite,
 )
+from kunyu.domain.imagery import image_ring
+from kunyu.domain.oge import OgeError
 from kunyu.persistence.maps import MapRepository
 
 router = APIRouter(prefix="/api/v1", tags=["analysis"])
@@ -36,6 +39,77 @@ Maps = Annotated[MapRepository, Depends(maps)]
 class OutputReference(BaseModel):
     model_config = ConfigDict(extra="forbid")
     output_id: str
+
+
+class ImageSelection(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    candidate_set_id: str = Field(min_length=1, max_length=128)
+    image_id: int | None = Field(gt=0)
+
+
+class PresentationReceipt(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    status: Literal["applied", "failed"]
+    error: str | None = Field(default=None, min_length=1, max_length=1000)
+
+    @model_validator(mode="after")
+    def valid_error(self) -> Self:
+        if (self.status == "failed") != (self.error is not None):
+            raise ValueError("Only failed presentation receipts require an error.")
+        return self
+
+
+@router.get("/sessions/{session_id}/imagery/{candidate_set_id}")
+def image_candidates(session_id: str, candidate_set_id: str, repository: Maps):
+    candidates = repository.imagery.get(session_id, candidate_set_id)
+    return {
+        "id": candidates.id,
+        "session_id": session_id,
+        "images": [
+            {**image.model_dump(mode="json"), "footprint": image_ring(image)}
+            for image in candidates.images
+        ],
+    }
+
+
+@router.get(
+    "/sessions/{session_id}/imagery/{candidate_set_id}/images/{image_id}/preview"
+)
+async def candidate_preview(
+    session_id: str,
+    candidate_set_id: str,
+    image_id: int,
+    request: Request,
+    repository: Maps,
+):
+    candidates = repository.imagery.get(session_id, candidate_set_id)
+    if not any(image.imageId == image_id for image in candidates.images):
+        raise AnalysisError(
+            "INVALID_IMAGE", "The image is not in this candidate set.", 404
+        )
+    try:
+        raw = await request.app.state.oge_service.image_preview(image_id)
+    except OgeError as error:
+        raise ApiError(error.status, error.code, str(error)) from None
+    return Response(raw, media_type="image/png")
+
+
+@router.put("/sessions/{session_id}/map/selection", response_model=MapState)
+def select_image(session_id: str, selection: ImageSelection, repository: Maps):
+    return repository.choose_image(
+        session_id,
+        selection.candidate_set_id,
+        selection.image_id,
+    )
+
+
+@router.put(
+    "/sessions/{session_id}/map/presentations/{request_id}", response_model=MapState
+)
+def presentation_receipt(
+    session_id: str, request_id: str, receipt: PresentationReceipt, repository: Maps
+):
+    return repository.receipt(session_id, request_id, receipt.status, receipt.error)
 
 
 @router.get("/oge/services")

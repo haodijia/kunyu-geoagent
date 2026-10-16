@@ -1,5 +1,6 @@
 import { AlertCircle, LoaderCircle } from "lucide-react";
-import { useRef } from "react";
+import { useEffect, useRef, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 
 import "maplibre-gl/dist/maplibre-gl.css";
 import "@/features/maps/map.css";
@@ -17,6 +18,10 @@ import { useAnalysisLayers } from "@/features/maps/useAnalysisLayers";
 import { AnalysisPanel } from "@/features/analysis/AnalysisPanel";
 import { useAnalysis } from "@/features/analysis/useAnalysis";
 import type { MapState } from "@/features/analysis/api";
+import { ImageryPanel } from "@/features/maps/ImageryPanel";
+import { imageryApi, imageryKey } from "@/features/maps/imagery-api";
+import { useImageryMap } from "@/features/maps/useImageryMap";
+import { MapConversation } from "@/features/maps/MapConversation";
 
 const content = zhCN.map;
 
@@ -77,6 +82,30 @@ function MapCanvas({
   const analysis = useAnalysis(session.id);
   const layers = persistent.layers.data ?? [];
   useAnalysisLayers(map, state, layers, analysis.outputs.data ?? []);
+  const [previewImage, setPreviewImage] = useState<number | null>(
+    state.selected_image_id,
+  );
+  const candidates = useQuery({
+    queryKey: imageryKey(session.id, state.candidate_set_id),
+    queryFn: () => {
+      if (state.candidate_set_id === null)
+        throw new Error("An image candidate set is required.");
+      return imageryApi.get(session.id, state.candidate_set_id);
+    },
+    enabled: state.candidate_set_id !== null,
+  });
+  useEffect(() => {
+    setPreviewImage(state.selected_image_id);
+  }, [state.candidate_set_id, state.selected_image_id]);
+  const imagery = useImageryMap(
+    map,
+    state,
+    candidates.data,
+    previewImage,
+    setPreviewImage,
+    layers,
+    candidates.isError,
+  );
 
   return (
     <div
@@ -85,13 +114,46 @@ function MapCanvas({
     >
       <div ref={targetRef} className="absolute inset-0" />
       <MapToolbar map={map} />
-      <AnalysisPanel
-        sessionId={session.id}
-        workspaceId={session.workspace_id}
-        state={state}
-        layers={layers}
-        error={persistent.layers.isError}
-      />
+      {state.presentation?.target === "candidates" ? (
+        <ImageryPanel
+          state={state}
+          candidates={candidates.data}
+          preview={previewImage}
+          onPreview={setPreviewImage}
+          error={candidates.isError}
+          retry={() => void candidates.refetch()}
+          onLocate={imagery.focus}
+        />
+      ) : (
+        <AnalysisPanel
+          sessionId={session.id}
+          workspaceId={session.workspace_id}
+          state={state}
+          layers={layers}
+          error={persistent.layers.isError}
+        />
+      )}
+      {imagery.pendingFocus && (
+        <Button
+          variant="secondary"
+          size="sm"
+          className="absolute top-4 left-1/2 z-10 -translate-x-1/2 shadow-sm"
+          onClick={imagery.focus}
+        >
+          {zhCN.mapConversation.locate}
+        </Button>
+      )}
+      {imagery.receiptError && (
+        <p
+          role="alert"
+          className="absolute top-16 right-4 z-10 rounded-lg bg-background/95 px-3 py-2 text-xs text-destructive"
+        >
+          {zhCN.mapConversation.receiptFailed}
+          <Button variant="ghost" size="sm" onClick={imagery.retryReceipt}>
+            {zhCN.mapConversation.retry}
+          </Button>
+        </p>
+      )}
       {persistent.saveFailed && (
         <div
           className="absolute top-16 right-32 z-10 rounded-lg bg-background px-3 py-2 text-xs text-destructive"
@@ -146,6 +208,7 @@ function MapCanvas({
         ref={overlayRef}
         className="pointer-events-none absolute right-0 bottom-0 left-0 z-10 [&>*]:pointer-events-auto"
       >
+        <MapConversation />
         <AgentControls />
         <SessionComposer />
       </div>

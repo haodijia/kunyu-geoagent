@@ -9,19 +9,182 @@ from kunyu.domain.analysis import (
     LayerStyleWrite,
     MapCamera,
     MapLayer,
+    MapPresentation,
     MapState,
     MapViewport,
     MapViewWrite,
 )
+from kunyu.domain.imagery import candidate_bounds
 from kunyu.persistence.analysis import AnalysisRepository
 from kunyu.persistence.analysis_models import MapLayerRecord, MapStateRecord
 from kunyu.persistence.analysis_shared import publish, require_session
 from kunyu.persistence.database import Database
+from kunyu.persistence.imagery import ImageryRepository
 
 
 class MapRepository:
     def __init__(self, database: Database, outputs: AnalysisRepository) -> None:
         self.database, self.outputs = database, outputs
+        self.imagery = ImageryRepository(database)
+
+    def present(
+        self,
+        session_id: str,
+        request_id: str,
+        target: str,
+        reference_id: str,
+        *,
+        open_map: bool,
+        focus: bool,
+        image_id: int | None = None,
+    ) -> MapState:
+        if target == "candidates":
+            candidates = self.imagery.get(session_id, reference_id)
+            if image_id is not None and not any(
+                image.imageId == image_id for image in candidates.images
+            ):
+                raise AnalysisError(
+                    "INVALID_IMAGE", "The image is not part of this candidate set.", 422
+                )
+            bounds = candidate_bounds(candidates)
+        elif target == "output":
+            if image_id is not None:
+                raise AnalysisError(
+                    "INVALID_TARGET", "Output presentation cannot select an image.", 422
+                )
+            output = self.outputs.output(session_id, reference_id)
+            bounds = output.bounds
+            self.add(session_id, reference_id)
+        else:
+            raise AnalysisError(
+                "INVALID_TARGET", "Unsupported map presentation target.", 422
+            )
+        self.state(session_id)
+        with self.database.sessions.begin() as tx:
+            tx.execute(text("BEGIN IMMEDIATE"))
+            require_session(tx, session_id, writable=True)
+            row = tx.get(MapStateRecord, session_id)
+            current = MapState.model_validate(row.value)
+            if (
+                current.presentation is not None
+                and current.presentation.request_id == request_id
+            ):
+                return current
+            changes = {
+                "revision": current.revision + 1,
+                "presentation": MapPresentation(
+                    request_id=request_id,
+                    target=target,
+                    reference_id=reference_id,
+                    image_id=image_id,
+                    open_map=open_map,
+                    focus=focus,
+                    bounds=bounds,
+                ),
+            }
+            if target == "candidates":
+                changes.update(candidate_set_id=reference_id)
+                if current.candidate_set_id != reference_id or image_id is not None:
+                    changes.update(selected_image_id=image_id)
+            else:
+                changes.update(selected_output_id=reference_id)
+            value = current.model_copy(update=changes)
+            row.value = value.model_dump(mode="json")
+            tx.flush()
+            publish(
+                self.database, tx, session_id, "map/changed", request_id, value.revision
+            )
+            return value
+
+    def choose_image(
+        self,
+        session_id: str,
+        candidate_set_id: str,
+        image_id: int | None,
+    ) -> MapState:
+        candidates = self.imagery.get(session_id, candidate_set_id)
+        if image_id is not None and not any(
+            image.imageId == image_id for image in candidates.images
+        ):
+            raise AnalysisError(
+                "INVALID_IMAGE", "The image is not part of this candidate set.", 422
+            )
+        with self.database.sessions.begin() as tx:
+            tx.execute(text("BEGIN IMMEDIATE"))
+            require_session(tx, session_id, writable=True)
+            row = tx.get(MapStateRecord, session_id)
+            if row is None:
+                raise AnalysisError(
+                    "MAP_NOT_INITIALIZED",
+                    "Present image candidates before selecting one.",
+                )
+            current = MapState.model_validate(row.value)
+            if current.candidate_set_id != candidate_set_id:
+                raise AnalysisError(
+                    "MAP_CONFLICT",
+                    "Image candidates changed; refresh before selecting.",
+                )
+            value = current.model_copy(
+                update={"selected_image_id": image_id, "revision": current.revision + 1}
+            )
+            row.value = value.model_dump(mode="json")
+            tx.flush()
+            publish(
+                self.database,
+                tx,
+                session_id,
+                "map/changed",
+                candidate_set_id,
+                value.revision,
+            )
+            return value
+
+    def receipt(
+        self, session_id: str, request_id: str, status: str, error: str | None
+    ) -> MapState:
+        with self.database.sessions.begin() as tx:
+            tx.execute(text("BEGIN IMMEDIATE"))
+            require_session(tx, session_id, writable=True)
+            row = tx.get(MapStateRecord, session_id)
+            if row is None:
+                raise AnalysisError(
+                    "MAP_NOT_INITIALIZED", "No presentation is pending."
+                )
+            current = MapState.model_validate(row.value)
+            if (
+                current.presentation is None
+                or current.presentation.request_id != request_id
+            ):
+                raise AnalysisError(
+                    "MAP_CONFLICT", "A different map presentation is now active."
+                )
+            if (
+                current.presentation.status == status
+                and current.presentation.error == error
+            ):
+                return current
+            presentation = current.presentation.model_copy(
+                update={"status": status, "error": error}
+            )
+            value = current.model_copy(
+                update={"presentation": presentation, "revision": current.revision + 1}
+            )
+            row.value = value.model_dump(mode="json")
+            tx.flush()
+            publish(
+                self.database, tx, session_id, "map/changed", request_id, value.revision
+            )
+            return value
+
+    def has_image_selection(self, session_id: str) -> bool:
+        """Approval validation reads facts without acquiring a nested write lock."""
+        with self.database.sessions() as tx:
+            require_session(tx, session_id)
+            row = tx.get(MapStateRecord, session_id)
+            return (
+                row is not None
+                and MapState.model_validate(row.value).selected_image_id is not None
+            )
 
     def state(self, session_id: str) -> MapState:
         with self.database.sessions.begin() as tx:
@@ -52,7 +215,7 @@ class MapRepository:
                     "MAP_NOT_INITIALIZED", "Read map state before writing its view."
                 )
             current = MapState.model_validate(row.value)
-            if current.revision != update.expected_revision:
+            if current.view_revision != update.expected_view_revision:
                 raise AnalysisError(
                     "MAP_CONFLICT",
                     "Map state changed; refresh before applying the view.",
@@ -66,6 +229,7 @@ class MapRepository:
                     "viewport": update.viewport,
                     "camera": update.camera,
                     "revision": current.revision + 1,
+                    "view_revision": current.view_revision + 1,
                     "applied_focus_revision": update.applied_focus_revision,
                 }
             )

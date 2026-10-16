@@ -82,11 +82,14 @@ class OgeServiceTool[T: ToolArguments](ABC):
             raise ToolExecutionError(str(error), code=error.code) from None
 
         async def observe(handle: JobHandle):
-            handle.progress(
-                f"Analysis {job.id}; remote calculation continues under the analysis supervisor."
-            )
             completed, output = await self._service.wait_for_output(
-                source.session.id, job.id
+                source.session.id,
+                job.id,
+                progress=lambda current: handle.progress(
+                    current.state
+                    if current.error_message is None
+                    else f"{current.state}: {current.error_message}"
+                ),
             )
             return {
                 "analysis_job_id": job.id,

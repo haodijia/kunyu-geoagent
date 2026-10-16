@@ -77,6 +77,7 @@ export function serializeMessageInput(input: Parameters<typeof appendUserMessage
       reasoning_effort: input.reasoningEffort
     },
     map_context: {
+      image_selection: map.imageSelection === null ? null : {candidate_set_id: map.imageSelection.candidateSetId, image_id: map.imageSelection.imageId},
       workspace_id: map.workspaceId,
       viewport: map.viewport,
       event_id: map.eventId,

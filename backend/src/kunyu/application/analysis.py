@@ -3,6 +3,7 @@
 import asyncio
 import logging
 import time
+from collections.abc import Callable
 
 import httpx
 
@@ -145,11 +146,17 @@ class AnalysisService:
         await self.notify()
 
     async def wait_for_output(
-        self, session_id: str, job_id: str
+        self,
+        session_id: str,
+        job_id: str,
+        *,
+        progress: Callable[[AnalysisJob], None] | None = None,
     ) -> tuple[AnalysisJob, AnalysisOutput]:
         async with self._changed:
             while True:
                 job = self.repository.job(session_id, job_id)
+                if progress is not None:
+                    progress(job)
                 if job.state == "succeeded":
                     return job, self.repository.output_for_job(session_id, job.id)
                 if job.state not in EXECUTING_STATES:

@@ -14,6 +14,8 @@ import { useSessionEvents } from "@/features/events/SessionEventContext";
 import { projectContextUsage } from "./composer/context-usage";
 import { useComposerCommands } from "./composer/useComposerCommands";
 import { useSessionMessages } from "./SessionMessagesContext";
+import { ImageSelectionChip } from "@/features/maps/ImageSelectionChip";
+import { BackgroundJobs } from "@/features/jobs/BackgroundJobs";
 
 export function SessionComposer() {
   const queryClient = useQueryClient();
@@ -142,6 +144,8 @@ export function SessionComposer() {
   return (
     <>
     <QueuedMessages onDraftLockChange={setQueueEditing} />
+    <ImageSelectionChip sessionId={session.id} />
+    <BackgroundJobs sessionId={session.id} />
     <ConversationPlanBar
       runId={activeTurn?.id ?? null}
       processing={activeTurn !== undefined && activeTurn.state !== "interrupted" && !(activeTurn.state === "ready" && activeTurn.requires_resume)}

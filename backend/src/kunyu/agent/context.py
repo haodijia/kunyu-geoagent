@@ -2,7 +2,7 @@ import json
 from dataclasses import dataclass
 
 from kunyu.agent.inbox import SessionInbox
-from kunyu.agent.prompt_files import read_prompt
+from kunyu.agent.prompt_files import prompt_text, read_prompt
 from kunyu.agent.runtime.content import ToolCallBlock, text_content
 from kunyu.agent.runtime.context import (
     AgentContext,
@@ -21,6 +21,7 @@ from kunyu.domain.agent_context import (
     RunContextRepository,
     RunContextSource,
 )
+from kunyu.domain.map_context import TurnMapContext
 
 
 class RunContextNotFoundError(LookupError):
@@ -68,15 +69,31 @@ class ScopedAgentContextProvider:
             if not source.run.decisions
             else ()
         )
-        return tuple(
-            StepMessagePayload(
-                message_id=message.message_id,
-                content=message.content,
-                source=message.source,
-                attachments=message.attachments,
+        proposals = []
+        for message in (*initial, *claimed):
+            content = message.content
+            frozen_map = (
+                source.run.map_snapshot
+                if message.delivery == "followup"
+                else message.map_context
             )
-            for message in (*initial, *claimed)
-        )
+            selection = TurnMapContext.model_validate(frozen_map).image_selection
+            if message.source == "user" and selection is not None:
+                content += "\n\n" + prompt_text(
+                    "context.yaml",
+                    "map_selection",
+                    candidate_set_id=selection.candidate_set_id,
+                    image_id=str(selection.image_id),
+                )
+            proposals.append(
+                StepMessagePayload(
+                    message_id=message.message_id,
+                    content=content,
+                    source=message.source,
+                    attachments=message.attachments,
+                )
+            )
+        return tuple(proposals)
 
     async def build(self, run_id: str) -> AgentContext:
         await self._preparers.prepare(run_id, self._scope)

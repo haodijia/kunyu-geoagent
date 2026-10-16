@@ -58,6 +58,7 @@ class AnalysisPlugin:
                     service=service,
                     jobs=context.require(s.JOBS),
                     scopes=context.require(s.SCOPES),
+                    maps=maps,
                 )
             ),
         )
@@ -77,8 +78,7 @@ class AnalysisPlugin:
             )
         for name in (
             "map_get_context",
-            "map_add_layer",
-            "map_fit_bounds",
+            "map_present",
             "map_set_layer_style",
         ):
             tools.register(

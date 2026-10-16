@@ -10,14 +10,14 @@ router = APIRouter(prefix="/api/v1/sessions/{session_id}/jobs", tags=["jobs"])
 
 
 @router.get("")
-def list_jobs(session_id: str, request: Request):
+async def list_jobs(session_id: str, request: Request):
     with request.app.state.database.sessions() as transaction:
         require_session(transaction, session_id)
     return request.app.state.job_registry.list(session_id)
 
 
 @router.get("/{job_id}/output")
-def read_output(
+async def read_output(
     session_id: str, job_id: str, request: Request, offset: int = Query(0, ge=0)
 ):
     try:

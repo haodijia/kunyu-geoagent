@@ -327,6 +327,10 @@ def reduce_session(events: Iterable[AgentEvent]) -> ReducedSession:
 
             for message in event.payload.messages:
                 owned = user_messages.get(message.message_id)
+                if owned is not None and owned.source != message.source:
+                    raise SessionReductionError(
+                        "Step admission cannot change the input source."
+                    )
                 if any(
                     ref not in (() if owned is None else owned.attachments)
                     for ref in message.attachments

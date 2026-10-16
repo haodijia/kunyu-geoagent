@@ -1,4 +1,12 @@
 export const zhCN = {
+  mapConversation: {
+    candidates: "候选影像", loading: "正在读取影像…", candidatesFailed: "候选影像读取失败。", retry: "重试", emptyCandidates: "本次检索没有候选影像。",
+    unknownResolution: "分辨率未知", cloud: (value: number) => `云量 ${value}%`, noFootprint: "无有效覆盖范围",
+    useImage: "使用此景", selected: "已选择", selectionPrompt: "请使用我选中的影像，", preview: "所选影像缩略图", previewFailed: "影像预览加载失败。",
+    locate: "定位结果", receiptFailed: "地图展示回执未保存。", history: "完整对话", closeHistory: "收起对话", messages: "最近消息", you: "你", continue: "在地图上继续对话",
+    jobsFailed: "后台任务状态读取失败。", runFailed: "Agent 运行失败，可展开完整对话查看原因。", jobStatus: {running: "运行中", stopping: "正在停止", completed: "已完成", failed: "失败", killed: "已停止"},
+    selectedImage: (id: number) => `已选影像 · ${id}`, clearSelection: "清除影像选择", imageInputUnavailable: "当前 NDVI 服务尚不支持所选影像。",
+  },
   workspaceFiles: {
     title: "上传工作区文件", close: "关闭上传", choose: "选择工作区文件", chooseOrDrop: "选择文件，或拖动文件到这里", limit: "每个文件最多 64 MB",
     description: "文件可供此工作区的所有对话使用。图片保留原始内容，重名文件会自动编号；上传后复制文件路径，在对话中引用。",
@@ -651,7 +659,7 @@ user-invocable: true
         edit: "编辑文件",
         read_image: "读取图片",
         oge_calculate_ndvi: "计算 NDVI", oge_download_preview: "读取结果预览", oge_download_result: "下载分析结果",
-        map_get_context: "读取地图状态", map_add_layer: "添加结果图层", map_fit_bounds: "定位结果范围", map_set_layer_style: "调整地图图层",
+        map_get_context: "读取地图状态", map_present: "在地图展示", map_set_layer_style: "调整地图图层", job_output: "读取后台结果", job_list: "查看后台任务", job_kill: "停止后台任务",
         oge_find_regions: "查询行政区",
         oge_search_images: "检索卫星影像",
         oge_get_image_detail: "读取影像详情",

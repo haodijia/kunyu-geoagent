@@ -26,7 +26,7 @@ class JobsPlugin:
 
 class JobToolsPlugin:
     name = "tool-jobs"
-    requires = (s.JOBS, s.TOOLS, s.PROMPTS, s.CONTEXTS, s.AGENTS)
+    requires = (s.JOBS, s.TOOLS, s.PROMPTS, s.CONTEXTS, s.AGENTS, s.SCHEDULER)
     provides = ()
 
     async def apply(self, context: Context) -> None:
@@ -43,10 +43,10 @@ class JobToolsPlugin:
             source = contexts.get(turns[-1].run.id)
             if source is None:
                 raise RuntimeError("The job owner's model context is missing.")
-            model = source.run.request_snapshot or source.run.model_snapshot
+            model = source.run.model_snapshot
             content = f"Background job {job.id} ({job.kind}: {job.label}) finished with status {job.status}. Read its output with job_output."
-            # steer() atomically chooses busy next-step injection or idle followup.
-            await agent.steer(
+            # Admission chooses busy next-step injection or idle followup under one lock.
+            await context.require(s.SCHEDULER).notify(
                 RunAcceptanceRequest(
                     session_id=job.owner,
                     idempotency_key=f"job-notice:{job.notice_id}",
@@ -59,7 +59,12 @@ class JobToolsPlugin:
                         model.connection_id, model.model_id, model.reasoning_effort
                     ),
                     map_context=source.run.map_snapshot,
-                )
+                ),
+                lambda: (
+                    agent.ctx.active
+                    and not job.result_delivered
+                    and not job.suppress_notice
+                ),
             )
 
         jobs.attach_controller(deliver)

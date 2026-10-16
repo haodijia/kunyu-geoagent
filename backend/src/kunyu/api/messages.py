@@ -4,7 +4,7 @@ from typing import Annotated, Any, Literal
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, Header, HTTPException, Query, Request, status
-from pydantic import BaseModel, ConfigDict, Field, JsonValue
+from pydantic import BaseModel, ConfigDict, Field
 from starlette.responses import StreamingResponse
 
 from kunyu.agent.scheduler import (
@@ -23,6 +23,7 @@ from kunyu.application.messages import (
 from kunyu.application.sessions import SessionNotFoundError
 from kunyu.domain.attachments import MAX_ATTACHMENTS, Attachment, AttachmentError
 from kunyu.domain.events import AgentEvent
+from kunyu.domain.map_context import TurnMapContext
 from kunyu.domain.messages import Message
 from kunyu.domain.run_acceptance import (
     CredentialUnavailableError,
@@ -51,7 +52,7 @@ class AppendMessageRequest(BaseModel):
     attachment_ids: list[UUID] = Field(default_factory=list, max_length=MAX_ATTACHMENTS)
     delivery: Literal["followup", "steer", "queue"]
     model_selection: "ModelSelectionRequest"
-    map_context: "MapContextRequest"
+    map_context: TurnMapContext
 
 
 class InjectContextRequest(BaseModel):
@@ -66,30 +67,6 @@ class ModelSelectionRequest(BaseModel):
     connection_id: str = Field(min_length=1, max_length=64)
     model_id: str = Field(min_length=1, max_length=256)
     reasoning_effort: str | None = Field(default=None, min_length=1, max_length=64)
-
-
-class MapViewportRequest(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-
-    latitude: float = Field(ge=-90, le=90, allow_inf_nan=False)
-    longitude: float = Field(ge=-180, le=180, allow_inf_nan=False)
-    zoom: float = Field(ge=0, le=24, allow_inf_nan=False)
-
-
-class MapContextRequest(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-
-    workspace_id: str = Field(min_length=1, max_length=64)
-    viewport: MapViewportRequest
-    event_id: None = None
-    selected_aoi_id: None = None
-    selected_feature: None = None
-    visible_layer_ids: list[JsonValue] = Field(default_factory=list, max_length=0)
-    active_result_layer_id: None = None
-    active_observation_id: None = None
-    comparison_observation_ids: list[JsonValue] = Field(
-        default_factory=list, max_length=0
-    )
 
 
 class AcceptedMessageResponse(BaseModel):

@@ -25,6 +25,7 @@ class SearchImagesTool(OgeTool[SearchImagesArguments]):
             raise oge_tool_error(error) from None
         return tool_result(
             {
+                "candidate_set_id": f"candidates_{call.call_id}",
                 "page": page.currentPage,
                 "page_size": page.pageSize,
                 "total": page.total,

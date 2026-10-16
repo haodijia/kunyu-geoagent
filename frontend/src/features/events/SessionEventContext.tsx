@@ -26,6 +26,7 @@ export type EventStreamStatus =
   "connecting" | "connected" | "reconnecting" | "failed";
 
 interface SessionEventState {
+  readonly replayCursor: number;
   readonly plan: PlanState | null;
   readonly events: readonly SessionEvent[];
   readonly records: readonly TrajectoryEventProjection[];
@@ -50,6 +51,7 @@ export function SessionEventProvider({
   const [plan, setPlan] = useState<PlanState | null>(null);
   const [status, setStatus] = useState<EventStreamStatus>("connecting");
   const [error, setError] = useState<string | null>(null);
+  const [replayCursor, setReplayCursor] = useState(Number.POSITIVE_INFINITY);
   const lastSequenceRef = useRef(0);
   const [activeAssistant, setActiveAssistant] =
     useState<ActiveAssistant | null>(null);
@@ -65,6 +67,7 @@ export function SessionEventProvider({
     setEvents([]);
     setPlan(null);
     setRecords([]);
+    setReplayCursor(Number.POSITIVE_INFINITY);
 
     async function connect() {
       let reconnectDelay = INITIAL_RECONNECT_DELAY_MS;
@@ -93,6 +96,7 @@ export function SessionEventProvider({
                 assistant.accept(publication.frame, lastSequenceRef.current),
               );
             } else {
+              if (publication.type === "opened") setReplayCursor(publication.cursor);
               const incoming =
                 publication.type === "opened"
                   ? publication.events
@@ -167,7 +171,7 @@ export function SessionEventProvider({
 
   return (
     <SessionEventContext
-      value={{ events, records, plan, activeAssistant, error, status }}
+      value={{ events, records, plan, activeAssistant, error, status, replayCursor }}
     >
       {children}
     </SessionEventContext>

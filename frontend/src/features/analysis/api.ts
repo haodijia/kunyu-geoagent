@@ -42,12 +42,27 @@ export interface AnalysisOutput {
 export interface MapState {
   readonly session_id: string;
   readonly revision: number;
+  readonly view_revision: number;
   readonly viewport: MapViewport;
   readonly camera: MapCamera;
   readonly selected_output_id: string | null;
   readonly focus_output_id: string | null;
   readonly focus_revision: number;
   readonly applied_focus_revision: number;
+  readonly candidate_set_id: string | null;
+  readonly selected_image_id: number | null;
+  readonly presentation: MapPresentation | null;
+}
+export interface MapPresentation {
+  readonly request_id: string;
+  readonly target: "candidates" | "output";
+  readonly reference_id: string;
+  readonly image_id: number | null;
+  readonly open_map: boolean;
+  readonly focus: boolean;
+  readonly bounds: readonly [number, number, number, number] | null;
+  readonly status: "requested" | "applied" | "failed";
+  readonly error: string | null;
 }
 export interface MapLayer {
   readonly id: string;
@@ -90,7 +105,7 @@ export const analysisApi = {
   layers: (id: string) => requestJson<MapLayer[]>(`${mapPath(id)}/layers`),
   saveView: (
     id: string,
-    expectedRevision: number,
+    expectedViewRevision: number,
     viewport: MapViewport,
     camera: MapCamera,
     appliedFocusRevision: number,
@@ -98,7 +113,7 @@ export const analysisApi = {
     requestJson<MapState>(mapPath(id), {
       method: "PUT",
       body: JSON.stringify({
-        expected_revision: expectedRevision,
+        expected_view_revision: expectedViewRevision,
         viewport,
         camera,
         applied_focus_revision: appliedFocusRevision,

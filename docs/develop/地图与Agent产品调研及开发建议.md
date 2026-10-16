@@ -6,7 +6,7 @@
 
 继续沿用 **MapLibre + 现有 Python Agent + OGE + 持久任务与成果**。体验重点参考 Felt，服务封装参考 CARTO，专业分析的计划与来源展示参考 Google Earth AI，浏览器实时地图读取参考 opengeos/GeoAgent。
 
-按本地 deepseek-harness 的实际机制补齐：新会话提问 → Agent 检索 → 显式调用地图展示工具供选景 → 地图内回复并计算 → 工具登记通用 job，等待到期返回 job ID 与当前状态 → 模型通过 `job_output` 读取或限时等待；完成时向忙碌 Agent 注入 notice，默认唤醒空闲 Agent → Agent 用展示工具上图 → 地图内继续对话。当前已移植 Agent 内核，尚未移植 `jobs / jobs-local / tool-jobs`。最终约定与源码依据见 [地图会话交互设计](/Users/dijkstra/project/01-python/kunyu-geoagent/docs/develop/地图会话交互设计.md:1)。结构化引用、AOI 和数值分析作为支撑能力逐步接入。现有 Agent、审批、轨迹、地图持久化均应复用，依据见第 4 节。
+按本地 deepseek-harness 的实际机制补齐：新会话提问 → Agent 检索 → 显式调用地图展示工具供选景 → 地图内回复并计算 → 工具登记通用 job，等待到期返回 job ID 与当前状态 → 模型通过 `job_output` 读取或限时等待；完成时向忙碌 Agent 注入 notice，默认唤醒空闲 Agent → Agent 用展示工具上图 → 地图内继续对话。2026-10-16 已实现通用 jobs、OGE 生产者、map_present、候选选择和地图轻会话；真实所选影像 NDVI 尚未接通。实现、源码依据及本地夹具/真实服务验收边界见 [地图会话交互设计](/Users/dijkstra/project/01-python/kunyu-geoagent/docs/develop/地图会话交互设计.md:1)。结构化引用、AOI 和数值分析作为支撑能力逐步接入。现有 Agent、审批、轨迹、地图持久化均应复用，依据见第 4 节。
 
 这里用五项标准判断交互是否值得借鉴：空间范围明确、步骤可检查、结果能继续操作、修改影响可解释、来源能追溯。公开演示的视觉表现不能证明分析准确率或生产稳定性。
 
@@ -134,4 +134,4 @@ flowchart LR
 
 当前暂缓：新 Agent loop、通用 DAG 编辑器、插件市场、地图引擎替换，以及没有数值数据支撑的统计面板。这与项目 [当前开发目标](/Users/dijkstra/project/01-python/kunyu-geoagent/docs/develop/当前开发目标.md:3) 中完成通用底座后转向地理业务的方向一致。
 
-本次只新增调研文档，没有安装框架、修改业务代码或新增测试。后续按项目要求复用既有组件、统一类型与错误处理，数据库变化归并到 `schema.sql`，以明确标注的本地流程和真实联调分别记录验收证据。
+调研阶段只新增本文档；后续开发记录见地图会话设计第 9 节。实现复用既有组件、统一类型与错误处理，保留单一 `schema.sql` 基线，以明确标注的本地夹具流程和真实联调分别记录验收证据。

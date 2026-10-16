@@ -4,6 +4,7 @@ from typing import Literal
 from pydantic import BaseModel, JsonValue
 
 from kunyu.agent.runtime.tool_content import ToolContentBlock
+from kunyu.domain.map_context import TurnMapContext
 from kunyu.domain.model_images import ModelImageInput
 from kunyu.domain.model_reasoning import ReasoningParameters
 from kunyu.domain.runs import Run, RunDetails, RunModelSnapshot, ToolCall
@@ -129,7 +130,7 @@ class AgentTurnResponse(BaseModel):
     pending_confirmation_id: str | None
     pause_reason: str | None
     model_snapshot: StepModelResponse
-    map_context: dict[str, JsonValue]
+    map_context: TurnMapContext
     scene: dict[str, JsonValue] | None
     budget: TurnBudgetResponse
     tool_calls: list[ToolCallResponse]

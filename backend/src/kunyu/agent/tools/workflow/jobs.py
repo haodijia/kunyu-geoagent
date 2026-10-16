@@ -28,7 +28,7 @@ class JobArguments(ToolArguments):
 
 class OutputArguments(JobArguments):
     wait: bool = False
-    timeout_ms: int = Field(default=30_000, ge=1, le=600_000)
+    timeout_ms: int = Field(default=30_000, ge=1)
 
 
 class JobTool:
@@ -48,7 +48,7 @@ class JobTool:
             risk_level=ToolRiskLevel.L0,
             execution="parallel",
             presentation="context",
-            timeout_ms=610_000,
+            timeout_ms=610_000 if name == "job_output" else 30_000,
         )
 
     def validate(self, arguments: object) -> Mapping[str, object]:
@@ -63,5 +63,7 @@ class JobTool:
         if self.name == "job_kill":
             return tool_result(await self.jobs.kill(args.job_id, owner))
         if args.wait:
-            await self.jobs.wait(args.job_id, owner, args.timeout_ms / 1_000)
+            await self.jobs.wait(
+                args.job_id, owner, min(args.timeout_ms, 600_000) / 1_000
+            )
         return tool_result(self.jobs.read(args.job_id, owner))

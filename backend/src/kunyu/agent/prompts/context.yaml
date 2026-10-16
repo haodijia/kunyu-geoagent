@@ -70,3 +70,8 @@
   Attached image: {{attachment}}
 "omitted_image": |-
   [image omitted to fit request image limits; file_path={{path}}, name={{name}}, normalized={{width}}x{{height}}px, media_type={{media_type}}, bytes={{bytes}}. Use read_image with this file_path to inspect its pixels again.]
+map_selection: |-
+  <map_selection>
+  User-selected imagery for this input: candidate_set_id={{candidate_set_id}}, image_id={{image_id}}.
+  This identifies the selected object; verify the service supports this input before computation. Never substitute a default image for it.
+  </map_selection>

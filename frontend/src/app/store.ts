@@ -49,6 +49,7 @@ interface AppUiState {
     viewport: MapViewport,
     camera: MapCamera
   ) => void;
+  readonly setMapImageSelection: (sessionId: string, selection: MapContext["imageSelection"]) => void;
   readonly setModelSelection: (
     sessionId: string,
     selection: SessionModelSelection
@@ -121,6 +122,11 @@ export const useAppUiStore = create<AppUiState>((set) => ({
       mapContextBySession: { ...state.mapContextBySession, [sessionId]: map },
       modelSelectionBySession: { ...state.modelSelectionBySession, [sessionId]: model },
     };
+  }),
+  setMapImageSelection: (sessionId, imageSelection) => set(state => {
+    const current = state.mapContextBySession[sessionId];
+    if (current === undefined) throw new Error("Map context must be initialized before selecting imagery.");
+    return {mapContextBySession: {...state.mapContextBySession, [sessionId]: {...current, imageSelection}}};
   }),
   setMapView: (sessionId, viewport, camera) =>
     set((state) => {

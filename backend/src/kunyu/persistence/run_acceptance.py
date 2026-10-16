@@ -20,6 +20,7 @@ from kunyu.agent.runtime.events import (
 from kunyu.agent.runtime.session_reducer import reduce_session
 from kunyu.agent.runtime.session_state import ReducedSession
 from kunyu.domain.attachments import Attachment, AttachmentError
+from kunyu.domain.map_context import TurnMapContext
 from kunyu.domain.messages import Message, MessageRole, MessageStatus
 from kunyu.domain.model_connections import ModelAuthMode
 from kunyu.domain.model_images import ModelImageInput
@@ -42,6 +43,7 @@ from kunyu.persistence import run_records
 from kunyu.persistence.agent_projections import SQLAlchemyAgentProjectionService
 from kunyu.persistence.attachments import REFERENCE, resolve_references
 from kunyu.persistence.database import Database
+from kunyu.persistence.imagery import ImageryRepository
 from kunyu.persistence.models import (
     MessageIdempotencyRecord,
     MessageRecord,
@@ -155,6 +157,7 @@ class SQLAlchemyRunAcceptanceRepository:
                 raise InvalidMapContextError(
                     "The map context does not belong to the current workspace."
                 )
+            self._require_image_selection(request)
             selection = request.model_selection
             connection = database_session.get(
                 ModelConnectionRecord, selection.connection_id
@@ -370,6 +373,7 @@ class SQLAlchemyRunAcceptanceRepository:
                 raise InvalidMapContextError(
                     "The steering map belongs to another workspace."
                 )
+            self._require_image_selection(request)
             selection = request.model_selection
             if (
                 selection.connection_id,
@@ -496,6 +500,18 @@ class SQLAlchemyRunAcceptanceRepository:
             )
             database_session.commit()
         return self._load_result(item.message_id, turn.run_id)
+
+    def _require_image_selection(self, request: RunAcceptanceRequest) -> None:
+        selection = TurnMapContext.model_validate(request.map_context).image_selection
+        if selection is None:
+            return
+        candidates = ImageryRepository(self._database).get(
+            request.session_id, selection.candidate_set_id
+        )
+        if not any(image.imageId == selection.image_id for image in candidates.images):
+            raise InvalidMapContextError(
+                "The selected image does not belong to this candidate set."
+            )
 
     @staticmethod
     def _validate_model(

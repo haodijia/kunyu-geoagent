@@ -19,6 +19,7 @@ import { zhCN } from "@/locales/zh-CN";
 import { PlanDocumentProvider } from "@/features/plans/PlanDocument";
 import { MessageNavigationProvider } from "@/features/messages/navigation/MessageNavigationContext";
 import { AnalysisEventsBridge } from "@/features/analysis/AnalysisEventsBridge";
+import { MapPresentationBridge } from "@/features/maps/MapPresentationBridge";
 import { SubagentProvider } from "@/features/subagents/SubagentContext";
 
 const content = zhCN.sessionWorkspace;
@@ -116,6 +117,7 @@ function SessionWorkspaceContent({
         sessionId={sessionQuery.data.id}
       >
         <AnalysisEventsBridge sessionId={sessionQuery.data.id} />
+        <MapPresentationBridge />
         <SessionMessagesProvider
           sessionId={sessionQuery.data.id}
           workspaceId={sessionQuery.data.workspace_id}
