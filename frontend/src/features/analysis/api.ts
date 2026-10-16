@@ -91,7 +91,11 @@ const mapPath = (id: string) =>
   `/api/v1/sessions/${encodeURIComponent(id)}/map`;
 export const analysisApi = {
   services: () =>
-    requestJson<{ readonly id: string; readonly mode: "replay" | "live" }[]>(
+    requestJson<{
+      readonly id: string;
+      readonly mode: "replay" | "live";
+      readonly selected_image_products: readonly string[];
+    }[]>(
       "/api/v1/oge/services",
     ),
   jobs: (id: string) => requestJson<AnalysisJob[]>(`${analysisPath(id)}/jobs`),

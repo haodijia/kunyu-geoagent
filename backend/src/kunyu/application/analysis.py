@@ -4,8 +4,10 @@ import asyncio
 import logging
 import time
 from collections.abc import Callable
+from datetime import UTC, datetime
 
 import httpx
+from pydantic import JsonValue
 
 from kunyu.domain.analysis import (
     EXECUTING_STATES,
@@ -38,16 +40,25 @@ class AnalysisService:
         return self.gateway.binding()
 
     async def submit(
-        self, session_id: str, run_id: str | None, call_id: str
+        self,
+        session_id: str,
+        run_id: str | None,
+        call_id: str,
+        parameters: dict[str, JsonValue],
     ) -> AnalysisJob:
         subject, base = self.gateway.subject()
+        if parameters["input_mode"] == "selected_image":
+            parameters = {
+                **parameters,
+                "task_name": f"kunyu-ndvi-{datetime.now(UTC):%Y%m%d-%H%M%S-%f}",
+            }
         job, created = self.repository.create(
-            session_id, run_id, call_id, self.gateway.mode, subject, base
+            session_id, run_id, call_id, self.gateway.mode, subject, base, parameters
         )
         if not created:
             return job
         try:
-            remote = await self.gateway.submit(job.mode, subject, base)
+            remote = await self.gateway.submit(job.mode, subject, base, job.parameters)
         except OgeError as error:
             logger.warning("NDVI submission refused (%s).", error.code)
             state = (
@@ -107,6 +118,10 @@ class AnalysisService:
             error_code=None,
             error_message=None,
         )
+        # GP success can precede publication of its display COG.
+        if status.get("bandStats") is None:
+            self.repository.change(job.id, next_poll_at=time.time() + 10)
+            return
         result = await self.gateway.result(job.mode, job.remote_id, subject, base)
         output_id = "out_" + job.id.removeprefix("job_")
         directory = self.raster.directory(output_id)
@@ -124,8 +139,9 @@ class AnalysisService:
         source = {
             **source,
             "execution_result": result,
-            "input_mode": "service_defaults",
-            "effective_input_known": False,
+            "input_mode": job.parameters["input_mode"],
+            "effective_input_known": job.parameters["input_mode"] == "selected_image",
+            "parameters": job.parameters,
         }
         self.repository.publish_output(
             job,

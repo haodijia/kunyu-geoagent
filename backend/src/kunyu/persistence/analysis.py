@@ -4,6 +4,7 @@ import time
 from datetime import UTC, datetime
 from uuid import uuid4
 
+from pydantic import JsonValue
 from sqlalchemy import select, text
 
 from kunyu.domain.analysis import (
@@ -50,6 +51,7 @@ class AnalysisRepository:
         mode: str,
         subject: str | None,
         base_url: str | None,
+        parameters: dict[str, JsonValue],
     ) -> tuple[AnalysisJob, bool]:
         with self.database.sessions.begin() as tx:
             tx.execute(text("BEGIN IMMEDIATE"))
@@ -76,7 +78,7 @@ class AnalysisRepository:
                 remote_id=None,
                 account_subject=subject,
                 account_base_url=base_url,
-                parameters={},
+                parameters=parameters,
                 revision=1,
                 next_poll_at=time.time(),
                 created_at=now,

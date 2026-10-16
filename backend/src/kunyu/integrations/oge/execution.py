@@ -8,7 +8,7 @@ from pathlib import Path
 from urllib.parse import urlsplit
 
 import httpx
-from pydantic import BaseModel, Field, SecretStr
+from pydantic import BaseModel, Field, JsonValue, SecretStr
 
 from kunyu.domain.analysis import AnalysisError
 from kunyu.domain.oge import OgeAccount, OgeError
@@ -26,9 +26,11 @@ class Submitted(BaseModel):
 
 
 class ExecutionGateway:
+    selected_image_products = ("LC08_C02_L1",)
+
     def __init__(self, http: httpx.AsyncClient, accounts: OgeAccountStore) -> None:
         self._http, self._accounts = http, accounts
-        self.mode = os.environ.get("KUNYU_OGE_EXECUTION_MODE", "replay")
+        self.mode = os.environ.get("KUNYU_OGE_EXECUTION_MODE", "live")
         if self.mode not in {"replay", "live"}:
             raise ValueError("KUNYU_OGE_EXECUTION_MODE must be replay or live.")
         self.source_metadata = json.loads(
@@ -43,10 +45,10 @@ class ExecutionGateway:
 
     def binding(self) -> str:
         if self.mode == "replay":
-            return "oge:ndvi:gp-v1:replay:ndvi-default-v2"
+            return "oge:ndvi:gp-v2:replay:ndvi-default-v2"
         account = self._accounts.read()
         subject = "unconfigured" if account is None else account.username
-        return f"oge:ndvi:gp-v1:live:{subject}"
+        return f"oge:ndvi:gp-v2:live:{subject}"
 
     def account(
         self, subject: str | None = None, base_url: str | None = None
@@ -93,13 +95,62 @@ class ExecutionGateway:
             None if mode == "replay" else self.account(subject, base_url).tokens.token
         )
 
-    async def submit(self, mode: str, subject: str | None, base_url: str | None) -> str:
+    async def submit(
+        self,
+        mode: str,
+        subject: str | None,
+        base_url: str | None,
+        parameters: dict[str, JsonValue],
+    ) -> str:
+        body: dict[str, JsonValue] = {}
+        path = NDVI_PATH
+        if parameters["input_mode"] == "selected_image":
+            if mode != "live":
+                raise OgeError(
+                    "OGE_LIVE_REQUIRED",
+                    "Selected-image NDVI requires live execution; the recording uses a different fixed input.",
+                    409,
+                )
+            definition = await OgeClient(self._http).json(
+                BASE_URL,
+                "GET",
+                "/management/gp-service/toolbox/NDVI",
+                token=self.token(mode, subject, base_url),
+            )
+            if (
+                not isinstance(definition, dict)
+                or definition.get("serviceName") != "NDVI"
+                or not isinstance(definition.get("uuid"), str)
+                or not isinstance(definition.get("params"), list)
+                or {
+                    item.get("name")
+                    for item in definition["params"]
+                    if isinstance(item, dict)
+                }
+                != {"coverageID", "productID"}
+            ):
+                raise OgeError(
+                    "OGE_SERVICE_CHANGED",
+                    "The published NDVI service no longer matches its verified input contract.",
+                    409,
+                )
+            body = {
+                "serviceUuid": definition["uuid"],
+                "taskName": parameters["task_name"],
+                "params": {
+                    "coverageID": parameters["coverageID"],
+                    "productID": parameters["productID"],
+                },
+                "resultMode": "fileAndService",
+            }
+            # The toolbox page contract consumes nested params; /api does not.
+            path = "/management/gp-service/process/NDVI/page"
         async with self.client(mode) as http:
             data = await OgeClient(http).json(
                 BASE_URL,
                 "POST",
-                NDVI_PATH,
-                body={},
+                path,
+                body=body,
                 token=self.token(mode, subject, base_url),
             )
             return OgeClient.validate(Submitted, data).processId

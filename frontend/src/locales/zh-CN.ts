@@ -5,7 +5,7 @@ export const zhCN = {
     useImage: "使用此景", selected: "已选择", selectionPrompt: "请使用我选中的影像，", preview: "所选影像缩略图", previewFailed: "影像预览加载失败。",
     locate: "定位结果", receiptFailed: "地图展示回执未保存。", history: "完整对话", closeHistory: "收起对话", messages: "最近消息", you: "你", continue: "在地图上继续对话",
     jobsFailed: "后台任务状态读取失败。", runFailed: "Agent 运行失败，可展开完整对话查看原因。", jobStatus: {running: "运行中", stopping: "正在停止", completed: "已完成", failed: "失败", killed: "已停止"},
-    selectedImage: (id: number) => `已选影像 · ${id}`, clearSelection: "清除影像选择", imageInputUnavailable: "当前 NDVI 服务尚不支持所选影像。",
+    selectedImage: (id: number) => `已选影像 · ${id}`, clearSelection: "清除影像选择", imageInputReady: "可在下方回复，使用此景计算 NDVI。", imageInputUnsupported: "当前 NDVI 服务仅支持 Landsat 8 LC08_C02_L1。", imageInputReplay: "当前为录制回放，不能计算所选影像。", servicesFailed: "NDVI 服务状态读取失败。",
   },
   workspaceFiles: {
     title: "上传工作区文件", close: "关闭上传", choose: "选择工作区文件", chooseOrDrop: "选择文件，或拖动文件到这里", limit: "每个文件最多 64 MB",

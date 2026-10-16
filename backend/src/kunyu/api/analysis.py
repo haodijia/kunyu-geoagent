@@ -119,7 +119,8 @@ def services(service: Analysis):
             "id": "ndvi",
             "name": "NDVI",
             "mode": service.gateway.mode,
-            "inputs": ["service_defaults"],
+            "inputs": ["selected_image", "service_defaults"],
+            "selected_image_products": service.gateway.selected_image_products,
             "output_kind": "rgb_raster",
             "numeric_ndvi_available": False,
         }

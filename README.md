@@ -72,9 +72,9 @@ uv run --project backend python -m kunyu.main
 
 Agent 系统提示词可直接编辑 [system.md](backend/src/kunyu/agent/prompts/system.md)，下一次模型请求生效。记忆工具及上下文代码入口见[记忆工具与上下文](docs/develop/记忆工具与上下文.md)，目录职责及 Tool、Skill 扩展约定见[后端 Agent 结构](docs/develop/后端Agent结构.md)。
 
-默认 NDVI 已支持 Agent 提交、后台任务跟踪、结果预览／下载、MapLibre 二维／三维叠加及图层和视角持久化。开发默认 `KUNYU_OGE_EXECUTION_MODE=replay`，使用已录制的 512 × 512 样例，全程不重新提交 OGE 计算。在会话输入“运行默认 NDVI，完成后添加到地图并定位”即可；地图的“任务 → 准备默认 NDVI”也会填写同一条 Agent 指令。读取预览需要为所选模型开启图片输入。
+Agent 可通过 `map_present` 主动展示卫星影像候选，在地图中选择并继续同一会话，审批后计算 NDVI。当前已核验的服务支持 `LC08_C02_L1`，后端将所选影像标识映射为 `coverageID`、产品名映射为 `productID`，随任务持久保存；不支持的产品明确拒绝，不替换成默认影像。地图消息逐行渐隐，完整对话、审批及后台任务状态始终可访问。
 
-仅在明确需要真实计算时设置 `KUNYU_OGE_EXECUTION_MODE=live` 并重启应用；需使用设置中原提交账户的有效登录。计算通过已有审批流程，提交状态不确定时不会自动重试。当前成果是 RGB 显示影像，独立原始下载接口仍返回 404，自选影像、研究区裁剪和数值 NDVI 统计尚未接入。实现与接口详见 [Agent 与地图协同设计](docs/develop/Agent与地图协同设计.md)。
+默认 `KUNYU_OGE_EXECUTION_MODE=live`，需在设置中登录 OGE。计算工具前台等待 120 秒，到期返回同一后台 job；后续沿用 harness 的 `job_output` 和完成通知继续处理，未结束的远端任务持续计算，不重复提交。成果由 Agent 调用 `map_present` 上图。显式设置 `KUNYU_OGE_EXECUTION_MODE=replay` 并重启可使用录制演示；回放仅支持明确请求的默认输入，不计算所选影像。现有成果为 RGB 显示 COG，数值 NDVI 统计和研究区裁剪尚未接入。实现及验收见[地图会话交互设计](docs/develop/地图会话交互设计.md)。
 
 模型图片输入默认值、设置生效范围与各供应商官方指南见[模型图片输入](docs/develop/模型图片输入.md)。
 

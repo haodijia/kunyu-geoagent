@@ -28,7 +28,7 @@ Agent 架构必须对齐本地 `deepseek-harness` 源码的服务、插件、作
 
 这是 Python 的对应实现，没有引入 Cordis 的 TypeScript 运行时。已实现文本／思考／工具内容块、图片／文件输入、图文工具结果、SDK replay 与一层只读多 Agent 委派；子任务卡片、完整报告、对话、工具、轨迹与父地址取消已接入。surface 替换、PTC、profile 与插件市场不属于当前四项收尾范围，不能宣称参考项目所有能力等价。中断恢复仍采用本项目的显式恢复与持久确认契约。
 
-2026-10-16 已接入 harness 对应的通用 jobs 链路：生产工具主动登记，`job_output(wait=true)` 等待到期返回 running；未由等待调用交付的完成，在同一调度锁内复核后进入 busy owner 下一步或 idle owner 后续轮次。通知保留 source=tool-jobs，不混入用户消息展示；步骤准入不能篡改来源。OGE 复用已有持久 AnalysisJob 和 AnalysisSupervisor，前台默认等待 120 秒，之后返回同一后台身份，删除 15 分钟到期报 `ANALYSIS_WAIT_TIMEOUT` 的旧路径。进程内任务不冒充跨重启恢复；远端计算不支持取消时明确拒绝。下文早期记录中的作业监督描述保留其当时范围，当前实现和验收边界见 [地图会话交互设计](/Users/dijkstra/project/01-python/kunyu-geoagent/docs/develop/地图会话交互设计.md:1)。
+2026-10-16 已接入 harness 对应的通用 jobs 链路：生产工具主动登记，`job_output(wait=true)` 等待到期返回 running；未由等待调用交付的完成，在同一调度锁内复核后进入 busy owner 下一步或 idle owner 后续轮次。通知保留 source=tool-jobs，不混入用户消息展示；步骤准入不能篡改来源。OGE 复用已有持久 AnalysisJob 和 AnalysisSupervisor，前台默认等待 120 秒，之后返回同一后台身份，删除 15 分钟到期报 `ANALYSIS_WAIT_TIMEOUT` 的旧路径。进程内任务不冒充跨重启恢复；远端计算不支持取消时明确拒绝。2026-10-16 所选 LC08_C02_L1 已接入真实 NDVI GP，发布参数经核验后通过官网工具箱相同入口提交，结果来源保存冻结输入；计算成功而 COG 尚未生成时保持 collecting。下文早期记录中的作业监督描述保留其当时范围，当前实现和验收边界见 [地图会话交互设计](/Users/dijkstra/project/01-python/kunyu-geoagent/docs/develop/地图会话交互设计.md:1)。
 
 ## 目录与运行链路
 
