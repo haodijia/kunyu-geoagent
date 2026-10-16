@@ -1,7 +1,6 @@
-"""Durable model previews and explicit COG/original download references."""
+"""Durable model previews and source GeoTIFF download references."""
 
 from collections.abc import Mapping
-from typing import Literal
 from uuid import uuid4
 
 from pydantic import Field
@@ -39,10 +38,6 @@ class OutputArguments(ToolArguments):
     output_id: str = Field(min_length=1, max_length=64)
 
 
-class DownloadArguments(OutputArguments):
-    kind: Literal["rendered_cog", "original"] = "rendered_cog"
-
-
 class ResultTool:
     def __init__(
         self,
@@ -59,9 +54,7 @@ class ResultTool:
             service,
             attachments,
         )
-        self._arguments = (
-            DownloadArguments if name == "oge_download_result" else OutputArguments
-        )
+        self._arguments = OutputArguments
         self.spec = ToolSpec(
             name=name,
             description=tool_description(name),
@@ -84,19 +77,16 @@ class ResultTool:
             _cog, preview = self._service.repository.files(source.session.id, output.id)
         except AnalysisError as error:
             raise ToolExecutionError(str(error), code=error.code) from None
-        if isinstance(args, DownloadArguments):
-            if args.kind == "original":
-                raise ToolExecutionError(
-                    f"The independent original download interface returned HTTP {output.original_status}; it is not a verified available original product.",
-                    code="OGE_ORIGINAL_UNAVAILABLE",
-                )
+        if self.spec.name == "oge_download_result":
             return tool_result(
                 {
                     "analysis_output_id": output.id,
-                    "kind": "rendered_cog",
+                    "kind": output.kind,
                     "available": True,
                     "download_endpoint": f"/api/v1/sessions/{source.session.id}/analysis/outputs/{output.id}/download",
-                    "numeric_ndvi_available": False,
+                    "numeric_values_available": output.metadata.get(
+                        "numeric_values_available", False
+                    ),
                 }
             )
         snapshot = source.run.request_snapshot
@@ -110,7 +100,7 @@ class ResultTool:
             check_cancelled(cancelled, "analysis preview")
             raw = self._service.raster.path(preview).read_bytes()
             ref, data = normalize_image(
-                str(uuid4()), "ndvi-preview.png", "image/png", raw
+                str(uuid4()), "analysis-preview.png", "image/png", raw
             )
             ref = ref.model_copy(
                 update={
@@ -139,8 +129,10 @@ class ResultTool:
             {
                 "analysis_output_id": output.id,
                 "path": attachment_path(ref),
-                "kind": "rgb_preview",
-                "numeric_ndvi_available": False,
+                "kind": "raster_preview",
+                "numeric_values_available": output.metadata.get(
+                    "numeric_values_available", False
+                ),
             }
         )
         return ToolResult(

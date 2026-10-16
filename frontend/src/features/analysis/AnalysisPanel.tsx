@@ -1,10 +1,10 @@
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQueryClient } from "@tanstack/react-query";
 import { Layers, X } from "lucide-react";
 import { useState } from "react";
 import { useAppUiStore } from "@/app/store";
 import { Button } from "@/components/ui/button";
 import { zhCN } from "@/locales/zh-CN";
-import { analysisApi, type MapLayer, type MapState } from "./api";
+import { type MapLayer, type MapState } from "./api";
 import { useAnalysis } from "./useAnalysis";
 import { AnalysisJobCard } from "./AnalysisJobCard";
 import { OutputCard } from "./OutputCard";
@@ -28,11 +28,6 @@ export function AnalysisPanel({
 }) {
   const [open, setOpen] = useState(true);
   const [tab, setTab] = useState<(typeof tabs)[number]>("layers");
-  const services = useQuery({
-    queryKey: ["analysis-services"],
-    queryFn: analysisApi.services,
-  });
-  const mode = services.data?.find((service) => service.id === "ndvi")?.mode;
   const analysis = useAnalysis(sessionId);
   const outputs = analysis.outputs.data;
   const selected = outputs?.find(
@@ -41,7 +36,6 @@ export function AnalysisPanel({
   const client = useQueryClient();
   const failed =
     error ||
-    services.isError ||
     analysis.jobs.isError ||
     analysis.outputs.isError;
   return (
@@ -59,11 +53,6 @@ export function AnalysisPanel({
           <Layers className="size-4" />
           {content.title}
         </button>
-        {mode !== undefined && (
-          <span className="rounded bg-muted px-1.5 py-0.5 text-[10px] text-muted-foreground">
-            {content[mode]}
-          </span>
-        )}
         <Button
           size="icon"
           variant="ghost"
@@ -124,11 +113,6 @@ export function AnalysisPanel({
                 >
                   {content.start}
                 </Button>
-                {mode !== undefined && (
-                  <p className="text-[11px] text-muted-foreground">
-                    {content.modeHint[mode]}
-                  </p>
-                )}
                 {analysis.jobs.isPending ? (
                   <p className="text-xs text-muted-foreground">
                     {content.loading}

@@ -7,6 +7,7 @@ import time
 import httpx
 
 from kunyu.application.analysis import AnalysisService
+from kunyu.domain.analysis import AnalysisError
 from kunyu.domain.oge import OgeError
 
 logger = logging.getLogger(__name__)
@@ -49,7 +50,15 @@ class AnalysisSupervisor:
                         error_message=str(error),
                         next_poll_at=time.time() + 30,
                     )
-                except httpx.RequestError:
+                except AnalysisError as error:
+                    logger.warning("Analysis job %s failed (%s).", job.id, error.code)
+                    self.service.repository.change(
+                        job.id,
+                        state="failed",
+                        error_code=error.code,
+                        error_message=str(error),
+                    )
+                except httpx.HTTPError:
                     logger.warning(
                         "Analysis job %s lost its network connection.", job.id
                     )
@@ -57,7 +66,7 @@ class AnalysisSupervisor:
                         job.id,
                         query_state="disconnected",
                         error_code="OGE_NETWORK",
-                        error_message="The analysis status or COG could not be read.",
+                        error_message="The analysis status or raster could not be read.",
                         next_poll_at=time.time() + 30,
                     )
                 except Exception as error:

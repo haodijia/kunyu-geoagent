@@ -58,7 +58,7 @@ export function AnalysisJobCard({
         ) : job.state === "failed" || job.state === "submission_unknown" ? (
           <AlertCircle className="size-3.5 text-destructive" />
         ) : null}
-        <span className="font-medium">NDVI</span>
+        <span className="min-w-0 truncate font-medium">{String(job.parameters.title ?? job.service)}</span>
         <span>{content.states[job.state]}</span>
         <span className="ml-auto text-muted-foreground">
           {job.mode === "replay" ? content.replay : content.live}

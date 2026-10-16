@@ -2,7 +2,7 @@
 
 from typing import Annotated, Literal, Self
 
-from fastapi import APIRouter, Depends, Query, Request, Response
+from fastapi import APIRouter, Depends, Request, Response
 from fastapi.responses import FileResponse
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
@@ -112,21 +112,6 @@ def presentation_receipt(
     return repository.receipt(session_id, request_id, receipt.status, receipt.error)
 
 
-@router.get("/oge/services")
-def services(service: Analysis):
-    return [
-        {
-            "id": "ndvi",
-            "name": "NDVI",
-            "mode": service.gateway.mode,
-            "inputs": ["selected_image", "service_defaults"],
-            "selected_image_products": service.gateway.selected_image_products,
-            "output_kind": "rgb_raster",
-            "numeric_ndvi_available": False,
-        }
-    ]
-
-
 @router.get("/sessions/{session_id}/analysis/jobs", response_model=list[AnalysisJob])
 def jobs(session_id: str, service: Analysis):
     return service.repository.jobs(session_id)
@@ -162,17 +147,12 @@ def download(
     session_id: str,
     output_id: str,
     service: Analysis,
-    kind: Annotated[str, Query(pattern="^(rendered_cog|original)$")] = "rendered_cog",
 ):
-    result = service.repository.output(session_id, output_id)
-    if kind == "original":
-        raise AnalysisError(
-            "OGE_ORIGINAL_UNAVAILABLE",
-            f"The independent original endpoint returned HTTP {result.original_status}. No replacement was performed.",
-        )
     path, _ = service.repository.files(session_id, output_id)
     return FileResponse(
-        service.raster.path(path), media_type="image/tiff", filename="ndvi-display.tif"
+        service.raster.path(path),
+        media_type="image/tiff",
+        filename="analysis-result.tif",
     )
 
 
@@ -180,7 +160,9 @@ def download(
 def tile(session_id: str, output_id: str, z: int, x: int, y: int, service: Analysis):
     path, _ = service.repository.files(session_id, output_id)
     return Response(
-        service.raster.tile(path, z, x, y),
+        service.raster.tile(
+            path, z, x, y, service.repository.output(session_id, output_id).metadata
+        ),
         media_type="image/png",
         headers={"Cache-Control": "private, max-age=3600"},
     )

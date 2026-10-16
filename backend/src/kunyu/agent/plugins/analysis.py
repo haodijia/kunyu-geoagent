@@ -5,7 +5,8 @@ from functools import partial
 from kunyu.agent import services as s
 from kunyu.agent.scope import Context
 from kunyu.agent.tools.maps.tools import MapTool
-from kunyu.agent.tools.oge.ndvi import NdviTool
+from kunyu.agent.tools.oge.execute_code import ExecuteCodeTool
+from kunyu.agent.tools.oge.operators import OperatorTool
 from kunyu.agent.tools.oge.results import ResultTool
 from kunyu.agent.tools.registry import ToolRegistration
 from kunyu.application.analysis import AnalysisService
@@ -50,10 +51,10 @@ class AnalysisPlugin:
         contexts = context.require(s.CONTEXTS)
         tools.register(
             context,
-            "oge_calculate_ndvi",
+            "oge_execute_code",
             ToolRegistration(
                 partial(
-                    NdviTool,
+                    ExecuteCodeTool,
                     contexts=contexts,
                     service=service,
                     jobs=context.require(s.JOBS),
@@ -62,6 +63,19 @@ class AnalysisPlugin:
                 )
             ),
         )
+        for name in ("oge_search_operators", "oge_get_operator_definition"):
+            tools.register(
+                context,
+                name,
+                ToolRegistration(
+                    partial(
+                        OperatorTool,
+                        contexts=contexts,
+                        gateway=service.gateway,
+                        name=name,
+                    )
+                ),
+            )
         for name in ("oge_download_preview", "oge_download_result"):
             tools.register(
                 context,

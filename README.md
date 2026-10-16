@@ -72,9 +72,11 @@ uv run --project backend python -m kunyu.main
 
 Agent 系统提示词可直接编辑 [system.md](backend/src/kunyu/agent/prompts/system.md)，下一次模型请求生效。记忆工具及上下文代码入口见[记忆工具与上下文](docs/develop/记忆工具与上下文.md)，目录职责及 Tool、Skill 扩展约定见[后端 Agent 结构](docs/develop/后端Agent结构.md)。
 
-Agent 可通过 `map_present` 主动展示卫星影像候选，在地图中选择并继续同一会话，审批后计算 NDVI。当前已核验的服务支持 `LC08_C02_L1`，后端将所选影像标识映射为 `coverageID`、产品名映射为 `productID`，随任务持久保存；不支持的产品明确拒绝，不替换成默认影像。地图消息逐行渐隐，完整对话、审批及后台任务状态始终可访问。
+Agent 可通过 `map_present` 主动展示卫星影像候选，在地图中选择并继续同一会话。地图消息逐行渐隐，完整对话、审批及后台任务状态始终可访问。
 
-默认 `KUNYU_OGE_EXECUTION_MODE=live`，需在设置中登录 OGE。计算工具前台等待 120 秒，到期返回同一后台 job；后续沿用 harness 的 `job_output` 和完成通知继续处理，未结束的远端任务持续计算，不重复提交。成果由 Agent 调用 `map_present` 上图。显式设置 `KUNYU_OGE_EXECUTION_MODE=replay` 并重启可使用录制演示；回放仅支持明确请求的默认输入，不计算所选影像。现有成果为 RGB 显示 COG，数值 NDVI 统计和研究区裁剪尚未接入。实现及验收见[地图会话交互设计](docs/develop/地图会话交互设计.md)。
+OGE 分析使用三个通用工具：`oge_search_operators` 检索实际算子目录，`oge_get_operator_definition` 查询参数与示例，`oge_execute_code` 编写并执行可组合的 Python 算子链。后端校验所选影像，调用原生 JWT 编译与批计算接口，保存任务身份，再下载保留数值的 GeoTIFF。每次调用导出一个栅格，支持单波段数值或三波段 uint8 RGB 上图；不再使用专用 NDVI GP 工具和录制运行模式。
+
+代码工具提交后前台等待 120 秒，到期返回同一后台 job；后续沿用 harness 的 `job_output` 和完成通知，远端持续计算，不重复提交。成果由 Agent 调用 `map_present` 上图。协议、限制与验收见 [OGE 代码工具](docs/develop/OGE代码工具.md)，地图流程见[地图会话交互设计](docs/develop/地图会话交互设计.md)。
 
 模型图片输入默认值、设置生效范围与各供应商官方指南见[模型图片输入](docs/develop/模型图片输入.md)。
 

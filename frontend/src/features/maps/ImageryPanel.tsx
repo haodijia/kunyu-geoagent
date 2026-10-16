@@ -1,8 +1,8 @@
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Check, Image, LocateFixed } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
-import { analysisApi, analysisKeys, type MapState } from "@/features/analysis/api";
+import { analysisKeys, type MapState } from "@/features/analysis/api";
 import { useSessionMessages } from "@/features/messages/SessionMessagesContext";
 import { zhCN } from "@/locales/zh-CN";
 import { imageryApi, type ImageCandidates } from "./imagery-api";
@@ -27,11 +27,6 @@ export function ImageryPanel({
   readonly onLocate: () => void;
 }) {
   const client = useQueryClient();
-  const services = useQuery({
-    queryKey: ["analysis-services"],
-    queryFn: analysisApi.services,
-  });
-  const service = services.data?.find((service) => service.id === "ndvi");
   const { draft, changeDraft, requestFrozen } = useSessionMessages();
   const selection = useMutation({
     mutationFn: (id: number) => {
@@ -158,15 +153,7 @@ export function ImageryPanel({
           </Button>
           {state.selected_image_id === image.imageId && (
             <p className="mt-2 text-[10px] text-muted-foreground">
-              {services.isError
-                ? content.servicesFailed
-                : service === undefined
-                  ? content.loading
-                  : service.mode === "replay"
-                    ? content.imageInputReplay
-                    : service.selected_image_products.includes(image.productName)
-                      ? content.imageInputReady
-                      : content.imageInputUnsupported}
+              {content.imageInputReady}
             </p>
           )}
           {selection.isError && (

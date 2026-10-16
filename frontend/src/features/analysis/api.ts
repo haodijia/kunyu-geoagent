@@ -8,7 +8,8 @@ export interface AnalysisJob {
   readonly run_id: string | null;
   readonly tool_call_id: string;
   readonly mode: "replay" | "live";
-  readonly service: "ndvi";
+  readonly service: string;
+  readonly parameters: Readonly<Record<string, unknown>>;
   readonly state:
     | "submitting"
     | "queued"
@@ -31,7 +32,7 @@ export interface AnalysisOutput {
   readonly session_id: string;
   readonly title: string;
   readonly mode: "replay" | "live";
-  readonly kind: "rgb_raster";
+  readonly kind: "rgb_raster" | "scalar_raster";
   readonly metadata: Readonly<Record<string, unknown>>;
   readonly source_metadata: Readonly<Record<string, unknown>>;
   readonly bounds: readonly [number, number, number, number];
@@ -90,14 +91,6 @@ export const analysisPath = (sessionId: string) =>
 const mapPath = (id: string) =>
   `/api/v1/sessions/${encodeURIComponent(id)}/map`;
 export const analysisApi = {
-  services: () =>
-    requestJson<{
-      readonly id: string;
-      readonly mode: "replay" | "live";
-      readonly selected_image_products: readonly string[];
-    }[]>(
-      "/api/v1/oge/services",
-    ),
   jobs: (id: string) => requestJson<AnalysisJob[]>(`${analysisPath(id)}/jobs`),
   outputs: (id: string) =>
     requestJson<AnalysisOutput[]>(`${analysisPath(id)}/outputs`),
@@ -157,6 +150,6 @@ export const analysisApi = {
     ),
   download: (id: string, outputId: string) =>
     requestBlob(
-      `${analysisPath(id)}/outputs/${encodeURIComponent(outputId)}/download?kind=rendered_cog`,
+      `${analysisPath(id)}/outputs/${encodeURIComponent(outputId)}/download`,
     ),
 };

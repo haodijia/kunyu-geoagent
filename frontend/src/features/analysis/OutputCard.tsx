@@ -49,7 +49,7 @@ export function OutputCard({
         const link = document.createElement("a");
         link.href = url;
         link.download =
-          action === "download" ? "ndvi-display.tif" : "ndvi-preview.png";
+          action === "download" ? "analysis-result.tif" : "analysis-preview.png";
         link.click();
         setTimeout(() => URL.revokeObjectURL(url), 1000);
       }
@@ -66,7 +66,7 @@ export function OutputCard({
   function addToConversation() {
     const store = useAppUiStore.getState();
     const previous = store.composerDraftBySession[output.session_id];
-    const reference = content.resultPrompt(output.id, output.mode === "replay");
+    const reference = content.resultPrompt(output.id);
     store.setComposerDraft(
       output.session_id,
       previous === undefined || previous.trim() === ""
@@ -100,7 +100,9 @@ export function OutputCard({
         </div>
       )}
       <p className="my-2 text-xs leading-5 text-muted-foreground">
-        {content.rgbDescription}
+        {output.kind === "scalar_raster"
+          ? content.scalarDescription
+          : content.rgbDescription}
       </p>
       <div className="flex flex-wrap gap-1">
         <Button
@@ -134,9 +136,20 @@ export function OutputCard({
           {content.addToConversation}
         </Button>
       </div>
-      <p className="mt-2 mb-0 text-[10px] text-muted-foreground">
-        {content.originalUnavailable}
-      </p>
+      {output.kind === "scalar_raster" &&
+        Array.isArray(output.metadata.display_range) && (
+          <div
+            className="my-2 text-[10px] text-muted-foreground"
+            aria-label={content.displayRange}
+          >
+            <div className="h-1.5 rounded-full bg-[linear-gradient(to_right,#440154,#3b528b,#21918c,#5ec962,#fde725)]" />
+            <div className="mt-1 flex justify-between">
+              {output.metadata.display_range.map((value, index) => (
+                <span key={index}>{Number(value).toPrecision(4)}</span>
+              ))}
+            </div>
+          </div>
+        )}
       {error !== null ? (
         <p className="mt-2 text-xs text-destructive" role="alert">
           {error}

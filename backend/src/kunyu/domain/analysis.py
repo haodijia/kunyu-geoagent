@@ -25,7 +25,7 @@ class AnalysisJob(AnalysisValue):
     run_id: str | None
     tool_call_id: str
     mode: Literal["replay", "live"]
-    service: Literal["ndvi"]
+    service: str
     state: Literal[
         "submitting",
         "queued",
@@ -51,7 +51,7 @@ class AnalysisOutput(AnalysisValue):
     session_id: str
     title: str
     mode: Literal["replay", "live"]
-    kind: Literal["rgb_raster"]
+    kind: Literal["rgb_raster", "scalar_raster"]
     metadata: dict[str, JsonValue]
     source_metadata: dict[str, JsonValue]
     bounds: tuple[float, float, float, float]

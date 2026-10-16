@@ -22,7 +22,6 @@ from kunyu.integrations.oge.execution import ExecutionGateway
 from kunyu.persistence.analysis import AnalysisRepository
 
 logger = logging.getLogger(__name__)
-NDVI_REPLAY_DURATION_SECONDS = 10
 
 
 class AnalysisService:
@@ -47,20 +46,25 @@ class AnalysisService:
         parameters: dict[str, JsonValue],
     ) -> AnalysisJob:
         subject, base = self.gateway.subject()
-        if parameters["input_mode"] == "selected_image":
-            parameters = {
-                **parameters,
-                "task_name": f"kunyu-ndvi-{datetime.now(UTC):%Y%m%d-%H%M%S-%f}",
-            }
+        parameters = {
+            **parameters,
+            "filename": f"kunyu-result-{datetime.now(UTC):%Y%m%d-%H%M%S-%f}",
+        }
         job, created = self.repository.create(
-            session_id, run_id, call_id, self.gateway.mode, subject, base, parameters
+            session_id, run_id, call_id, "live", subject, base, parameters
         )
         if not created:
             return job
         try:
-            remote = await self.gateway.submit(job.mode, subject, base, job.parameters)
-        except OgeError as error:
-            logger.warning("NDVI submission refused (%s).", error.code)
+            async with self.gateway.submissions:
+                compiled = await self.gateway.compile(
+                    str(parameters["script"]), str(parameters["title"]), subject, base
+                )
+                parameters = {**parameters, **compiled}
+                job = self.repository.change(job.id, parameters=parameters)
+                remote = await self.gateway.submit(parameters, subject, base)
+        except (OgeError, AnalysisError) as error:
+            logger.warning("OGE code submission refused (%s).", error.code)
             state = (
                 "submission_unknown"
                 if error.code in {"OGE_TIMEOUT", "OGE_NETWORK", "OGE_PROTOCOL_ERROR"}
@@ -69,22 +73,28 @@ class AnalysisService:
             self.repository.change(
                 job.id, state=state, error_code=error.code, error_message=str(error)
             )
-            raise
-        except (httpx.RequestError, asyncio.CancelledError):
+            raise AnalysisError(
+                error.code,
+                f"{error} Analysis job {job.id}: {state}; no automatic resubmission.",
+            ) from error
+        except (httpx.HTTPError, asyncio.CancelledError) as error:
             self.repository.change(
                 job.id,
                 state="submission_unknown",
                 error_code="SUBMISSION_UNKNOWN",
-                error_message="Submission ended without a saved response; the calculation will not be repeated.",
+                error_message="Submission ended without a saved response; it will not be repeated.",
             )
-            raise
-        replay = job.mode == "replay"
+            if isinstance(error, asyncio.CancelledError):
+                raise
+            raise AnalysisError(
+                "SUBMISSION_UNKNOWN",
+                f"Analysis job {job.id} has an uncertain submission response; do not repeat the calculation.",
+            ) from error
         job = self.repository.change(
             job.id,
             remote_id=remote,
-            state="running" if replay else "queued",
-            next_poll_at=time.time()
-            + (NDVI_REPLAY_DURATION_SECONDS if replay else 0.5),
+            state="queued",
+            next_poll_at=time.time() + 1,
         )
         await self.notify()
         return job
@@ -92,65 +102,46 @@ class AnalysisService:
     async def advance(
         self, job: AnalysisJob, subject: str | None, base: str | None
     ) -> None:
-        if job.remote_id is None:
-            self.repository.change(
-                job.id,
-                state="submission_unknown",
-                error_code="SUBMISSION_UNKNOWN",
-                error_message="Remote identity is missing.",
+        if job.service != "execute_code":
+            raise AnalysisError(
+                "OGE_SERVICE_REMOVED",
+                "The former NDVI GP execution service has been removed.",
             )
-            return
-        status = await self.gateway.status(job.mode, job.remote_id, subject, base)
-        if status["resultStatus"] == 0:
-            self.repository.change(
-                job.id,
-                state="running",
-                query_state="ready",
-                error_code=None,
-                error_message=None,
-                next_poll_at=time.time() + 10,
-            )
-            return
+        if job.remote_id is None or subject is None or base is None:
+            raise AnalysisError("SUBMISSION_UNKNOWN", "Remote job identity is missing.")
+        state = await self.gateway.state(str(job.parameters["dag_id"]), subject, base)
         self.repository.change(
             job.id,
-            state="collecting",
+            state="running" if state == "running" else "collecting",
             query_state="ready",
             error_code=None,
             error_message=None,
+            next_poll_at=time.time() + 10,
         )
-        # GP success can precede publication of its display COG.
-        if status.get("bandStats") is None:
-            self.repository.change(job.id, next_poll_at=time.time() + 10)
+        if state == "running":
             return
-        result = await self.gateway.result(job.mode, job.remote_id, subject, base)
+        result = await self.gateway.result(job.remote_id, subject, base)
+        if result is None:
+            return
         output_id = "out_" + job.id.removeprefix("job_")
         directory = self.raster.directory(output_id)
-        if not (directory / "result.tif").is_file():
-            await self.gateway.cog(
-                job.mode, job.remote_id, subject, base, directory / "result.tif"
-            )
+        if not (directory / "result.tif").is_file() and not await self.gateway.download(
+            job.parameters, subject, base, directory / "result.tif"
+        ):
+            return
         metadata = await filesystem_operation(
-            lambda cancelled: self.raster.prepare(output_id, cancelled)
+            lambda cancelled: self.raster.prepare(
+                output_id, cancelled, job.parameters.get("display_range")
+            )
         )
-        original = await self.gateway.original_status(
-            job.mode, job.remote_id, subject, base
-        )
-        source = self.gateway.source_metadata if job.mode == "replay" else metadata
-        source = {
-            **source,
-            "execution_result": result,
-            "input_mode": job.parameters["input_mode"],
-            "effective_input_known": job.parameters["input_mode"] == "selected_image",
-            "parameters": job.parameters,
-        }
         self.repository.publish_output(
             job,
             output_id,
             metadata,
-            source,
+            {"execution_result": result, "parameters": job.parameters},
             f"{output_id}/result.tif",
             f"{output_id}/preview.png",
-            original,
+            200,
         )
         self.repository.change(
             job.id,

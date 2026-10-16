@@ -72,7 +72,7 @@ class AnalysisRepository:
                 run_id=run_id,
                 tool_call_id=tool_call_id,
                 mode=mode,
-                service="ndvi",
+                service="execute_code",
                 state="submitting",
                 query_state="ready",
                 remote_id=None,
@@ -105,6 +105,7 @@ class AnalysisRepository:
                     "error_code",
                     "error_message",
                     "next_poll_at",
+                    "parameters",
                 }:
                     raise ValueError("Unsupported analysis job mutation.")
                 setattr(row, key, value)
@@ -222,9 +223,9 @@ class AnalysisRepository:
                 id=output_id,
                 job_id=job.id,
                 session_id=job.session_id,
-                title="NDVI",
+                title=str(job.parameters["title"]),
                 mode=job.mode,
-                kind="rgb_raster",
+                kind="scalar_raster" if metadata["bands"] == 1 else "rgb_raster",
                 raster_metadata=metadata,
                 source_metadata=source_metadata,
                 bounds=metadata["bounds"],
