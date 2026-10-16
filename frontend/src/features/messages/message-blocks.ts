@@ -18,7 +18,6 @@ export function collectMessageBlocks(
       continue;
     const observed = streamPresentation(
       parseAssistantStream(record.payload.stream),
-      Number.MAX_SAFE_INTEGER,
     ).blocks;
     const interrupted =
       !["stop", "tool_calls", "length"].includes(

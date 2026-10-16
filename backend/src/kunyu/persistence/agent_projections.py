@@ -315,7 +315,6 @@ def _run_record(reduced: ReducedRun) -> RunRecord:
             tool_calls=budget.tool_calls,
             max_active_milliseconds=budget.max_active_milliseconds,
             active_milliseconds=budget.active_milliseconds,
-            max_output_codepoints=budget.max_output_codepoints,
             output_codepoints=budget.output_codepoints,
             input_tokens=budget.input_tokens,
             output_tokens=budget.output_tokens,

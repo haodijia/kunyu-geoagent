@@ -15,7 +15,6 @@ import { zhCN } from "@/locales/zh-CN";
 import { CopyButton } from "./CopyButton";
 import { collectMessageReasoning } from "./reasoning";
 import { ModelRetryStatus } from "./ModelRetryStatus";
-import { assistantOutputLimit } from "@/features/events/live-assistant";
 
 import { streamPresentation } from "@/features/events/stream-presentation";
 import { collectMessageBlocks } from "./message-blocks";
@@ -59,17 +58,8 @@ export function MessageList({
   const skillsByMessage = useMemo(() => collectSessionSkills(events).byMessage, [events]);
   const live = useMemo(() => {
     if (activeAssistant === null) return null;
-    const turn = turns.find((turn) => turn.id === activeAssistant.run_id);
-    if (turn === undefined) return null;
-    return streamPresentation(
-      activeAssistant.stream,
-      assistantOutputLimit(
-        activeAssistant,
-        turn.budget.max_output_codepoints,
-        records,
-      ),
-    );
-  }, [activeAssistant, turns, records]);
+    return streamPresentation(activeAssistant.stream);
+  }, [activeAssistant]);
   const visibleMessages = useMemo(
     () =>
       live === null || activeAssistant === null

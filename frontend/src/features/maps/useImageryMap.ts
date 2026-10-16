@@ -96,8 +96,8 @@ export function useImageryMap(
     instance.setPaintProperty(fillId, "fill-opacity", [
       "case",
       ["==", ["get", "id"], selected ?? -1],
-      0.24,
-      0.06,
+      0.04,
+      0.03,
     ]);
     instance.setPaintProperty(lineId, "line-color", [
       "case",

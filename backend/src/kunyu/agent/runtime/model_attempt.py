@@ -42,7 +42,6 @@ class ModelAttempt:
     initial_active_milliseconds: int
     buffer: DeltaBuffer
     reasoning_buffer: DeltaBuffer
-    output_limit: int
     stream: AssistantStreamAccumulator = field(
         default_factory=AssistantStreamAccumulator
     )
@@ -118,9 +117,7 @@ def model_settlement(
         )
     usage = attempt.usage or TokenUsage()
     blocks = attempt.assembler.blocks(
-        interrupted=outcome not in {"stop", "tool_calls", "length"}
-        or error_code == "OUTPUT_LIMIT",
-        output_limit=attempt.output_limit,
+        interrupted=outcome not in {"stop", "tool_calls", "length"},
     )
     events.append(
         ModelAttemptFinishedEvent(
@@ -144,7 +141,6 @@ def model_settlement(
                 blocks=blocks,
                 replay_state=attempt.assembler.replay_state
                 if outcome in {"stop", "tool_calls", "length"}
-                and error_code != "OUTPUT_LIMIT"
                 else None,
             ),
             occurred_at=now,

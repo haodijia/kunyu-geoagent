@@ -143,7 +143,6 @@ export interface TurnBudget {
   readonly tool_calls: number;
   readonly max_active_milliseconds: number;
   readonly active_milliseconds: number;
-  readonly max_output_codepoints: number;
   readonly output_codepoints: number;
   readonly input_tokens: number | null;
   readonly output_tokens: number | null;

@@ -17,7 +17,6 @@ export type PresentedBlock =
 
 export function streamPresentation(
   stream: readonly AssistantStreamRecord[],
-  outputLimit: number,
 ) {
   type Partial = {
     kind: "text" | "reasoning" | "tool-call";
@@ -89,7 +88,6 @@ export function streamPresentation(
       partial.finished = time;
     }
   }
-  let remaining = outputLimit;
   const blocks: PresentedBlock[] = [];
   for (const [index, partial] of partials) {
     if (partial.kind === "tool-call") {
@@ -102,8 +100,7 @@ export function streamPresentation(
           arguments: partial.arguments,
         });
     } else {
-      const text = Array.from(partial.text).slice(0, remaining).join("");
-      remaining -= Array.from(text).length;
+      const text = partial.text;
       if (text !== "")
         blocks.push({
           type: partial.kind,

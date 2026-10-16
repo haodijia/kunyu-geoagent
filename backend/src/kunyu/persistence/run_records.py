@@ -89,7 +89,6 @@ def copy_run_projection(record: RunRecord, run: Run) -> None:
     record.tool_calls = budget.tool_calls
     record.max_active_milliseconds = budget.max_active_milliseconds
     record.active_milliseconds = budget.active_milliseconds
-    record.max_output_codepoints = budget.max_output_codepoints
     record.output_codepoints = budget.output_codepoints
     record.input_tokens = budget.input_tokens
     record.output_tokens = budget.output_tokens
@@ -163,7 +162,6 @@ def run_to_domain(record: RunRecord) -> Run:
             tool_calls=record.tool_calls,
             max_active_milliseconds=record.max_active_milliseconds,
             active_milliseconds=record.active_milliseconds,
-            max_output_codepoints=record.max_output_codepoints,
             output_codepoints=record.output_codepoints,
             input_tokens=record.input_tokens,
             output_tokens=record.output_tokens,

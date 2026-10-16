@@ -64,7 +64,6 @@ from kunyu.persistence.run_admission import turn_events
 from kunyu.persistence.time import as_utc
 
 MAX_ACTIVE_MILLISECONDS = 1_200_000
-MAX_OUTPUT_CODEPOINTS = 32_768
 
 
 class SQLAlchemyRunAcceptanceRepository:
@@ -210,7 +209,6 @@ class SQLAlchemyRunAcceptanceRepository:
             )
             budget_limits = BudgetLimitsPayload(
                 active_milliseconds=MAX_ACTIVE_MILLISECONDS,
-                output_codepoints=MAX_OUTPUT_CODEPOINTS,
             )
             state = _session_state(database_session, request.session_id)
             events = (

@@ -94,7 +94,6 @@ class SQLAlchemySubagentRepository:
         budget = source.run.budget
         limits = BudgetLimitsPayload(
             active_milliseconds=budget.max_active_milliseconds,
-            output_codepoints=budget.max_output_codepoints,
         )
         child_events = (
             SessionCreatedEvent(

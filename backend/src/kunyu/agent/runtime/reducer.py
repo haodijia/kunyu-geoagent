@@ -124,7 +124,6 @@ def reduce_run(events: Iterable[AgentEvent]) -> ReducedRun:
                 limits=limits,
                 budget=_Budget(
                     max_active_milliseconds=limits.active_milliseconds,
-                    max_output_codepoints=limits.output_codepoints,
                 ),
                 created_at=event.occurred_at,
                 created_sequence=envelope.sequence,
@@ -590,11 +589,6 @@ def _append_delta(
         raise RunReductionError(
             "Assistant delta does not continue its codepoint offset."
         )
-    if (
-        state.budget.output_codepoints + len(payload.text)
-        > state.budget.max_output_codepoints
-    ):
-        raise RunReductionError("Run output budget is exhausted.")
     if reasoning:
         assistant.reasoning_content += payload.text
     else:
@@ -691,15 +685,10 @@ def _finish_model_attempt(
         or payload.error_code == "OUTPUT_LIMIT"
     )
     limit = (
-        state.budget.max_output_codepoints
-        - state.budget.output_codepoints
-        + len(assistant.content)
-        + len(assistant.reasoning_content)
+        len(assistant.content) + len(assistant.reasoning_content)
+        if payload.error_code == "OUTPUT_LIMIT"
+        else None
     )
-    if assembler.output_codepoints > limit and payload.error_code != "OUTPUT_LIMIT":
-        raise RunReductionError(
-            "Canonical model content exceeds the remaining output budget."
-        )
     try:
         expected = assembler.blocks(interrupted=interrupted, output_limit=limit)
     except ValueError as error:
@@ -774,8 +763,7 @@ def _finish_model_attempt(
             "Model outcome active time differs from the run budget."
         )
     # Provider closure may replace a short preview with longer final content.
-    # Charge the larger of the accepted delivery and final representation, so
-    # normalization cannot refund generation or grant extra next-step capacity.
+    # Count the larger of accepted delivery and final representation.
     delivered_codepoints = len(assistant.content) + len(assistant.reasoning_content)
     final_codepoints = content_codepoints(payload.blocks)
     state.budget.output_codepoints += max(0, final_codepoints - delivered_codepoints)
@@ -1484,7 +1472,6 @@ def _freeze(state: _State) -> ReducedRun:
             tool_calls=budget.tool_calls,
             max_active_milliseconds=budget.max_active_milliseconds,
             active_milliseconds=budget.active_milliseconds,
-            max_output_codepoints=budget.max_output_codepoints,
             output_codepoints=budget.output_codepoints,
             input_tokens=budget.input_tokens,
             output_tokens=budget.output_tokens,

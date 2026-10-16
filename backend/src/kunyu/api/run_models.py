@@ -59,7 +59,6 @@ class TurnBudgetResponse(BaseModel):
     tool_calls: int
     max_active_milliseconds: int
     active_milliseconds: int
-    max_output_codepoints: int
     output_codepoints: int
     input_tokens: int | None
     output_tokens: int | None
@@ -164,7 +163,6 @@ class AgentTurnResponse(BaseModel):
                 tool_calls=run.budget.tool_calls,
                 max_active_milliseconds=run.budget.max_active_milliseconds,
                 active_milliseconds=run.budget.active_milliseconds,
-                max_output_codepoints=run.budget.max_output_codepoints,
                 output_codepoints=run.budget.output_codepoints,
                 input_tokens=run.budget.input_tokens,
                 output_tokens=run.budget.output_tokens,

@@ -36,7 +36,6 @@ class ReducedBudget:
     tool_calls: int
     max_active_milliseconds: int
     active_milliseconds: int
-    max_output_codepoints: int
     output_codepoints: int
     input_tokens: int | None
     output_tokens: int | None
@@ -156,7 +155,6 @@ class ReducedRun:
 @dataclass(slots=True)
 class _Budget:
     max_active_milliseconds: int
-    max_output_codepoints: int
     model_calls: int = 0
     tool_calls: int = 0
     active_milliseconds: int = 0

@@ -273,7 +273,6 @@ class ImageOffloadPayload(EventPayload):
 
 class BudgetLimitsPayload(EventPayload):
     active_milliseconds: PositiveInt
-    output_codepoints: PositiveInt
 
 
 class BudgetUsagePayload(EventPayload):

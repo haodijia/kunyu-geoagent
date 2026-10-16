@@ -105,10 +105,6 @@ class _ModelOutputError(RuntimeError):
     pass
 
 
-class _OutputBudgetError(_ModelOutputError):
-    pass
-
-
 class ModelStepExecutor[AdapterConfigT]:
     def __init__(
         self,
@@ -167,9 +163,6 @@ class ModelStepExecutor[AdapterConfigT]:
                 run, "ACTIVE_TIME_LIMIT", "Active-time budget exhausted."
             )
             return "failed"
-        if run.budget.output_codepoints >= run.budget.max_output_codepoints:
-            await self._fail_run(run, "OUTPUT_LIMIT", "Output budget exhausted.")
-            return "failed"
 
         try:
             if self._prepared_context is None:
@@ -206,8 +199,6 @@ class ModelStepExecutor[AdapterConfigT]:
                 interval_seconds=self._config.delta_flush_interval_seconds,
                 codepoint_limit=self._config.delta_flush_codepoints,
             ),
-            output_limit=run.budget.max_output_codepoints
-            - run.budget.output_codepoints,
             reasoning_buffer=DeltaBuffer(
                 0,
                 clock=self._monotonic_clock,
@@ -294,17 +285,6 @@ class ModelStepExecutor[AdapterConfigT]:
             elapsed = elapsed_milliseconds(started_ns, self._monotonic_ns())
             await self._finish_model_interrupted(run, attempt, elapsed)
             raise
-        except _OutputBudgetError:
-            elapsed = elapsed_milliseconds(started_ns, self._monotonic_ns())
-            await self._finish_model_failure(
-                run,
-                attempt,
-                elapsed,
-                outcome="length",
-                error_code="OUTPUT_LIMIT",
-                summary="Model output exceeded the run output budget.",
-            )
-            return "failed"
         except TimeoutError:
             return await self._handle_request_failure(
                 run,
@@ -471,20 +451,6 @@ class ModelStepExecutor[AdapterConfigT]:
                 if isinstance(output, (TextDelta, ReasoningDelta)):
                     reasoning = isinstance(output, ReasoningDelta)
                     buffer = attempt.reasoning_buffer if reasoning else attempt.buffer
-                    remaining = (
-                        run.budget.max_output_codepoints
-                        - run.budget.output_codepoints
-                        - attempt.buffer.content_length
-                        - attempt.reasoning_buffer.content_length
-                    )
-                    if len(output.text) > remaining:
-                        if remaining > 0:
-                            batch = buffer.add(output.text[:remaining])
-                            if batch is not None:
-                                await self._commit_delta(
-                                    run, attempt, batch, reasoning=reasoning
-                                )
-                        raise _OutputBudgetError
                     batch = buffer.add(output.text)
                     if batch is not None:
                         await self._commit_delta(
@@ -508,8 +474,6 @@ class ModelStepExecutor[AdapterConfigT]:
                     terminal_seen = True
                 else:
                     raise _ModelOutputError("Unknown model output.")
-                if attempt.assembler.output_codepoints > attempt.output_limit:
-                    raise _OutputBudgetError
         finally:
             close = getattr(stream, "aclose", None)
             if close is not None:

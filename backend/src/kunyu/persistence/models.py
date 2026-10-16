@@ -326,7 +326,7 @@ class RunRecord(Base):
         CheckConstraint(
             "model_calls >= 0 AND tool_calls >= 0 AND "
             "max_active_milliseconds > 0 AND active_milliseconds >= 0 AND "
-            "max_output_codepoints > 0 AND output_codepoints >= 0",
+            "output_codepoints >= 0",
             name="ck_runs_budget_nonnegative",
         ),
         ForeignKeyConstraint(
@@ -367,7 +367,6 @@ class RunRecord(Base):
     tool_calls: Mapped[int] = mapped_column(Integer, nullable=False)
     max_active_milliseconds: Mapped[int] = mapped_column(Integer, nullable=False)
     active_milliseconds: Mapped[int] = mapped_column(Integer, nullable=False)
-    max_output_codepoints: Mapped[int] = mapped_column(Integer, nullable=False)
     output_codepoints: Mapped[int] = mapped_column(Integer, nullable=False)
     input_tokens: Mapped[int | None] = mapped_column(Integer)
     output_tokens: Mapped[int | None] = mapped_column(Integer)

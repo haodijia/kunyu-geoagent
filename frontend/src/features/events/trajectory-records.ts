@@ -1,6 +1,6 @@
 import { streamPresentation } from "./stream-presentation";
 import { contentText, parseContentBlocks } from "./content-blocks";
-import { assistantOutputLimit, type ActiveAssistant } from "./live-assistant";
+import type { ActiveAssistant } from "./live-assistant";
 import { attachRequestDetails } from "./trajectory-requests";
 import {
   assistantStreamFirstTokenTime,
@@ -341,14 +341,7 @@ function assistantRecord(
       : null;
   const prefix =
     live !== null && run !== undefined
-      ? streamPresentation(
-          live.stream,
-          assistantOutputLimit(
-            live,
-            run.budget.max_output_codepoints,
-            context.allEvents,
-          ),
-        )
+      ? streamPresentation(live.stream)
       : null;
   const content =
     prefix !== null

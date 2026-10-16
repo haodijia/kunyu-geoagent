@@ -211,7 +211,6 @@ CREATE TABLE "runs" (
 	tool_calls INTEGER NOT NULL, 
 	max_active_milliseconds INTEGER NOT NULL, 
 	active_milliseconds INTEGER NOT NULL, 
-	max_output_codepoints INTEGER NOT NULL, 
 	output_codepoints INTEGER NOT NULL, 
 	input_tokens INTEGER, 
 	output_tokens INTEGER, 
@@ -223,7 +222,7 @@ CREATE TABLE "runs" (
 	CONSTRAINT ck_runs_attempt_nonnegative CHECK (attempt >= 0), 
 	CONSTRAINT ck_runs_queue_sequence_positive CHECK (queue_sequence IS NULL OR queue_sequence > 0), 
 	CONSTRAINT ck_runs_step_nonnegative CHECK (step >= 0), 
-	CONSTRAINT ck_runs_budget_nonnegative CHECK (model_calls >= 0 AND tool_calls >= 0 AND max_active_milliseconds > 0 AND active_milliseconds >= 0 AND max_output_codepoints > 0 AND output_codepoints >= 0),
+	CONSTRAINT ck_runs_budget_nonnegative CHECK (model_calls >= 0 AND tool_calls >= 0 AND max_active_milliseconds > 0 AND active_milliseconds >= 0 AND output_codepoints >= 0),
 	CONSTRAINT ck_runs_resume_phase CHECK (resume_phase IN ('model', 'tool')), 
 	CONSTRAINT ck_runs_updated_sequence_positive CHECK (updated_sequence > 0), 
 	CONSTRAINT ck_runs_next_tool_index_nonnegative CHECK (next_tool_index >= 0), 
@@ -471,4 +470,4 @@ CREATE TABLE map_layers (
 	FOREIGN KEY(output_id) REFERENCES analysis_outputs (id) ON DELETE CASCADE
 );
 
-PRAGMA user_version = 3;
+PRAGMA user_version = 4;

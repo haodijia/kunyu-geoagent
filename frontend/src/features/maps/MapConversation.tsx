@@ -7,7 +7,6 @@ import { Button } from "@/components/ui/button";
 import { useSessionEvents } from "@/features/events/SessionEventContext";
 import { EventStreamNotice } from "@/features/events/EventStreamNotice";
 import { streamPresentation } from "@/features/events/stream-presentation";
-import { assistantOutputLimit } from "@/features/events/live-assistant";
 import { MessageList } from "@/features/messages/MessageList";
 import { useSessionMessages } from "@/features/messages/SessionMessagesContext";
 import { useMessageNavigation } from "@/features/messages/navigation/MessageNavigationContext";
@@ -29,21 +28,10 @@ export function MapConversation() {
   const rows = useMemo(() => {
     const messages = messagesQuery.data ?? [];
     const active = stream.activeAssistant;
-    const turn =
-      active === null
-        ? undefined
-        : agentTurnsQuery.data?.find((turn) => turn.id === active.run_id);
     const live =
-      active === null || turn === undefined
+      active === null
         ? null
-        : streamPresentation(
-            active.stream,
-            assistantOutputLimit(
-              active,
-              turn.budget.max_output_codepoints,
-              stream.records,
-            ),
-          ).text;
+        : streamPresentation(active.stream).text;
     const recent = messages.slice(-5).map((message) => ({
       id: message.id,
       text: `${message.role === "user" ? `${content.you} · ` : ""}${toString(parser.parse(message.id === active?.attempt_id && live !== null ? live : message.content))}`,
@@ -60,9 +48,7 @@ export function MapConversation() {
     return recent.filter((row) => row.text.trim() !== "");
   }, [
     messagesQuery.data,
-    agentTurnsQuery.data,
     stream.activeAssistant,
-    stream.records,
   ]);
   const latestTurn = agentTurnsQuery.data?.at(-1);
 

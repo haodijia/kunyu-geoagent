@@ -31,7 +31,6 @@ class RunBudget:
     tool_calls: int = 0
     max_active_milliseconds: int = 1_200_000
     active_milliseconds: int = 0
-    max_output_codepoints: int = 32_768
     output_codepoints: int = 0
     input_tokens: int | None = None
     output_tokens: int | None = None

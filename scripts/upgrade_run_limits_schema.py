@@ -1,4 +1,4 @@
-"""Remove total call limits from the development database, preserving history."""
+"""Remove cumulative call/output limits while preserving development history."""
 
 import argparse
 import json
@@ -13,13 +13,16 @@ def upgrade(database: Path) -> Path:
     if not database.is_file():
         raise RuntimeError("The database must already exist.")
     with sqlite3.connect(database) as source:
-        if source.execute("PRAGMA user_version").fetchone()[0] != 2:
-            raise RuntimeError("This explicit migration requires schema version 2.")
+        version = source.execute("PRAGMA user_version").fetchone()[0]
+        if version not in {2, 3}:
+            raise RuntimeError(
+                "This explicit migration requires schema version 2 or 3."
+            )
         if source.execute(
             "SELECT 1 FROM runs WHERE state IN ('model_running', 'tool_running')"
         ).fetchone():
             raise RuntimeError("Close the application and settle active runs first.")
-        backup = database.with_name("kunyu.before-call-limits.db")
+        backup = database.with_name("kunyu.before-run-limits.db")
         backup.touch(mode=0o600, exist_ok=False)
         with sqlite3.connect(backup) as target:
             source.backup(target)
@@ -69,7 +72,9 @@ def upgrade(database: Path) -> Path:
                 ]
             )
             for limit in limits:
-                del limit["model_calls"], limit["tool_calls"]
+                del limit["output_codepoints"]
+                if version == 2:
+                    del limit["model_calls"], limit["tool_calls"]
             validate_event_draft(
                 {
                     "session_id": session_id,

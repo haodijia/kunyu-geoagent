@@ -1,5 +1,5 @@
 import { AlertCircle, LoaderCircle } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { useRef } from "react";
 import { useQuery } from "@tanstack/react-query";
 
 import "maplibre-gl/dist/maplibre-gl.css";
@@ -21,6 +21,8 @@ import type { MapState } from "@/features/analysis/api";
 import { ImageryPanel } from "@/features/maps/ImageryPanel";
 import { imageryApi, imageryKey } from "@/features/maps/imagery-api";
 import { useImageryMap } from "@/features/maps/useImageryMap";
+import { useImageryPreview } from "@/features/maps/useImageryPreview";
+import { useImagerySelection } from "@/features/maps/useImagerySelection";
 import { MapConversation } from "@/features/maps/MapConversation";
 
 const content = zhCN.map;
@@ -82,9 +84,6 @@ function MapCanvas({
   const analysis = useAnalysis(session.id);
   const layers = persistent.layers.data ?? [];
   useAnalysisLayers(map, state, layers, analysis.outputs.data ?? []);
-  const [previewImage, setPreviewImage] = useState<number | null>(
-    state.selected_image_id,
-  );
   const candidates = useQuery({
     queryKey: imageryKey(session.id, state.candidate_set_id),
     queryFn: () => {
@@ -94,18 +93,17 @@ function MapCanvas({
     },
     enabled: state.candidate_set_id !== null,
   });
-  useEffect(() => {
-    setPreviewImage(state.selected_image_id);
-  }, [state.candidate_set_id, state.selected_image_id]);
+  const selection = useImagerySelection(state, candidates.data);
   const imagery = useImageryMap(
     map,
     state,
     candidates.data,
-    previewImage,
-    setPreviewImage,
+    selection.preview,
+    selection.select,
     layers,
     candidates.isError,
   );
+  const preview = useImageryPreview(map, session.id, candidates.data, selection.preview, state.presentation?.target === "candidates");
 
   return (
     <div
@@ -118,8 +116,10 @@ function MapCanvas({
         <ImageryPanel
           state={state}
           candidates={candidates.data}
-          preview={previewImage}
-          onPreview={setPreviewImage}
+          preview={selection.preview}
+          onPreview={selection.select}
+          disabled={selection.disabled}
+          selectionError={selection.error}
           error={candidates.isError}
           retry={() => void candidates.refetch()}
           onLocate={imagery.focus}
@@ -163,6 +163,17 @@ function MapCanvas({
         </div>
       )}
       <div className="pointer-events-none absolute right-4 bottom-[calc(var(--map-overlay-height,180px)+3rem)] z-10 max-w-80 [&>*]:pointer-events-auto">
+        {preview.error !== null ? (
+          <div role="alert" className="mb-2 rounded-lg border border-border bg-background/95 px-3 py-2 text-xs text-destructive shadow-sm">
+            {preview.error}
+            <Button size="sm" variant="ghost" onClick={preview.retry}>{zhCN.mapConversation.retry}</Button>
+          </div>
+        ) : preview.loading ? (
+          <div role="status" className="mb-2 flex items-center gap-2 rounded-lg border border-border bg-background/95 px-3 py-2 text-xs text-muted-foreground shadow-sm">
+            <LoaderCircle className="size-3.5 animate-spin motion-reduce:animate-none" />
+            {zhCN.mapConversation.previewLoading}
+          </div>
+        ) : null}
         {map.failed ? (
           <div
             className="rounded-xl border border-border bg-background/95 p-4 shadow-sm backdrop-blur"
