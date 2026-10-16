@@ -1,3 +1,4 @@
+import type { KunyuRuntimeConnection } from "@/types/runtime";
 import { zhCN } from "@/locales/zh-CN";
 
 export class RuntimeConnectionError extends Error {
@@ -7,12 +8,12 @@ export class RuntimeConnectionError extends Error {
   }
 }
 
-export function getRuntimeConnection(): Window["kunyu"] {
+export function getRuntimeConnection(): KunyuRuntimeConnection {
   if (!("kunyu" in window)) {
     throw new RuntimeConnectionError(
       zhCN.api.runtimeUnavailable
     );
   }
 
-  return window.kunyu;
+  return window.kunyu.getConnection();
 }

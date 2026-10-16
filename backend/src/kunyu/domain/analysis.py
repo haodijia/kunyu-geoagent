@@ -47,9 +47,10 @@ class AnalysisJob(AnalysisValue):
 
 class AnalysisOutput(AnalysisValue):
     id: str
-    job_id: str
+    job_id: str | None
     workspace_id: str
-    session_id: str
+    session_id: str | None
+    source_session_title: str
     title: str
     mode: Literal["replay", "live"]
     kind: Literal["rgb_raster", "scalar_raster"]

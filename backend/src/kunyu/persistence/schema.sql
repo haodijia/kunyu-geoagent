@@ -428,9 +428,10 @@ CREATE INDEX ix_analysis_jobs_due ON analysis_jobs (state, next_poll_at);
 
 CREATE TABLE analysis_outputs (
 	id VARCHAR(64) NOT NULL,
-	job_id VARCHAR(64) NOT NULL,
-	session_id VARCHAR(64) NOT NULL,
+	job_id VARCHAR(64),
+	session_id VARCHAR(64),
 	workspace_id VARCHAR(64) NOT NULL,
+	source_session_title VARCHAR(200) NOT NULL,
 	title VARCHAR(200) NOT NULL,
 	mode VARCHAR(16) NOT NULL,
 	kind VARCHAR(32) NOT NULL,
@@ -444,8 +445,8 @@ CREATE TABLE analysis_outputs (
 	created_at DATETIME NOT NULL,
 	PRIMARY KEY (id),
 	UNIQUE (job_id),
-	FOREIGN KEY(job_id) REFERENCES analysis_jobs (id),
-	FOREIGN KEY(session_id) REFERENCES sessions (id),
+	FOREIGN KEY(job_id) REFERENCES analysis_jobs (id) ON DELETE SET NULL,
+	FOREIGN KEY(session_id) REFERENCES sessions (id) ON DELETE SET NULL,
 	FOREIGN KEY(workspace_id) REFERENCES workspaces (id)
 );
 
@@ -472,6 +473,13 @@ CREATE TABLE map_layers (
 	CONSTRAINT ck_map_layers_opacity CHECK (opacity >= 0 AND opacity <= 1),
 	FOREIGN KEY(session_id) REFERENCES sessions (id) ON DELETE CASCADE,
 	FOREIGN KEY(output_id) REFERENCES analysis_outputs (id) ON DELETE CASCADE
+);
+
+CREATE TABLE oge_account (
+    id INTEGER NOT NULL,
+    value JSON NOT NULL,
+    PRIMARY KEY (id),
+    CONSTRAINT ck_oge_account_singleton CHECK (id = 1)
 );
 
 PRAGMA user_version = 5;

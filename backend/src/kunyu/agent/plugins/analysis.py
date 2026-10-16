@@ -38,7 +38,7 @@ class AnalysisPlugin:
         service = AnalysisService(
             repository,
             ExecutionGateway(
-                context.require(s.HTTP_CLIENT), OgeAccountStore(database.path.parent)
+                context.require(s.HTTP_CLIENT), OgeAccountStore(database)
             ),
             AnalysisRaster(database.path.parent),
         )

@@ -8,9 +8,14 @@ interface RuntimeConnection {
   readonly sessionToken: string;
 }
 
-const runtimeConnection = readRuntimeConnection();
-
-contextBridge.exposeInMainWorld("kunyu", runtimeConnection);
+contextBridge.exposeInMainWorld("kunyu", {
+  getConnection: readRuntimeConnection,
+  storage: {
+    status: () => ipcRenderer.invoke("storage:action", { action: "status" }),
+    choose: () => ipcRenderer.invoke("storage:action", { action: "choose" }),
+    migrate: () => ipcRenderer.invoke("storage:action", { action: "migrate" })
+  }
+});
 
 function readRuntimeConnection(): RuntimeConnection {
   const value: unknown = ipcRenderer.sendSync(RUNTIME_CONNECTION_CHANNEL);

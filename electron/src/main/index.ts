@@ -1,5 +1,7 @@
 import { app, BrowserWindow, ipcMain, shell } from "electron";
 import path from "node:path";
+import { DataStorage } from "./data-storage";
+import { DataStorageController } from "./data-storage-ipc";
 import { pathToFileURL } from "node:url";
 
 import {
@@ -24,11 +26,15 @@ let retryInProgress = false;
 let shutdownStarted = false;
 const backendProcessManager = new BackendProcessManager();
 
+const dataStorage = new DataStorage(app.getPath("userData"), path.join(app.getPath("appData"), "Kunyu"));
+const storageController = new DataStorageController(dataStorage, backendProcessManager, () => mainWindow, () => runtimeConnection, (value) => { runtimeConnection = value; });
+
 const hasSingleInstanceLock = app.requestSingleInstanceLock();
 
 if (!hasSingleInstanceLock) {
   app.quit();
 } else {
+  storageController.register();
   process.once("SIGINT", () => app.quit());
   process.once("SIGTERM", () => app.quit());
 
@@ -91,6 +97,7 @@ if (!hasSingleInstanceLock) {
     }
 
     event.preventDefault();
+    if (storageController.busy) return;
     if (shutdownStarted) {
       return;
     }
@@ -135,7 +142,8 @@ if (!hasSingleInstanceLock) {
 async function startDesktop(): Promise<void> {
   let connection: RuntimeConnection;
   try {
-    connection = await backendProcessManager.start(app.getPath("userData"));
+    const directory = await dataStorage.initialize();
+    connection = await backendProcessManager.start(directory);
   } catch (error: unknown) {
     backendFailure = toBackendFailure(error);
     console.error("Backend startup failed.", error);
@@ -217,6 +225,8 @@ function createWindow(preloadFile: string): BrowserWindow {
       sandbox: true
     }
   });
+
+  window.on("close", (event) => { if (storageController.busy) event.preventDefault(); });
 
   window.on("closed", () => {
     if (mainWindow === window) {

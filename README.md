@@ -45,23 +45,17 @@ uv sync --project backend
 
 Electron 二进制默认从 npmmirror 下载，避免无法连接 GitHub 时安装失败；镜像地址配置在 `electron/.npmrc`。
 
-数据库统一由 `backend/src/kunyu/persistence/schema.sql` 初始化，版本保存在 SQLite `user_version`，不再运行 Alembic 迁移链。旧开发库不会自动升级或删除；保留备份后使用新的 `KUNYU_APP_DATA_DIR`，或由开发者显式升级数据库。当前基线为版本 5，含模型、会话日志、审批、MCP、OAuth、子任务、分析成果和地图共 24 张表。
+数据库统一由 `backend/src/kunyu/persistence/schema.sql` 初始化，版本保存在 SQLite `user_version`，不再运行 Alembic 迁移链。旧开发库不会自动升级或删除；保留备份后使用新的 `KUNYU_APP_DATA_DIR`，或由开发者显式升级数据库。当前基线为版本 5，含模型、会话日志、审批、MCP、OAuth、子任务、分析成果和地图共 25 张表。
 
-版本 1 的开发库可以在应用关闭后显式升级：
-
-```bash
-uv run --project backend python scripts/upgrade_analysis_schema.py "/数据库目录/kunyu.db"
-```
-
-该命令先保存 `kunyu.before-analysis.db` 备份，再从同一份 SQL 基线添加分析和地图表。
-
-版本 2、3 的开发库在应用关闭后升级到版本 4：
+旧版本 4 的本机开发数据在应用关闭后显式迁到独立业务目录：
 
 ```bash
-uv run --project backend python scripts/upgrade_run_limits_schema.py "/数据库目录/kunyu.db"
+uv run --project backend python scripts/upgrade_workspace_storage.py "/原 Electron 运行目录" "/新的空业务目录" --switch-desktop
 ```
 
-该命令先保存 `kunyu.before-run-limits.db` 备份，再移除整轮模型调用次数、工具调用次数和累计输出长度上限，并更新历史事件中的限制配置。调用次数和输出长度继续作为使用统计保留。单次请求的输出限制、调用超时、并发限制、手动停止以及原有总活动时间限制保持有效。
+该命令从统一 SQL 基线升级成果归属、迁移工作区成果与附件、将 OGE 登录状态入库，校验后更新桌面目录设置。原目录完整保留；未登记的旧成果和开发录制文件不导入新业务目录。更早的开发库需要单独整理，不提供运行时兼容路径。
+
+设置 → 数据与存储支持选择空目录、迁移现有业务数据并切换；Electron 缓存与界面运行状态始终留在独立运行目录。新安装的默认业务目录为系统应用数据目录下的 `Kunyu`，桌面运行目录为 `kunyu-electron`。用户级技能存在时保存于业务目录 `skills/`；工作区文件、附件和成果保存于 `workspaces/<workspace_id>/`。
 
 在项目根目录用一条命令启动 Vite、Electron 和由 Electron 管理的 FastAPI：
 

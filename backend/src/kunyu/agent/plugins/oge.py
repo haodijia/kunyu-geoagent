@@ -23,7 +23,7 @@ class OgePlugin:
     async def apply(self, context: Context) -> None:
         service = OgeService(
             OgeClient(context.require(s.HTTP_CLIENT)),
-            OgeAccountStore(context.require(s.DATABASE).path.parent),
+            OgeAccountStore(context.require(s.DATABASE)),
         )
         context.provide(s.OGE, service)
         for name, tool in (

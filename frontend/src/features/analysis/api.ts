@@ -29,8 +29,9 @@ export interface AnalysisJob {
 export interface AnalysisOutput {
   readonly workspace_id: string;
   readonly id: string;
-  readonly job_id: string;
-  readonly session_id: string;
+  readonly job_id: string | null;
+  readonly session_id: string | null;
+  readonly source_session_title: string;
   readonly title: string;
   readonly mode: "replay" | "live";
   readonly kind: "rgb_raster" | "scalar_raster";
@@ -97,10 +98,6 @@ export const analysisApi = {
   jobs: (id: string) => requestJson<AnalysisJob[]>(`${analysisPath(id)}/jobs`),
   outputs: (id: string) =>
     requestJson<AnalysisOutput[]>(workspaceResultsPath(id)),
-  output: (id: string, outputId: string) =>
-    requestJson<AnalysisOutput>(
-      `${analysisPath(id)}/outputs/${encodeURIComponent(outputId)}`,
-    ),
   map: (id: string) => requestJson<MapState>(mapPath(id)),
   layers: (id: string) => requestJson<MapLayer[]>(`${mapPath(id)}/layers`),
   saveView: (

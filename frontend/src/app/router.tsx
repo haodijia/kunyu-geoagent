@@ -1,6 +1,7 @@
 import { Navigate, createHashRouter, useParams } from "react-router-dom";
 
 import { useAppUiStore } from "@/app/store";
+import { StorageSettingsPage } from "@/features/settings/StorageSettingsPage";
 import { ArchivedSessionsPage } from "@/features/sessions/ArchivedSessionsPage";
 import { ModelConnectionCreatePage } from "@/features/settings/models/ModelConnectionCreatePage";
 import { ModelConnectionDetailPage } from "@/features/settings/models/ModelConnectionDetailPage";
@@ -33,6 +34,7 @@ export const router = createHashRouter([
     path: "/",
     element: <AppShell />,
     children: [
+      { path: "settings/storage", element: <StorageSettingsPage /> },
       { path: "settings/oge", element: <OgeSettingsPage /> },
       { path: "settings/mcp", element: <McpServersPage /> },
       { path: "settings/mcp/new", element: <McpServerEditorPage /> },

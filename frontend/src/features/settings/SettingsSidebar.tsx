@@ -1,6 +1,6 @@
 import { Tooltip } from "@/components/ui/tooltip";
 import { Api, Cube, Inbox } from "@icon-park/react";
-import { Globe2, Sparkles } from "lucide-react";
+import { FolderOpen, Globe2, Sparkles } from "lucide-react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { cn } from "@/lib/utils";
 import { zhCN } from "@/locales/zh-CN";
@@ -13,6 +13,7 @@ export function SettingsSidebar({
   const navigate = useNavigate();
   const location = useLocation();
   const items = [
+    { path: "/settings/storage", label: zhCN.storage.title, icon: <FolderOpen size={16} /> },
     {
       path: "/settings/models",
       label: zhCN.modelConnections.title,

@@ -57,8 +57,8 @@ function WorkspaceOverviewContent({ workspaceId }: { readonly workspaceId: strin
           : outputs.data.length === 0 ? <p className="py-12 text-center text-sm text-muted-foreground">{content.emptyResults}</p>
           : <div className="grid items-start gap-x-10 gap-y-8 lg:grid-cols-2">
             {outputs.data.map((output) => <article key={output.id} className="min-w-0 border-t border-border pt-4">
-              <ResultSource sessionId={output.session_id} workspaceId={workspaceId} />
-              <OutputCard output={output} workspaceId={workspaceId} compact sourceActionsEnabled={sessions.isSuccess && sessions.data.some((session) => session.id === output.session_id)} />
+              <ResultSource sessionId={output.session_id} sourceTitle={output.source_session_title} workspaceId={workspaceId} />
+              <OutputCard output={output} workspaceId={workspaceId} compact sessionId={originSession !== undefined ? originSession.id : sessions.isSuccess && sessions.data.some((session) => session.id === output.session_id) ? output.session_id : null} />
               <time dateTime={output.created_at} className="text-xs text-muted-foreground">{new Date(output.created_at).toLocaleString("zh-CN")}</time>
             </article>)}
           </div>}
@@ -67,7 +67,12 @@ function WorkspaceOverviewContent({ workspaceId }: { readonly workspaceId: strin
   );
 }
 
-function ResultSource({ sessionId, workspaceId }: { readonly sessionId: string; readonly workspaceId: string }) {
+function ResultSource({ sessionId, sourceTitle, workspaceId }: { readonly sessionId: string | null; readonly sourceTitle: string; readonly workspaceId: string }) {
+  if (sessionId === null) return <p className="text-xs text-muted-foreground">{content.sourceSession} · {sourceTitle} · {content.deletedSession}</p>;
+  return <ExistingResultSource sessionId={sessionId} workspaceId={workspaceId} />;
+}
+
+function ExistingResultSource({ sessionId, workspaceId }: { readonly sessionId: string; readonly workspaceId: string }) {
   const session = useQuery({ queryKey: sessionQueryKeys.detail(sessionId), queryFn: () => getSession(sessionId) });
   if (session.isPending) return <p role="status" className="text-xs text-muted-foreground">{content.loadingSource}</p>;
   if (session.isError) return <p role="alert" className="text-xs text-destructive">{content.sourceFailed}</p>;

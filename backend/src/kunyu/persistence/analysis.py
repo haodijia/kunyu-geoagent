@@ -156,18 +156,6 @@ class AnalysisRepository:
                 error_message="The app stopped before the submission response was saved; the remote call will not be repeated.",
             )
 
-    def outputs(self, session_id: str) -> list[AnalysisOutput]:
-        with self.database.sessions() as tx:
-            require_session(tx, session_id)
-            return [
-                output_value(row)
-                for row in tx.scalars(
-                    select(AnalysisOutputRecord)
-                    .where(AnalysisOutputRecord.session_id == session_id)
-                    .order_by(AnalysisOutputRecord.created_at.desc())
-                )
-            ]
-
     def workspace_outputs(self, workspace_id: str) -> list[AnalysisOutput]:
         with self.database.sessions() as tx:
             require_workspace(tx, workspace_id)
@@ -236,16 +224,26 @@ class AnalysisRepository:
             )
             if existing is not None:
                 return output_value(existing)
+            source_session = require_session(tx, job.session_id)
             row = AnalysisOutputRecord(
                 id=output_id,
                 job_id=job.id,
                 session_id=job.session_id,
                 workspace_id=job.workspace_id,
+                source_session_title=source_session.title,
                 title=str(job.parameters["title"]),
                 mode=job.mode,
                 kind="scalar_raster" if metadata["bands"] == 1 else "rgb_raster",
                 raster_metadata=metadata,
-                source_metadata=source_metadata,
+                source_metadata={
+                    **source_metadata,
+                    "origin": {
+                        "session_id": job.session_id,
+                        "job_id": job.id,
+                        "run_id": job.run_id,
+                        "tool_call_id": job.tool_call_id,
+                    },
+                },
                 bounds=metadata["bounds"],
                 cog_file=cog_file,
                 preview_file=preview_file,
@@ -275,6 +273,7 @@ def output_value(row: AnalysisOutputRecord) -> AnalysisOutput:
         job_id=row.job_id,
         workspace_id=row.workspace_id,
         session_id=row.session_id,
+        source_session_title=row.source_session_title,
         title=row.title,
         mode=row.mode,
         kind=row.kind,

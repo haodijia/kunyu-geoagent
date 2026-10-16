@@ -25,8 +25,8 @@ export function AnalysisJobCard({
         : false,
   });
   const outputs = useQuery({
-    queryKey: analysisKeys.outputs(sessionId),
-    queryFn: () => analysisApi.outputs(sessionId),
+    queryKey: analysisKeys.outputs(session.workspace_id),
+    queryFn: () => analysisApi.outputs(session.workspace_id),
     refetchInterval: jobs.data?.some((job) =>
       ["submitting", "queued", "running", "collecting"].includes(job.state),
     )
@@ -50,7 +50,7 @@ export function AnalysisJobCard({
     job.state,
   );
   const result = outputs.data?.find((item) => item.job_id === job.id);
-  if (result !== undefined) return <OutputCard output={result} workspaceId={session.workspace_id} compact />;
+  if (result !== undefined) return <OutputCard output={result} sessionId={sessionId} workspaceId={session.workspace_id} compact />;
   return (
     <div className="mt-2 space-y-2" data-analysis-job={job.id}>
       <div className="flex items-center gap-2 py-2 text-xs">

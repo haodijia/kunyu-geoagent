@@ -24,6 +24,7 @@ from kunyu.api.plans import router as plans_router
 from kunyu.api.questions import router as questions_router
 from kunyu.api.sessions import router as sessions_router
 from kunyu.api.skills import router as skills_router
+from kunyu.api.storage import router as storage_router
 from kunyu.api.subagents import router as subagents_router
 from kunyu.api.system import require_desktop_session
 from kunyu.api.system import router as system_router
@@ -132,6 +133,7 @@ def create_app(session_token: str | None = None) -> FastAPI:
     app.state.shutdown_callback = None
     install_error_handlers(app)
     app.include_router(system_router)
+    app.include_router(storage_router)
     app.include_router(model_connections_router)
     app.include_router(oge_router)
     app.include_router(analysis_router)

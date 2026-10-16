@@ -151,11 +151,11 @@ export class BackendProcessManager {
     }
   }
 
-  async restart(): Promise<RuntimeConnection> {
+  async restart(appDataDirectory?: string): Promise<RuntimeConnection> {
     await this.stop();
     this.state = "idle";
     this.stopPromise = null;
-    return this.start();
+    return this.start(appDataDirectory);
   }
 
   stop(): Promise<void> {

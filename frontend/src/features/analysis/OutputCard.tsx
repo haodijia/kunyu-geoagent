@@ -14,13 +14,13 @@ const content = zhCN.analysis;
 export function OutputCard({
   output,
   workspaceId,
+  sessionId,
   compact = false,
-  sourceActionsEnabled = true,
 }: {
   readonly output: AnalysisOutput;
   readonly workspaceId: string;
   readonly compact?: boolean;
-  readonly sourceActionsEnabled?: boolean;
+  readonly sessionId: string | null;
 }) {
   const image = useOutputImage(output.workspace_id, output.id);
   const client = useQueryClient();
@@ -29,19 +29,20 @@ export function OutputCard({
   const mutation = useMutation({
     mutationFn: async (action: "map" | "download" | "preview") => {
       if (action === "map") {
-        const layer = await analysisApi.addLayer(output.session_id, output.id);
+        if (sessionId === null) throw new Error("Choose an active session before opening a result on the map.");
+        const layer = await analysisApi.addLayer(sessionId, output.id);
         if (!layer.visible)
-          await analysisApi.style(output.session_id, layer, {
+          await analysisApi.style(sessionId, layer, {
             visible: true,
             opacity: layer.opacity,
             position: layer.position,
           });
-        const state = await analysisApi.focus(output.session_id, output.id);
-        client.setQueryData(analysisKeys.map(output.session_id), state);
+        const state = await analysisApi.focus(sessionId, output.id);
+        client.setQueryData(analysisKeys.map(sessionId), state);
         await client.invalidateQueries({
-          queryKey: analysisKeys.layers(output.session_id),
+          queryKey: analysisKeys.layers(sessionId),
         });
-        void navigate(sessionMapPath(workspaceId, output.session_id));
+        void navigate(sessionMapPath(workspaceId, sessionId));
       } else {
         const blob =
           action === "download"
@@ -66,16 +67,17 @@ export function OutputCard({
     onMutate: () => setError(null),
   });
   function addToConversation() {
+    if (sessionId === null) throw new Error("Choose an active session before referencing a result.");
     const store = useAppUiStore.getState();
-    const previous = store.composerDraftBySession[output.session_id];
+    const previous = store.composerDraftBySession[sessionId];
     const reference = content.resultPrompt(output.id);
     store.setComposerDraft(
-      output.session_id,
+      sessionId,
       previous === undefined || previous.trim() === ""
         ? reference
         : `${previous}\n\n${reference}`,
     );
-    void navigate(sessionAnalysisPath(workspaceId, output.session_id, "conversation"));
+    void navigate(sessionAnalysisPath(workspaceId, sessionId, "conversation"));
   }
   return (
     <section
@@ -108,7 +110,7 @@ export function OutputCard({
         <Button
           variant="ghost"
           size="sm"
-          disabled={mutation.isPending || !sourceActionsEnabled}
+          disabled={mutation.isPending || sessionId === null}
           onClick={() => mutation.mutate("map")}
         >
           <LocateFixed className="size-3.5" />
@@ -131,7 +133,7 @@ export function OutputCard({
         >
           {content.downloadPreview}
         </Button>
-        <Button variant="ghost" size="sm" disabled={!sourceActionsEnabled} onClick={addToConversation}>
+        <Button variant="ghost" size="sm" disabled={sessionId === null} onClick={addToConversation}>
           <MessageSquarePlus className="size-3.5" />
           {content.addToConversation}
         </Button>

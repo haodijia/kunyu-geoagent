@@ -33,7 +33,7 @@ REFERENCE = TypeAdapter(Attachment)
 class SQLAlchemyAttachmentStore:
     def __init__(self, database: Database) -> None:
         self._database = database
-        self._root = database.path.parent / "attachments"
+        self._root = database.path.parent / "workspaces"
 
     def save_batch(
         self, session_id: str, items: tuple[PreparedAttachment, ...]
@@ -43,7 +43,8 @@ class SQLAlchemyAttachmentStore:
         try:
             with self._database.sessions() as transaction:
                 transaction.execute(text("BEGIN IMMEDIATE"))
-                require_session(transaction, session_id, writable=True)
+                session = require_session(transaction, session_id, writable=True)
+                root = self._root / session.workspace_id / "attachments"
                 # Verify every reused identity before creating any new object.
                 fresh = []
                 for item in items:
@@ -61,30 +62,30 @@ class SQLAlchemyAttachmentStore:
                             "Attachment identity was already used by another upload.",
                             409,
                         )
-                    elif self._read_object(item.ref, source=True) != item.source:
+                    elif self._read_object(session.workspace_id, item.ref, source=True) != item.source:
                         raise AttachmentError(
                             "ATTACHMENT_IDENTITY_CONFLICT",
                             "Attachment identity was already used with different bytes.",
                             409,
                         )
-                    elif self._read_object(item.ref) != item.data:
+                    elif self._read_object(session.workspace_id, item.ref) != item.data:
                         raise AttachmentError(
                             "ATTACHMENT_CORRUPT",
                             "Stored attachment bytes differ from the upload.",
                             503,
                         )
 
-                self._root.mkdir(mode=0o700, parents=True, exist_ok=True)
-                self._root.chmod(0o700)
+                root.mkdir(mode=0o700, parents=True, exist_ok=True)
+                root.chmod(0o700)
                 for item in fresh:
-                    target = self._root / item.ref.id
+                    target = root / item.ref.id
                     if target.exists():
                         raise AttachmentError(
                             "ATTACHMENT_STORAGE_CONFLICT",
                             "An unpublished object already occupies this attachment identity.",
                             503,
                         )
-                    temporary = self._root / f"upload_{uuid4()}"
+                    temporary = root / f"upload_{uuid4()}"
                     temporary.mkdir(mode=0o700)
                     staging.append(temporary)
                     _write_private(temporary / "content", item.data)
@@ -94,7 +95,7 @@ class SQLAlchemyAttachmentStore:
                     temporary.rename(target)
                     staging.remove(temporary)
                     published.append(target)
-                    _sync_directory(self._root)
+                    _sync_directory(root)
                     transaction.add(
                         SessionAttachmentRecord(
                             id=item.ref.id,
@@ -126,13 +127,17 @@ class SQLAlchemyAttachmentStore:
             return resolve_references(transaction, session_id, identities)
 
     def read(self, session_id: str, identity: str) -> tuple[Attachment, bytes]:
-        ref = self.resolve(session_id, (identity,))[0]
-        return ref, self._read_object(ref)
+        with self._database.sessions() as tx:
+            session = require_session(tx, session_id)
+            ref = resolve_references(tx, session_id, (identity,))[0]
+            return ref, self._read_object(session.workspace_id, ref)
 
-    def _read_object(self, ref: Attachment, *, source: bool = False) -> bytes:
+    def _read_object(self, workspace_id: str, ref: Attachment, *, source: bool = False) -> bytes:
         # The identity has already been validated by the durable receipt schema.
         path = (
             self._root
+            / workspace_id
+            / "attachments"
             / ref.id
             / ("source" if source and ref.kind == "image" else "content")
         )
@@ -157,7 +162,7 @@ class SQLAlchemyAttachmentStore:
 
 def require_session(
     transaction: Session, session_id: str, *, writable: bool = False
-) -> None:
+) -> SessionRecord:
     session = transaction.get(SessionRecord, session_id)
     if (
         session is None
@@ -168,6 +173,7 @@ def require_session(
         raise AttachmentError(
             "SESSION_ARCHIVED", "Archived sessions cannot receive attachments.", 409
         )
+    return session
 
 
 def resolve_references(

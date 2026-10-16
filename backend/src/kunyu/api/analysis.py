@@ -122,20 +122,6 @@ def job(session_id: str, job_id: str, service: Analysis):
     return service.repository.job(session_id, job_id)
 
 
-@router.get(
-    "/sessions/{session_id}/analysis/outputs", response_model=list[AnalysisOutput]
-)
-def outputs(session_id: str, service: Analysis):
-    return service.repository.outputs(session_id)
-
-
-@router.get(
-    "/sessions/{session_id}/analysis/outputs/{output_id}", response_model=AnalysisOutput
-)
-def output(session_id: str, output_id: str, service: Analysis):
-    return service.repository.output(session_id, output_id)
-
-
 @router.get("/workspaces/{workspace_id}/results", response_model=list[AnalysisOutput])
 def workspace_outputs(workspace_id: str, service: Analysis):
     return service.repository.workspace_outputs(workspace_id)
