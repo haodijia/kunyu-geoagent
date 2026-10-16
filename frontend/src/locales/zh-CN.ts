@@ -383,11 +383,8 @@ user-invocable: true
     emptySessions: "此工作空间暂无会话。",
   },
   overview: {
-    title: "会话总览", continue: "继续对话", notStarted: "尚未开始", turns: "对话轮次", tools: "工具调用", outputs: "分析成果",
-    goal: "最近任务输入", emptyGoal: "发送第一条消息，开始空间分析。", conclusion: "最近一次完成的回复", progress: "执行进度", trace: "查看轨迹",
-    emptyConclusion: "完成分析后，这里展示最近一次完成的回复。", awaitingConclusion: "任务正在进行，完成后将展示回复。", fullConversation: "查看完整对话",
-    emptyProgress: "暂无工具调用。", results: "分析成果", emptyResults: "生成的影像与分析成果会展示在这里。", map: "打开地图",
-    loading: "正在整理会话…", loadFailed: "部分会话数据读取失败，请重试。", retry: "重试",
+    results: "成果图", emptyResults: "暂无成果图。", loading: "正在加载成果图…",
+    loadFailed: "成果图读取失败，请重试。", retry: "重试",
   },
   sessionWorkspace: {
     loading: "正在加载会话…",
