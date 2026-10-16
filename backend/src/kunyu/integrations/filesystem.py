@@ -24,6 +24,7 @@ from kunyu.domain.filesystem import (
 from kunyu.integrations.filesystem_io import (
     atomic_write,
     check_cancelled,
+    directory_info,
     io_error,
     open_directory,
     open_file,
@@ -167,7 +168,9 @@ class MountedFilesystem:
         try:
             if not target.parts:
                 with open_directory(self._root, target, cancelled) as directory:
-                    return FsInfo(version_of(os.fstat(directory)), "directory", None)
+                    return FsInfo(
+                        version_of(directory_info(directory)), "directory", None
+                    )
             with open_parent(self._root, target, cancelled=cancelled) as parent:
                 info = probe_at(parent, target.parts[-1])
             check_cancelled(cancelled, "stat")

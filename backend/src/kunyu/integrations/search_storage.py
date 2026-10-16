@@ -1,16 +1,21 @@
 """Workspace search roots and immutable, session-owned recovery artifacts."""
 
-import os
 import posixpath
 import re
 import stat
-from contextlib import contextmanager
+from contextlib import ExitStack, contextmanager
 from pathlib import Path
 from threading import Event
 from uuid import uuid4
 
 from kunyu.domain.filesystem import FilesystemError, FilesystemScope, FsTarget
-from kunyu.integrations.filesystem_io import atomic_write, open_parent
+from kunyu.integrations.filesystem_io import (
+    atomic_write,
+    open_directory,
+    open_file,
+    open_parent,
+    probe_at,
+)
 
 SEARCH_DIRECTORY = ".kunyu-search"
 
@@ -36,29 +41,31 @@ class WorkspaceSearchStorage:
             "/workspace/.search-root", scope, "workspace", (".search-root",), None
         )
         # The managed directory is infrastructure, provisioned even for an empty workspace.
-        with open_parent(self._root, dummy, create=True) as descriptor:
+        with ExitStack() as handles:
+            descriptor = handles.enter_context(
+                open_parent(self._root, dummy, create=True)
+            )
             relative = self._relative(path)
             if relative != ".":
-                current = descriptor
-                opened = []
-                try:
-                    parts = relative.split("/")
-                    for part in parts[:-1]:
-                        current = os.open(
-                            part,
-                            os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW,
-                            dir_fd=current,
-                        )
-                        opened.append(current)
-                    info = os.stat(parts[-1], dir_fd=current, follow_symlinks=False)
-                    if not (stat.S_ISREG(info.st_mode) or stat.S_ISDIR(info.st_mode)):
-                        raise FilesystemError(
-                            "FS_NOT_REGULAR_FILE",
-                            "Search targets must be regular files or directories; symbolic links are not followed.",
-                        )
-                finally:
-                    for opened_descriptor in reversed(opened):
-                        os.close(opened_descriptor)
+                parts = tuple(relative.split("/"))
+                target = FsTarget(
+                    f"/workspace/{relative}", scope, "workspace", parts, None
+                )
+                parent = handles.enter_context(open_parent(self._root, target))
+                info = probe_at(parent, parts[-1])
+                if info is None:
+                    raise FilesystemError(
+                        "FS_NOT_FOUND", "Search target was not found."
+                    )
+                if stat.S_ISDIR(info.st_mode):
+                    handles.enter_context(open_directory(self._root, target, Event()))
+                elif stat.S_ISREG(info.st_mode):
+                    handles.enter_context(open_file(self._root, target))
+                else:
+                    raise FilesystemError(
+                        "FS_NOT_REGULAR_FILE",
+                        "Search targets must be regular files or directories; symbolic links are not followed.",
+                    )
             yield (
                 self._root / "workspaces" / scope.workspace_id / "files",
                 relative,

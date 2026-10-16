@@ -15,11 +15,43 @@ from kunyu.domain.filesystem import FilesystemError, FsTarget
 
 logger = logging.getLogger(__name__)
 CHUNK_BYTES = 64 * 1024
+Directory = int | Path
 
 
 def check_cancelled(cancelled: Event, verb: str) -> None:
     if cancelled.is_set():
         raise FilesystemError("FS_ABORTED", f"{verb} aborted")
+
+
+def write_content(descriptor: int, content: bytes, cancelled: Event) -> None:
+    offset = 0
+    while offset < len(content):
+        check_cancelled(cancelled, "write")
+        written = os.write(descriptor, content[offset : offset + CHUNK_BYTES])
+        if written <= 0:
+            raise FilesystemError(
+                "FS_IO_ERROR", "The staged file write made no progress."
+            )
+        offset += written
+
+
+def check_write_version(
+    parent: Directory,
+    name: str,
+    existing: os.stat_result | None,
+    target: FsTarget,
+    cancelled: Event,
+) -> None:
+    check_cancelled(cancelled, "write")
+    current = probe_at(parent, name)
+    if existing is not None and (
+        current is None or version_of(current) != version_of(existing)
+    ):
+        raise FilesystemError(
+            "FS_STALE_VERSION",
+            f'cannot write "{target.display_path}": file changed since it was read',
+        )
+    check_cancelled(cancelled, "write")
 
 
 def version_of(info: os.stat_result) -> str:
@@ -50,6 +82,11 @@ def require_workspace_target(target: FsTarget) -> None:
         raise FilesystemError(
             "FS_INVALID_TARGET", "The workspace target is not a resolved file path."
         )
+    if os.name == "nt":
+        from kunyu.integrations.filesystem_windows import validate_component
+
+        for part in target.parts:
+            validate_component(part)
 
 
 @contextmanager
@@ -59,7 +96,18 @@ def _open_path(
     parts: tuple[str, ...],
     create: bool,
     cancelled: Event | None,
-) -> Iterator[int]:
+) -> Iterator[Directory]:
+    if os.name == "nt":
+        from kunyu.integrations.filesystem_windows import open_directories
+
+        with open_directories(
+            root,
+            ("workspaces", target.scope.workspace_id, "files", *parts),
+            create,
+            cancelled,
+        ) as directory:
+            yield directory
+        return
     descriptors = []
     try:
         descriptor = os.open(root, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
@@ -95,7 +143,7 @@ def open_parent(
     *,
     create: bool = False,
     cancelled: Event | None = None,
-) -> Iterator[int]:
+) -> Iterator[Directory]:
     require_workspace_target(target)
     if not target.parts:
         raise FilesystemError(
@@ -106,7 +154,9 @@ def open_parent(
 
 
 @contextmanager
-def open_directory(root: Path, target: FsTarget, cancelled: Event) -> Iterator[int]:
+def open_directory(
+    root: Path, target: FsTarget, cancelled: Event
+) -> Iterator[Directory]:
     require_workspace_target(target)
     try:
         # Provision only the managed root, never a missing user directory.
@@ -124,8 +174,16 @@ def open_directory(root: Path, target: FsTarget, cancelled: Event) -> Iterator[i
         ) from error
 
 
-def probe_at(parent: int, name: str) -> os.stat_result | None:
+def directory_info(directory: Directory) -> os.stat_result:
+    if isinstance(directory, Path):
+        return directory.stat(follow_symlinks=False)
+    return os.fstat(directory)
+
+
+def probe_at(parent: Directory, name: str) -> os.stat_result | None:
     try:
+        if isinstance(parent, Path):
+            return (parent / name).lstat()
         return os.stat(name, dir_fd=parent, follow_symlinks=False)
     except FileNotFoundError:
         return None
@@ -135,6 +193,12 @@ def probe_at(parent: int, name: str) -> os.stat_result | None:
 def open_file(root: Path, target: FsTarget) -> Iterator[int]:
     try:
         with open_parent(root, target) as parent:
+            if isinstance(parent, Path):
+                from kunyu.integrations.filesystem_windows import open_regular_file
+
+                with open_regular_file(parent / target.parts[-1]) as descriptor:
+                    yield descriptor
+                return
             descriptor = os.open(
                 target.parts[-1],
                 os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK,
@@ -156,7 +220,7 @@ def open_file(root: Path, target: FsTarget) -> Iterator[int]:
 
 
 def atomic_write(
-    parent: int,
+    parent: Directory,
     name: str,
     content: bytes,
     existing: os.stat_result | None,
@@ -164,6 +228,12 @@ def atomic_write(
     create_if_absent: bool,
     cancelled: Event,
 ) -> str:
+    if isinstance(parent, Path):
+        from kunyu.integrations.filesystem_windows import atomic_write as windows_write
+
+        return windows_write(
+            parent, name, content, existing, target, create_if_absent, cancelled
+        )
     check_cancelled(cancelled, "write")
     staging = f".{uuid4()}.tmpdir"
     os.mkdir(staging, 0o700, dir_fd=parent)
@@ -187,33 +257,15 @@ def atomic_write(
         staged_file = True
         try:
             os.fchmod(descriptor, 0o600)
-            data = content
-            offset = 0
-            while offset < len(data):
-                check_cancelled(cancelled, "write")
-                written = os.write(descriptor, data[offset : offset + CHUNK_BYTES])
-                if written <= 0:
-                    raise FilesystemError(
-                        "FS_IO_ERROR", "The staged file write made no progress."
-                    )
-                offset += written
+            write_content(descriptor, content, cancelled)
             if existing is not None:
                 os.fchmod(descriptor, stat.S_IMODE(existing.st_mode))
             os.fsync(descriptor)
             staged_inode = os.fstat(descriptor).st_ino
         finally:
             os.close(descriptor)
-        check_cancelled(cancelled, "write")
         # Internal mutations are serialized. Check external changes again after staging.
-        current = probe_at(parent, name)
-        if existing is not None and (
-            current is None or version_of(current) != version_of(existing)
-        ):
-            raise FilesystemError(
-                "FS_STALE_VERSION",
-                f'cannot write "{target.display_path}": file changed since it was read',
-            )
-        check_cancelled(cancelled, "write")
+        check_write_version(parent, name, existing, target, cancelled)
         if create_if_absent:
             try:
                 os.link(

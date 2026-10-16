@@ -129,7 +129,7 @@ class SearchTool:
             )
         try:
             with self._storage.root(scope, arguments.path) as (cwd, root, descriptor):
-                argv = [binary, "--no-config"]
+                argv = [binary, "--no-config", "--path-separator=/"]
                 if self.spec.name == "glob":
                     argv.extend(
                         (
