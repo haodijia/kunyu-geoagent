@@ -72,6 +72,8 @@
 }
 
 .map-flow {
+  position: relative;
+  width: 100%;
   display: flex;
   flex-direction: column;
   align-items: flex-start;
@@ -82,7 +84,7 @@
   display: flex;
   align-items: center;
   gap: 6px;
-  max-width: 94%;
+  width: 100%;
   min-width: 0;
   padding: 8px 12px;
   border: 1px solid var(--border-light);
@@ -97,10 +99,23 @@
 }
 
 .map-flow-bubble[data-role="user"] {
-  align-self: flex-end;
   background: var(--message-user-bg);
   border-color: transparent;
   border-radius: 12px 12px 3px 12px;
+}
+
+.map-flow-measure {
+  position: absolute;
+  inset: 0 0 auto;
+  visibility: hidden;
+  pointer-events: none;
+}
+
+.map-flow-text {
+  flex: 1;
+  min-width: 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
 }
 
 .map-flow-bubble:not(:last-child) { opacity: 0.5; }

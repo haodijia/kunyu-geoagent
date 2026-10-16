@@ -8,7 +8,6 @@ import type { TrajectoryEventProjection } from "@/features/events/projection";
 import type { ActiveAssistant } from "@/features/events/live-assistant";
 import { streamPresentation } from "@/features/events/stream-presentation";
 import { collectMessageBlocks } from "@/features/messages/message-blocks";
-import { thoughtTail } from "@/features/messages/reasoning";
 import type { SessionMessage } from "@/features/messages/api";
 import { zhCN } from "@/locales/zh-CN";
 
@@ -18,6 +17,14 @@ export interface FlowMessage {
   readonly text: string;
   readonly role: "user" | "assistant";
   readonly kind: "text" | "reasoning" | "tool-call";
+}
+
+function markdownText(text: string): string {
+  return parser.parse(text).children.map((block) => {
+    if (block.type === "table") return block.children.map((row) => row.children.map((cell) => toString(cell)).join(" | ")).join("\n");
+    if (block.type === "list") return block.children.map((item) => toString(item)).join("\n");
+    return toString(block);
+  }).join("\n").trim();
 }
 
 export function mapConversationRows(
@@ -43,21 +50,21 @@ export function mapConversationRows(
           tool === undefined ? zhCN.conversation.tools.generating : zhCN.conversation.tools.status[tool.status],
         ].filter((part) => part !== undefined).join(" · ") });
       } else if (block.text.trim() !== "") {
-        const text = toString(parser.parse(block.text)).replace(/\s+/g, " ").trim();
+        const text = markdownText(block.text);
         rows.push({ id, role: "assistant", kind: block.type, text: block.type === "reasoning"
-          ? `${zhCN.mapConversation.thinking} · ${thoughtTail(text)}` : text });
+          ? `${zhCN.mapConversation.thinking} · ${text}` : text });
       }
     }
   }
   for (const message of messages.slice(-8)) {
     if (message.role === "user") {
-      if (message.content.trim() !== "") rows.push({ id: message.id, role: "user", kind: "text", text: toString(parser.parse(message.content)).replace(/\s+/g, " ").trim() });
+      if (message.content.trim() !== "") rows.push({ id: message.id, role: "user", kind: "text", text: markdownText(message.content) });
     } else if (message.id === active?.attempt_id && live !== null) {
       append(message.id, live.blocks);
     } else {
       const blocks = settled.get(message.id);
       if (blocks !== undefined) append(message.id, [...blocks]);
-      else if (message.content.trim() !== "") rows.push({ id: message.id, role: "assistant", kind: "text", text: toString(parser.parse(message.content)).replace(/\s+/g, " ").trim() });
+      else if (message.content.trim() !== "") rows.push({ id: message.id, role: "assistant", kind: "text", text: markdownText(message.content) });
     }
   }
   if (active !== null && live !== null && !messages.some((message) => message.id === active.attempt_id)) append(active.attempt_id, live.blocks);

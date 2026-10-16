@@ -1,9 +1,10 @@
 import { useMemo, useState } from "react";
-import { Brain, ChevronDown, History, Wrench } from "lucide-react";
+import { ChevronDown, History } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useSessionEvents } from "@/features/events/SessionEventContext";
 import { EventStreamNotice } from "@/features/events/EventStreamNotice";
-import { mapConversationRows, type FlowMessage } from "./map-conversation";
+import { mapConversationRows } from "./map-conversation";
+import { MapMessageFlow } from "./MapMessageFlow";
 import { MessageList } from "@/features/messages/MessageList";
 import { useSessionMessages } from "@/features/messages/SessionMessagesContext";
 import { useMessageNavigation } from "@/features/messages/navigation/MessageNavigationContext";
@@ -81,23 +82,4 @@ export function MapConversation() {
       )}
     </div>
   );
-}
-
-function MapMessageFlow({ rows, onOpen }: { readonly rows: readonly FlowMessage[]; readonly onOpen: () => void }) {
-  return <div className="map-flow" aria-label={content.messages}>
-    {rows.map((row) => <button
-      type="button"
-      key={row.id}
-      onClick={onOpen}
-      className="map-flow-bubble"
-      data-role={row.role}
-      data-kind={row.kind}
-      title={row.text}
-      aria-label={`${content.history} · ${row.text}`}
-    >
-      {row.kind === "reasoning" && <Brain className="size-3.5 shrink-0" aria-hidden="true" />}
-      {row.kind === "tool-call" && <Wrench className="size-3.5 shrink-0" aria-hidden="true" />}
-      <span className="truncate">{row.text}</span>
-    </button>)}
-  </div>;
 }
