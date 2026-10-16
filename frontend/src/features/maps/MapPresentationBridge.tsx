@@ -12,11 +12,16 @@ export function MapPresentationBridge() {
   const navigate = useNavigate();
   const location = useLocation();
   const handled = useRef(new Set<string>());
+  const hydratedSession = useRef<string | null>(null);
   const map = useMapState(session.id);
   useEffect(() => {
     if (map.data === undefined) return;
     const store = useAppUiStore.getState();
     store.initializeMapContext(session.id, session.workspace_id);
+    if (hydratedSession.current !== session.id) {
+      store.setMapView(session.id, map.data.viewport, map.data.camera);
+      hydratedSession.current = session.id;
+    }
     store.setMapImageSelection(
       session.id,
       map.data.candidate_set_id === null || map.data.selected_image_id === null

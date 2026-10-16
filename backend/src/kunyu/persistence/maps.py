@@ -15,13 +15,11 @@ from kunyu.domain.analysis import (
     MapViewWrite,
 )
 from kunyu.domain.imagery import candidate_bounds
-from kunyu.domain.map_context import ImageSelectionReference
 from kunyu.persistence.analysis import AnalysisRepository
 from kunyu.persistence.analysis_models import MapLayerRecord, MapStateRecord
 from kunyu.persistence.analysis_shared import publish, require_session
 from kunyu.persistence.database import Database
 from kunyu.persistence.imagery import ImageryRepository
-from kunyu.persistence.models import ToolCallRecord
 
 
 class MapRepository:
@@ -177,51 +175,6 @@ class MapRepository:
                 self.database, tx, session_id, "map/changed", request_id, value.revision
             )
             return value
-
-    def image_selection(self, session_id: str) -> ImageSelectionReference | None:
-        """Approval validation reads facts without acquiring a nested write lock."""
-        with self.database.sessions() as tx:
-            require_session(tx, session_id)
-            row = tx.get(MapStateRecord, session_id)
-            if row is None:
-                return None
-            state = MapState.model_validate(row.value)
-            if state.selected_image_id is None:
-                return None
-            return ImageSelectionReference(
-                candidate_set_id=state.candidate_set_id,
-                image_id=state.selected_image_id,
-            )
-
-    def selected_by_run(
-        self, session_id: str, run_id: str, selection: ImageSelectionReference
-    ) -> bool:
-        """An explicit in-turn choice can replace the input's earlier selection."""
-        with self.database.sessions() as tx:
-            require_session(tx, session_id)
-            row = tx.get(MapStateRecord, session_id)
-            if row is None:
-                return False
-            state = MapState.model_validate(row.value)
-            presentation = state.presentation
-            if (
-                presentation is None
-                or presentation.target != "candidates"
-                or presentation.reference_id != selection.candidate_set_id
-                or presentation.image_id != selection.image_id
-                or state.selected_image_id != selection.image_id
-            ):
-                return False
-            call = tx.get(ToolCallRecord, presentation.request_id)
-            return (
-                call is not None
-                and call.session_id == session_id
-                and call.run_id == run_id
-                and call.name == "map_present"
-                and call.status == "completed"
-                and call.arguments.get("image_id") == selection.image_id
-                and call.arguments.get("reference_id") == selection.candidate_set_id
-            )
 
     def state(self, session_id: str) -> MapState:
         with self.database.sessions.begin() as tx:

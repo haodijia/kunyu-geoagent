@@ -182,11 +182,7 @@
 }
 
 .span[data-timeline-span='message'] {
-  --trajectory-assistant-decoding-color: color-mix(
-    in srgb,
-    var(--dsw-alias-brand-primary-new-colorprimary-new-color) 60%,
-    var(--dsw-alias-state-error-secondary)
-  );
+  --trajectory-assistant-decoding-color: var(--dsw-alias-label-primary);
   --trajectory-assistant-ttft-color: color-mix(
     in srgb,
     var(--trajectory-assistant-decoding-color) 54%,

@@ -127,7 +127,6 @@ function MapCanvas({
       ) : (
         <AnalysisPanel
           sessionId={session.id}
-          workspaceId={session.workspace_id}
           state={state}
           layers={layers}
           error={persistent.layers.isError}

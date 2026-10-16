@@ -1,23 +1,15 @@
-import { useCallback, useLayoutEffect, useMemo, useRef, useState } from "react";
-import { ChevronDown, History } from "lucide-react";
-import { unified } from "unified";
-import remarkParse from "remark-parse";
-import { toString } from "mdast-util-to-string";
+import { useMemo, useState } from "react";
+import { Brain, ChevronDown, History, Wrench } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useSessionEvents } from "@/features/events/SessionEventContext";
 import { EventStreamNotice } from "@/features/events/EventStreamNotice";
-import { streamPresentation } from "@/features/events/stream-presentation";
+import { mapConversationRows, type FlowMessage } from "./map-conversation";
 import { MessageList } from "@/features/messages/MessageList";
 import { useSessionMessages } from "@/features/messages/SessionMessagesContext";
 import { useMessageNavigation } from "@/features/messages/navigation/MessageNavigationContext";
 import { zhCN } from "@/locales/zh-CN";
 
-const parser = unified().use(remarkParse);
 const content = zhCN.mapConversation;
-interface FlowMessage {
-  readonly id: string;
-  readonly text: string;
-}
 
 export function MapConversation() {
   const { messagesQuery, agentTurnsQuery, confirmationsQuery } =
@@ -25,31 +17,9 @@ export function MapConversation() {
   const stream = useSessionEvents();
   const navigation = useMessageNavigation();
   const [expanded, setExpanded] = useState(false);
-  const rows = useMemo(() => {
-    const messages = messagesQuery.data ?? [];
-    const active = stream.activeAssistant;
-    const live =
-      active === null
-        ? null
-        : streamPresentation(active.stream).text;
-    const recent = messages.slice(-5).map((message) => ({
-      id: message.id,
-      text: `${message.role === "user" ? `${content.you} · ` : ""}${toString(parser.parse(message.id === active?.attempt_id && live !== null ? live : message.content))}`,
-    }));
-    if (
-      active !== null &&
-      live !== null &&
-      !messages.some((message) => message.id === active.attempt_id)
-    )
-      recent.push({
-        id: active.attempt_id,
-        text: toString(parser.parse(live)),
-      });
-    return recent.filter((row) => row.text.trim() !== "");
-  }, [
-    messagesQuery.data,
-    stream.activeAssistant,
-  ]);
+  const rows = useMemo(() => mapConversationRows(
+    messagesQuery.data ?? [], agentTurnsQuery.data ?? [], stream.records, stream.activeAssistant,
+  ), [messagesQuery.data, agentTurnsQuery.data, stream.records, stream.activeAssistant]);
   const latestTurn = agentTurnsQuery.data?.at(-1);
 
   return (
@@ -59,7 +29,7 @@ export function MapConversation() {
           <Button
             variant="ghost"
             size="sm"
-            className="map-history-button h-7 gap-1.5 rounded-lg border border-border/60 bg-background/95 px-2 text-[11px] font-normal text-muted-foreground shadow-xs focus-visible:border-foreground/40 focus-visible:ring-1 focus-visible:ring-foreground/20"
+            className="map-history-button h-7 gap-1.5 rounded-lg border border-border/60 bg-background/95 px-2 text-[11px] font-normal text-muted-foreground focus-visible:border-foreground/40 focus-visible:ring-1 focus-visible:ring-foreground/20"
             aria-expanded={expanded}
             onClick={() => setExpanded((value) => !value)}
           >
@@ -93,7 +63,7 @@ export function MapConversation() {
           />
         </div>
       ) : rows.length > 0 ? (
-        <MapMessageFlow rows={rows} />
+        <MapMessageFlow rows={rows} onOpen={() => setExpanded(true)} />
       ) : null}
       {latestTurn?.state === "failed" && (
         <div
@@ -113,47 +83,21 @@ export function MapConversation() {
   );
 }
 
-function MapMessageFlow({ rows }: { readonly rows: readonly FlowMessage[] }) {
-  const viewport = useRef<HTMLDivElement>(null);
-  const track = useRef<HTMLDivElement>(null);
-  const [overflow, setOverflow] = useState(false);
-
-  const follow = useCallback(() => {
-    const scroller = viewport.current;
-    if (scroller === null) return;
-    setOverflow(scroller.scrollHeight > scroller.clientHeight);
-    scroller.scrollTo({
-      top: scroller.scrollHeight,
-      behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches
-        ? "instant"
-        : "smooth",
-    });
-  }, []);
-
-  useLayoutEffect(() => {
-    const scroller = viewport.current;
-    const node = track.current;
-    if (scroller === null || node === null) return;
-    scroller.scrollTop = scroller.scrollHeight;
-    const observer = new ResizeObserver(follow);
-    observer.observe(node);
-    return () => observer.disconnect();
-  }, [follow]);
-
-  useLayoutEffect(follow, [rows, follow]);
-
-  return (
-    <div
-      ref={viewport}
-      className="map-flow"
-      aria-label={content.messages}
-      data-overflow={overflow}
+function MapMessageFlow({ rows, onOpen }: { readonly rows: readonly FlowMessage[]; readonly onOpen: () => void }) {
+  return <div className="map-flow" aria-label={content.messages}>
+    {rows.map((row) => <button
+      type="button"
+      key={row.id}
+      onClick={onOpen}
+      className="map-flow-bubble"
+      data-role={row.role}
+      data-kind={row.kind}
+      title={row.text}
+      aria-label={`${content.history} · ${row.text}`}
     >
-      <div ref={track} className="map-flow-track">
-        {rows.map((row) => (
-          <p key={row.id}>{row.text}</p>
-        ))}
-      </div>
-    </div>
-  );
+      {row.kind === "reasoning" && <Brain className="size-3.5 shrink-0" aria-hidden="true" />}
+      {row.kind === "tool-call" && <Wrench className="size-3.5 shrink-0" aria-hidden="true" />}
+      <span className="truncate">{row.text}</span>
+    </button>)}
+  </div>;
 }

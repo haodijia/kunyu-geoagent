@@ -208,7 +208,7 @@
   color: #22863a;
 }
 .jsonLiteral {
-  color: #a35ab7;
+  color: var(--foreground);
 }
 .jsonCount {
   color: var(--dsw-alias-label-tertiary);

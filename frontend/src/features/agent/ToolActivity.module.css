@@ -1,15 +1,9 @@
 /* Copyright 2025 AionUi (aionui.com)
    SPDX-License-Identifier: Apache-2.0 */
 /* Adapted from Mu/AionUi MessageToolGroupSummary (Apache-2.0). */
-.summary, .activity, .activityBody {
-  display: flex;
-  flex-direction: column;
-  gap: 1px;
-  min-width: 0;
-}
-.summary { margin: 4px 0; }
+.summary { display: flex; flex-direction: column; gap: 2px; min-width: 0; margin: 4px 0; }
 .call { min-width: 0; }
-.callButton, .activityHeader {
+.callButton {
   display: flex;
   align-items: center;
   width: 100%;
@@ -25,14 +19,14 @@
   text-align: start;
   cursor: pointer;
 }
-.callButton:hover, .activityHeader:hover { background: var(--color-fill-1); color: var(--text-primary); }
+.callButton:hover { background: var(--color-fill-1); color: var(--text-primary); }
 .callButton:disabled { cursor: default; }
 .callButton:disabled:hover { background: transparent; }
-.callButton:focus-visible, .activityHeader:focus-visible {
+.callButton:focus-visible {
   outline: 2px solid var(--mu-accent-border);
   outline-offset: 2px;
 }
-.callButton > :global(.i-icon), .activityHeader > :global(.i-icon) {
+.callButton > :global(.i-icon) {
   flex-shrink: 0;
   color: var(--text-secondary);
 }
@@ -54,16 +48,8 @@
 .pathTail { flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .callError { margin: 0 8px 4px 32px; color: var(--danger); font: 12px/1.6 var(--font-mono); overflow-wrap: anywhere; }
 .callDenied { margin: 0 8px 4px 32px; color: var(--text-secondary); font-size: 12px; line-height: 1.6; overflow-wrap: anywhere; }
-.activityHeader { color: var(--text-secondary); }
-.activityHeader:hover { color: var(--text-primary); }
-.activitySummary { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.activityBody { margin-inline-start: 8px; }
-.activityError { display: flex; align-items: baseline; gap: 8px; min-width: 0; padding: 0 8px 2px 24px; font-size: 12px; }
-.activityErrorLine, .activityDeniedLine { min-width: 0; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.activityErrorLine { color: var(--danger); font: 12px/1.6 var(--font-mono); }
-.activityDeniedLine { color: var(--text-secondary); font-size: 12px; line-height: 1.6; }
 .detailPanel { display: flex; flex-direction: column; gap: 6px; margin: 4px 6px 8px 26px; min-width: 0; font-size: 13px; line-height: 20px; }
-.resultCard { min-width: 0; overflow: hidden; border: 1px solid var(--border-base); border-radius: 10px; background: var(--color-fill-1); }
+.resultCard { min-width: 0; overflow: hidden; border: 1px solid var(--border-base); border-radius: 10px; background: var(--bg-2); }
 .resultHeader { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-height: 32px; padding: 2px 10px 2px 12px; border-bottom: 1px solid var(--border-base); color: var(--text-secondary); font-size: 12px; line-height: 20px; }
 .resultLabel { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .resultList { max-height: 320px; overflow: auto; font: 12px/20px var(--font-mono); }

@@ -10,7 +10,7 @@ type ContentGroup =
   | Exclude<PresentedBlock, ToolBlock>
   | { type: "tools"; index: number; blocks: ToolBlock[] };
 
-/** Preserve block order while keeping adjacent calls in Mu's existing tool group. */
+/** Preserve block order while rendering adjacent tool calls together. */
 export function AssistantContent({
   blocks,
   messageId,

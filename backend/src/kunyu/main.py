@@ -15,6 +15,7 @@ from kunyu.api.commands import router as commands_router
 from kunyu.api.confirmations import router as confirmations_router
 from kunyu.api.errors import install_error_handlers
 from kunyu.api.jobs import router as jobs_router
+from kunyu.api.map_locations import router as map_locations_router
 from kunyu.api.mcp import router as mcp_router
 from kunyu.api.messages import router as messages_router
 from kunyu.api.model_connections import router as model_connections_router
@@ -33,6 +34,7 @@ from kunyu.application.model_catalog import ModelCatalogService
 from kunyu.application.model_discovery_tasks import ModelDiscoveryTasks
 from kunyu.application.skills import SkillManagementService
 from kunyu.desktop import DesktopConfigurationError, run_desktop
+from kunyu.integrations.geocoding import MapGeocoder
 from kunyu.integrations.filesystem_io import check_cancelled
 from kunyu.integrations.filesystem_operation import filesystem_operation
 from kunyu.integrations.model.provider_client import ModelProviderClient
@@ -45,6 +47,7 @@ from kunyu.settings import (
     DESKTOP_RENDERER_ORIGINS,
     SESSION_HEADER,
     get_app_data_directory,
+    get_geocoding_url,
 )
 
 
@@ -85,6 +88,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         app.state.connection_operation_locks = locks
         app.state.model_catalog_service = catalog_service
         app.state.model_discovery_tasks = discovery_tasks
+        app.state.map_geocoder = MapGeocoder(http_client, get_geocoding_url())
         app.state.database = database
         app.state.agent_kernel = agent_runtime.kernel
         app.state.run_scheduler = agent_runtime.scheduler
@@ -131,6 +135,7 @@ def create_app(session_token: str | None = None) -> FastAPI:
     app.include_router(model_connections_router)
     app.include_router(oge_router)
     app.include_router(analysis_router)
+    app.include_router(map_locations_router)
     app.include_router(jobs_router)
     app.include_router(mcp_router)
     app.include_router(confirmations_router)

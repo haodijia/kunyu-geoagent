@@ -41,7 +41,7 @@ export function toolTarget(arguments_: ToolCall["arguments"]): ToolTargetValue |
       typeof item === "object" && item !== null && "question" in item && typeof item.question === "string");
     if (questions.length > 0) return { text: questions.map((item) => item.question).join(" · "), path: false };
   }
-  for (const key of ["command", "file_path", "path", "query", "pattern", "url", "description", "prompt", "plan", "name", "content"]) {
+  for (const key of ["title", "command", "file_path", "path", "query", "pattern", "url", "description", "prompt", "plan", "name", "content"]) {
     const value = arguments_[key];
     if (typeof value === "string" && value.length > 0) return { text: value, path: key === "file_path" || key === "path" };
   }
@@ -59,13 +59,6 @@ export function toolStatus(tool: ToolCall, runState: AgentTurnState | null, conf
   return tool.status;
 }
 
-export function toolGroupStatus(statuses: readonly ToolDisplayStatus[]): ToolDisplayStatus {
-  for (const status of ["running", "failed", "waiting_input", "waiting", "pending", "interrupted", "unknown", "cancelled", "denied"] as const) {
-    if (statuses.includes(status)) return status;
-  }
-  return "completed";
-}
-
 export function toolDuration(toolId: string, records: readonly TrajectoryEventProjection[]): number | null {
   const events = records.filter((record) => record.entityId === toolId);
   const start = events.findLast((record) => record.eventType === "tool.started");
@@ -75,15 +68,27 @@ export function toolDuration(toolId: string, records: readonly TrajectoryEventPr
   return Number.isFinite(milliseconds) && milliseconds >= 0 ? milliseconds : null;
 }
 
-export function toolErrorLine(tool: ToolCall): string | null {
-  if (tool.error_summary === null) return null;
-  const line = tool.error_summary.split("\n").map((part) => part.trim()).find((part) => part.length > 0);
-  if (line === undefined) return null;
-  return line.length > 160 ? `${line.slice(0, 159)}…` : line;
-}
-
 export function isWaitingQuestion(tool: ToolCall, records: readonly TrajectoryEventProjection[]): boolean {
   return tool.status === "running" && records.some((request) =>
     request.eventType === "question.requested" && request.payload.tool_call_id === tool.id &&
     !records.some((decision) => decision.eventType === "question.resolved" && decision.entityId === request.entityId));
+}
+
+/** Human-readable results belong in chat; complete payloads remain in the trace. */
+export function toolOutcomeSummary(tool: ToolCall): string | null {
+  if (tool.status !== "completed" || tool.result === null || typeof tool.result !== "object" || Array.isArray(tool.result)) return null;
+  const result = tool.result as Readonly<Record<string, unknown>>;
+  if (tool.name === "oge_find_regions" && Array.isArray(result.regions)) {
+    return result.regions.map((value) => {
+      if (value === null || typeof value !== "object" || !("name" in value) || typeof value.name !== "string") return "";
+      return "code" in value ? `${value.name}（${String(value.code)}）` : value.name;
+    }).filter(Boolean).join("、");
+  }
+  if (tool.name === "oge_search_operators" && Array.isArray(result.operators)) {
+    return result.operators.map((value) => value !== null && typeof value === "object" && "name" in value ? String(value.name) : "").filter(Boolean).join("、");
+  }
+  if (tool.name === "oge_search_images" && typeof result.total === "number") return zhCN.conversation.tools.imageMatches(result.total);
+  if (tool.name === "oge_get_operator_definition" && typeof result.description === "string") return result.description;
+  if (tool.name === "oge_get_image_detail" && typeof result.productName === "string") return `${result.productName}${typeof result.phenomenonTime === "string" ? ` · ${result.phenomenonTime}` : ""}`;
+  return null;
 }

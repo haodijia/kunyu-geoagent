@@ -28,6 +28,7 @@ class AnalysisPlugin:
         s.ATTACHMENTS,
         s.JOBS,
         s.SCOPES,
+        s.OGE,
     )
     provides = (s.ANALYSIS, s.MAPS)
 
@@ -59,7 +60,7 @@ class AnalysisPlugin:
                     service=service,
                     jobs=context.require(s.JOBS),
                     scopes=context.require(s.SCOPES),
-                    maps=maps,
+                    oge=context.require(s.OGE),
                 )
             ),
         )

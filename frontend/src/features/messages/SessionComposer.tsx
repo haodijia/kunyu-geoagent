@@ -19,8 +19,8 @@ import { BackgroundJobs } from "@/features/jobs/BackgroundJobs";
 
 export function SessionComposer() {
   const queryClient = useQueryClient();
-  const { events, activeAssistant } = useSessionEvents();
-  const contextUsage = useMemo(() => projectContextUsage(events, activeAssistant), [events, activeAssistant]);
+  const { records, activeAssistant } = useSessionEvents();
+  const contextUsage = useMemo(() => projectContextUsage(records, activeAssistant), [records, activeAssistant]);
   const [modelPickerPane, setModelPickerPane] = useState<ModelPickerPane | null>(null);
   const [queueEditing, setQueueEditing] = useState(false);
   const {
@@ -139,7 +139,6 @@ export function SessionComposer() {
                 ? zhCN.conversation.runActionFailed
                 : null
   );
-  const { latitude, longitude, zoom } = mapContext.viewport;
 
   return (
     <>
@@ -154,11 +153,7 @@ export function SessionComposer() {
       sessionId={session.id}
       contextUsage={contextUsage}
       attachmentState={attachmentState}
-      contextLabel={zhCN.conversation.mapViewport(
-        longitude.toFixed(4),
-        latitude.toFixed(4),
-        zoom.toFixed(1)
-      )}
+      mapViewport={mapContext.viewport}
       draft={draft}
       quote={quote}
       onQuoteClear={() => changeQuote(null)}
@@ -177,7 +172,6 @@ export function SessionComposer() {
       modelPickerPane={modelPickerPane}
       onModelPickerPaneChange={setModelPickerPane}
       onSubmit={() => sendMessage()}
-      onQueue={() => sendMessage("queue")}
       pending={mutation.isPending}
       interactionLocked={queueEditing}
       running={

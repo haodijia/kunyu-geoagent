@@ -18,3 +18,9 @@ def get_app_data_directory() -> Path:
         return Path(configured_directory).expanduser().resolve()
 
     return user_data_path("Kunyu", appauthor=False, ensure_exists=False)
+
+
+def get_geocoding_url() -> str:
+    return os.environ.get(
+        "KUNYU_GEOCODING_URL", "https://nominatim.openstreetmap.org/reverse"
+    )

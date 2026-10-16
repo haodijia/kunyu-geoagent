@@ -18,7 +18,7 @@
 
 ## 输入与代码
 
-选景继续使用当前 session 的 `image_selection={candidate_set_id,image_id}`。服务器校验会话归属、候选身份、输入时冻结的选择，以及同一 run 中通过 `map_present` 记录的明确改选。实际提交前再次校验。
+执行代码直接接收真实 OGE `image_id`，服务器通过影像详情接口解析 coverageID 和 productID，不要求影像先绑定当前会话的候选集。省略 image_id 时自动使用本轮输入时冻结的地图选景；两者都没有时 selected_image 为 null，脚本自行加载输入。候选集仍服务于地图展示和选景交互，不再作为执行代码的前置条件。
 
 代码运行在 OGE，服务器只将以下已解析的数据注入远端脚本；不在用户电脑执行模型生成的 Python：
 

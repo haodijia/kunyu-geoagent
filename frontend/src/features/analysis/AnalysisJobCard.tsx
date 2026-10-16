@@ -50,9 +50,10 @@ export function AnalysisJobCard({
     job.state,
   );
   const result = outputs.data?.find((item) => item.job_id === job.id);
+  if (result !== undefined) return <OutputCard output={result} workspaceId={session.workspace_id} compact />;
   return (
     <div className="mt-2 space-y-2" data-analysis-job={job.id}>
-      <div className="flex items-center gap-2 rounded-lg border border-border bg-background px-3 py-2 text-xs">
+      <div className="flex items-center gap-2 py-2 text-xs">
         {active ? (
           <LoaderCircle className="size-3.5 animate-spin" />
         ) : job.state === "failed" || job.state === "submission_unknown" ? (
@@ -60,9 +61,6 @@ export function AnalysisJobCard({
         ) : null}
         <span className="min-w-0 truncate font-medium">{String(job.parameters.title ?? job.service)}</span>
         <span>{content.states[job.state]}</span>
-        <span className="ml-auto text-muted-foreground">
-          {job.mode === "replay" ? content.replay : content.live}
-        </span>
       </div>
       {job.query_state !== "ready" ? (
         <p className="text-xs text-warning">
@@ -71,13 +69,6 @@ export function AnalysisJobCard({
       ) : null}
       {job.error_message !== null ? (
         <p className="text-xs text-destructive">{job.error_message}</p>
-      ) : null}
-      {result !== undefined ? (
-        <OutputCard
-          output={result}
-          workspaceId={session.workspace_id}
-          compact
-        />
       ) : null}
     </div>
   );

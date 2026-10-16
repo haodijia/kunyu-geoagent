@@ -1,7 +1,6 @@
 import { LayoutDashboard, ListTree, Map, MessageCircle } from "lucide-react";
 import { useLocation, useNavigate } from "react-router-dom";
 
-import { useAppUiStore } from "@/app/store";
 import {
   sessionAnalysisPath,
   sessionMapPath,
@@ -17,10 +16,6 @@ export function SessionModeSwitcher() {
   const location = useLocation();
   const navigate = useNavigate();
   const session = useSessionWorkspace();
-  const rememberedMode = useAppUiStore(
-    (state) => state.analysisModeBySession[session.id] ?? "conversation",
-  );
-  const setAnalysisMode = useAppUiStore((state) => state.setAnalysisMode);
   const activeSection = location.pathname.endsWith("/overview")
     ? "overview"
     : location.pathname.endsWith("/map")
@@ -28,7 +23,6 @@ export function SessionModeSwitcher() {
       : "analysis";
 
   function openAnalysis(mode: "conversation" | "trace") {
-    setAnalysisMode(session.id, mode);
     void navigate(sessionAnalysisPath(session.workspace_id, session.id, mode));
   }
 
@@ -36,7 +30,7 @@ export function SessionModeSwitcher() {
     return cn(
       "flex size-8 shrink-0 items-center justify-center rounded-md transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
       selected
-        ? "bg-primary text-primary-foreground shadow-sm"
+        ? "bg-primary text-primary-foreground"
         : "text-secondary-foreground hover:bg-muted hover:text-foreground",
     );
   }
@@ -61,31 +55,15 @@ export function SessionModeSwitcher() {
 
       <button
         type="button"
-        className={buttonClass(
-          activeSection === "analysis" && rememberedMode === "conversation",
-        )}
-        onClick={() => openAnalysis("conversation")}
-        aria-pressed={
-          activeSection === "analysis" && rememberedMode === "conversation"
-        }
-        aria-label={content.conversation}
-        title={content.conversation}
+        className={buttonClass(activeSection === "analysis")}
+        onClick={() => openAnalysis(location.pathname.endsWith("/analysis/conversation") ? "trace" : "conversation")}
+        aria-current={activeSection === "analysis" ? "page" : undefined}
+        aria-label={location.pathname.endsWith("/analysis/conversation") ? content.openTrace : content.openConversation}
+        title={location.pathname.endsWith("/analysis/conversation") ? content.openTrace : content.openConversation}
       >
-        <MessageCircle className="size-4" strokeWidth={1.9} />
-      </button>
-      <button
-        type="button"
-        className={buttonClass(
-          activeSection === "analysis" && rememberedMode === "trace",
-        )}
-        onClick={() => openAnalysis("trace")}
-        aria-pressed={
-          activeSection === "analysis" && rememberedMode === "trace"
-        }
-        aria-label={content.trace}
-        title={content.trace}
-      >
-        <ListTree className="size-4" strokeWidth={1.9} />
+        {location.pathname.endsWith("/analysis/trace")
+          ? <ListTree className="size-4" strokeWidth={1.9} />
+          : <MessageCircle className="size-4" strokeWidth={1.9} />}
       </button>
       <button
         type="button"

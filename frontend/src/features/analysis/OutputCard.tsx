@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAppUiStore } from "@/app/store";
 import { Button } from "@/components/ui/button";
-import { sessionMapPath } from "@/features/sessions/routes";
+import { sessionAnalysisPath, sessionMapPath } from "@/features/sessions/routes";
 import { zhCN } from "@/locales/zh-CN";
 import { analysisApi, analysisKeys, type AnalysisOutput } from "./api";
 import { useOutputImage } from "./useOutputImage";
@@ -73,21 +73,19 @@ export function OutputCard({
         ? reference
         : `${previous}\n\n${reference}`,
     );
+    void navigate(sessionAnalysisPath(workspaceId, output.session_id, "conversation"));
   }
   return (
     <section
-      className="rounded-lg border border-border bg-background p-3"
+      className="space-y-2 py-2"
       data-analysis-output={output.id}
     >
       <div className="mb-2 flex items-center justify-between gap-2">
         <span className="text-sm font-medium">{output.title}</span>
-        <span className="rounded bg-muted px-2 py-0.5 text-[10px] text-muted-foreground">
-          {output.mode === "replay" ? content.replay : content.live}
-        </span>
       </div>
       {image.url !== null ? (
         <img
-          className={`w-full rounded-md bg-muted object-contain ${compact ? "max-h-32" : "max-h-56"}`}
+          className={`w-full rounded-md bg-muted object-contain ${compact ? "max-h-64" : "max-h-96"}`}
           src={image.url}
           alt={content.previewAlt}
         />
@@ -106,7 +104,7 @@ export function OutputCard({
       </p>
       <div className="flex flex-wrap gap-1">
         <Button
-          variant="outline"
+          variant="ghost"
           size="sm"
           disabled={mutation.isPending}
           onClick={() => mutation.mutate("map")}

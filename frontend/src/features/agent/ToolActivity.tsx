@@ -3,11 +3,10 @@ import { useState } from "react";
 import type { AgentTurnState, ToolCall } from "./api";
 import type { Confirmation } from "@/features/confirmations/api";
 import { zhCN } from "@/locales/zh-CN";
-import { useSessionEvents } from "@/features/events/SessionEventContext";
 import type { GeneratingTool } from "@/features/events/stream-presentation";
 import { ToolCallRow } from "./ToolCallRow";
 import { ToolDetail, ToolKindIcon, ToolStatusBadge } from "./ToolActivityParts";
-import { toolErrorLine, toolGroupStatus, toolLabel, toolStatus, toolTarget } from "./tool-presentation";
+import { toolLabel } from "./tool-presentation";
 import styles from "./ToolActivity.module.css";
 
 const content = zhCN.conversation.tools;
@@ -38,53 +37,13 @@ export function ToolActivity({ confirmations, tools, runState }: {
   readonly tools: readonly ToolCall[];
   readonly runState: AgentTurnState | null;
 }) {
-  const [expanded, setExpanded] = useState(false);
-  const { records } = useSessionEvents();
   if (tools.length === 0) return null;
-  const calls = tools.map((tool) => {
-    const confirmation = confirmations.find((item) => item.tool_call_id === tool.id);
-    return { tool, confirmation, target: toolTarget(tool.arguments), status: toolStatus(tool, runState, confirmation, records) };
-  });
-  if (calls.length === 1) return <div className={styles.summary} role="group" aria-label={content.title}>
-    <ToolCallRow tool={calls[0]!.tool} confirmation={calls[0]!.confirmation} runState={runState} />
-  </div>;
-  const waitingQuestion = calls.some(({ status }) => status === "waiting_input");
-  const running = calls.find(({ status }) => status === "running");
-  const failed = calls.filter(({ status }) => status === "failed");
-  const denied = calls.filter(({ status }) => status === "denied");
-  const waiting = calls.find(({ status }) => status === "waiting");
-  const pending = calls.find(({ status }) => status === "pending");
-  const interrupted = calls.find(({ status }) => status === "interrupted");
-  const unknown = calls.find(({ status }) => status === "unknown");
-  const runningTarget = running === undefined ? undefined : running.target;
-  const status = toolGroupStatus(calls.map((call) => call.status));
-  const headline = waitingQuestion ? content.groupWaiting(tools.length, zhCN.questions.waiting)
-    : running !== undefined ? content.groupRunning(tools.length, `${toolLabel(running.tool.name)}${runningTarget === undefined ? "" : ` ${runningTarget.text}`}`)
-    : failed.length > 0 ? content.groupFailed(tools.length, failed.length)
-    : waiting !== undefined ? content.groupWaiting(tools.length, content.confirmationStatus.pending)
-    : pending !== undefined ? content.groupWaiting(tools.length, content.status.pending)
-    : interrupted !== undefined ? content.groupWaiting(tools.length, content.status.interrupted)
-    : unknown !== undefined ? content.groupWaiting(tools.length, content.status.unknown)
-    : status === "cancelled" || status === "denied" ? content.groupWaiting(tools.length, content.status[status])
-    : content.groupSummary(tools.length);
   return <div className={styles.summary} role="group" aria-label={content.title}>
-    <div className={styles.activity}>
-      <button type="button" className={styles.activityHeader} aria-expanded={expanded} onClick={() => setExpanded((value) => !value)}>
-        <ToolStatusBadge status={status} label={headline} />
-        <span className={styles.activitySummary}>{headline}</span>
-        {expanded ? <Down size={12} aria-hidden="true" /> : <Right size={12} aria-hidden="true" />}
-      </button>
-      {!expanded && failed.map(({ tool }) => <div key={tool.id} className={styles.activityError} data-tool-error={tool.id}>
-        <span className={styles.callName}>{toolLabel(tool.name)}</span>
-        <span className={styles.activityErrorLine} title={tool.error_summary === null ? undefined : tool.error_summary}>{toolErrorLine(tool)}</span>
-      </div>)}
-      {!expanded && denied.map(({ tool, target }) => <div key={tool.id} className={styles.activityError} data-tool-denied={tool.id}>
-        <span className={styles.callName}>{toolLabel(tool.name)}</span>
-        <span className={styles.activityDeniedLine}>{target === undefined ? "" : `${target.text} · `}{content.denied}</span>
-      </div>)}
-      {expanded && <div className={styles.activityBody}>
-        {calls.map(({ tool, confirmation }) => <ToolCallRow key={tool.id} tool={tool} confirmation={confirmation} runState={runState} />)}
-      </div>}
-    </div>
+    {tools.map((tool) => <ToolCallRow
+      key={tool.id}
+      tool={tool}
+      confirmation={confirmations.find((item) => item.tool_call_id === tool.id)}
+      runState={runState}
+    />)}
   </div>;
 }

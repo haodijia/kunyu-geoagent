@@ -1,4 +1,4 @@
-import { ArrowUp, LoaderCircle, MapPinned, Paperclip, RotateCw, Settings2, Slash, Square, Quote, X } from "lucide-react";
+import { ArrowUp, LoaderCircle, Paperclip, RotateCw, Settings2, Square, Quote, X } from "lucide-react";
 import {
   useEffect, useId, useRef, useState,
   type ChangeEvent, type FormEvent, type KeyboardEvent,
@@ -12,10 +12,11 @@ import { Textarea } from "@/components/ui/textarea";
 import { zhCN } from "@/locales/zh-CN";
 import { ComposerCommandMenu } from "./composer/ComposerCommandMenu";
 import { ComposerModelPicker, type ComposerModelGroup, type ModelPickerPane } from "./composer/ComposerModelPicker";
-import { filterComposerCommands, parseComposerCommand, type ComposerCommandDescriptor } from "./composer/commands";
-import { DraftBoxIcon } from "./composer/DraftBoxIcon";
+import { filterComposerCommands, type ComposerCommandDescriptor } from "./composer/commands";
 import { ContextUsageIndicator } from "./composer/ContextUsageIndicator";
 import type { ContextUsage } from "./composer/context-usage";
+import { MapLocationLabel } from "@/features/maps/MapLocationLabel";
+import type { MapViewport } from "@/features/sessions/map-context";
 import { ComposerPlanChip } from "./composer/ComposerPlanChip";
 import type { ReplyQuote } from "./reply-quote";
 
@@ -23,7 +24,7 @@ const content = zhCN.conversation;
 const MAX_TEXTAREA_HEIGHT = 120;
 
 interface ConversationComposerProps {
-  readonly contextLabel: string;
+  readonly mapViewport: MapViewport;
   readonly contextUsage: ContextUsage | null;
   readonly sessionId: string;
   readonly attachmentState: ReturnType<typeof useComposerAttachments>;
@@ -58,18 +59,17 @@ interface ConversationComposerProps {
   readonly onModelChange: (value: string) => void;
   readonly onReasoningEffortChange: (value: string) => void;
   readonly onSubmit: () => void;
-  readonly onQueue: () => void;
   readonly onStop: () => void;
 }
 
 export function ConversationComposer({
-  contextLabel, contextUsage, sessionId, attachmentState, draft, quote, onQuoteClear, queuedDraft, error, draftFrozen, modelDisabled, modelGroups,
+  mapViewport, contextUsage, sessionId, attachmentState, draft, quote, onQuoteClear, queuedDraft, error, draftFrozen, modelDisabled, modelGroups,
   pending, interactionLocked, running, stopPending, reasoningOptions, selectedModel,
   defaultReasoningEffort,
   selectedReasoningEffort, sendDisabled, showModelSettings, commands,
   commandPending, commandFeedback, modelPickerPane, onModelPickerPaneChange,
   commandCatalogPending, commandCatalogError,
-  onCommand, onExitPlan, onDraftChange, onModelChange, onReasoningEffortChange, onSubmit, onQueue, onStop,
+  onCommand, onExitPlan, onDraftChange, onModelChange, onReasoningEffortChange, onSubmit, onStop,
 }: ConversationComposerProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const dragDepth = useRef(0);
@@ -84,7 +84,6 @@ export function ConversationComposer({
   const matchingCommands = quote === null ? filterComposerCommands(commands, draft) : null;
   const menuOpen = matchingCommands !== null && dismissedDraft !== draft && !inputLocked;
   const activeCommand = matchingCommands?.[activeIndex];
-  const queueable = !isCommand || commands.some((item) => item.kind === "skill" && item.name === parseComposerCommand(draft)?.name && item.unavailableReason === null);
   const attachmentsTooLarge = attachmentState.attachments.reduce((sum, ref) => sum + ref.bytes, 0) > 32 * 1024 * 1024;
   const canSend = !attachmentsTooLarge && (draft.trim().length > 0 || attachmentState.attachments.length > 0) && !attachmentState.pending && !attachmentState.retryAvailable && !pending && !commandPending && !interactionLocked &&
     (isCommand ? !draftFrozen : !sendDisabled);
@@ -242,27 +241,10 @@ export function ConversationComposer({
         <div className="composer-toolbar mt-2 flex min-h-8 items-center justify-between gap-2">
           <div className="flex min-w-0 items-center gap-1">
             <Button type="button" size="icon" variant="ghost" className="size-7 rounded-full text-muted-foreground" disabled={inputLocked || attachmentState.pending || attachmentState.retryAvailable || attachmentState.attachments.length >= 8} aria-label={content.attachments.add} title={content.attachments.add} onClick={() => fileInputRef.current?.click()}><Paperclip className="size-3.5" /></Button>
-            <Button
-              type="button" size="icon" variant="ghost" className="size-7 rounded-full text-muted-foreground"
-              disabled={inputLocked || (draft.trim().length > 0 && !isCommand)}
-              aria-label={content.commands.triggerLabel}
-              onClick={() => {
-                setActiveIndex(0);
-                setDismissedDraft(null);
-                onDraftChange("/");
-                textareaRef.current?.focus();
-              }}
-            ><Slash className="size-3.5" /></Button>
-            <span className="inline-flex min-w-0 items-center gap-1.5 text-[11px] text-muted-foreground" title={contextLabel}>
-              <MapPinned className="size-3.5 shrink-0" aria-hidden="true" />
-              <span className="truncate">{content.mapContextLabel}</span>
-            </span>
+            <MapLocationLabel viewport={mapViewport} />
           </div>
           <div className="composer-actions flex min-w-0 items-center justify-end gap-1">
             <ComposerPlanChip locked={inputLocked} onExit={onExitPlan} />
-              <Button type="button" size="icon" variant="ghost" className="size-7 rounded-full text-muted-foreground"
-                disabled={!canSend || !queueable || draftFrozen} aria-label={content.queue.add} title={content.queue.add} onClick={onQueue}
-              ><DraftBoxIcon size={15} /></Button>
             <ComposerModelPicker
               disabled={modelDisabled}
               groups={modelGroups}

@@ -43,7 +43,7 @@
 }
 .composer-panel:focus-within {
   border-color: var(--bg-4);
-  box-shadow: var(--mu-shadow-2);
+  box-shadow: none;
 }
 .composer-chip {
   display: inline-flex;

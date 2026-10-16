@@ -135,7 +135,7 @@ export function QueuedMessages({ onDraftLockChange }: { readonly onDraftLockChan
           </div>
           <div className="flex shrink-0 items-center gap-1">
             <Tooltip side="top" label={content.help}>
-              <Button type="button" variant="ghost" className={`h-6 rounded-full px-[9px] text-[11px] font-semibold ${mode === "auto" ? "bg-[var(--mu-violet-1)] text-[var(--mu-primary-fill)]" : "bg-[var(--color-fill-2)] text-[var(--color-text-2)]"}`} disabled={disabled || dragging} aria-label={content.toggleMode} onClick={() => mutation.mutate({ kind: "mode", mode: mode === "auto" ? "manual" : "auto" })}>
+              <Button type="button" variant="ghost" className={`h-6 rounded-full px-[9px] text-[11px] font-semibold ${mode === "auto" ? "bg-muted text-[var(--mu-primary-fill)]" : "bg-[var(--color-fill-2)] text-[var(--color-text-2)]"}`} disabled={disabled || dragging} aria-label={content.toggleMode} onClick={() => mutation.mutate({ kind: "mode", mode: mode === "auto" ? "manual" : "auto" })}>
                 {mode === "auto" ? content.auto : content.manual}<SortTwo theme="outline" size={12} strokeWidth={3} className="opacity-70" />
               </Button>
             </Tooltip>

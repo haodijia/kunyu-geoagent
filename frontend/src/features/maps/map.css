@@ -22,7 +22,7 @@
 
 .map-composer-overlay .composer-panel {
   border-radius: 16px;
-  box-shadow: var(--mu-shadow-2);
+  box-shadow: none;
 }
 
 .map-composer-overlay .composer-toolbar {
@@ -72,31 +72,39 @@
 }
 
 .map-flow {
-  position: relative;
-  max-height: 72px;
-  overflow: hidden;
-}
-
-.map-flow[data-overflow="true"] {
-  mask-image: linear-gradient(to bottom, transparent, black 24px);
-}
-
-.map-flow-track {
   display: flex;
   flex-direction: column;
-  gap: 4px;
-  padding-inline: 14px;
-  color: var(--foreground);
-  font-size: 13px;
-  line-height: 24px;
-  overflow-wrap: anywhere;
-  white-space: pre-wrap;
-  text-shadow: 0 0 3px var(--background), 0 1px 6px var(--background), 0 0 12px var(--background);
+  align-items: flex-start;
+  gap: 6px;
 }
 
-.map-flow-track p {
-  margin: 0;
+.map-flow-bubble {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  max-width: 94%;
+  min-width: 0;
+  padding: 8px 12px;
+  border: 1px solid var(--border-light);
+  border-radius: 12px 12px 12px 3px;
+  background: var(--background);
+  color: var(--foreground);
+  font-size: 12px;
+  line-height: 20px;
+  text-align: left;
+  pointer-events: auto;
+  cursor: pointer;
 }
+
+.map-flow-bubble[data-role="user"] {
+  align-self: flex-end;
+  background: var(--message-user-bg);
+  border-color: transparent;
+  border-radius: 12px 12px 3px 12px;
+}
+
+.map-flow-bubble:not(:last-child) { opacity: 0.5; }
+.map-flow-bubble:focus-visible { outline: 2px solid var(--ring); outline-offset: 2px; }
 
 .kunyu-map .maplibregl-canvas:focus-visible {
   outline: 2px solid var(--ring);

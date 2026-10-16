@@ -17,7 +17,6 @@ from kunyu.agent.runtime.tools import (
     ToolResult,
     ToolRiskLevel,
     ToolSpec,
-    ToolValidationError,
 )
 from kunyu.agent.scope import AgentScopes
 from kunyu.agent.tools.shared import (
@@ -29,11 +28,11 @@ from kunyu.agent.tools.shared import (
     validate_model,
 )
 from kunyu.application.analysis import AnalysisService
+from kunyu.application.oge import OgeService
 from kunyu.domain.agent_context import RunContextRepository
 from kunyu.domain.analysis import AnalysisError, AnalysisJob
-from kunyu.domain.map_context import ImageSelectionReference, TurnMapContext
+from kunyu.domain.map_context import TurnMapContext
 from kunyu.domain.oge import OgeError
-from kunyu.persistence.maps import MapRepository
 
 logger = logging.getLogger(__name__)
 
@@ -43,9 +42,13 @@ class ExecuteCodeArguments(ToolArguments):
     code: str = Field(
         min_length=1,
         max_length=12000,
-        description="OGE Python SDK code; compose operators then export exactly one Coverage with result.export(name). selected_image is injected from the session selection.",
+        description="OGE Python SDK code; compose operators then export exactly one Coverage with result.export(name). selected_image is injected from image_id or the map selection.",
     )
-    image_selection: ImageSelectionReference | None = None
+    image_id: int | None = Field(
+        default=None,
+        gt=0,
+        description="Real OGE image ID, independent of search candidate sets. Omit to use the user's map selection, or when the script loads its own inputs.",
+    )
     crs: str = Field(pattern=r"^EPSG:[0-9]{4,6}$")
     scale: float = Field(gt=0, le=100000, allow_inf_nan=False)
     display_range: list[float] | None = Field(
@@ -73,12 +76,12 @@ class ExecuteCodeTool:
         service: AnalysisService,
         jobs: JobRegistry,
         scopes: AgentScopes,
-        maps: MapRepository,
+        oge: OgeService,
         *,
         wait_timeout_seconds: int = 120,
     ) -> None:
         self._run_id, self._contexts, self._service = run_id, contexts, service
-        self._maps = maps
+        self._oge = oge
         self._arguments = ExecuteCodeArguments
         self._wait_timeout_seconds = wait_timeout_seconds
         self._jobs, self._scopes = jobs, scopes
@@ -98,7 +101,7 @@ class ExecuteCodeTool:
             ),
         )
 
-    def _parameters(self, session_id: str, args: ExecuteCodeArguments) -> dict:
+    async def _parameters(self, args: ExecuteCodeArguments) -> dict:
         source = load_source(self._contexts, self._run_id)
         frozen_map = source.run.map_snapshot
         for message in reversed(source.reduced_session.user_messages):
@@ -112,38 +115,16 @@ class ExecuteCodeTool:
             ):
                 frozen_map = message.map_context
                 break
-        frozen = TurnMapContext.model_validate(frozen_map).image_selection
-        selection = args.image_selection
-        if (
-            frozen is not None
-            and selection != frozen
-            and (
-                selection is None
-                or not self._maps.selected_by_run(session_id, self._run_id, selection)
-            )
-        ):
-            raise ToolExecutionError(
-                "Supply the user's frozen image_selection.",
-                code="OGE_IMAGE_SELECTION_MISMATCH",
-            )
+        selection = TurnMapContext.model_validate(frozen_map).image_selection
+        image_id = args.image_id
+        if image_id is None and selection is not None:
+            image_id = selection.image_id
         image = None
-        if selection is not None:
-            candidates = self._maps.imagery.get(session_id, selection.candidate_set_id)
-            selected = next(
-                (
-                    item
-                    for item in candidates.images
-                    if item.imageId == selection.image_id
-                ),
-                None,
-            )
-            if selected is None:
-                raise ToolExecutionError(
-                    "The selected image is not in this session.", code="INVALID_IMAGE"
-                )
+        if image_id is not None:
+            detail = await self._oge.image_detail(image_id)
             image = {
-                "coverageID": selected.imageIdentification,
-                "productID": selected.productName,
+                "coverageID": detail["imageIdentification"],
+                "productID": detail["productName"],
             }
         # Serialize data as a Python string literal; never execute model code locally.
         prelude = (
@@ -154,9 +135,7 @@ class ExecuteCodeTool:
         return {
             "title": args.title,
             "script": prelude + args.code,
-            "image_selection": None
-            if selection is None
-            else selection.model_dump(mode="json"),
+            "image_id": image_id,
             "selected_image": image,
             "crs": args.crs,
             "scale": args.scale,
@@ -166,15 +145,7 @@ class ExecuteCodeTool:
         }
 
     def validate(self, arguments: object) -> Mapping[str, object]:
-        value = validate_arguments(self.spec.name, self._arguments, arguments)
-        try:
-            self._parameters(
-                load_source(self._contexts, self._run_id).session.id,
-                ExecuteCodeArguments.model_validate(value),
-            )
-        except (ToolExecutionError, AnalysisError) as error:
-            raise ToolValidationError(str(error)) from None
-        return value
+        return validate_arguments(self.spec.name, self._arguments, arguments)
 
     async def _submit(
         self, call: ToolCall, session_id: str, arguments: ExecuteCodeArguments
@@ -183,7 +154,7 @@ class ExecuteCodeTool:
             session_id,
             call.run_id,
             call.call_id,
-            self._parameters(session_id, arguments),
+            await self._parameters(arguments),
         )
 
     async def execute(self, call: ToolCall) -> ToolResult:

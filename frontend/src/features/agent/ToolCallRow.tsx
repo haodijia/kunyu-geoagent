@@ -15,7 +15,7 @@ import { parseToolContent, toolContentImages, toolContentText } from "./tool-con
 import { AttachmentStrip } from "@/features/attachments/AttachmentStrip";
 import { collectImageOffloads } from "@/features/attachments/image-offloads";
 import { ToolKindIcon, ToolStatusBadge, ToolTarget, ToolDetail, ToolParameters } from "./ToolActivityParts";
-import { toolDuration, toolLabel, toolStatus, toolTarget } from "./tool-presentation";
+import { toolDuration, toolLabel, toolStatus, toolTarget, toolOutcomeSummary } from "./tool-presentation";
 import styles from "./ToolActivity.module.css";
 import { SubagentCard } from "@/features/subagents/SubagentCard";
 
@@ -37,6 +37,8 @@ export function ToolCallRow({
   const imageOffloads = useMemo(() => collectImageOffloads(records), [records]);
   const resultContent = useMemo(() => tool.status === "completed" ? parseToolContent(tool.content) : [], [tool.status, tool.content]);
   const images = useMemo(() => toolContentImages(resultContent), [resultContent]);
+  const outcome = toolOutcomeSummary(tool);
+  const showOutput = !tool.name.startsWith("map_") && !tool.name.startsWith("oge_") && !tool.name.startsWith("job_") && tool.name !== "ask_user_question";
   const hasDetails =
     Object.keys(tool.arguments).length > 0 ||
     resultContent.length > 0 ||
@@ -84,12 +86,13 @@ export function ToolCallRow({
           {tool.error_summary}
         </p>
       ) : null}
-      {tool.status === "completed" && <AnalysisToolResult value={tool.result} sessionId={tool.session_id} />}
+      {tool.status === "completed" && tool.name === "oge_execute_code" && <AnalysisToolResult value={tool.result} sessionId={tool.session_id} />}
       {tool.name === "subagent" && <SubagentCard toolCallId={tool.id} />}
       {denied && <p className={styles.callDenied} data-tool-denied={tool.id}>{content.denied}</p>}
       {expanded ? (
         <div className={styles.detailPanel}>
-          {tool.status === "completed" ? tool.name === "todo_write" ? (
+          {outcome !== null && outcome !== "" && <p className="text-xs leading-5 text-secondary-foreground">{outcome}</p>}
+          {tool.status === "completed" && showOutput && resultContent.length > 0 ? tool.name === "todo_write" ? (
             <div className="mb-2">
               <div className="mb-1 flex items-center justify-between text-[11px] text-secondary-foreground">
                 <span>{content.output}</span>
