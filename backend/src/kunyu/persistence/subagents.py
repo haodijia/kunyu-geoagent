@@ -93,8 +93,6 @@ class SQLAlchemySubagentRepository:
         model = source.run.request_snapshot or source.run.model_snapshot
         budget = source.run.budget
         limits = BudgetLimitsPayload(
-            model_calls=budget.max_model_calls,
-            tool_calls=budget.max_tool_calls,
             active_milliseconds=budget.max_active_milliseconds,
             output_codepoints=budget.max_output_codepoints,
         )

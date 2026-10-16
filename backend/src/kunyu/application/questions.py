@@ -146,8 +146,8 @@ class UserQuestionService:
             remaining = (
                 run.budget.max_active_milliseconds - run.budget.active_milliseconds
             )
-            if run.budget.tool_calls >= run.budget.max_tool_calls or remaining < 1:
-                raise QuestionConflictError("Question tool budget is exhausted.")
+            if remaining < 1:
+                raise QuestionConflictError("Question active-time budget is exhausted.")
             started, now = monotonic_ns(), datetime.now(UTC)
             call = self._call(run, tool)
             request = self._tools.require_question_handler(tool.name, run_id).questions(

@@ -32,9 +32,7 @@ class RunReductionError(ValueError):
 
 @dataclass(frozen=True, slots=True)
 class ReducedBudget:
-    max_model_calls: int
     model_calls: int
-    max_tool_calls: int
     tool_calls: int
     max_active_milliseconds: int
     active_milliseconds: int
@@ -157,8 +155,6 @@ class ReducedRun:
 
 @dataclass(slots=True)
 class _Budget:
-    max_model_calls: int
-    max_tool_calls: int
     max_active_milliseconds: int
     max_output_codepoints: int
     model_calls: int = 0

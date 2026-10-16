@@ -272,8 +272,6 @@ class ImageOffloadPayload(EventPayload):
 
 
 class BudgetLimitsPayload(EventPayload):
-    model_calls: PositiveInt
-    tool_calls: PositiveInt
     active_milliseconds: PositiveInt
     output_codepoints: PositiveInt
 

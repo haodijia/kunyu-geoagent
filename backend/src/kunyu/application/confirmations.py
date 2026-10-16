@@ -360,8 +360,8 @@ class ConfirmationService:
                 "The confirmed arguments no longer match the tool call."
             )
         remaining_milliseconds = run.max_active_milliseconds - run.active_milliseconds
-        if run.tool_calls >= run.max_tool_calls or remaining_milliseconds <= 0:
-            raise ConfirmationConflictError("The run tool budget is exhausted.")
+        if remaining_milliseconds <= 0:
+            raise ConfirmationConflictError("The run active-time budget is exhausted.")
         approval = self._tool_registries.require_approval(tool.name, run.id)
         if (
             approval.execution,

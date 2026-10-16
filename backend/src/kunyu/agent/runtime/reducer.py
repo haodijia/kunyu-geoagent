@@ -123,8 +123,6 @@ def reduce_run(events: Iterable[AgentEvent]) -> ReducedRun:
                 scene_snapshot=event.payload.scene_snapshot,
                 limits=limits,
                 budget=_Budget(
-                    max_model_calls=limits.model_calls,
-                    max_tool_calls=limits.tool_calls,
                     max_active_milliseconds=limits.active_milliseconds,
                     max_output_codepoints=limits.output_codepoints,
                 ),
@@ -487,18 +485,6 @@ def _reserve_budget(state: _State, event: BudgetReservedEvent) -> None:
         raise RunReductionError(
             "A waiting run can only reserve its approved write tool."
         )
-    calls = (
-        state.budget.model_calls
-        if payload.operation_type == "model"
-        else state.budget.tool_calls
-    )
-    maximum = (
-        state.budget.max_model_calls
-        if payload.operation_type == "model"
-        else state.budget.max_tool_calls
-    )
-    if calls + payload.operation_count > maximum:
-        raise RunReductionError("Run call budget is exhausted.")
     if (
         state.budget.active_milliseconds + payload.reserved_milliseconds
         > state.budget.max_active_milliseconds
@@ -1494,9 +1480,7 @@ def _freeze(state: _State) -> ReducedRun:
         map_snapshot=state.map_snapshot,
         scene_snapshot=state.scene_snapshot,
         budget=ReducedBudget(
-            max_model_calls=budget.max_model_calls,
             model_calls=budget.model_calls,
-            max_tool_calls=budget.max_tool_calls,
             tool_calls=budget.tool_calls,
             max_active_milliseconds=budget.max_active_milliseconds,
             active_milliseconds=budget.active_milliseconds,

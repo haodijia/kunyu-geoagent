@@ -55,9 +55,7 @@ class ToolCallResponse(BaseModel):
 
 
 class TurnBudgetResponse(BaseModel):
-    max_model_calls: int
     model_calls: int
-    max_tool_calls: int
     tool_calls: int
     max_active_milliseconds: int
     active_milliseconds: int
@@ -162,9 +160,7 @@ class AgentTurnResponse(BaseModel):
             map_context=snapshot.map_context,
             scene=snapshot.scene,
             budget=TurnBudgetResponse(
-                max_model_calls=run.budget.max_model_calls,
                 model_calls=run.budget.model_calls,
-                max_tool_calls=run.budget.max_tool_calls,
                 tool_calls=run.budget.tool_calls,
                 max_active_milliseconds=run.budget.max_active_milliseconds,
                 active_milliseconds=run.budget.active_milliseconds,

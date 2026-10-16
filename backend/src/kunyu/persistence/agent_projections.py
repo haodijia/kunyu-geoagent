@@ -311,9 +311,7 @@ def _run_record(reduced: ReducedRun) -> RunRecord:
         pending_confirmation_id=reduced.pending_confirmation_id,
         pause_reason=reduced.pause_reason,
         budget=RunBudget(
-            max_model_calls=budget.max_model_calls,
             model_calls=budget.model_calls,
-            max_tool_calls=budget.max_tool_calls,
             tool_calls=budget.tool_calls,
             max_active_milliseconds=budget.max_active_milliseconds,
             active_milliseconds=budget.active_milliseconds,

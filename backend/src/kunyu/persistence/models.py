@@ -324,8 +324,7 @@ class RunRecord(Base):
             "updated_sequence > 0", name="ck_runs_updated_sequence_positive"
         ),
         CheckConstraint(
-            "max_model_calls > 0 AND model_calls >= 0 AND "
-            "max_tool_calls > 0 AND tool_calls >= 0 AND "
+            "model_calls >= 0 AND tool_calls >= 0 AND "
             "max_active_milliseconds > 0 AND active_milliseconds >= 0 AND "
             "max_output_codepoints > 0 AND output_codepoints >= 0",
             name="ck_runs_budget_nonnegative",
@@ -364,9 +363,7 @@ class RunRecord(Base):
     queue_sequence: Mapped[int | None] = mapped_column(Integer)
     pending_confirmation_id: Mapped[str | None] = mapped_column(String(64))
     pause_reason: Mapped[str | None] = mapped_column(String(200))
-    max_model_calls: Mapped[int] = mapped_column(Integer, nullable=False)
     model_calls: Mapped[int] = mapped_column(Integer, nullable=False)
-    max_tool_calls: Mapped[int] = mapped_column(Integer, nullable=False)
     tool_calls: Mapped[int] = mapped_column(Integer, nullable=False)
     max_active_milliseconds: Mapped[int] = mapped_column(Integer, nullable=False)
     active_milliseconds: Mapped[int] = mapped_column(Integer, nullable=False)

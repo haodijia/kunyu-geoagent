@@ -139,9 +139,7 @@ export interface TurnMapContext {
 }
 
 export interface TurnBudget {
-  readonly max_model_calls: number;
   readonly model_calls: number;
-  readonly max_tool_calls: number;
   readonly tool_calls: number;
   readonly max_active_milliseconds: number;
   readonly active_milliseconds: number;

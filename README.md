@@ -45,7 +45,7 @@ uv sync --project backend
 
 Electron 二进制默认从 npmmirror 下载，避免无法连接 GitHub 时安装失败；镜像地址配置在 `electron/.npmrc`。
 
-数据库统一由 `backend/src/kunyu/persistence/schema.sql` 初始化，版本保存在 SQLite `user_version`，不再运行 Alembic 迁移链。旧开发库不会自动升级或删除；保留备份后使用新的 `KUNYU_APP_DATA_DIR`，或由开发者显式重建数据库。当前基线为版本 2，含模型、会话日志、审批、MCP、OAuth、子任务、分析成果和地图共 24 张表。
+数据库统一由 `backend/src/kunyu/persistence/schema.sql` 初始化，版本保存在 SQLite `user_version`，不再运行 Alembic 迁移链。旧开发库不会自动升级或删除；保留备份后使用新的 `KUNYU_APP_DATA_DIR`，或由开发者显式升级数据库。当前基线为版本 3，含模型、会话日志、审批、MCP、OAuth、子任务、分析成果和地图共 24 张表。
 
 版本 1 的开发库可以在应用关闭后显式升级：
 
@@ -54,6 +54,14 @@ uv run --project backend python scripts/upgrade_analysis_schema.py "/数据库�
 ```
 
 该命令先保存 `kunyu.before-analysis.db` 备份，再从同一份 SQL 基线添加分析和地图表。
+
+版本 2 的开发库在应用关闭后升级到版本 3：
+
+```bash
+uv run --project backend python scripts/upgrade_call_limits_schema.py "/数据库目录/kunyu.db"
+```
+
+该命令先保存 `kunyu.before-call-limits.db` 备份，再移除模型与工具总调用次数上限字段，并更新历史事件中的限制配置。调用次数继续作为使用统计保留，不再因达到 8 次模型或 16 次工具调用而结束任务。单次调用超时、并发限制、手动停止以及原有总活动时间和输出长度限制保持有效。
 
 在项目根目录用一条命令启动 Vite、Electron 和由 Electron 管理的 FastAPI：
 

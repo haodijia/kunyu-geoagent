@@ -156,11 +156,6 @@ class ToolBatchExecutor[AdapterConfigT]:
                     return outcome
                 continue
             if prepared.tool.spec.interaction:
-                if current.budget.tool_calls >= current.budget.max_tool_calls:
-                    await self._fail_run(
-                        current, "TOOL_CALL_LIMIT", "Tool call budget exhausted."
-                    )
-                    return "failed"
                 if (
                     current.budget.active_milliseconds
                     >= current.budget.max_active_milliseconds
@@ -228,8 +223,7 @@ class ToolBatchExecutor[AdapterConfigT]:
         registry: ToolRegistry,
     ) -> tuple[_PreparedTool, ...]:
         group = []
-        available = run.budget.max_tool_calls - run.budget.tool_calls
-        for persisted in calls[run.next_tool_index : run.next_tool_index + available]:
+        for persisted in calls[run.next_tool_index :]:
             try:
                 item = self._prepare(run, persisted, registry)
             except (ToolNotFoundError, ToolValidationError, ValidationError):
@@ -246,9 +240,6 @@ class ToolBatchExecutor[AdapterConfigT]:
     async def _reserve(
         self, run: ReducedRun, count: int, requested_milliseconds: int | None = None
     ) -> tuple[str, int] | None:
-        if run.budget.tool_calls + count > run.budget.max_tool_calls:
-            await self._fail_run(run, "TOOL_CALL_LIMIT", "Tool call budget exhausted.")
-            return None
         remaining = run.budget.max_active_milliseconds - run.budget.active_milliseconds
         if remaining < count:
             await self._fail_run(

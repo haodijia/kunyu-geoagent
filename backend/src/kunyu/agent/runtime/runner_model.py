@@ -162,11 +162,6 @@ class ModelStepExecutor[AdapterConfigT]:
         remaining_milliseconds = (
             run.budget.max_active_milliseconds - run.budget.active_milliseconds
         )
-        if run.budget.model_calls >= run.budget.max_model_calls:
-            await self._fail_run(
-                run, "MODEL_CALL_LIMIT", "Model call budget exhausted."
-            )
-            return "failed"
         if remaining_milliseconds <= 0:
             await self._fail_run(
                 run, "ACTIVE_TIME_LIMIT", "Active-time budget exhausted."

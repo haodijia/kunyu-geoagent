@@ -63,8 +63,6 @@ from kunyu.persistence.models import (
 from kunyu.persistence.run_admission import turn_events
 from kunyu.persistence.time import as_utc
 
-MAX_MODEL_CALLS = 8
-MAX_TOOL_CALLS = 16
 MAX_ACTIVE_MILLISECONDS = 1_200_000
 MAX_OUTPUT_CODEPOINTS = 32_768
 
@@ -211,8 +209,6 @@ class SQLAlchemyRunAcceptanceRepository:
                 retry_policy=connection.retry_policy,
             )
             budget_limits = BudgetLimitsPayload(
-                model_calls=MAX_MODEL_CALLS,
-                tool_calls=MAX_TOOL_CALLS,
                 active_milliseconds=MAX_ACTIVE_MILLISECONDS,
                 output_codepoints=MAX_OUTPUT_CODEPOINTS,
             )

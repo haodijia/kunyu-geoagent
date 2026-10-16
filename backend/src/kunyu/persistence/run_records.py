@@ -85,9 +85,7 @@ def copy_run_projection(record: RunRecord, run: Run) -> None:
     record.queue_sequence = run.queue_sequence
     record.pending_confirmation_id = run.pending_confirmation_id
     record.pause_reason = run.pause_reason
-    record.max_model_calls = budget.max_model_calls
     record.model_calls = budget.model_calls
-    record.max_tool_calls = budget.max_tool_calls
     record.tool_calls = budget.tool_calls
     record.max_active_milliseconds = budget.max_active_milliseconds
     record.active_milliseconds = budget.active_milliseconds
@@ -161,9 +159,7 @@ def run_to_domain(record: RunRecord) -> Run:
         pending_confirmation_id=record.pending_confirmation_id,
         pause_reason=record.pause_reason,
         budget=RunBudget(
-            max_model_calls=record.max_model_calls,
             model_calls=record.model_calls,
-            max_tool_calls=record.max_tool_calls,
             tool_calls=record.tool_calls,
             max_active_milliseconds=record.max_active_milliseconds,
             active_milliseconds=record.active_milliseconds,

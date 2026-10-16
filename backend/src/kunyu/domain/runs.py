@@ -27,9 +27,7 @@ class ToolCallStatus(StrEnum):
 
 @dataclass(frozen=True, slots=True)
 class RunBudget:
-    max_model_calls: int = 8
     model_calls: int = 0
-    max_tool_calls: int = 16
     tool_calls: int = 0
     max_active_milliseconds: int = 1_200_000
     active_milliseconds: int = 0
