@@ -45,7 +45,7 @@ export function projectSessionEvent(
     return null;
   }
   if (event.event_type === "message.user.appended") {
-    return projection(event, "user", requiredString(event, "message_id"));
+    return projection(event, event.payload.source === "tool-jobs" ? "context" : "user", requiredString(event, "message_id"));
   }
   if (event.event_type === "subagent/created" || event.event_type === "subagent/settled") {
     return { ...projection(event, "context", `subagent:${requiredString(event, "child_session_id")}`), runId: requiredString(event, "owner_run_id") };

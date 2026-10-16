@@ -25,6 +25,7 @@ from kunyu.agent.plugins.filesystem import (
 )
 from kunyu.agent.plugins.image_offload import ImageOffloadPlugin
 from kunyu.agent.plugins.infrastructure import ModelPlugin, PersistencePlugin
+from kunyu.agent.plugins.jobs import JobsPlugin, JobToolsPlugin
 from kunyu.agent.plugins.loop import AgentLoopPlugin
 from kunyu.agent.plugins.memory import MemoryToolsPlugin
 from kunyu.agent.plugins.model_providers import (
@@ -105,6 +106,7 @@ async def create_agent_runtime(
         RetryPlugin(),
         PromptPlugin(),
         ToolsPlugin(),
+        JobsPlugin(),
         MemoryToolsPlugin(),
         AttachmentToolsPlugin(),
         OgePlugin(),
@@ -124,6 +126,7 @@ async def create_agent_runtime(
         CommandsPlugin(),
         *plugins,
         loop_plugin,
+        JobToolsPlugin(),
     ):
         kernel.register(plugin)
     await kernel.start()

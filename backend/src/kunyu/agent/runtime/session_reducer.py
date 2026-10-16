@@ -174,6 +174,7 @@ def reduce_session(events: Iterable[AgentEvent]) -> ReducedSession:
                 previous.applied_step == 0
                 and previous.run_id == event.run_id
                 and previous.content == event.payload.content
+                and previous.source == event.payload.source
                 and previous.attachments == event.payload.attachments
                 and not previous.discarded
             ):
@@ -185,6 +186,7 @@ def reduce_session(events: Iterable[AgentEvent]) -> ReducedSession:
                 session_id=event.session_id,
                 run_id=event.run_id,
                 content=event.payload.content,
+                source=event.payload.source,
                 attachments=event.payload.attachments,
                 created_at=event.occurred_at,
                 created_sequence=envelope.sequence,
@@ -289,6 +291,7 @@ def reduce_session(events: Iterable[AgentEvent]) -> ReducedSession:
                     session_id=event.session_id,
                     run_id=payload.target_run_id,
                     content=message.content,
+                    source=message.source,
                     attachments=message.attachments,
                     created_at=event.occurred_at,
                     created_sequence=envelope.sequence,
@@ -492,6 +495,7 @@ def _splice_next_turn(
             session_id=event.session_id,
             run_id=None,
             content=item.content,
+            source=item.source,
             attachments=item.attachments,
             created_at=event.occurred_at,
             created_sequence=sequence,

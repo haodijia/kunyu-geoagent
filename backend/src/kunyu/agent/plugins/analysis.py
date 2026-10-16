@@ -19,7 +19,15 @@ from kunyu.persistence.oge import OgeAccountStore
 
 class AnalysisPlugin:
     name = "analysis"
-    requires = (s.DATABASE, s.HTTP_CLIENT, s.TOOLS, s.CONTEXTS, s.ATTACHMENTS)
+    requires = (
+        s.DATABASE,
+        s.HTTP_CLIENT,
+        s.TOOLS,
+        s.CONTEXTS,
+        s.ATTACHMENTS,
+        s.JOBS,
+        s.SCOPES,
+    )
     provides = (s.ANALYSIS, s.MAPS)
 
     async def apply(self, context: Context) -> None:
@@ -43,7 +51,15 @@ class AnalysisPlugin:
         tools.register(
             context,
             "oge_calculate_ndvi",
-            ToolRegistration(partial(NdviTool, contexts=contexts, service=service)),
+            ToolRegistration(
+                partial(
+                    NdviTool,
+                    contexts=contexts,
+                    service=service,
+                    jobs=context.require(s.JOBS),
+                    scopes=context.require(s.SCOPES),
+                )
+            ),
         )
         for name in ("oge_download_preview", "oge_download_result"):
             tools.register(

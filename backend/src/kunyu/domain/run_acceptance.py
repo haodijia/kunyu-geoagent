@@ -1,4 +1,5 @@
 from dataclasses import dataclass
+from typing import Literal
 
 from pydantic import JsonValue
 
@@ -58,6 +59,7 @@ class RunAcceptanceRequest:
     model_selection: ModelSelection
     map_context: dict[str, JsonValue]
     attachment_ids: tuple[str, ...] = ()
+    source: Literal["user", "tool-jobs"] = "user"
 
 
 @dataclass(frozen=True, slots=True)

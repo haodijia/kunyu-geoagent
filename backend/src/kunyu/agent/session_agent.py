@@ -211,6 +211,9 @@ class AgentDirectory:
         if failures:
             raise BaseExceptionGroup("Agent directory disposal failed.", failures)
 
+    def get(self, session_id: str) -> SessionAgent | None:
+        return self._agents.get(session_id)
+
     def for_session(self, session_id: str) -> SessionAgent:
         self._owner.assert_active()
         agent = self._agents.get(session_id)

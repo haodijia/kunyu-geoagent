@@ -227,6 +227,7 @@ class SQLAlchemyRunAcceptanceRepository:
                             InboxMessagePayload(
                                 message_id=message_id,
                                 content=request.content,
+                                source=request.source,
                                 attachments=attachments,
                                 map_context=request.map_context,
                                 turn=QueuedTurnPayload(
@@ -418,6 +419,7 @@ class SQLAlchemyRunAcceptanceRepository:
                                     InboxMessagePayload(
                                         message_id=message_id,
                                         content=request.content,
+                                        source=request.source,
                                         attachments=attachments,
                                         map_context=request.map_context,
                                     )

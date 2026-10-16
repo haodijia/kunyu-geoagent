@@ -1,10 +1,11 @@
-"""Shared approved service calls that finish only after a prepared result."""
+"""Approved service producers register one session-owned background job."""
 
 import asyncio
 import logging
 from abc import ABC, abstractmethod
 from collections.abc import Mapping
 
+from kunyu.agent.jobs import JobHandle, JobRegistry
 from kunyu.agent.prompt_files import tool_description
 from kunyu.agent.runtime.tools import (
     ToolApproval,
@@ -14,6 +15,7 @@ from kunyu.agent.runtime.tools import (
     ToolRiskLevel,
     ToolSpec,
 )
+from kunyu.agent.scope import AgentScopes
 from kunyu.agent.tools.shared import (
     ToolArguments,
     load_source,
@@ -39,14 +41,17 @@ class OgeServiceTool[T: ToolArguments](ABC):
         name: str,
         arguments: type[T],
         approval: ToolApproval,
+        jobs: JobRegistry,
+        scopes: AgentScopes,
         *,
-        wait_timeout_seconds: int = 15 * 60,
+        wait_timeout_seconds: int = 120,
     ) -> None:
         if wait_timeout_seconds <= 0:
             raise ValueError("A service result wait must have a positive timeout.")
         self._run_id, self._contexts, self._service = run_id, contexts, service
         self._arguments = arguments
         self._wait_timeout_seconds = wait_timeout_seconds
+        self._jobs, self._scopes = jobs, scopes
         self.spec = ToolSpec(
             name=name,
             description=tool_description(name),
@@ -55,7 +60,6 @@ class OgeServiceTool[T: ToolArguments](ABC):
             execution="exclusive",
             presentation="write",
             timeout_ms=(wait_timeout_seconds + 30) * 1_000,
-            timeout_error_code="ANALYSIS_WAIT_TIMEOUT",
             approval=approval,
         )
 
@@ -76,30 +80,44 @@ class OgeServiceTool[T: ToolArguments](ABC):
             job = await self._submit(call, source.session.id, arguments)
         except (AnalysisError, OgeError) as error:
             raise ToolExecutionError(str(error), code=error.code) from None
-        try:
-            async with asyncio.timeout(self._wait_timeout_seconds):
-                job, output = await self._service.wait_for_output(
-                    source.session.id, job.id
-                )
-        except TimeoutError:
-            raise ToolExecutionError(
-                f"Stopped waiting after {self._wait_timeout_seconds} seconds for analysis job {job.id}. Background supervision continues; the remote computation was not cancelled.",
-                code="ANALYSIS_WAIT_TIMEOUT",
-            ) from None
-        except AnalysisError as error:
-            raise ToolExecutionError(str(error), code=error.code) from None
-        except asyncio.CancelledError:
-            logger.info(
-                "Stopped waiting for analysis job %s (%s); background supervision continues.",
-                job.id,
-                self.spec.name,
+
+        async def observe(handle: JobHandle):
+            handle.progress(
+                f"Analysis {job.id}; remote calculation continues under the analysis supervisor."
             )
-            raise
-        return tool_result(
-            {
+            completed, output = await self._service.wait_for_output(
+                source.session.id, job.id
+            )
+            return {
                 "analysis_job_id": job.id,
                 "analysis_output_id": output.id,
-                "job": job.model_dump(mode="json"),
+                "job": completed.model_dump(mode="json"),
                 "output": output.model_dump(mode="json"),
             }
+
+        async def cancel_remote() -> None:
+            raise ToolExecutionError(
+                "The verified OGE API does not support cancellation. The remote calculation continues.",
+                code="OGE_CANCEL_UNSUPPORTED",
+            )
+
+        background_id = self._jobs.start(
+            source.session.id,
+            self._scopes.for_session(source.session.id),
+            "analysis",
+            f"{self.spec.name}: {job.id}",
+            observe,
+            cancel=cancel_remote,
+            reference=job.id,
         )
+        try:
+            await self._jobs.wait(
+                background_id, source.session.id, self._wait_timeout_seconds
+            )
+        except asyncio.CancelledError:
+            logger.info(
+                "Stopped the foreground wait for %s; the owned job continues.",
+                background_id,
+            )
+            raise
+        return tool_result(self._jobs.read(background_id, source.session.id))

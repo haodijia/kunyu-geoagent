@@ -104,6 +104,7 @@ class SessionCreatedPayload(EventPayload):
 
 class MessageInputPayload(EventPayload):
     content: str = Field(max_length=32_768)
+    source: Literal["user", "tool-jobs"] = "user"
     attachments: tuple[Attachment, ...] = Field(default=(), max_length=MAX_ATTACHMENTS)
 
     @model_validator(mode="after")

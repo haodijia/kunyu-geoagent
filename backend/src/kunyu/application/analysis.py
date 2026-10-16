@@ -152,7 +152,7 @@ class AnalysisService:
                 job = self.repository.job(session_id, job_id)
                 if job.state == "succeeded":
                     return job, self.repository.output_for_job(session_id, job.id)
-                if job.state not in EXECUTING_STATES or job.query_state != "ready":
+                if job.state not in EXECUTING_STATES:
                     if job.error_code is None or job.error_message is None:
                         raise AnalysisError(
                             "INVALID_JOB_STATE",

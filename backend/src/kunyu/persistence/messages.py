@@ -2,6 +2,7 @@ from typing import cast
 
 from sqlalchemy import func, select
 
+from kunyu.agent.runtime.events import InboxSplicedPayload, UserMessageAppendedPayload
 from kunyu.domain.events import AgentEvent
 from kunyu.domain.messages import Message, MessageRole, MessageStatus
 from kunyu.persistence.attachments import REFERENCE
@@ -28,7 +29,33 @@ class SQLAlchemyMessageRepository:
             if database_session.get(SessionRecord, session_id) is None:
                 return None
             records = database_session.scalars(statement).all()
-            return [_message_to_domain(record) for record in records]
+            # Internal notices remain in the journal/trajectory, never as human bubbles.
+            facts = database_session.scalars(
+                select(SessionEventRecord).where(
+                    SessionEventRecord.session_id == session_id,
+                    SessionEventRecord.event_type.in_(
+                        ("message.user.appended", "agent/inbox/spliced")
+                    ),
+                )
+            ).all()
+            notices: set[str] = set()
+            for fact in facts:
+                if fact.event_type == "message.user.appended":
+                    item = UserMessageAppendedPayload.model_validate(fact.payload)
+                    if item.source == "tool-jobs":
+                        notices.add(item.message_id)
+                else:
+                    splice = InboxSplicedPayload.model_validate(fact.payload)
+                    notices.update(
+                        item.message_id
+                        for item in splice.messages
+                        if item.source == "tool-jobs"
+                    )
+            return [
+                _message_to_domain(record)
+                for record in records
+                if record.id not in notices
+            ]
 
     def latest_event_sequence(self, session_id: str) -> int | None:
         with self._database.sessions() as database_session:

@@ -13,6 +13,7 @@ if TYPE_CHECKING:
     from kunyu.agent.commands.registry import CommandRegistry
     from kunyu.agent.filesystem import FilesystemHooks
     from kunyu.agent.hooks import AgentHookRegistry
+    from kunyu.agent.jobs import JobRegistry
     from kunyu.agent.mcp.plugin import McpManager
     from kunyu.agent.model_providers import LLMService, ModelProviderRegistry
     from kunyu.agent.runtime.context import (
@@ -84,6 +85,7 @@ LIFECYCLE: ServiceKey[RunLifecycleService] = ServiceKey("turns.lifecycle")
 RUNTIME: ServiceKey[AgentRuntime] = ServiceKey("agent_loop")
 SCHEDULER: ServiceKey[RunScheduler] = ServiceKey("agent_loop.scheduler")
 AGENTS: ServiceKey[AgentDirectory] = ServiceKey("agents")
+JOBS: ServiceKey[JobRegistry] = ServiceKey("jobs")
 SUBAGENTS: ServiceKey[SubagentManager] = ServiceKey("subagents")
 SESSION_AGENT: ServiceKey[SessionAgent] = ServiceKey("agent")
 SESSION_ID: ServiceKey[str] = ServiceKey("session_id")

@@ -72,6 +72,7 @@ class ScopedAgentContextProvider:
             StepMessagePayload(
                 message_id=message.message_id,
                 content=message.content,
+                source=message.source,
                 attachments=message.attachments,
             )
             for message in (*initial, *claimed)
@@ -144,6 +145,7 @@ def build_model_history_nodes(source: RunContextSource) -> tuple[ModelHistoryNod
                 ModelMessage(
                     role=ModelRole.USER,
                     content=user_content(message.content, message.attachments),
+                    context_source=message.source if message.source != "user" else None,
                     input_source=InputMessageSource(
                         sequence=message.created_sequence, message_id=message.message_id
                     ),
@@ -180,6 +182,7 @@ def build_model_history_nodes(source: RunContextSource) -> tuple[ModelHistoryNod
                 ModelMessage(
                     ModelRole.USER,
                     user_content(message.content, message.attachments),
+                    context_source=message.source if message.source != "user" else None,
                     input_source=InputMessageSource(
                         sequence=decision.sequence, message_id=message.message_id
                     ),

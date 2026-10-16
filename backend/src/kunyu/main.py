@@ -14,6 +14,7 @@ from kunyu.api.attachments import router as attachments_router
 from kunyu.api.commands import router as commands_router
 from kunyu.api.confirmations import router as confirmations_router
 from kunyu.api.errors import install_error_handlers
+from kunyu.api.jobs import router as jobs_router
 from kunyu.api.mcp import router as mcp_router
 from kunyu.api.messages import router as messages_router
 from kunyu.api.model_connections import router as model_connections_router
@@ -91,6 +92,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         app.state.confirmation_service = agent_runtime.confirmations
         app.state.question_service = agent_runtime.kernel.context.require(s.QUESTIONS)
         app.state.agent_directory = agent_runtime.agents
+        app.state.job_registry = agent_runtime.kernel.context.require(s.JOBS)
         app.state.mcp_manager = agent_runtime.kernel.context.require(s.MCP)
         app.state.analysis_service = agent_runtime.kernel.context.require(s.ANALYSIS)
         app.state.map_repository = agent_runtime.kernel.context.require(s.MAPS)
@@ -129,6 +131,7 @@ def create_app(session_token: str | None = None) -> FastAPI:
     app.include_router(model_connections_router)
     app.include_router(oge_router)
     app.include_router(analysis_router)
+    app.include_router(jobs_router)
     app.include_router(mcp_router)
     app.include_router(confirmations_router)
     app.include_router(questions_router)
