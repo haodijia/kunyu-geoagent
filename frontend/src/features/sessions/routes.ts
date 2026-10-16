@@ -9,7 +9,6 @@ export interface SessionRoute {
 }
 
 const SESSION_ROUTE_PATTERNS = [
-  "/workspaces/:workspaceId/sessions/:sessionId/overview",
   "/workspaces/:workspaceId/sessions/:sessionId/analysis/conversation",
   "/workspaces/:workspaceId/sessions/:sessionId/analysis/trace",
   "/workspaces/:workspaceId/sessions/:sessionId/map"
@@ -31,13 +30,6 @@ function sessionBasePath(workspaceId: string, sessionId: string): string {
     `/workspaces/${encodeURIComponent(workspaceId)}` +
     `/sessions/${encodeURIComponent(sessionId)}`
   );
-}
-
-export function sessionOverviewPath(
-  workspaceId: string,
-  sessionId: string
-): string {
-  return `${sessionBasePath(workspaceId, sessionId)}/overview`;
 }
 
 export function sessionAnalysisPath(

@@ -4,7 +4,7 @@ import { getRuntimeConnection } from "@/api/runtime";
 import {
   analysisApi,
   analysisKeys,
-  analysisPath,
+  workspaceResultsPath,
   type AnalysisOutput,
   type MapLayer,
   type MapState,
@@ -36,7 +36,7 @@ export function useAnalysisLayers(
       if (output === undefined) continue;
       if (instance.getSource(layer.id) === undefined) {
         const url = new URL(
-          `${analysisPath(state.session_id)}/outputs/${encodeURIComponent(output.id)}/tiles/{z}/{x}/{y}.png`,
+          `${workspaceResultsPath(output.workspace_id)}/${encodeURIComponent(output.id)}/tiles/{z}/{x}/{y}.png`,
           getRuntimeConnection().baseUrl,
         ).href
           .replaceAll("%7B", "{")

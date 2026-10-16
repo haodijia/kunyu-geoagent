@@ -383,13 +383,16 @@ user-invocable: true
     emptySessions: "此工作空间暂无会话。",
   },
   overview: {
-    results: "成果图", emptyResults: "暂无成果图。", loading: "正在加载成果图…",
+    title: "工作区总览", results: "工作区成果", emptyResults: "此工作区暂无成果图。", loading: "正在加载工作区成果…",
+    description: "汇集工作区内所有会话产生的成果。", sourceSession: "来源会话", archivedSession: "来源会话已归档", workspaceMissing: "工作区不存在或已移除。",
+    chooseSession: "从左侧选择会话后打开对话或地图",
+    loadingSource: "正在读取成果来源…", sourceFailed: "成果来源读取失败。",
     loadFailed: "成果图读取失败，请重试。", retry: "重试",
   },
   sessionWorkspace: {
     loading: "正在加载会话…",
     viewNavigation: "会话视图",
-    overview: "总览",
+    overview: "工作区总览",
     analysisMode: "分析模式",
     conversation: "对话",
     trace: "轨迹",

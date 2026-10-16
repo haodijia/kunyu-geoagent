@@ -1,4 +1,4 @@
-"""Session-owned analysis jobs, immutable raster outputs and map state."""
+"""Session analysis jobs and map state referencing workspace-owned raster outputs."""
 
 from datetime import datetime
 from typing import Literal, Self
@@ -48,6 +48,7 @@ class AnalysisJob(AnalysisValue):
 class AnalysisOutput(AnalysisValue):
     id: str
     job_id: str
+    workspace_id: str
     session_id: str
     title: str
     mode: Literal["replay", "live"]

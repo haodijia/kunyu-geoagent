@@ -27,6 +27,7 @@ export interface AnalysisJob {
   readonly updated_at: string;
 }
 export interface AnalysisOutput {
+  readonly workspace_id: string;
   readonly id: string;
   readonly job_id: string;
   readonly session_id: string;
@@ -82,18 +83,20 @@ export interface LayerStyle {
 }
 export const analysisKeys = {
   jobs: (id: string) => ["analysis", id, "jobs"] as const,
-  outputs: (id: string) => ["analysis", id, "outputs"] as const,
+  outputs: (id: string) => ["analysis", "workspaces", id, "outputs"] as const,
   map: (id: string) => ["analysis", id, "map"] as const,
   layers: (id: string) => ["analysis", id, "layers"] as const,
 };
 export const analysisPath = (sessionId: string) =>
   `/api/v1/sessions/${encodeURIComponent(sessionId)}/analysis`;
+export const workspaceResultsPath = (workspaceId: string) =>
+  `/api/v1/workspaces/${encodeURIComponent(workspaceId)}/results`;
 const mapPath = (id: string) =>
   `/api/v1/sessions/${encodeURIComponent(id)}/map`;
 export const analysisApi = {
   jobs: (id: string) => requestJson<AnalysisJob[]>(`${analysisPath(id)}/jobs`),
   outputs: (id: string) =>
-    requestJson<AnalysisOutput[]>(`${analysisPath(id)}/outputs`),
+    requestJson<AnalysisOutput[]>(workspaceResultsPath(id)),
   output: (id: string, outputId: string) =>
     requestJson<AnalysisOutput>(
       `${analysisPath(id)}/outputs/${encodeURIComponent(outputId)}`,
@@ -146,10 +149,10 @@ export const analysisApi = {
     ),
   preview: (id: string, outputId: string) =>
     requestBlob(
-      `${analysisPath(id)}/outputs/${encodeURIComponent(outputId)}/preview`,
+      `${workspaceResultsPath(id)}/${encodeURIComponent(outputId)}/preview`,
     ),
   download: (id: string, outputId: string) =>
     requestBlob(
-      `${analysisPath(id)}/outputs/${encodeURIComponent(outputId)}/download`,
+      `${workspaceResultsPath(id)}/${encodeURIComponent(outputId)}/download`,
     ),
 };

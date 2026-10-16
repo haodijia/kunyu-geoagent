@@ -5,11 +5,13 @@ import {
   DropdownMenuContent,
   DropdownMenuItem
 } from "@/components/ui/dropdown-menu";
-import { Ellipsis, Pencil, Upload, X } from "lucide-react";
+import { Ellipsis, LayoutDashboard, Pencil, Upload, X } from "lucide-react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useLocation, useNavigate } from "react-router-dom";
 import { ApiError } from "@/api/client";
 import { clearLastSessionRoute, readLastSessionRoute } from "@/app/storage";
+import { matchPath } from "react-router-dom";
+import { workspaceOverviewPath } from "./routes";
 import { parseSessionRoute } from "@/features/sessions/routes";
 import { zhCN } from "@/locales/zh-CN";
 import { removeWorkspace, workspaceQueryKeys, type Workspace } from "./api";
@@ -39,7 +41,7 @@ export function WorkspaceActions({
         parseSessionRoute(stored)?.workspaceId === workspace.id
       )
         clearLastSessionRoute();
-      if (parseSessionRoute(location.pathname)?.workspaceId === workspace.id)
+      if (matchPath("/workspaces/:workspaceId/*", location.pathname)?.params.workspaceId === workspace.id)
         await navigate("/", { replace: true });
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: workspaceQueryKeys.all }),
@@ -70,6 +72,10 @@ export function WorkspaceActions({
         </button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="start" alignOffset={-8}>
+        <DropdownMenuItem onSelect={() => void navigate(workspaceOverviewPath(workspace.id))}>
+          <LayoutDashboard strokeWidth={1.75} aria-hidden="true" />
+          {zhCN.overview.title}
+        </DropdownMenuItem>
         <DropdownMenuItem onSelect={onUpload}>
           <Upload strokeWidth={1.75} aria-hidden="true" />
           {zhCN.workspaceFiles.title}

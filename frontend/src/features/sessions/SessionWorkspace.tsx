@@ -116,7 +116,7 @@ function SessionWorkspaceContent({
         key={sessionQuery.data.id}
         sessionId={sessionQuery.data.id}
       >
-        <AnalysisEventsBridge sessionId={sessionQuery.data.id} />
+        <AnalysisEventsBridge sessionId={sessionQuery.data.id} workspaceId={workspaceId} />
         <MapPresentationBridge />
         <SessionMessagesProvider
           sessionId={sessionQuery.data.id}

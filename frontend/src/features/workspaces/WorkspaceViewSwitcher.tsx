@@ -4,18 +4,19 @@ import { useLocation, useNavigate } from "react-router-dom";
 import {
   sessionAnalysisPath,
   sessionMapPath,
-  sessionOverviewPath,
 } from "@/features/sessions/routes";
-import { useSessionWorkspace } from "@/features/sessions/SessionWorkspaceContext";
+import { workspaceOverviewPath } from "@/features/workspaces/routes";
 import { cn } from "@/lib/utils";
 import { zhCN } from "@/locales/zh-CN";
 
 const content = zhCN.sessionWorkspace;
 
-export function SessionModeSwitcher() {
+export function WorkspaceViewSwitcher({ workspaceId, sessionId }: {
+  readonly workspaceId: string;
+  readonly sessionId: string | null;
+}) {
   const location = useLocation();
   const navigate = useNavigate();
-  const session = useSessionWorkspace();
   const activeSection = location.pathname.endsWith("/overview")
     ? "overview"
     : location.pathname.endsWith("/map")
@@ -23,7 +24,7 @@ export function SessionModeSwitcher() {
       : "analysis";
 
   function openAnalysis(mode: "conversation" | "trace") {
-    void navigate(sessionAnalysisPath(session.workspace_id, session.id, mode));
+    if (sessionId !== null) void navigate(sessionAnalysisPath(workspaceId, sessionId, mode));
   }
 
   function buttonClass(selected: boolean): string {
@@ -31,7 +32,7 @@ export function SessionModeSwitcher() {
       "flex size-8 shrink-0 items-center justify-center rounded-md transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
       selected
         ? "bg-primary text-primary-foreground"
-        : "text-secondary-foreground hover:bg-muted hover:text-foreground",
+        : "text-secondary-foreground hover:bg-muted hover:text-foreground disabled:opacity-40 disabled:pointer-events-none",
     );
   }
 
@@ -44,7 +45,7 @@ export function SessionModeSwitcher() {
         type="button"
         className={buttonClass(activeSection === "overview")}
         onClick={() =>
-          void navigate(sessionOverviewPath(session.workspace_id, session.id))
+          void navigate(workspaceOverviewPath(workspaceId), { state: { sessionId } })
         }
         aria-current={activeSection === "overview" ? "page" : undefined}
         aria-label={content.overview}
@@ -55,11 +56,12 @@ export function SessionModeSwitcher() {
 
       <button
         type="button"
+        disabled={sessionId === null}
         className={buttonClass(activeSection === "analysis")}
         onClick={() => openAnalysis(location.pathname.endsWith("/analysis/conversation") ? "trace" : "conversation")}
         aria-current={activeSection === "analysis" ? "page" : undefined}
         aria-label={location.pathname.endsWith("/analysis/conversation") ? content.openTrace : content.openConversation}
-        title={location.pathname.endsWith("/analysis/conversation") ? content.openTrace : content.openConversation}
+        title={sessionId === null ? zhCN.overview.chooseSession : location.pathname.endsWith("/analysis/conversation") ? content.openTrace : content.openConversation}
       >
         {location.pathname.endsWith("/analysis/trace")
           ? <ListTree className="size-4" strokeWidth={1.9} />
@@ -67,13 +69,14 @@ export function SessionModeSwitcher() {
       </button>
       <button
         type="button"
+        disabled={sessionId === null}
         className={buttonClass(activeSection === "map")}
         onClick={() =>
-          void navigate(sessionMapPath(session.workspace_id, session.id))
+          sessionId !== null && void navigate(sessionMapPath(workspaceId, sessionId))
         }
         aria-current={activeSection === "map" ? "page" : undefined}
         aria-label={content.map}
-        title={content.map}
+        title={sessionId === null ? zhCN.overview.chooseSession : content.map}
       >
         <Map className="size-4" strokeWidth={1.8} />
       </button>

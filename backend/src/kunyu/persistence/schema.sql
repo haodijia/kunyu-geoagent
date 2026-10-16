@@ -430,6 +430,7 @@ CREATE TABLE analysis_outputs (
 	id VARCHAR(64) NOT NULL,
 	job_id VARCHAR(64) NOT NULL,
 	session_id VARCHAR(64) NOT NULL,
+	workspace_id VARCHAR(64) NOT NULL,
 	title VARCHAR(200) NOT NULL,
 	mode VARCHAR(16) NOT NULL,
 	kind VARCHAR(32) NOT NULL,
@@ -443,9 +444,12 @@ CREATE TABLE analysis_outputs (
 	created_at DATETIME NOT NULL,
 	PRIMARY KEY (id),
 	UNIQUE (job_id),
-	FOREIGN KEY(job_id) REFERENCES analysis_jobs (id) ON DELETE CASCADE,
-	FOREIGN KEY(session_id) REFERENCES sessions (id) ON DELETE CASCADE
+	FOREIGN KEY(job_id) REFERENCES analysis_jobs (id),
+	FOREIGN KEY(session_id) REFERENCES sessions (id),
+	FOREIGN KEY(workspace_id) REFERENCES workspaces (id)
 );
+
+CREATE INDEX ix_analysis_outputs_workspace_created ON analysis_outputs (workspace_id, created_at);
 
 CREATE TABLE map_states (
 	session_id VARCHAR(64) NOT NULL,
@@ -470,4 +474,4 @@ CREATE TABLE map_layers (
 	FOREIGN KEY(output_id) REFERENCES analysis_outputs (id) ON DELETE CASCADE
 );
 
-PRAGMA user_version = 4;
+PRAGMA user_version = 5;

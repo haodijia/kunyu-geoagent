@@ -81,7 +81,7 @@ function MapCanvas({
     state,
     persistent.save,
   );
-  const analysis = useAnalysis(session.id);
+  const analysis = useAnalysis(session.id, session.workspace_id);
   const layers = persistent.layers.data ?? [];
   useAnalysisLayers(map, state, layers, analysis.outputs.data ?? []);
   const candidates = useQuery({
@@ -126,6 +126,7 @@ function MapCanvas({
         />
       ) : (
         <AnalysisPanel
+          workspaceId={session.workspace_id}
           sessionId={session.id}
           state={state}
           layers={layers}

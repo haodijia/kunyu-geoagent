@@ -7,7 +7,7 @@ import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 
 import { SidebarNameForm } from "@/features/workspaces/SidebarNameForm";
-import { sessionOverviewPath } from "@/features/sessions/routes";
+import { sessionAnalysisPath } from "@/features/sessions/routes";
 import {
   createSession,
   listSessions,
@@ -17,6 +17,7 @@ import {
 } from "@/features/workspaces/api";
 import { WorkspaceActions } from "./WorkspaceActions";
 import { SessionRow } from "@/features/sessions/SessionRow";
+import { workspaceOverviewPath } from "./routes";
 import { zhCN } from "@/locales/zh-CN";
 
 const content = zhCN.workspaceSidebar;
@@ -52,7 +53,7 @@ export function WorkspaceGroup({
         queryClient.invalidateQueries({ queryKey: workspaceQueryKeys.all }),
       ]);
       setForm(null);
-      void navigate(sessionOverviewPath(session.workspace_id, session.id));
+      void navigate(sessionAnalysisPath(session.workspace_id, session.id, "conversation"));
     },
   });
   const renameMutation = useMutation({
@@ -82,9 +83,7 @@ export function WorkspaceGroup({
       stickyHeader
       stickyTop={0}
       header={
-        <span className="min-w-0 flex-1 truncate text-[13px] font-normal text-t-primary">
-          {workspace.name}
-        </span>
+        <button type="button" className="min-w-0 flex-1 truncate text-left text-[13px] font-normal text-t-primary hover:underline" onClick={(event) => { event.stopPropagation(); void navigate(workspaceOverviewPath(workspace.id)); }} onKeyDown={(event) => event.stopPropagation()}>{workspace.name}</button>
       }
       trailing={
         <span className="flex items-center gap-[6px]">

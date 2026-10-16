@@ -4,7 +4,7 @@ import { createPortal } from "react-dom";
 
 import { ConversationSkillsIndicator } from "@/features/skills/ConversationSkillsIndicator";
 import { ConversationSearch } from "@/features/messages/navigation/ConversationSearch";
-import { SessionModeSwitcher } from "@/features/sessions/SessionModeSwitcher";
+import { WorkspaceViewSwitcher } from "@/features/workspaces/WorkspaceViewSwitcher";
 import { useSessionWorkspace } from "@/features/sessions/SessionWorkspaceContext";
 
 interface TitlebarTargets {
@@ -40,7 +40,7 @@ export function SessionTitlebar() {
         </div>,
         targets.title
       )}
-      {createPortal(<SessionModeSwitcher />, targets.mode)}
+      {createPortal(<WorkspaceViewSwitcher workspaceId={session.workspace_id} sessionId={session.id} />, targets.mode)}
     </>
   );
 }

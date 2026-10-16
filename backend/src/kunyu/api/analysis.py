@@ -1,4 +1,4 @@
-"""Session-scoped analysis, raster bytes and map presentation endpoints."""
+"""Workspace results, session analysis and map presentation endpoints."""
 
 from typing import Annotated, Literal, Self
 
@@ -136,19 +136,29 @@ def output(session_id: str, output_id: str, service: Analysis):
     return service.repository.output(session_id, output_id)
 
 
-@router.get("/sessions/{session_id}/analysis/outputs/{output_id}/preview")
-def preview(session_id: str, output_id: str, service: Analysis):
-    _, path = service.repository.files(session_id, output_id)
+@router.get("/workspaces/{workspace_id}/results", response_model=list[AnalysisOutput])
+def workspace_outputs(workspace_id: str, service: Analysis):
+    return service.repository.workspace_outputs(workspace_id)
+
+
+@router.get("/workspaces/{workspace_id}/results/{output_id}", response_model=AnalysisOutput)
+def workspace_output(workspace_id: str, output_id: str, service: Analysis):
+    return service.repository.workspace_output(workspace_id, output_id)
+
+
+@router.get("/workspaces/{workspace_id}/results/{output_id}/preview")
+def preview(workspace_id: str, output_id: str, service: Analysis):
+    _, path = service.repository.files(workspace_id, output_id)
     return FileResponse(service.raster.path(path), media_type="image/png")
 
 
-@router.get("/sessions/{session_id}/analysis/outputs/{output_id}/download")
+@router.get("/workspaces/{workspace_id}/results/{output_id}/download")
 def download(
-    session_id: str,
+    workspace_id: str,
     output_id: str,
     service: Analysis,
 ):
-    path, _ = service.repository.files(session_id, output_id)
+    path, _ = service.repository.files(workspace_id, output_id)
     return FileResponse(
         service.raster.path(path),
         media_type="image/tiff",
@@ -156,12 +166,12 @@ def download(
     )
 
 
-@router.get("/sessions/{session_id}/analysis/outputs/{output_id}/tiles/{z}/{x}/{y}.png")
-def tile(session_id: str, output_id: str, z: int, x: int, y: int, service: Analysis):
-    path, _ = service.repository.files(session_id, output_id)
+@router.get("/workspaces/{workspace_id}/results/{output_id}/tiles/{z}/{x}/{y}.png")
+def tile(workspace_id: str, output_id: str, z: int, x: int, y: int, service: Analysis):
+    path, _ = service.repository.files(workspace_id, output_id)
     return Response(
         service.raster.tile(
-            path, z, x, y, service.repository.output(session_id, output_id).metadata
+            path, z, x, y, service.repository.workspace_output(workspace_id, output_id).metadata
         ),
         media_type="image/png",
         headers={"Cache-Control": "private, max-age=3600"},

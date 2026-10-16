@@ -3,7 +3,7 @@ import { useEffect, useRef } from "react";
 import { useSessionEvents } from "@/features/events/SessionEventContext";
 import { analysisApi, analysisKeys } from "./api";
 
-export function useAnalysisInvalidation(sessionId: string) {
+export function useAnalysisInvalidation(sessionId: string, workspaceId: string) {
   const { events } = useSessionEvents();
   const client = useQueryClient();
   const cursor = useRef(0);
@@ -16,7 +16,7 @@ export function useAnalysisInvalidation(sessionId: string) {
           queryKey: analysisKeys.jobs(sessionId),
         });
         void client.invalidateQueries({
-          queryKey: analysisKeys.outputs(sessionId),
+          queryKey: analysisKeys.outputs(workspaceId),
         });
       }
       if (event.event_type === "map/changed") {
@@ -28,10 +28,10 @@ export function useAnalysisInvalidation(sessionId: string) {
         });
       }
     }
-  }, [client, events, sessionId]);
+  }, [client, events, sessionId, workspaceId]);
 }
 
-export function useAnalysis(sessionId: string) {
+export function useAnalysis(sessionId: string, workspaceId: string) {
   const jobs = useQuery({
     queryKey: analysisKeys.jobs(sessionId),
     queryFn: () => analysisApi.jobs(sessionId),
@@ -43,8 +43,8 @@ export function useAnalysis(sessionId: string) {
         : false,
   });
   const outputs = useQuery({
-    queryKey: analysisKeys.outputs(sessionId),
-    queryFn: () => analysisApi.outputs(sessionId),
+    queryKey: analysisKeys.outputs(workspaceId),
+    queryFn: () => analysisApi.outputs(workspaceId),
   });
   return { jobs, outputs };
 }

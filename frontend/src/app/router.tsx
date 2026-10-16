@@ -13,7 +13,7 @@ import { OgeSettingsPage } from "@/features/settings/oge/OgeSettingsPage";
 import { SkillEditorPage } from "@/features/settings/skills/SkillEditorPage";
 import { SessionWorkspace } from "@/features/sessions/SessionWorkspace";
 import { ConversationView } from "@/features/sessions/views/ConversationView";
-import { OverviewView } from "@/features/sessions/views/OverviewView";
+import { WorkspaceOverview } from "@/features/workspaces/WorkspaceOverview";
 import { LaunchPage } from "@/features/workspaces/LaunchPage";
 import { AppShell } from "./AppShell";
 
@@ -52,17 +52,14 @@ export const router = createHashRouter([
         index: true,
         element: <LaunchPage />
       },
+      { path: "workspaces/:workspaceId/overview", element: <WorkspaceOverview /> },
       {
         path: "workspaces/:workspaceId/sessions/:sessionId",
         element: <SessionWorkspace />,
         children: [
           {
             index: true,
-            element: <Navigate to="overview" replace />
-          },
-          {
-            path: "overview",
-            element: <OverviewView />
+            element: <Navigate to="analysis/conversation" replace />
           },
           {
             path: "analysis",

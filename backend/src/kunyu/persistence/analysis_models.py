@@ -58,12 +58,16 @@ class AnalysisJobRecord(Base):
 
 class AnalysisOutputRecord(Base):
     __tablename__ = "analysis_outputs"
+    __table_args__ = (Index("ix_analysis_outputs_workspace_created", "workspace_id", "created_at"),)
     id: Mapped[str] = mapped_column(String(64), primary_key=True)
     job_id: Mapped[str] = mapped_column(
-        ForeignKey("analysis_jobs.id", ondelete="CASCADE"), nullable=False, unique=True
+        ForeignKey("analysis_jobs.id"), nullable=False, unique=True
     )
     session_id: Mapped[str] = mapped_column(
-        ForeignKey("sessions.id", ondelete="CASCADE"), nullable=False
+        ForeignKey("sessions.id"), nullable=False
+    )
+    workspace_id: Mapped[str] = mapped_column(
+        ForeignKey("workspaces.id"), nullable=False
     )
     title: Mapped[str] = mapped_column(String(200), nullable=False)
     mode: Mapped[str] = mapped_column(String(16), nullable=False)

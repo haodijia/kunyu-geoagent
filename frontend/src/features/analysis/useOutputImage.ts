@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { analysisApi } from "./api";
 
-export function useOutputImage(sessionId: string, outputId: string) {
+export function useOutputImage(workspaceId: string, outputId: string) {
   const [url, setUrl] = useState<string | null>(null);
   const [error, setError] = useState(false);
   useEffect(() => {
@@ -10,7 +10,7 @@ export function useOutputImage(sessionId: string, outputId: string) {
     setUrl(null);
     setError(false);
     void analysisApi
-      .preview(sessionId, outputId)
+      .preview(workspaceId, outputId)
       .then((blob) => {
         if (!active) return;
         objectUrl = URL.createObjectURL(blob);
@@ -28,6 +28,6 @@ export function useOutputImage(sessionId: string, outputId: string) {
       active = false;
       if (objectUrl !== null) URL.revokeObjectURL(objectUrl);
     };
-  }, [sessionId, outputId]);
+  }, [workspaceId, outputId]);
   return { url, error };
 }

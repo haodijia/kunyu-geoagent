@@ -20,14 +20,18 @@ from kunyu.integrations.filesystem_io import check_cancelled
 
 class AnalysisRaster:
     def __init__(self, data_directory: Path) -> None:
-        self.root = data_directory / "analysis-results"
+        self.root = data_directory / "workspaces"
 
-    def directory(self, output_id: str) -> Path:
+    def directory(self, workspace_id: str, output_id: str) -> Path:
         if not output_id.startswith("out_") or any(
             char not in "abcdefghijklmnopqrstuvwxyz0123456789_-" for char in output_id
         ):
             raise AnalysisError("INVALID_OUTPUT_ID", "Invalid output identity.")
-        path = self.root / output_id
+        if not workspace_id.startswith("ws_") or any(
+            char not in "abcdefghijklmnopqrstuvwxyz0123456789_-" for char in workspace_id
+        ):
+            raise AnalysisError("INVALID_WORKSPACE_ID", "Invalid workspace identity.")
+        path = self.root / workspace_id / "results" / output_id
         path.mkdir(mode=0o700, parents=True, exist_ok=True)
         return path
 
@@ -39,8 +43,8 @@ class AnalysisRaster:
             )
         return path
 
-    def prepare(self, output_id: str, cancelled: Event, display_range=None) -> dict:
-        directory = self.directory(output_id)
+    def prepare(self, workspace_id: str, output_id: str, cancelled: Event, display_range=None) -> dict:
+        directory = self.directory(workspace_id, output_id)
         check_cancelled(cancelled, "prepare analysis output")
         with rasterio.open(directory / "result.tif") as src:
             scalar = src.count == 1 and np.issubdtype(

@@ -6,7 +6,7 @@ import { matchPath, useLocation, useNavigate } from "react-router-dom";
 
 import { SidebarItem } from "@/components/navigation/SidebarItem";
 import { Tooltip } from "@/components/ui/tooltip";
-import { sessionOverviewPath } from "@/features/sessions/routes";
+import { sessionAnalysisPath } from "@/features/sessions/routes";
 import { SidebarNameForm } from "@/features/workspaces/SidebarNameForm";
 import { WorkspaceGroup } from "@/features/workspaces/WorkspaceGroup";
 import {
@@ -64,7 +64,7 @@ export function TaskSidebarContent({
         }),
         queryClient.invalidateQueries({ queryKey: workspaceQueryKeys.all }),
       ]);
-      void navigate(sessionOverviewPath(session.workspace_id, session.id));
+      void navigate(sessionAnalysisPath(session.workspace_id, session.id, "conversation"));
     },
   });
   const newChatUnavailable =

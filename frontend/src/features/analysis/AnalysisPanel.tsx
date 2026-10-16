@@ -9,7 +9,8 @@ import { analysisApi, analysisKeys, type MapLayer, type MapState } from "./api";
 import { LayerRow, type LayerAction } from "./MapLayerRows";
 
 const content = zhCN.analysis;
-export function AnalysisPanel({ sessionId, state, layers, error }: {
+export function AnalysisPanel({ workspaceId, sessionId, state, layers, error }: {
+  readonly workspaceId: string;
   readonly sessionId: string;
   readonly state: MapState;
   readonly layers: readonly MapLayer[];
@@ -68,7 +69,7 @@ export function AnalysisPanel({ sessionId, state, layers, error }: {
       {layers.length === 0 && <p className="py-3 text-xs text-muted-foreground">{content.emptyLayers}</p>}
       <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={reorder}>
         <SortableContext items={ordered.map((layer) => layer.id)} strategy={verticalListSortingStrategy}>
-          {ordered.map((layer) => <LayerRow
+          {ordered.map((layer) => <LayerRow workspaceId={workspaceId}
             key={`${layer.id}:${layer.revision}`}
             layer={layer}
             selected={layer.output_id === state.selected_output_id}

@@ -13,7 +13,7 @@ import {
   sessionQueryKeys,
   type SessionSummary,
 } from "./api";
-import { parseSessionRoute, sessionOverviewPath } from "./routes";
+import { parseSessionRoute, sessionAnalysisPath } from "./routes";
 
 const content = zhCN.workspaceSidebar;
 
@@ -52,7 +52,7 @@ export function SessionRow({
     },
   });
   function openSession() {
-    void navigate(sessionOverviewPath(session.workspace_id, session.id));
+    void navigate(sessionAnalysisPath(session.workspace_id, session.id, "conversation"));
   }
   return (
     <Tooltip label={session.title} side="right">

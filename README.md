@@ -45,7 +45,7 @@ uv sync --project backend
 
 Electron 二进制默认从 npmmirror 下载，避免无法连接 GitHub 时安装失败；镜像地址配置在 `electron/.npmrc`。
 
-数据库统一由 `backend/src/kunyu/persistence/schema.sql` 初始化，版本保存在 SQLite `user_version`，不再运行 Alembic 迁移链。旧开发库不会自动升级或删除；保留备份后使用新的 `KUNYU_APP_DATA_DIR`，或由开发者显式升级数据库。当前基线为版本 4，含模型、会话日志、审批、MCP、OAuth、子任务、分析成果和地图共 24 张表。
+数据库统一由 `backend/src/kunyu/persistence/schema.sql` 初始化，版本保存在 SQLite `user_version`，不再运行 Alembic 迁移链。旧开发库不会自动升级或删除；保留备份后使用新的 `KUNYU_APP_DATA_DIR`，或由开发者显式升级数据库。当前基线为版本 5，含模型、会话日志、审批、MCP、OAuth、子任务、分析成果和地图共 24 张表。
 
 版本 1 的开发库可以在应用关闭后显式升级：
 

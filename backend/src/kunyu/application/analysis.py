@@ -124,14 +124,14 @@ class AnalysisService:
         if result is None:
             return
         output_id = "out_" + job.id.removeprefix("job_")
-        directory = self.raster.directory(output_id)
+        directory = self.raster.directory(job.workspace_id, output_id)
         if not (directory / "result.tif").is_file() and not await self.gateway.download(
             job.parameters, subject, base, directory / "result.tif"
         ):
             return
         metadata = await filesystem_operation(
             lambda cancelled: self.raster.prepare(
-                output_id, cancelled, job.parameters.get("display_range")
+                job.workspace_id, output_id, cancelled, job.parameters.get("display_range")
             )
         )
         self.repository.publish_output(
@@ -139,8 +139,8 @@ class AnalysisService:
             output_id,
             metadata,
             {"execution_result": result, "parameters": job.parameters},
-            f"{output_id}/result.tif",
-            f"{output_id}/preview.png",
+            f"{job.workspace_id}/results/{output_id}/result.tif",
+            f"{job.workspace_id}/results/{output_id}/preview.png",
             200,
         )
         self.repository.change(

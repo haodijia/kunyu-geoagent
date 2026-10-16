@@ -1,4 +1,4 @@
-"""Durable job intents and immutable outputs, scoped by session."""
+"""Session job intents and workspace-owned outputs with source-session provenance."""
 
 import time
 from datetime import UTC, datetime
@@ -14,7 +14,7 @@ from kunyu.domain.analysis import (
     AnalysisOutput,
 )
 from kunyu.persistence.analysis_models import AnalysisJobRecord, AnalysisOutputRecord
-from kunyu.persistence.analysis_shared import publish, require_session
+from kunyu.persistence.analysis_shared import publish, require_session, require_workspace
 from kunyu.persistence.database import Database
 from kunyu.persistence.time import as_utc
 
@@ -168,13 +168,30 @@ class AnalysisRepository:
                 )
             ]
 
-    def output(self, session_id: str, output_id: str) -> AnalysisOutput:
+    def workspace_outputs(self, workspace_id: str) -> list[AnalysisOutput]:
         with self.database.sessions() as tx:
-            require_session(tx, session_id)
+            require_workspace(tx, workspace_id)
+            return [
+                output_value(row)
+                for row in tx.scalars(
+                    select(AnalysisOutputRecord)
+                    .where(AnalysisOutputRecord.workspace_id == workspace_id)
+                    .order_by(AnalysisOutputRecord.created_at.desc(), AnalysisOutputRecord.id)
+                )
+            ]
+
+    def workspace_output(self, workspace_id: str, output_id: str) -> AnalysisOutput:
+        with self.database.sessions() as tx:
+            require_workspace(tx, workspace_id)
             row = tx.get(AnalysisOutputRecord, output_id)
-            if row is None or row.session_id != session_id:
+            if row is None or row.workspace_id != workspace_id:
                 raise AnalysisError("NOT_FOUND", "Analysis output was not found.", 404)
             return output_value(row)
+
+    def output(self, session_id: str, output_id: str) -> AnalysisOutput:
+        with self.database.sessions() as tx:
+            session = require_session(tx, session_id)
+            return self.workspace_output(session.workspace_id, output_id)
 
     def output_for_job(self, session_id: str, job_id: str) -> AnalysisOutput:
         with self.database.sessions() as tx:
@@ -192,11 +209,11 @@ class AnalysisRepository:
                 )
             return output_value(row)
 
-    def files(self, session_id: str, output_id: str) -> tuple[str, str]:
+    def files(self, workspace_id: str, output_id: str) -> tuple[str, str]:
         with self.database.sessions() as tx:
-            require_session(tx, session_id)
+            require_workspace(tx, workspace_id)
             row = tx.get(AnalysisOutputRecord, output_id)
-            if row is None or row.session_id != session_id:
+            if row is None or row.workspace_id != workspace_id:
                 raise AnalysisError("NOT_FOUND", "Analysis output was not found.", 404)
             return row.cog_file, row.preview_file
 
@@ -223,6 +240,7 @@ class AnalysisRepository:
                 id=output_id,
                 job_id=job.id,
                 session_id=job.session_id,
+                workspace_id=job.workspace_id,
                 title=str(job.parameters["title"]),
                 mode=job.mode,
                 kind="scalar_raster" if metadata["bands"] == 1 else "rgb_raster",
@@ -255,6 +273,7 @@ def output_value(row: AnalysisOutputRecord) -> AnalysisOutput:
     return AnalysisOutput(
         id=row.id,
         job_id=row.job_id,
+        workspace_id=row.workspace_id,
         session_id=row.session_id,
         title=row.title,
         mode=row.mode,

@@ -10,12 +10,17 @@ export interface Workspace {
 
 export const workspaceQueryKeys = {
   all: ["workspaces"] as const,
+  detail: (workspaceId: string) => ["workspaces", workspaceId] as const,
   sessions: (workspaceId: string) =>
     ["workspaces", workspaceId, "sessions"] as const
 };
 
 export function listWorkspaces(): Promise<Workspace[]> {
   return requestJson<Workspace[]>("/api/v1/workspaces");
+}
+
+export function getWorkspace(workspaceId: string): Promise<Workspace> {
+  return requestJson<Workspace>(`/api/v1/workspaces/${encodeURIComponent(workspaceId)}`);
 }
 
 export function createWorkspace(name: string): Promise<Workspace> {

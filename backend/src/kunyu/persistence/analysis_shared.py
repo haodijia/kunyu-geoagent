@@ -16,7 +16,16 @@ from kunyu.persistence.models import (
     SessionArchiveRecord,
     SessionRecord,
     WorkspaceRemovalRecord,
+    WorkspaceRecord,
 )
+
+
+def require_workspace(tx: Session, workspace_id: str) -> None:
+    if (
+        tx.get(WorkspaceRecord, workspace_id) is None
+        or tx.get(WorkspaceRemovalRecord, workspace_id) is not None
+    ):
+        raise AnalysisError("NOT_FOUND", "Workspace was not found.", 404)
 
 
 def require_session(

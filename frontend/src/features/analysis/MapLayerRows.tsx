@@ -13,7 +13,8 @@ export type LayerAction =
   | { readonly kind: "opacity"; readonly value: number }
   | { readonly kind: "reorder"; readonly position: number };
 
-export function LayerRow({ layer, selected, disabled, onAction }: {
+export function LayerRow({ workspaceId, layer, selected, disabled, onAction }: {
+  readonly workspaceId: string;
   readonly layer: MapLayer;
   readonly selected: boolean;
   readonly disabled: boolean;
@@ -21,7 +22,7 @@ export function LayerRow({ layer, selected, disabled, onAction }: {
 }) {
   const [opacity, setOpacity] = useState(layer.opacity);
   useEffect(() => { if (!disabled) setOpacity(layer.opacity); }, [layer.opacity, disabled]);
-  const image = useOutputImage(layer.session_id, layer.output_id);
+  const image = useOutputImage(workspaceId, layer.output_id);
   const sortable = useSortable({ id: layer.id, disabled });
   return <section
     ref={sortable.setNodeRef}

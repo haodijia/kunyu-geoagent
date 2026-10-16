@@ -15,12 +15,14 @@ export function OutputCard({
   output,
   workspaceId,
   compact = false,
+  sourceActionsEnabled = true,
 }: {
   readonly output: AnalysisOutput;
   readonly workspaceId: string;
   readonly compact?: boolean;
+  readonly sourceActionsEnabled?: boolean;
 }) {
-  const image = useOutputImage(output.session_id, output.id);
+  const image = useOutputImage(output.workspace_id, output.id);
   const client = useQueryClient();
   const navigate = useNavigate();
   const [error, setError] = useState<string | null>(null);
@@ -43,8 +45,8 @@ export function OutputCard({
       } else {
         const blob =
           action === "download"
-            ? await analysisApi.download(output.session_id, output.id)
-            : await analysisApi.preview(output.session_id, output.id);
+            ? await analysisApi.download(output.workspace_id, output.id)
+            : await analysisApi.preview(output.workspace_id, output.id);
         const url = URL.createObjectURL(blob);
         const link = document.createElement("a");
         link.href = url;
@@ -106,7 +108,7 @@ export function OutputCard({
         <Button
           variant="ghost"
           size="sm"
-          disabled={mutation.isPending}
+          disabled={mutation.isPending || !sourceActionsEnabled}
           onClick={() => mutation.mutate("map")}
         >
           <LocateFixed className="size-3.5" />
@@ -129,7 +131,7 @@ export function OutputCard({
         >
           {content.downloadPreview}
         </Button>
-        <Button variant="ghost" size="sm" onClick={addToConversation}>
+        <Button variant="ghost" size="sm" disabled={!sourceActionsEnabled} onClick={addToConversation}>
           <MessageSquarePlus className="size-3.5" />
           {content.addToConversation}
         </Button>

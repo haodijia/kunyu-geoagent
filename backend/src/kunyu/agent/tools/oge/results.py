@@ -74,7 +74,7 @@ class ResultTool:
         source = load_source(self._contexts, self._run_id)
         try:
             output = self._service.repository.output(source.session.id, args.output_id)
-            _cog, preview = self._service.repository.files(source.session.id, output.id)
+            _cog, preview = self._service.repository.files(output.workspace_id, output.id)
         except AnalysisError as error:
             raise ToolExecutionError(str(error), code=error.code) from None
         if self.spec.name == "oge_download_result":
@@ -83,7 +83,7 @@ class ResultTool:
                     "analysis_output_id": output.id,
                     "kind": output.kind,
                     "available": True,
-                    "download_endpoint": f"/api/v1/sessions/{source.session.id}/analysis/outputs/{output.id}/download",
+                    "download_endpoint": f"/api/v1/workspaces/{output.workspace_id}/results/{output.id}/download",
                     "numeric_values_available": output.metadata.get(
                         "numeric_values_available", False
                     ),

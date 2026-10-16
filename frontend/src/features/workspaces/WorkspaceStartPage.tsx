@@ -2,12 +2,13 @@ import { useQuery } from "@tanstack/react-query";
 import { FolderClosed, MessageCircle } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
-import { sessionOverviewPath } from "@/features/sessions/routes";
+import { sessionAnalysisPath } from "@/features/sessions/routes";
 import {
   listSessions,
   type Workspace,
   workspaceQueryKeys
 } from "@/features/workspaces/api";
+import { workspaceOverviewPath } from "./routes";
 import { zhCN } from "@/locales/zh-CN";
 
 const content = zhCN.workspaceStart;
@@ -66,7 +67,7 @@ function RecentWorkspace({ workspace }: { readonly workspace: Workspace }) {
           <FolderClosed className="size-4.5" strokeWidth={1.8} aria-hidden="true" />
         </span>
         <h2 className="m-0 min-w-0 flex-1 truncate text-base font-semibold text-foreground">
-          {workspace.name}
+          <button type="button" className="hover:underline" onClick={() => void navigate(workspaceOverviewPath(workspace.id))}>{workspace.name}</button>
         </h2>
       </div>
 
@@ -91,7 +92,7 @@ function RecentWorkspace({ workspace }: { readonly workspace: Workspace }) {
               key={session.id}
               type="button"
               className="flex h-9 min-w-0 items-center gap-2 rounded-lg px-2 text-left text-sm text-secondary-foreground transition-colors hover:bg-muted hover:text-foreground"
-              onClick={() => void navigate(sessionOverviewPath(workspace.id, session.id))}
+              onClick={() => void navigate(sessionAnalysisPath(workspace.id, session.id, "conversation"))}
             >
               <MessageCircle className="size-3.5 shrink-0" strokeWidth={1.8} aria-hidden="true" />
               <span className="truncate">{session.title}</span>
