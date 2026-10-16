@@ -3,7 +3,7 @@ export const zhCN = {
     candidates: "候选影像", loading: "正在读取影像…", candidatesFailed: "候选影像读取失败。", retry: "重试", emptyCandidates: "本次检索没有候选影像。",
     unknownResolution: "分辨率未知", cloud: (value: number) => `云量 ${value}%`, noFootprint: "无有效覆盖范围",
     useImage: "使用此景", selected: "已选择", selectionPrompt: "请使用我选中的影像，", preview: "所选影像缩略图", previewFailed: "影像预览加载失败。",
-    locate: "定位结果", receiptFailed: "地图展示回执未保存。", history: "完整对话", closeHistory: "收起对话", messages: "最近消息", you: "你", continue: "在地图上继续对话",
+    locate: "定位结果", receiptFailed: "地图展示回执未保存。", history: "完整对话", closeHistory: "收起对话", messages: "最近消息", you: "你",
     jobsFailed: "后台任务状态读取失败。", runFailed: "Agent 运行失败，可展开完整对话查看原因。", jobStatus: {running: "运行中", stopping: "正在停止", completed: "已完成", failed: "失败", killed: "已停止"},
     selectedImage: (id: number) => `已选影像 · ${id}`, clearSelection: "清除影像选择", imageInputReady: "已选中。在下方说明分析目标，Agent 将查询算子并使用这幅影像。",
   },

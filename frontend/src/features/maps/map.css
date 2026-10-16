@@ -3,26 +3,99 @@
   inset: 0;
 }
 
-.map-conversation {
-  position: relative;
-  isolation: isolate;
+.map-composer-overlay {
+  bottom: 16px;
+  left: 50%;
+  width: calc(100% - 32px);
+  max-width: 800px;
+  transform: translateX(-50%);
 }
-.map-conversation::before {
-  content: "";
-  position: absolute;
-  z-index: -1;
-  inset: -2rem -1rem -.5rem;
-  background: linear-gradient(to top, color-mix(in srgb, var(--background) 96%, transparent), color-mix(in srgb, var(--background) 84%, transparent) 55%, transparent);
+
+.map-composer-overlay .chat-surface-fluid {
+  width: 100%;
+  max-width: none;
+}
+
+.map-composer-overlay .composer-host {
+  padding: 0;
+}
+
+.map-composer-overlay .composer-panel {
+  border-radius: 16px;
+  box-shadow: var(--mu-shadow-2);
+}
+
+.map-composer-overlay .composer-toolbar {
+  min-height: 28px;
+  margin-top: 6px;
+  flex-wrap: wrap;
+  row-gap: 6px;
+}
+
+.map-composer-overlay .composer-toolbar > div {
+  flex-shrink: 0;
+  max-width: 100%;
+}
+
+.map-composer-overlay .composer-actions {
+  margin-left: auto;
+}
+
+.map-composer-overlay .composer-chip {
+  border-color: transparent;
+}
+
+.map-composer-overlay .composer-chip:hover {
+  background: var(--color-fill-1);
+}
+
+.map-composer-overlay > .map-conversation {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 8px;
   pointer-events: none;
 }
+
+.map-composer-overlay > .map-conversation:empty {
+  display: none;
+}
+
+.map-history-row {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.map-history-button,
+.map-conversation > :is([role="alert"], [role="status"], [data-message-scroll]) {
+  pointer-events: auto;
+}
+
 .map-flow {
-  mask-image: linear-gradient(to bottom, transparent, black 14px);
+  position: relative;
+  max-height: 72px;
+  overflow: hidden;
 }
-.map-flow-line {
-  transition: transform 260ms cubic-bezier(.22,1,.36,1), opacity 260ms ease;
+
+.map-flow[data-overflow="true"] {
+  mask-image: linear-gradient(to bottom, transparent, black 24px);
 }
-@media (prefers-reduced-motion: reduce) {
-  .map-flow-line { transition: none; }
+
+.map-flow-track {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding-inline: 14px;
+  color: var(--foreground);
+  font-size: 13px;
+  line-height: 24px;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+  text-shadow: 0 0 3px var(--background), 0 1px 6px var(--background), 0 0 12px var(--background);
+}
+
+.map-flow-track p {
+  margin: 0;
 }
 
 .kunyu-map .maplibregl-canvas:focus-visible {

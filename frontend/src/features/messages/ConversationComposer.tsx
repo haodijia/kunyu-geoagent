@@ -239,7 +239,7 @@ export function ConversationComposer({
           onKeyDown={handleKeyDown}
           aria-label={content.composerLabel}
         />
-        <div className="mt-2 flex min-h-8 items-center justify-between gap-2">
+        <div className="composer-toolbar mt-2 flex min-h-8 items-center justify-between gap-2">
           <div className="flex min-w-0 items-center gap-1">
             <Button type="button" size="icon" variant="ghost" className="size-7 rounded-full text-muted-foreground" disabled={inputLocked || attachmentState.pending || attachmentState.retryAvailable || attachmentState.attachments.length >= 8} aria-label={content.attachments.add} title={content.attachments.add} onClick={() => fileInputRef.current?.click()}><Paperclip className="size-3.5" /></Button>
             <Button
@@ -258,7 +258,7 @@ export function ConversationComposer({
               <span className="truncate">{content.mapContextLabel}</span>
             </span>
           </div>
-          <div className="flex min-w-0 items-center justify-end gap-1">
+          <div className="composer-actions flex min-w-0 items-center justify-end gap-1">
             <ComposerPlanChip locked={inputLocked} onExit={onExitPlan} />
               <Button type="button" size="icon" variant="ghost" className="size-7 rounded-full text-muted-foreground"
                 disabled={!canSend || !queueable || draftFrozen} aria-label={content.queue.add} title={content.queue.add} onClick={onQueue}

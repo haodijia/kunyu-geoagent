@@ -244,7 +244,8 @@ export function useSessionMap(
       attributeFilter: ["data-theme"],
     });
     const resize = () => {
-      const overlayHeight = overlay.getBoundingClientRect().height;
+      const overlayHeight =
+        container.getBoundingClientRect().bottom - overlay.getBoundingClientRect().top;
       container.style.setProperty("--map-overlay-height", `${overlayHeight}px`);
       map.setPadding({ bottom: overlayHeight, top: 0, left: 0, right: 0 });
       map.resize();

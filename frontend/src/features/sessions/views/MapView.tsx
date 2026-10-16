@@ -206,7 +206,7 @@ function MapCanvas({
       </div>
       <div
         ref={overlayRef}
-        className="pointer-events-none absolute right-0 bottom-0 left-0 z-10 [&>*]:pointer-events-auto"
+        className="map-composer-overlay pointer-events-none absolute z-10 [&>*]:pointer-events-auto"
       >
         <MapConversation />
         <AgentControls />
