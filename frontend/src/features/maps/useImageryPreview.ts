@@ -86,10 +86,7 @@ export function useImageryPreview(
       );
       const key = `${candidateSetId}:${image.imageId}`;
       if (focused.current !== key) {
-        const bottom = instance.getPadding().bottom;
-        if (bottom === undefined)
-          throw new Error("Map composer padding is not initialized.");
-        instance.fitBounds(
+        map.focusBounds(
           [
             [
               Math.min(...ring.map(([x]) => x)),
@@ -100,19 +97,6 @@ export function useImageryPreview(
               Math.max(...ring.map(([, y]) => y)),
             ],
           ],
-          {
-            padding: {
-              top: 60,
-              right: 50,
-              bottom: bottom + 30,
-              left: Math.min(360, instance.getContainer().clientWidth * 0.42),
-            },
-            maxZoom: 14,
-            duration: window.matchMedia("(prefers-reduced-motion: reduce)")
-              .matches
-              ? 0
-              : 500,
-          },
         );
         focused.current = key;
       }

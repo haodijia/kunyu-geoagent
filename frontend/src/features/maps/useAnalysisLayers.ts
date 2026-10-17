@@ -111,25 +111,12 @@ export function useAnalysisLayers(
       return;
     const output = outputs.find((item) => item.id === state.focus_output_id);
     if (output === undefined) return;
-    const bottom = instance.getPadding().bottom;
-    if (bottom === undefined)
-      throw new Error("Map composer padding was not initialized.");
     map.markFocusApplied(state.focus_revision);
-    instance.fitBounds(
+    map.focusBounds(
       [
         [output.bounds[0], output.bounds[1]],
         [output.bounds[2], output.bounds[3]],
       ],
-      {
-        padding: {
-          top: 40,
-          right: 60,
-          bottom: bottom + 30,
-          left: Math.min(340, instance.getContainer().clientWidth * 0.4),
-        },
-        maxZoom: 14,
-        duration: 700,
-      },
     );
   }, [map, outputs, state]);
 }

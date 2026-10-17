@@ -4,6 +4,7 @@ import {
   ScaleControl,
   setWorkerUrl,
   type ErrorEvent,
+  type LngLatBoundsLike,
 } from "maplibre-gl";
 import workerUrl from "maplibre-gl/dist/maplibre-gl-worker.mjs?worker&url";
 import { useEffect, useRef, useState, type RefObject } from "react";
@@ -116,6 +117,7 @@ export function useSessionMap(
   onView.current = onViewChange;
   const appliedFocus = useRef(initialState.applied_focus_revision);
   const mapRef = useRef<Map | null>(null);
+  const overlayHeightRef = useRef(0);
   const dimensionRef = useRef<MapDimension>("2d");
   const [dimension, setDimension] = useState<MapDimension>("2d");
   const [ready, setReady] = useState(false);
@@ -246,8 +248,9 @@ export function useSessionMap(
     const resize = () => {
       const overlayHeight =
         container.getBoundingClientRect().bottom - overlay.getBoundingClientRect().top;
+      overlayHeightRef.current = overlayHeight;
       container.style.setProperty("--map-overlay-height", `${overlayHeight}px`);
-      map.setPadding({ bottom: overlayHeight, top: 0, left: 0, right: 0 });
+      map.setPadding({ ...map.getPadding(), bottom: overlayHeight });
       map.resize();
     };
     const resizeObserver = new ResizeObserver(resize);
@@ -276,6 +279,23 @@ export function useSessionMap(
     };
   }, [attempt, overlayRef, sessionId, targetRef, workspaceId]);
 
+  function focusBounds(bounds: LngLatBoundsLike) {
+    const map = mapRef.current;
+    if (map === null || !ready) return;
+    map.fitBounds(bounds, {
+      // Replace layout padding: additive fit padding shifts the geographic center.
+      absolutePadding: true,
+      padding: {
+        top: 40,
+        right: 60,
+        bottom: overlayHeightRef.current + 30,
+        left: Math.min(340, map.getContainer().clientWidth * 0.4),
+      },
+      maxZoom: 14,
+      duration: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? 0 : 700,
+    });
+  }
+
   function changeDimension(next: MapDimension) {
     const map = mapRef.current;
     if (map === null || !ready || next === dimensionRef.current) return;
@@ -303,6 +323,7 @@ export function useSessionMap(
     appliedFocusRevision: appliedFocus,
     dimension,
     ready,
+    focusBounds,
     loading,
     failed,
     changeDimension,

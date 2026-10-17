@@ -136,26 +136,11 @@ export function useImageryMap(
     )
       return;
     const [west, south, east, north] = presentation.bounds;
-    const bottom = instance.getPadding().bottom;
-    if (bottom === undefined)
-      throw new Error("Map composer padding is not initialized.");
-    instance.fitBounds(
+    map.focusBounds(
       [
         [west, south],
         [east, north],
       ],
-      {
-        padding: {
-          top: 60,
-          right: 50,
-          bottom: bottom + 30,
-          left: Math.min(360, instance.getContainer().clientWidth * 0.42),
-        },
-        maxZoom: 14,
-        duration: window.matchMedia("(prefers-reduced-motion: reduce)").matches
-          ? 0
-          : 700,
-      },
     );
     setPendingFocus(false);
   };
