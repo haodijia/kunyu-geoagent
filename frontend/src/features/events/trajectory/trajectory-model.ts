@@ -69,10 +69,14 @@ export interface TrajectoryPrompt {
 export function trajectoryTurns(
   records: readonly TrajectoryRecord[],
 ): TrajectoryTurnModel[] {
-  const grouped = new Map<number | null, TrajectoryCellProps[]>();
+  const turns: TrajectoryTurnModel[] = [];
   for (const record of records) {
-    const cells = grouped.get(record.turn) ?? [];
-    cells.push({
+    let current = turns.at(-1);
+    if (current === undefined || current.turn !== record.turn) {
+      current = { turn: record.turn, groups: [{ cells: [] }] };
+      turns.push(current);
+    }
+    current.groups[0]!.cells.push({
       index: record.index,
       kind: cellKind(record.kind),
       text: record.text,
@@ -85,12 +89,8 @@ export function trajectoryTurns(
         ? {}
         : { assistantMetrics: record.assistantMetrics }),
     });
-    grouped.set(record.turn, cells);
   }
-  return [...grouped.entries()].map(([recordTurn, cells]) => ({
-    turn: recordTurn,
-    groups: [{ cells }],
-  }));
+  return turns;
 }
 
 export function formatDurationMillis(

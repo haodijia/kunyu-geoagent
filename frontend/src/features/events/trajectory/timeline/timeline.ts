@@ -88,13 +88,15 @@ export function deriveTrajectoryTimeline(
   }
   const spans: TrajectoryTimelineSpan[] = []
   const turnBoundaries: TrajectoryTimelineTurnBoundary[] = []
+  const seenTurns = new Set<number>()
 
   for (const turn of turns) {
     const cells = turn.groups.flatMap(group =>
       group.cells.filter(cell => cell.requestOnly !== true),
     )
     if (cells.length === 0) continue
-    if (turn.turn !== null) {
+    if (turn.turn !== null && !seenTurns.has(turn.turn)) {
+      seenTurns.add(turn.turn)
       turnBoundaries.push({
         turn: turn.turn,
         time: spans.length,
@@ -161,6 +163,7 @@ function deriveTimedTimeline(
 
   const spans: TrajectoryTimelineSpan[] = []
   const turnBoundaries: TrajectoryTimelineTurnBoundary[] = []
+  const seenTurns = new Set<number>()
   for (const turn of timedTurns) {
     const projected = turn.rawSpans.map((span): TrajectoryTimelineSpan => {
       const offset = removedIdleBySpan.get(span) ?? 0
@@ -171,7 +174,8 @@ function deriveTimedTimeline(
       }
     })
     spans.push(...projected)
-    if (turn.turn !== null) {
+    if (turn.turn !== null && !seenTurns.has(turn.turn)) {
+      seenTurns.add(turn.turn)
       turnBoundaries.push({
         turn: turn.turn,
         time: Math.min(...projected.map(span => span.start)),

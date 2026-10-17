@@ -44,6 +44,7 @@ export function projectSessionEvent(
   if (
     event.event_type.startsWith("agent/") ||
     event.event_type === "session.created" ||
+    event.event_type === "map/changed" ||
     RUN_CONTROL_EVENTS.has(event.event_type)
   ) {
     return null;
@@ -95,7 +96,6 @@ export function projectSessionEvent(
     [
       "analysis/job",
       "analysis/output",
-      "map/changed",
       "todo/write",
       "plan/changed",
       "plan/selected",

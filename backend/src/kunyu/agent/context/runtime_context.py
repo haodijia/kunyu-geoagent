@@ -70,11 +70,7 @@ def runtime_payload(
     return snapshot_payload(
         source,
         "runtime-context",
-        prompt_text(
-            "context.yaml",
-            "runtime_snapshot",
-            sections="\n\n".join(section["text"] for section in sections),
-        ),
+        "\n\n".join(section["text"] for section in sections),
         sections=sections,
     )
 

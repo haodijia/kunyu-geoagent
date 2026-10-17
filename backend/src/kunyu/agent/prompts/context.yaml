@@ -5,10 +5,6 @@
   {{entries}}
   </available_skills>
   </system-reminder>
-"runtime_snapshot": |-
-  当前运行上下文。此快照替换此前的运行上下文快照。
-
-  {{sections}}
 "permission_read_only": |-
   当前文件工具权限：read-only。当前会话只能读取，不能通过工具写入或修改文件。
 "permission_workspace_write": |-
