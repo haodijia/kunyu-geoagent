@@ -5,10 +5,10 @@ from uuid import uuid4
 
 from pydantic import Field
 
-from kunyu.agent.prompt_files import tool_description
-from kunyu.agent.runtime.input_content import ImageInputBlock
-from kunyu.agent.runtime.models import ModelAdapterError
-from kunyu.agent.runtime.tools import (
+from kunyu.agent.prompts.loader import tool_description
+from kunyu.agent.runtime.contracts.input_content import ImageInputBlock
+from kunyu.agent.runtime.contracts.models import ModelAdapterError
+from kunyu.agent.runtime.contracts.tools import (
     ToolCall,
     ToolExecutionError,
     ToolResult,
@@ -23,15 +23,20 @@ from kunyu.agent.tools.shared import (
     validate_arguments,
     validate_model,
 )
-from kunyu.application.analysis import AnalysisService
-from kunyu.application.attachment_preparation import PreparedAttachment, normalize_image
-from kunyu.domain.agent_context import RunContextRepository
-from kunyu.domain.analysis import AnalysisError
-from kunyu.domain.attachments import AttachmentError, ToolImageProducer, attachment_path
-from kunyu.integrations.filesystem_io import check_cancelled
-from kunyu.integrations.filesystem_operation import filesystem_operation
+from kunyu.application.analysis.analysis import AnalysisService
+from kunyu.application.conversation.attachment_preparation import normalize_image
+from kunyu.domain.conversation.agent_context import RunContextRepository
+from kunyu.domain.conversation.attachments import (
+    AttachmentError,
+    PreparedAttachment,
+    ToolImageProducer,
+    attachment_path,
+)
+from kunyu.domain.geospatial.analysis import AnalysisError
+from kunyu.integrations.filesystem.io import check_cancelled
+from kunyu.integrations.filesystem.operation import filesystem_operation
 from kunyu.integrations.model.request_images import prepare_image
-from kunyu.persistence.attachments import SQLAlchemyAttachmentStore
+from kunyu.persistence.conversation.attachments import SQLAlchemyAttachmentStore
 
 
 class OutputArguments(ToolArguments):
@@ -74,7 +79,9 @@ class ResultTool:
         source = load_source(self._contexts, self._run_id)
         try:
             output = self._service.repository.output(source.session.id, args.output_id)
-            _cog, preview = self._service.repository.files(output.workspace_id, output.id)
+            _cog, preview = self._service.repository.files(
+                output.workspace_id, output.id
+            )
         except AnalysisError as error:
             raise ToolExecutionError(str(error), code=error.code) from None
         if self.spec.name == "oge_download_result":

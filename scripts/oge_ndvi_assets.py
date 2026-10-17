@@ -9,7 +9,7 @@ from pathlib import Path
 
 import httpx
 from kunyu.integrations.oge.recording import OgeHttpRecorder, write_json
-from kunyu.persistence.oge import OgeAccountStore
+from kunyu.persistence.geospatial.oge import OgeAccountStore
 
 
 def main() -> None:

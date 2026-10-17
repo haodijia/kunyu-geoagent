@@ -9,7 +9,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from kunyu.integrations.subprocess import LocalSubprocess
+from kunyu.integrations.process.subprocess import LocalSubprocess
 
 
 @unittest.skipUnless(os.name == "nt", "Windows native job and process checks")
@@ -62,7 +62,7 @@ class SearchProcessTests(unittest.IsolatedAsyncioTestCase):
                 self.fail(f"Probe exited before becoming ready: {await task}")
             self.assertLess(asyncio.get_running_loop().time(), deadline)
             await asyncio.sleep(0.01)
-        from kunyu.integrations.process_windows import kernel32
+        from kunyu.integrations.process.windows import kernel32
 
         handles = [
             kernel32.OpenProcess(0x00100000, False, pid)

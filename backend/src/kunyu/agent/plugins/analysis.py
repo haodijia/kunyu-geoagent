@@ -2,20 +2,20 @@
 
 from functools import partial
 
-from kunyu.agent import services as s
-from kunyu.agent.scope import Context
+from kunyu.agent.core import services as s
+from kunyu.agent.core.scope import Context
 from kunyu.agent.tools.maps.tools import MapTool
 from kunyu.agent.tools.oge.execute_code import ExecuteCodeTool
 from kunyu.agent.tools.oge.operators import OperatorTool
 from kunyu.agent.tools.oge.results import ResultTool
 from kunyu.agent.tools.registry import ToolRegistration
-from kunyu.application.analysis import AnalysisService
-from kunyu.application.analysis_supervisor import AnalysisSupervisor
-from kunyu.integrations.analysis_raster import AnalysisRaster
+from kunyu.application.analysis.analysis import AnalysisService
+from kunyu.application.analysis.analysis_supervisor import AnalysisSupervisor
+from kunyu.integrations.geospatial.analysis_raster import AnalysisRaster
 from kunyu.integrations.oge.execution import ExecutionGateway
-from kunyu.persistence.analysis import AnalysisRepository
-from kunyu.persistence.maps import MapRepository
-from kunyu.persistence.oge import OgeAccountStore
+from kunyu.persistence.geospatial.analysis import AnalysisRepository
+from kunyu.persistence.geospatial.maps import MapRepository
+from kunyu.persistence.geospatial.oge import OgeAccountStore
 
 
 class AnalysisPlugin:
@@ -37,9 +37,7 @@ class AnalysisPlugin:
         repository = AnalysisRepository(database)
         service = AnalysisService(
             repository,
-            ExecutionGateway(
-                context.require(s.HTTP_CLIENT), OgeAccountStore(database)
-            ),
+            ExecutionGateway(context.require(s.HTTP_CLIENT), OgeAccountStore(database)),
             AnalysisRaster(database.path.parent),
         )
         maps = MapRepository(database, repository)

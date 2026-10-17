@@ -23,7 +23,7 @@ from kunyu.integrations.mcp.oauth_storage import (
     contains_exception,
 )
 from kunyu.integrations.mcp.transport import connect_transport
-from kunyu.persistence.mcp_oauth import McpOAuthRepository
+from kunyu.persistence.mcp.oauth import McpOAuthRepository
 
 logger = logging.getLogger(__name__)
 
@@ -257,6 +257,8 @@ class McpOAuthManager:
     async def close(self) -> None:
         self.closing = True
         try:
-            await asyncio.gather(*(attempt.cancel() for attempt in self.attempts.values()))
+            await asyncio.gather(
+                *(attempt.cancel() for attempt in self.attempts.values())
+            )
         finally:
             logging.getLogger("mcp.client.auth.oauth2").removeFilter(self.log_filter)

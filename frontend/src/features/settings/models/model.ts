@@ -1,6 +1,6 @@
 import { ApiError } from "@/api/client";
+import type { ModelConnection } from "@/features/settings/models/api";
 import { zhCN } from "@/locales/zh-CN";
-import type { ModelConnection } from "./api";
 
 export type ConnectionTone = "ready" | "attention" | "muted" | "busy";
 

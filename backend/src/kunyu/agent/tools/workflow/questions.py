@@ -4,14 +4,14 @@ from collections.abc import Mapping
 
 from pydantic import Field
 
-from kunyu.agent.prompt_files import tool_description
-from kunyu.agent.runtime.questions import (
+from kunyu.agent.prompts.loader import tool_description
+from kunyu.agent.runtime.contracts.questions import (
     Question,
     QuestionAnswers,
     QuestionInput,
     QuestionSet,
 )
-from kunyu.agent.runtime.tools import (
+from kunyu.agent.runtime.contracts.tools import (
     ToolCall,
     ToolExecutionError,
     ToolResult,

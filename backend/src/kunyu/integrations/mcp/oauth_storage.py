@@ -6,7 +6,7 @@ from datetime import UTC, datetime, timedelta
 
 from mcp.shared.auth import OAuthClientInformationFull, OAuthClientMetadata, OAuthToken
 
-from kunyu.persistence.mcp_oauth import McpOAuthRepository
+from kunyu.persistence.mcp.oauth import McpOAuthRepository
 
 
 class OAuthLoginRequired(RuntimeError):

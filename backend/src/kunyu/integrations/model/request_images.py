@@ -6,10 +6,14 @@ from dataclasses import dataclass
 
 from PIL import Image, UnidentifiedImageError
 
-from kunyu.agent.runtime.input_content import ImageInputBlock
-from kunyu.agent.runtime.models import ModelAdapterError, ModelErrorCode, ModelMessage
-from kunyu.domain.attachments import ImageAttachment
-from kunyu.domain.model_images import ModelImageInput
+from kunyu.agent.runtime.contracts.input_content import ImageInputBlock
+from kunyu.agent.runtime.contracts.models import (
+    ModelAdapterError,
+    ModelErrorCode,
+    ModelMessage,
+)
+from kunyu.domain.conversation.attachments import ImageAttachment
+from kunyu.domain.models.model_images import ModelImageInput
 from kunyu.integrations.model.connection import invalid_request
 from kunyu.integrations.model.image_geometry import (
     grid_dimensions,

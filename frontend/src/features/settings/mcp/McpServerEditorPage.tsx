@@ -1,18 +1,22 @@
-import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useState, type FormEvent } from "react";
-import { useNavigate, useParams } from "react-router-dom";
-import { ArrowLeft, LoaderCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Input } from "@/components/ui/input";
 import {
   SettingsPageHeader,
   SettingsPageWrapper,
 } from "@/features/settings/SettingsPage";
+import { McpOAuthSettings } from "@/features/settings/mcp/McpOAuthSettings";
+import {
+  mcpApi,
+  type McpConfig,
+  type McpServer,
+} from "@/features/settings/mcp/api";
+import { mcpError, mcpQueryKey } from "@/features/settings/mcp/model";
 import { zhCN } from "@/locales/zh-CN";
-import { McpOAuthSettings } from "./McpOAuthSettings";
-import { mcpApi, type McpConfig, type McpServer } from "./api";
-import { mcpError, mcpQueryKey } from "./model";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { ArrowLeft, LoaderCircle } from "lucide-react";
+import { useState, type FormEvent } from "react";
+import { useNavigate, useParams } from "react-router-dom";
 
 const content = zhCN.mcp;
 const blank: McpConfig = {

@@ -1,6 +1,9 @@
-import type { TrajectoryEventProjection } from "@/features/events/projection";
-import { parseToolContent, toolContentImages } from "@/features/agent/tool-content";
-import { parseAttachments, type Attachment } from "./api";
+import {
+  parseToolContent,
+  toolContentImages,
+} from "@/features/agent/tools/tool-content";
+import { parseAttachments, type Attachment } from "@/features/attachments/api";
+import type { TrajectoryEventProjection } from "@/features/events/projection/events";
 
 type ImageAttachment = Extract<Attachment, { readonly kind: "image" }>;
 

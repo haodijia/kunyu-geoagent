@@ -3,13 +3,13 @@
 from functools import partial
 from pathlib import Path
 
-from kunyu.agent import services as s
-from kunyu.agent.scope import Context
+from kunyu.agent.core import services as s
+from kunyu.agent.core.scope import Context
 from kunyu.agent.skills.context import prepare_skill_context
 from kunyu.agent.skills.filesystem import FilesystemSkillProvider
 from kunyu.agent.skills.registry import SkillRegistry
-from kunyu.agent.tools.registry import ToolRegistration
 from kunyu.agent.tools.context.skills import SkillTool
+from kunyu.agent.tools.registry import ToolRegistration
 from kunyu.settings import get_app_data_directory
 
 

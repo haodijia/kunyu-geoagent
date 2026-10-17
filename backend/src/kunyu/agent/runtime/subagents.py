@@ -3,14 +3,14 @@
 from dataclasses import dataclass, replace
 from datetime import datetime
 
-from kunyu.agent.runtime.events import (
-    RunState,
+from kunyu.agent.runtime.events.base import RunState
+from kunyu.agent.runtime.events.session import (
     SubagentCreatedEvent,
     SubagentCreatedPayload,
     SubagentSettledEvent,
     SubagentSettledPayload,
 )
-from kunyu.agent.runtime.run_state import ReducedRun
+from kunyu.agent.runtime.projection.run_state import ReducedRun
 
 MAX_CHILDREN_PER_RUN = 8
 

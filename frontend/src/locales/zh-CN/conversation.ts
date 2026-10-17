@@ -1,0 +1,385 @@
+export const conversation = {
+  conversation: {
+    contextUsage: {
+      label: "上下文用量",
+      latestRequest: "最近一次模型请求",
+      totalUnknown: "总用量未知",
+      windowUnknown: "上下文窗口未知",
+      usedOfWindow: (percent: string, used: string, limit: string) =>
+        `${percent} · ${used} / ${limit} 上下文用量`,
+      tokensUsed: (tokens: string) => `${tokens} tokens`,
+      input: (tokens: string) => `输入 ${tokens}`,
+      output: (tokens: string) => `输出 ${tokens}`,
+      cacheRead: (tokens: string) => `缓存读取 ${tokens}`,
+      cacheWrite: (tokens: string) => `缓存写入 ${tokens}`,
+      compacted: "历史已压缩；此处仍为上次请求用量，下次请求后更新。",
+      compactionRunning: "正在压缩上下文…",
+      compactionFailed: "压缩未替换历史。",
+    },
+    attachments: {
+      zoomIn: "放大",
+      zoomOut: "缩小",
+      resetZoom: "重置缩放",
+      offloaded: "已从模型图片上下文省略，附件仍可预览",
+      offloadSummary: (count: number) =>
+        `为适应模型图片限制，已省略 ${count} 张图片上下文。`,
+      scrollLeft: "向左滚动附件",
+      scrollRight: "向右滚动附件",
+      add: "添加附件",
+      list: "附件",
+      uploading: "正在上传附件…",
+      drop: "松开以添加附件",
+      preview: (name: string) => `预览 ${name}`,
+      remove: (name: string) => `移除 ${name}`,
+      download: (name: string) => `下载 ${name}`,
+      downloadLabel: "下载",
+      close: "关闭预览",
+      retry: "重试上传",
+      dismiss: "取消此次上传",
+      tooMany: "每条消息最多添加 8 个附件。",
+      tooLarge: "单个附件最多 16 MB，每条消息合计最多 32 MB。",
+      uploadFailed: "附件上传失败，请重试或取消此次上传。",
+      readFailed: "无法读取所选文件，请重新选择。",
+      previewFailed: "预览失败",
+      downloadFailed: "附件下载失败。",
+      errors: {
+        INVALID_IMAGE: "图片无法读取，或内容与文件类型不符。",
+        INVALID_ATTACHMENT: "附件内容或名称无效。",
+        IMAGE_TOO_LARGE: "图片尺寸过大，请缩小后上传。",
+        ATTACHMENT_TOO_LARGE: "附件超过大小限制。",
+        SESSION_ARCHIVED: "已归档会话不能添加附件。",
+      },
+    },
+    modelRetry: {
+      waiting: (retry: number, maximum: number | null, seconds: number) =>
+        `连接暂时中断，${seconds} 秒后重试 · ${retry}${maximum === null ? "" : `/${maximum}`}`,
+      connecting: (retry: number, maximum: number | null) =>
+        `正在重新连接 · ${retry}${maximum === null ? "" : `/${maximum}`}`,
+      scheduled: (retry: number, delay: number) =>
+        `请求重试 ${retry} · 等待 ${Math.round(delay)} 毫秒`,
+    },
+    copy: "复制",
+    copied: "已复制",
+    reply: {
+      action: "回复",
+      clear: "取消引用",
+      openLink: "在系统浏览器中打开",
+    },
+    copyFailed: "复制失败，请重试。",
+    scrollToBottom: "回到最新消息",
+    navigation: {
+      label: "对话消息导航",
+      turn: (index: number) => `跳转到第 ${index} 条输入`,
+      search: "搜索当前对话",
+      searchHint: "搜索关键词或输入序号",
+      clear: "清除搜索",
+      count: (count: number) => `${count} 条输入`,
+      question: "问：",
+      answer: "答：",
+      empty: "当前对话还没有消息。",
+      noMatch: "没有匹配的消息。",
+    },
+    thinking: {
+      seconds: (seconds: number) => `${seconds}秒`,
+      minutes: (minutes: number, seconds: number) => `${minutes}分${seconds}秒`,
+      running: (duration: string) => `思考中 · ${duration}`,
+      completed: (duration: string) => `已思考 ${duration}`,
+    },
+    loading: "正在加载对话…",
+    loadFailed: "无法加载对话，请确认本地服务正在运行。",
+    retry: "重新加载",
+    emptyTitle: "开始一段对话",
+    emptyDescription: "描述你想完成的空间任务，消息将保存在当前会话中。",
+    composerLabel: "消息输入框",
+    composerPlaceholder: "描述空间任务，或输入 / 使用命令…",
+    steeringPlaceholder: "补充要求，Agent 将在下一步继续处理…",
+    steer: "发送引导消息",
+    steeringQueued: "等待下一步处理",
+    queue: {
+      title: "发送草稿箱",
+      auto: "自动发送",
+      manual: "手动发送",
+      toggleMode: "切换发送模式",
+      help: "回复期间添加的消息会保存在这里。自动发送：每次回复结束后依次发送。手动发送：保留消息，点击立即发送后执行。",
+      sendNow: "立即发送",
+      reorder: "拖动调整消息顺序",
+      more: "更多草稿箱操作",
+      clearTitle: "清空发送草稿箱？",
+      clearDescription: "所有待发送消息都会被移除，此操作无法撤销。",
+      cancel: "取消",
+      queueChanged: "队列已更新，请按当前顺序重新操作。",
+      interactionFailed: "无法暂停自动发送，排序已取消，请重试。",
+      draftOccupied: "输入框已有草稿，请先处理当前草稿。",
+      dragInstructions:
+        "按空格拾起消息，使用方向键调整顺序，再按空格放置。按 Escape 取消。",
+      dragStarted: "已拾起待发送消息。",
+      dragMoved: (position: number) => `消息移至第 ${position} 位。`,
+      dragFinished: "已放置待发送消息。",
+      dragCancelled: "已取消排序。",
+      add: "添加到队列",
+      remove: "删除待发送消息",
+      clear: "清空",
+      edit: "移回输入框编辑",
+      editPlaceholder: "编辑待发送消息…",
+      sendEdited: "发送后续消息",
+      failed: "修改待发送消息失败，请重试。",
+    },
+    modelSelectorLabel: "本次运行模型",
+    reasoningSelectorLabel: "本次运行推理强度",
+    selectModel: "选择模型",
+    selectModelRequired: "请选择已验证的模型。",
+    noVerifiedModels: "没有可用且已验证的模型，请先前往设置配置。",
+    configureModels: "配置模型",
+    modelsLoadFailed: "无法读取模型连接，请稍后重试。",
+    reasoningNotSpecified: "模型默认",
+    reasoningValue: (value: string) => {
+      switch (value) {
+        case "on":
+          return "开启";
+        case "off":
+          return "关闭";
+        case "none":
+          return "关闭";
+        case "minimal":
+          return "最低";
+        case "low":
+          return "低";
+        case "medium":
+          return "中";
+        case "high":
+          return "高";
+        case "xhigh":
+          return "超高";
+        case "max":
+          return "最高";
+        case "ultra":
+          return "极高";
+        default:
+          return value;
+      }
+    },
+    modelSearch: "搜索模型或连接…",
+    noModelMatches: "没有匹配的模型",
+    noReasoningOptions: "此模型未提供可选推理强度。",
+    resetReasoning: "恢复模型默认推理强度",
+    commands: {
+      title: "会话命令",
+      keyboardHint: "↑↓ 选择 · Enter 执行 · Tab 补全",
+      triggerLabel: "打开命令菜单",
+      empty: "没有匹配的命令",
+      unknown: "未知命令，输入 / 查看可用命令。",
+      noArguments: "此命令不接受参数，请直接执行命令。",
+      modelLocked: "模型正在加载或当前运行未结束，暂不能更改。",
+      modelDescription: "选择模型与模型实际支持的推理强度",
+      skillUnavailable: "请先选择已验证的模型并确认运行状态。",
+      agentBusy: "Agent 尚未空闲，暂不能压缩历史。",
+      loading: "正在读取当前会话的命令目录…",
+      loadFailed: "无法读取命令目录，请重新加载会话后重试。",
+      failed: "命令执行失败，输入内容已保留，请重试。",
+      running: "命令正在执行…",
+    },
+    reasoningSelectionInvalid: "上次使用的推理强度已不可用，请重新选择。",
+    mapViewport: (longitude: string, latitude: string, zoom: string) =>
+      `当前地图 ${longitude}, ${latitude} · z${zoom}`,
+    runsLoadFailed: "无法读取当前运行状态，请刷新后重试。",
+    confirmation: {
+      title: "需要确认操作",
+      operation: "操作",
+      scope: "作用范围",
+      parameters: "精确参数",
+      sideEffect: "副作用",
+      currentWorkspace: "当前工作空间",
+      exactSnapshot:
+        "批准仅对这次工具操作和以上参数生效；工具或目标变化后需重新确认。",
+      approve: "批准并继续",
+      approving: "正在批准…",
+      reject: "拒绝并结束",
+      rejecting: "正在拒绝…",
+      loading: "正在读取确认详情…",
+      loadFailed: "无法读取确认详情",
+      loadFailedHelp: "未显示完整参数前不能批准；可以重新加载或停止本次运行。",
+      retry: "重新加载",
+      cancelAgent: "停止运行",
+      cancelling: "正在停止…",
+    },
+    interruption: {
+      title: "运行已中断",
+      readyTitle: "运行等待恢复",
+      modelDescription:
+        "模型调用在完成前中断。已保存的回复不会丢失；恢复后会开始新的模型尝试。",
+      toolDescription:
+        "工具执行在完成前中断。恢复后仅从服务端确认的安全检查点继续。",
+      readyDescription:
+        "应用重启前已受理此请求但尚未继续执行。恢复后仍使用原模型与地图快照。",
+      snapshot: (modelId: string, attempt: number) =>
+        `模型 ${modelId} · 已执行 ${attempt} 次尝试`,
+      resume: "恢复运行",
+      resuming: "正在恢复…",
+      cancel: "停止运行",
+      cancelling: "正在停止…",
+    },
+    stop: "停止",
+    runActionFailed: "运行操作失败，请刷新后重试。",
+    runActionErrors: {
+      unknown: "运行操作失败，状态已重新同步，请重试。",
+      byCode: {
+        CONFIRMATION_CONFLICT: "此确认已被处理，状态已重新同步。",
+        RUN_CONFLICT: "运行状态已变化，状态已重新同步。",
+        RUN_QUEUE_FULL: "运行队列已满，请稍后恢复。",
+        SHUTTING_DOWN: "本地服务正在关闭，请重新打开应用后继续。",
+        NOT_FOUND: "运行或确认已不存在，请刷新会话。",
+      },
+    },
+    send: "发送消息",
+    sending: "正在发送",
+    retrySend: "使用原请求标识重试发送",
+    sendFailed: "发送失败，请确认本地服务正在运行后重试。",
+    attempt: (attempt: number) => `第 ${attempt} 次尝试`,
+    planMode: {
+      label: "计划",
+      exit: "退出计划模式",
+      pending: "计划模式将在下一个接受的模型步骤生效；点击取消切换",
+    },
+    planBar: {
+      title: "任务计划",
+      expand: "展开任务计划",
+      collapse: "收起任务计划",
+      progress: (completed: number, total: number) =>
+        `${completed} / ${total} 已完成`,
+    },
+    tools: {
+      title: "工具调用",
+      generating: "正在生成参数",
+      input: "输入",
+      parameters: "调用参数",
+      imageMetadata: (
+        width: number,
+        height: number,
+        type: string,
+        bytes: number,
+      ) =>
+        `${width} × ${height} · ${type} · ${bytes.toLocaleString("zh-CN")} 字节`,
+      imageOriginal: (width: number, height: number) =>
+        `原图 ${width} × ${height}`,
+      output: "输出",
+      error: "错误",
+      confirmation: "确认",
+      duration: "耗时",
+      imageMatches: (count: number) => `找到 ${count} 景影像`,
+      showMore: "显示全部",
+      showLess: "收起内容",
+      confirmationStatus: {
+        pending: "等待确认",
+        approved: "已批准",
+        rejected: "已拒绝",
+        cancelled: "已取消",
+      },
+      denied: "没有运行：你没有允许。",
+      callAria: (name: string, status: string) => `${name} · ${status}`,
+      names: {
+        subagent: "委派子任务",
+        wait_subagents: "等待子任务",
+        cancel_subagent: "停止子任务",
+        subagent_result: "读取子任务报告",
+        memory_read: "搜索工作区记忆",
+        memory_write: "保存工作区记忆",
+        exit_plan_mode: "提交计划",
+        ask_user_question: "询问用户",
+        skill: "加载技能",
+        skill_resource: "读取技能资源",
+        todo_write: "更新任务列表",
+        read: "读取文件",
+        glob: "查找文件",
+        grep: "搜索文件内容",
+        write: "写入文件",
+        edit: "编辑文件",
+        read_image: "读取图片",
+        oge_search_operators: "检索算子",
+        oge_get_operator_definition: "读取算子定义",
+        oge_execute_code: "执行 OGE 代码",
+        oge_download_preview: "读取结果预览",
+        oge_download_result: "下载分析结果",
+        map_get_context: "读取地图状态",
+        map_present: "在地图展示",
+        map_set_layer_style: "调整地图图层",
+        job_output: "读取后台结果",
+        job_list: "查看后台任务",
+        job_kill: "停止后台任务",
+        oge_find_regions: "查询行政区",
+        oge_search_images: "检索卫星影像",
+        oge_get_image_detail: "读取影像详情",
+        oge_get_image_preview: "查看影像预览",
+        oge_list_my_data: "查询我的数据",
+        oge_get_my_data_detail: "读取我的数据详情",
+      },
+      status: {
+        pending: "等待执行",
+        running: "正在执行",
+        completed: "执行完成",
+        failed: "执行失败",
+        cancelled: "已取消",
+        denied: "未允许",
+        interrupted: "执行中断，等待继续",
+        unknown: "状态待同步",
+        waiting: "等待确认",
+        waiting_input: "等待你的回答",
+      },
+      read: {
+        lines: (path: string) => `文件内容：${path}`,
+        end: (total: number) => `已到文件末尾，共 ${total} 行`,
+        window: (start: number, end: number, total: number, next: number) =>
+          `显示第 ${start}–${end} 行，共 ${total} 行；使用 offset=${next} 继续读取`,
+        capped: (start: number, end: number, next: number) =>
+          `输出达到上限，显示第 ${start}–${end} 行；使用 offset=${next} 继续读取`,
+      },
+      files: {
+        created: "已创建",
+        updated: "已更新",
+        preview: "预览",
+        unchanged: "文件内容未变化",
+        additions: (count: number) => `新增 ${count} 行`,
+        deletions: (count: number) => `删除 ${count} 行`,
+        changes: (path: string) => `文件变更：${path}`,
+        hunk: (number: number) => `变更 ${number}`,
+      },
+      search: {
+        results: "文件搜索结果",
+        count: (shape: "paths" | "matches", kept: number, total: number) =>
+          `${kept === total ? total : `${kept} / ${total}`} ${shape === "paths" ? "个文件" : "处匹配"}`,
+        empty: (shape: "paths" | "matches") =>
+          shape === "paths" ? "未找到文件" : "未找到匹配内容",
+        capped: "这里只显示部分结果；可缩小搜索范围或读取完整结果文件。",
+        artifact: (path: string) => `完整结果文件：${path}`,
+      },
+    },
+    imageModelRequired:
+      "所选模型未开启图片输入。请选择支持图片的模型或前往设置开启。",
+    errors: {
+      network: "无法连接本地服务，草稿已保留。",
+      retryFrozen: "发送结果尚未确认，草稿和本次模型选择已冻结；请重试原请求。",
+      requestFailed: (status: number) => `发送失败（${status}），草稿已保留。`,
+      byCode: {
+        INVALID_INPUT: "消息或地图上下文无效，请检查后重新发送。",
+        MODEL_UNVERIFIED: "所选模型尚未通过当前配置的完整验证，请重新选择。",
+        MODEL_IMAGE_LIMIT:
+          "图片超过模型或整次请求的限制，请调整图片配置或压缩对话历史。",
+        UNSUPPORTED_CAPABILITY:
+          "所选模型不支持本次图片、推理参数或 Agent 工具能力。",
+        SESSION_ARCHIVED: "此会话已归档，恢复后才能发送消息。",
+        WORKSPACE_REMOVED: "此工作空间已移除，不能继续发送消息。",
+        RUN_CONFLICT: "当前会话已有未完成运行，请先处理该运行。",
+        IDEMPOTENCY_CONFLICT: "本次重试正文与原请求不一致，请重新编辑后发送。",
+        RUN_QUEUE_FULL: "运行队列已满，请稍后重新发送。",
+        CREDENTIAL_STORE_UNAVAILABLE: "模型凭据当前不可用，请检查连接设置。",
+        CREDENTIAL_RECOVERY_REQUIRED: "模型凭据需要重新配置后才能发送。",
+        SHUTTING_DOWN: "本地服务正在关闭，请重新打开应用后发送。",
+      },
+    },
+    status: {
+      streaming: "正在生成",
+      interrupted: "已中断",
+      failed: "生成失败",
+      cancelled: "已取消",
+    },
+  },
+} as const;

@@ -1,7 +1,14 @@
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import { SkillPreview } from "@/features/skills/SkillPreview";
+import {
+  skillTextParts,
+  type LoadedSkill,
+} from "@/features/skills/session-skills";
 import { Fragment } from "react";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { SkillPreview } from "./SkillPreview";
-import { skillTextParts, type LoadedSkill } from "./session-skills";
 
 export function UserSkillText({ text, skills }: {
   readonly text: string;

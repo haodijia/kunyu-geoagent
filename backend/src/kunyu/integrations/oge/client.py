@@ -13,8 +13,8 @@ from pydantic import (
     ValidationError,
 )
 
-from kunyu.domain.attachments import MAX_ATTACHMENT_BYTES
-from kunyu.domain.oge import OgeError, OgeLogin, OgeTokens
+from kunyu.domain.conversation.attachments import MAX_ATTACHMENT_BYTES
+from kunyu.domain.geospatial.oge import OgeError, OgeLogin, OgeTokens
 
 logger = logging.getLogger(__name__)
 T = TypeVar("T")

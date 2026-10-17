@@ -6,9 +6,9 @@ from functools import partial
 from pydantic import Field
 
 from kunyu.agent.mcp.results import project_result
-from kunyu.agent.prompt_files import tool_description
-from kunyu.agent.runtime.content import TextBlock
-from kunyu.agent.runtime.tools import (
+from kunyu.agent.prompts.loader import tool_description
+from kunyu.agent.runtime.contracts.content import TextBlock
+from kunyu.agent.runtime.contracts.tools import (
     ToolCall,
     ToolExecutionError,
     ToolResult,

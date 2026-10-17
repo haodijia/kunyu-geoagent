@@ -1,6 +1,6 @@
-import { useEffect, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Check, LoaderCircle } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { toast } from "sonner";
 
@@ -9,24 +9,35 @@ import {
   AlertDialogCancel,
   AlertDialogContent,
   AlertDialogDescription,
-  AlertDialogTitle
+  AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { SettingsPageHeader, SettingsPageWrapper } from "@/features/settings/SettingsPage";
-import { zhCN } from "@/locales/zh-CN";
-import { modelConnectionsApi, type ModelConnection, type ModelProtocol } from "./api";
+import {
+  modelConnectionsApi,
+  type ModelConnection,
+  type ModelProtocol,
+} from "@/features/settings/models/api";
+import {
+  connectionErrorMessage,
+  connectionStatus,
+  providerErrorLabel,
+} from "@/features/settings/models/model";
 import {
   EnabledModelSelector,
   ModelDetailSection,
-  ModelExpandableRow
-} from "./ModelConnectionDetailControls";
-import { connectionErrorMessage, connectionStatus, providerErrorLabel } from "./model";
-import { providerName } from "./provider-copy";
-import { ProviderLogo } from "./ProviderLogo";
-import { ModelSettings } from "./ModelSettings";
-import { ModelRetryPolicySettings } from "./ModelRetryPolicySettings";
-import { protocolsForProvider } from "./providers";
+  ModelExpandableRow,
+} from "@/features/settings/models/ModelConnectionDetailControls";
+import { ModelRetryPolicySettings } from "@/features/settings/models/ModelRetryPolicySettings";
+import { ModelSettings } from "@/features/settings/models/ModelSettings";
+import { providerName } from "@/features/settings/models/provider-copy";
+import { ProviderLogo } from "@/features/settings/models/ProviderLogo";
+import { protocolsForProvider } from "@/features/settings/models/providers";
+import {
+  SettingsPageHeader,
+  SettingsPageWrapper,
+} from "@/features/settings/SettingsPage";
+import { zhCN } from "@/locales/zh-CN";
 
 const content = zhCN.modelConnections;
 

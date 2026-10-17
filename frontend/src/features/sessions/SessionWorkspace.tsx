@@ -3,23 +3,20 @@ import { useEffect, useLayoutEffect } from "react";
 import { Navigate, Outlet, useLocation, useParams } from "react-router-dom";
 
 import { ApiError } from "@/api/client";
+import { clearLastSessionRoute, writeLastSessionRoute } from "@/app/storage";
 import { useAppUiStore, type AnalysisMode } from "@/app/store";
-import {
-  clearLastSessionRoute,
-  writeLastSessionRoute
-} from "@/app/storage";
 import { SessionEventProvider } from "@/features/events/SessionEventContext";
-import { SessionMessagesProvider } from "@/features/messages/SessionMessagesContext";
+import { SessionMessagesProvider } from "@/features/messages/state/SessionMessagesContext";
 import { getSession, sessionQueryKeys } from "@/features/sessions/api";
 import { parseSessionRoute } from "@/features/sessions/routes";
 import { SessionTitlebar } from "@/features/sessions/SessionTitlebar";
 import { SessionWorkspaceProvider } from "@/features/sessions/SessionWorkspaceContext";
 import { zhCN } from "@/locales/zh-CN";
 
-import { PlanDocumentProvider } from "@/features/plans/PlanDocument";
-import { MessageNavigationProvider } from "@/features/messages/navigation/MessageNavigationContext";
 import { AnalysisEventsBridge } from "@/features/analysis/AnalysisEventsBridge";
-import { MapPresentationBridge } from "@/features/maps/MapPresentationBridge";
+import { MapPresentationBridge } from "@/features/maps/layers/MapPresentationBridge";
+import { MessageNavigationProvider } from "@/features/messages/navigation/MessageNavigationContext";
+import { PlanDocumentProvider } from "@/features/plans/PlanDocument";
 import { SubagentProvider } from "@/features/subagents/SubagentContext";
 
 const content = zhCN.sessionWorkspace;

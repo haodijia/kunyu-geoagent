@@ -2,8 +2,8 @@
 
 from collections.abc import Mapping
 
-from kunyu.agent.prompt_files import tool_description
-from kunyu.agent.runtime.tools import (
+from kunyu.agent.prompts.loader import tool_description
+from kunyu.agent.runtime.contracts.tools import (
     ToolCall,
     ToolExecutionError,
     ToolRiskLevel,
@@ -16,9 +16,12 @@ from kunyu.agent.tools.shared import (
     validate_arguments,
     validate_model,
 )
-from kunyu.application.oge import OgeService
-from kunyu.domain.agent_context import RunContextRepository, RunContextSource
-from kunyu.domain.oge import OgeError
+from kunyu.application.analysis.oge import OgeService
+from kunyu.domain.conversation.agent_context import (
+    RunContextRepository,
+    RunContextSource,
+)
+from kunyu.domain.geospatial.oge import OgeError
 
 
 class OgeTool[T: ToolArguments]:

@@ -3,14 +3,14 @@
 import json
 from functools import partial
 
-from kunyu.agent import services as s
-from kunyu.agent.jobs import Job, JobRegistry
-from kunyu.agent.prompt_files import read_prompt
-from kunyu.agent.runtime.context import PromptSection
-from kunyu.agent.scope import Context
+from kunyu.agent.core import services as s
+from kunyu.agent.core.scope import Context
+from kunyu.agent.orchestration.jobs import Job, JobRegistry
+from kunyu.agent.prompts.loader import read_prompt
+from kunyu.agent.runtime.contracts.context import PromptSection
 from kunyu.agent.tools.registry import ToolRegistration
 from kunyu.agent.tools.workflow.jobs import JobTool
-from kunyu.domain.run_acceptance import ModelSelection, RunAcceptanceRequest
+from kunyu.domain.execution.run_acceptance import ModelSelection, RunAcceptanceRequest
 
 
 class JobsPlugin:

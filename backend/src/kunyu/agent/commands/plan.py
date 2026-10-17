@@ -2,9 +2,9 @@
 
 from dataclasses import replace
 
-from kunyu.agent import services as s
 from kunyu.agent.commands.registry import CommandInvocation, CommandResult
-from kunyu.application.plan_mode import select_plan_mode
+from kunyu.agent.core import services as s
+from kunyu.application.execution.plan_mode import select_plan_mode
 
 
 async def plan_command(invocation: CommandInvocation) -> CommandResult:

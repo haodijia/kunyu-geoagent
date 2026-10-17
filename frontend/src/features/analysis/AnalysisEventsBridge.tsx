@@ -1,4 +1,4 @@
-import { useAnalysisInvalidation } from "./useAnalysis";
+import { useAnalysisInvalidation } from "@/features/analysis/useAnalysis";
 export function AnalysisEventsBridge({
   sessionId,
   workspaceId,

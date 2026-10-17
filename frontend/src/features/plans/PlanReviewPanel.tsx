@@ -1,14 +1,14 @@
-import { ChevronRight, Circle, LoaderCircle, Pencil } from "lucide-react";
-import { useEffect, useMemo } from "react";
 import { Button } from "@/components/ui/button";
-import { usePlanDocument } from "./PlanDocument";
+import { planSummary } from "@/features/plans/plan";
+import { usePlanDocument } from "@/features/plans/PlanDocument";
 import type {
   HumanQuestion,
   QuestionAnswer,
   QuestionItem,
 } from "@/features/questions/api";
 import { zhCN } from "@/locales/zh-CN";
-import { planSummary } from "./plan";
+import { ChevronRight, Circle, LoaderCircle, Pencil } from "lucide-react";
+import { useEffect, useMemo } from "react";
 
 const copy = zhCN.planReview;
 export function PlanReviewPanel({

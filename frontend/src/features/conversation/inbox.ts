@@ -1,4 +1,4 @@
-import type { TrajectoryEventProjection } from "@/features/events/projection";
+import type { TrajectoryEventProjection } from "@/features/events/projection/events";
 
 export function pendingInboxMessages(records: readonly TrajectoryEventProjection[], target: "next-step" | "next-turn"): ReadonlySet<string> {
   const pending: string[] = [];

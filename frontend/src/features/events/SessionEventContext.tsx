@@ -8,16 +8,22 @@ import {
 } from "react";
 
 import { ApiError } from "@/api/client";
-import { streamSessionFollow } from "@/features/events/api";
 import type { SessionEvent } from "@/features/events/api";
+import { streamSessionFollow } from "@/features/events/api";
 import {
   projectSessionEvent,
   type TrajectoryEventProjection,
-} from "@/features/events/projection";
+} from "@/features/events/projection/events";
 import { zhCN } from "@/locales/zh-CN";
 
-import { LiveAssistantStream, type ActiveAssistant } from "./live-assistant";
-import { projectPlanEvents, type PlanState } from "./plan";
+import {
+  projectPlanEvents,
+  type PlanState,
+} from "@/features/events/projection/plan";
+import {
+  LiveAssistantStream,
+  type ActiveAssistant,
+} from "@/features/events/stream/live-assistant";
 
 const INITIAL_RECONNECT_DELAY_MS = 500;
 const MAX_RECONNECT_DELAY_MS = 8_000;

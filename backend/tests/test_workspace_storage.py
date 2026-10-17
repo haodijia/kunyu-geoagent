@@ -10,17 +10,17 @@ from unittest.mock import patch
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 from kunyu.api.errors import install_error_handlers
-from kunyu.api.workspace_files import router as files_router
-from kunyu.api.workspaces import router as workspaces_router
-from kunyu.domain.filesystem import (
+from kunyu.api.workspaces.files import router as files_router
+from kunyu.api.workspaces.routes import router as workspaces_router
+from kunyu.domain.workspaces.filesystem import (
     FilesystemError,
     FilesystemScope,
     FsEditRequest,
     FsWriteIntent,
 )
-from kunyu.integrations.filesystem import MountedFilesystem
-from kunyu.integrations.filesystem_io import open_parent
-from kunyu.integrations.workspace_files import ManagedWorkspaceFiles
+from kunyu.integrations.filesystem.io import open_parent
+from kunyu.integrations.filesystem.local import MountedFilesystem
+from kunyu.integrations.filesystem.workspaces import ManagedWorkspaceFiles
 from kunyu.persistence.database import Database
 
 
@@ -140,7 +140,7 @@ class WorkspaceStorageTests(unittest.TestCase):
             "prepare",
             side_effect=FilesystemError("FS_IO_ERROR", "test failure"),
         ):
-            with self.assertLogs("kunyu.api.workspaces", level="ERROR"):
+            with self.assertLogs("kunyu.api.workspaces.routes", level="ERROR"):
                 response = self.client.post(
                     "/api/v1/workspaces", json={"name": "failed"}
                 )
@@ -236,7 +236,7 @@ class WorkspaceStorageTests(unittest.TestCase):
             return written
 
         with patch(
-            "kunyu.integrations.filesystem_windows.os.write",
+            "kunyu.integrations.filesystem.windows.os.write",
             side_effect=cancel_after_chunk,
         ):
             with self.assertRaises(FilesystemError) as aborted:

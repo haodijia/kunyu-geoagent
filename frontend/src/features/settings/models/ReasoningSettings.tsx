@@ -1,7 +1,11 @@
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
+import type {
+  ModelProtocol,
+  ModelReasoningSettings,
+  ReasoningLevel,
+} from "@/features/settings/models/api";
 import { zhCN } from "@/locales/zh-CN";
-import type { ModelProtocol, ModelReasoningSettings, ReasoningLevel } from "./api";
 
 const content = zhCN.modelConnections.reasoning;
 const levels: readonly ReasoningLevel[] = ["off", "minimal", "low", "medium", "high", "xhigh", "max", "on"];

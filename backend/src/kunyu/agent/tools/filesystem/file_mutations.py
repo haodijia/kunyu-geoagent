@@ -4,11 +4,16 @@ from collections.abc import Mapping
 
 from pydantic import Field, model_validator
 
-from kunyu.agent.filesystem import FilesystemHooks
-from kunyu.agent.prompt_files import tool_description
-from kunyu.agent.runtime.content import TextBlock
-from kunyu.agent.runtime.tools import ToolCall, ToolResult, ToolRiskLevel, ToolSpec
-from kunyu.agent.scope import AgentScopes
+from kunyu.agent.capabilities.filesystem import FilesystemHooks
+from kunyu.agent.core.scope import AgentScopes
+from kunyu.agent.prompts.loader import tool_description
+from kunyu.agent.runtime.contracts.content import TextBlock
+from kunyu.agent.runtime.contracts.tools import (
+    ToolCall,
+    ToolResult,
+    ToolRiskLevel,
+    ToolSpec,
+)
 from kunyu.agent.tools.filesystem.file_diff import compute_hunk_diffs
 from kunyu.agent.tools.filesystem.files_shared import (
     filesystem_scope,
@@ -21,14 +26,14 @@ from kunyu.agent.tools.shared import (
     validate_arguments,
     validate_model,
 )
-from kunyu.domain.agent_context import RunContextRepository
-from kunyu.domain.filesystem import (
+from kunyu.domain.conversation.agent_context import RunContextRepository
+from kunyu.domain.workspaces.filesystem import (
     Filesystem,
     FilesystemError,
     FsEditRequest,
     FsObservation,
 )
-from kunyu.integrations.filesystem_operation import filesystem_operation
+from kunyu.integrations.filesystem.operation import filesystem_operation
 
 
 class _WriteArguments(ToolArguments):

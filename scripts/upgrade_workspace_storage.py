@@ -7,9 +7,9 @@ import shutil
 import sqlite3
 from pathlib import Path
 
-from kunyu.domain.oge import OgeAccount
-from kunyu.domain.analysis import EXECUTING_STATES
-from kunyu.domain.runs import NONTERMINAL_RUN_STATE_VALUES
+from kunyu.domain.execution.runs import NONTERMINAL_RUN_STATE_VALUES
+from kunyu.domain.geospatial.analysis import EXECUTING_STATES
+from kunyu.domain.geospatial.oge import OgeAccount
 from kunyu.persistence.database import create_database_engine
 from kunyu.persistence.schema import SCHEMA_PATH, _statements, initialize_database
 

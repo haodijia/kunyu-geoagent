@@ -1,6 +1,6 @@
 import { Input } from "@/components/ui/input";
+import type { McpConfig, McpOAuthOptions } from "@/features/settings/mcp/api";
 import { zhCN } from "@/locales/zh-CN";
-import type { McpConfig, McpOAuthOptions } from "./api";
 const content = zhCN.mcp;
 const initial: McpOAuthOptions = {
   client_id: null,

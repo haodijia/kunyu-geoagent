@@ -2,7 +2,7 @@
 
 from html import escape
 
-from kunyu.agent.prompt_files import prompt_text
+from kunyu.agent.prompts.loader import prompt_text
 from kunyu.agent.skills.definitions import (
     DirectoryResourceBase,
     OpaqueResourceBase,

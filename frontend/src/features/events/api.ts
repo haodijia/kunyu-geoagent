@@ -4,7 +4,7 @@ import {
   parseAssistantFrame,
   type AssistantBaseline,
   type AssistantFrame,
-} from "./live-assistant";
+} from "@/features/events/stream/live-assistant";
 import { zhCN } from "@/locales/zh-CN";
 
 export interface SessionEvent {

@@ -1,14 +1,24 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ChevronRight, Download, LoaderCircle, Plus, RefreshCw, Sparkles } from "lucide-react";
+import {
+  ChevronRight,
+  Download,
+  LoaderCircle,
+  Plus,
+  RefreshCw,
+  Sparkles,
+} from "lucide-react";
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import {
+  SettingsPageHeader,
+  SettingsPageWrapper,
+} from "@/features/settings/SettingsPage";
 import { skillQueryKeys, skillsApi } from "@/features/skills/api";
 import { zhCN } from "@/locales/zh-CN";
-import { SettingsPageHeader, SettingsPageWrapper } from "../SettingsPage";
 
 const content = zhCN.skills;
 

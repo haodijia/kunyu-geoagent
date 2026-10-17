@@ -5,7 +5,7 @@ from collections.abc import AsyncIterator
 import httpx
 import httpx2
 
-from kunyu.agent.runtime.models import ModelAdapterError, ModelErrorCode
+from kunyu.agent.runtime.contracts.models import ModelAdapterError, ModelErrorCode
 
 MAX_MODEL_RESPONSE_BYTES = 2 * 1024 * 1024
 

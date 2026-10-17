@@ -4,6 +4,7 @@
   "private": true,
   "packageManager": "npm@12.0.2",
   "scripts": {
+    "check:architecture": "uv run --project backend python scripts/check_architecture.py",
     "dev": "node scripts/dev.mjs"
   }
 }

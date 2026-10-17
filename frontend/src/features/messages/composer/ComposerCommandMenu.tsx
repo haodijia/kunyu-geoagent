@@ -1,7 +1,7 @@
 import { useEffect, useRef } from "react";
 
+import type { ComposerCommandDescriptor } from "@/features/messages/composer/commands";
 import { zhCN } from "@/locales/zh-CN";
-import type { ComposerCommandDescriptor } from "./commands";
 
 interface ComposerCommandMenuProps {
   readonly id: string;

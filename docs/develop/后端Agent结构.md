@@ -8,23 +8,23 @@ Agent 架构必须对齐本地 `deepseek-harness` 源码的服务、插件、作
 
 | deepseek-harness | 坤舆实现 | 对齐内容 |
 | --- | --- | --- |
-| Cordis 服务定义与插件组合、`packages/bundle/base` | `agent/kernel.py`、`services.py`、`bootstrap.py`、`plugins/` | 服务定义与实现分离，依赖顺序安装，重复提供者和缺失依赖报错，失败回滚，提供者卸载释放依赖者 |
-| `core/scope/src/index.ts`、`store.ts` | `agent/scope.py` | 作用域向下继承；同名注册由近层覆盖；注册与 effect 归属提供者；关闭等待清理，汇总清理错误 |
-| `core/agent/src/index.ts`、`core/agent-loop/src/index.ts` | `session_agent.py`、`plugins/loop.py`、`scheduler.py`、`runtime/driver.py` | Agent 注册表与具体驱动分开；每个会话有独立 Context；每次执行有子作用域；卸载先取消、等待执行退出，再释放资源 |
-| `core/agent/src/dispatch.ts`、`runtime-types.ts`、`core/agent-loop/src/agent.ts` | `hooks.py`、`notifications.py`、`runtime/hooks.py`、`runner.py`、`runner_model.py` | 带作用域的控制边界、状态/输入/助手流/错误通知与同一步重试 |
-| `llm/llm/src/retry-policy.ts`、`llm/llm-retry/src/index.ts` | `runtime/retry_policy.py`、`agent/retry.py` | Provider 持有策略，配置为空的插件执行持久退避，按步骤／路由／完整策略续接计数 |
-| `llm/llm/src/assistant-stream.ts`、`core/agent-loop/src/assistant-stream.ts` | `runtime/assistant_stream.py`、`model_attempt.py` | 一次捕获模型分块与时间，紧凑保存文本／思考／工具碎片，结算后发布已提交结束帧 |
-| `llm/llm/src/types.ts`、`assembler.ts` | `runtime/content.py`、`block_assembler.py`、`models.py` | 文本／思考／工具内容块，按首次出现组装，安全中断与按块对齐的不可变 ReplayEnvelope |
-| `api/session-controller/src/history.ts`、`assistant-stream.ts`、`client/sessions/assistant-stream.ts` | `api/session_follow.py`、`notifications.py`、前端 `events/live-assistant.ts` | 统一 opening、连续持久事件、cursorless 原始帧与精确重连前缀；结算替换暂态 |
-| `core/session` | `runtime/events.py`、`session_reducer.py`、`persistence/` | 追加日志为事实源，确定性重放得到查询投影 |
-| `core/system-prompt` | `runtime/context.py`、`plugins/core.py`、`prompts/system.md` | 有序、带作用域的提示词段注册；指令正文由用户维护 |
-| `interaction/user-questions`、`interaction/tool-ask-user` | `runtime/questions.py`、`plugins/questions.py`、`application/questions.py`、`tools/workflow/questions.py` | 日志持有问题与决定，独占工具等待释放执行槽，原子结算后继续当前工具批次 |
-| `plan/plan-mode`、`ui-plan` | `plugins/plan_mode.py`、`agent/plan_mode.py`、`tools/workflow/plan_mode.py`、`application/plans.py`、前端 `features/plans/` | 完整计划工具、人工审阅、静默退出选择和原调用文档 |
-| `core/tools` | `runtime/tools.py`、`runner_tools.py`、`tools/registry.py` | 工具注册与实现分开；模型 Schema 来自实际注册；有界并行/独占调度；风险策略与确认接缝 |
-| `jobs/jobs`、`jobs/jobs-local`、`jobs/tool-jobs` | `agent/jobs.py`、`plugins/jobs.py`、`tools/workflow/jobs.py`，OGE 作为生产者接入 | 会话所属进程内任务、独立输出游标、限时等待、一次性结果、通用控制工具、完成下一步注入/空闲唤醒；子 Agent 仍保留专用监督 |
-| `packages/context` | `agent/context.py`、`persistence/agent_context.py` | 注入正文成为有顺序的持久会话内容，后续步骤及轮次按原位置重放 |
+| Cordis 服务定义与插件组合、`packages/bundle/base` | `agent/core/kernel.py`、`services.py`、`bootstrap.py`、`plugins/` | 服务定义与实现分离，依赖顺序安装，重复提供者和缺失依赖报错，失败回滚，提供者卸载释放依赖者 |
+| `core/scope/src/index.ts`、`store.ts` | `agent/core/scope.py` | 作用域向下继承；同名注册由近层覆盖；注册与 effect 归属提供者；关闭等待清理，汇总清理错误 |
+| `core/agent/src/index.ts`、`core/agent-loop/src/index.ts` | `session_agent.py`、`plugins/loop.py`、`scheduler.py`、`runtime/execution/driver.py` | Agent 注册表与具体驱动分开；每个会话有独立 Context；每次执行有子作用域；卸载先取消、等待执行退出，再释放资源 |
+| `core/agent/src/dispatch.ts`、`runtime-types.ts`、`core/agent-loop/src/agent.ts` | `hooks.py`、`notifications.py`、`runtime/contracts/hooks.py`、`runner.py`、`runner_model.py` | 带作用域的控制边界、状态/输入/助手流/错误通知与同一步重试 |
+| `llm/llm/src/retry-policy.ts`、`llm/llm-retry/src/index.ts` | `runtime/contracts/retry_policy.py`、`agent/orchestration/retry.py` | Provider 持有策略，配置为空的插件执行持久退避，按步骤／路由／完整策略续接计数 |
+| `llm/llm/src/assistant-stream.ts`、`core/agent-loop/src/assistant-stream.ts` | `runtime/streaming/assistant_stream.py`、`model_attempt.py` | 一次捕获模型分块与时间，紧凑保存文本／思考／工具碎片，结算后发布已提交结束帧 |
+| `llm/llm/src/types.ts`、`assembler.ts` | `runtime/contracts/content.py`、`block_assembler.py`、`models.py` | 文本／思考／工具内容块，按首次出现组装，安全中断与按块对齐的不可变 ReplayEnvelope |
+| `api/session-controller/src/history.ts`、`assistant-stream.ts`、`client/sessions/assistant-stream.ts` | `api/conversation/session_follow.py`、`notifications.py`、前端 `events/live-assistant.ts` | 统一 opening、连续持久事件、cursorless 原始帧与精确重连前缀；结算替换暂态 |
+| `core/session` | `runtime/events/store.py`、`session_reducer.py`、`persistence/` | 追加日志为事实源，确定性重放得到查询投影 |
+| `core/system-prompt` | `runtime/contracts/context.py`、`plugins/core.py`、`prompts/system.md` | 有序、带作用域的提示词段注册；指令正文由用户维护 |
+| `interaction/user-questions`、`interaction/tool-ask-user` | `runtime/contracts/questions.py`、`plugins/questions.py`、`application/execution/questions.py`、`tools/workflow/questions.py` | 日志持有问题与决定，独占工具等待释放执行槽，原子结算后继续当前工具批次 |
+| `plan/plan-mode`、`ui-plan` | `plugins/plan_mode.py`、`agent/capabilities/plan_mode.py`、`tools/workflow/plan_mode.py`、`application/execution/plans.py`、前端 `features/plans/` | 完整计划工具、人工审阅、静默退出选择和原调用文档 |
+| `core/tools` | `runtime/contracts/tools.py`、`runner_tools.py`、`tools/registry.py` | 工具注册与实现分开；模型 Schema 来自实际注册；有界并行/独占调度；风险策略与确认接缝 |
+| `jobs/jobs`、`jobs/jobs-local`、`jobs/tool-jobs` | `agent/orchestration/jobs.py`、`plugins/jobs.py`、`tools/workflow/jobs.py`，OGE 作为生产者接入 | 会话所属进程内任务、独立输出游标、限时等待、一次性结果、通用控制工具、完成下一步注入/空闲唤醒；子 Agent 仍保留专用监督 |
+| `packages/context` | `agent/context/history.py`、`persistence/conversation/agent_context.py` | 注入正文成为有顺序的持久会话内容，后续步骤及轮次按原位置重放 |
 | `skill/skill`、`skill/skill-filesystem`、`skill/tool-skill` | `skills/registry.py`、`filesystem.py`、`context.py`、`tools/context/skills.py` | 注册表、来源、调用工具分开；目录仅注入名称和简介；选择后加载正文；区分模型/用户调用权限；持久目录替换与显式用户调用 |
-| `packages/fs/fs`、`fs-local`、`fs-observation-policy`、`tool-fs` | `domain/filesystem.py`、`integrations/filesystem.py`、`filesystem_io.py`、`agent/filesystem.py`、`plugins/filesystem.py`、文件工具 | 文件系统与观察策略分开；路径作用域、版本守卫、原子发布、行窗口与应用结果 diff |
+| `packages/fs/fs`、`fs-local`、`fs-observation-policy`、`tool-fs` | `domain/workspaces/filesystem.py`、`integrations/filesystem/local.py`、`filesystem_io.py`、`agent/capabilities/filesystem.py`、`plugins/filesystem.py`、文件工具 | 文件系统与观察策略分开；路径作用域、版本守卫、原子发布、行窗口与应用结果 diff |
 
 这是 Python 的对应实现，没有引入 Cordis 的 TypeScript 运行时。已实现文本／思考／工具内容块、图片／文件输入、图文工具结果、SDK replay 与一层只读多 Agent 委派；子任务卡片、完整报告、对话、工具、轨迹与父地址取消已接入。surface 替换、PTC、profile 与插件市场不属于当前四项收尾范围，不能宣称参考项目所有能力等价。中断恢复仍采用本项目的显式恢复与持久确认契约。
 
@@ -32,51 +32,28 @@ Agent 架构必须对齐本地 `deepseek-harness` 源码的服务、插件、作
 
 ## 目录与运行链路
 
+当前完整目录与依赖约束见 [代码组织与维护](代码组织与维护.md)。以下开发记录保留运行机制说明；新增文件按当前职责目录放置。
+
 ```text
-backend/src/kunyu/agent/
-├── bootstrap.py          # 产品组合：选择模型、循环与扩展插件
-├── kernel.py             # 插件契约、依赖安装、发布、卸载、回滚
-├── scope.py              # Context、服务继承、作用域注册与资源归属
-├── services.py           # 类型化服务标识
-├── plugins/
-│   ├── infrastructure.py # SQLite 事件/仓储与模型提供者
-│   ├── core.py           # 作用域、提示词、工具、确认与轮次服务
-│   ├── memory.py         # 两个记忆工具的贡献插件
-│   ├── filesystem.py     # 文件系统提供者、观察策略与 read/write/edit 工具贡献
-│   ├── questions.py      # 通用用户问题服务与工具贡献
-│   ├── plan_mode.py      # 计划提示词、步骤选择与退出审阅工具
-│   └── loop.py           # 默认驱动提供者与每次执行的 Runner 插件
-├── session_agent.py      # 对外 Agent API、注册表与会话 Context
-├── inbox.py              # 持久 next-step/next-turn 输入、领取与丢弃
-├── scheduler.py          # 队列、并发、取消、恢复
-├── adapters.py           # 已提交 Run、凭据和确认适配
-├── context.py            # 模型可见历史与上下文组装
-├── hooks.py              # 会话 Agent 融合调用、作用域中间件与通知注册
-├── notifications.py      # 非否决状态、输入及助手流通知
-├── retry.py              # Provider 策略执行、持久退避与取消排空
-├── filesystem.py         # 文件观察通知、写入/编辑意图槽与会话观察策略
-├── commands/             # 作用域命令注册、计划/权限、压缩和执行日志
-├── plan_mode.py          # 计划提示词与接受步骤通知
-├── prompts/              # 用户维护的 System、工具说明、上下文、Skill 包装及压缩提示词
-├── prompt_files.py       # 严格加载提示词文件，缺失与变量不匹配直接报错
-├── runtime_context.py    # 已变化/被压缩的运行快照、可选时间读取
-├── project_instructions.py # 可选托管 AGENTS.md 指令快照与明确清除
-├── runtime/              # 模型/工具契约、循环、类型事件、Reducer
-│   └── assistant_stream.py # 带时间的不可变分块、紧凑记录和记录级读取
-├── tools/
-│   ├── filesystem/       # 文本/图片读取、write/edit、glob/grep 与结果辅助
-│   ├── context/          # 工作区记忆、技能与资源加载
-│   ├── workflow/         # 用户提问、计划审批、todo 与子任务
-│   ├── oge/              # 行政区、影像检索、详情与预览；工具平铺
-│   ├── registry.py       # 作用域工具贡献、写处理器与风险策略
-│   └── shared.py         # 参数、归属与结果校验
-└── skills/
-    ├── registry.py       # 分层 SkillProvider、目录和按需正文读取
-    ├── filesystem.py     # 本地发现、YAML 校验和文本资源读取
-    ├── context.py        # 持久目录替换和 /技能名 注入
-    ├── render.py         # 模型目录、资源指引和正文格式
-    ├── plugin.py         # Skill 服务、文件系统来源和工具消费插件
-    └── bundled/          # 随应用提供的 SKILL.md 与资源
+agent/
+├── bootstrap.py       # 产品插件组合
+├── core/              # Kernel、作用域、服务、Hook、通知
+├── orchestration/     # 会话、调度、队列、重试、作业、子任务
+├── context/           # 历史、运行快照、项目指令、附件
+├── compaction/        # 压缩服务、压力、选择、提示词组装
+├── capabilities/      # 文件观察、模型提供者、计划模式
+├── plugins/           # 能力贡献和资源装配
+├── commands/          # 用户命令
+├── prompts/           # 严格加载器和人工维护的指令文件
+├── runtime/
+│   ├── contracts/     # 模型、工具、内容、Hook 契约
+│   ├── events/        # 分类别事件和统一存储契约
+│   ├── execution/     # 运行、模型、流和工具步骤
+│   ├── streaming/     # 内容块与时间记录
+│   └── projection/   # 会话及运行投影，run/ 内按事件职责拆分
+├── tools/             # 按业务分类的工具
+├── mcp/               # MCP 工具与资源消费
+└── skills/            # 技能发现、注册、上下文和内置资源
 ```
 
 运行链路：API → SessionAgent → Scheduler → 插件提供的 AgentRuntime → 会话子作用域 → Runner 插件 → 模型/工具 → 事件存储。Runner 在执行作用域内解析真实模型、提示词、工具和确认服务，完成或取消后释放子作用域。会话扩展通过 `SessionAgent.ctx` 注册，跨会话隔离；`AgentDirectory.dispose()` 取消该会话未完成工作后释放注册。
@@ -101,13 +78,13 @@ backend/src/kunyu/agent/
 
 `turn_stopping` 在助手结算后按序执行同步或异步处理器，随后重新读取下一步队列；处理器通过实际 Agent 追加引导时继续当前 Run。控制处理器的异常会记录并结束 Run；即使处理器吞掉取消异常，取消信号也会阻止继续调用模型。`errors` 是不影响控制决定的通知，单个同步/异步观察者报错独立记录；异步通知由注册 owner 持有，关闭时取消并等待退出。
 
-主循环、模型执行和模型尝试结算分别放在 `runtime/runner.py`、`runner_model.py` 和 `model_attempt.py`，工具执行继续由 `runner_tools.py` 负责。
+主循环、模型执行和模型尝试结算分别放在 `runtime/execution/runner.py`、`runner_model.py` 和 `model_attempt.py`，工具执行继续由 `runner_tools.py` 负责。
 
 `hooks.status/inbox_inserted/inbox_claimed/inbox_discarded/assistant_stream.register(owner, name, handler)` 提供参考项目的五类非否决通知。所有通知绑定实际 SessionAgent 和其作用域，最近同名贡献覆盖祖先，兄弟会话隔离。同步异常与异步拒绝分别记录，后续观察者继续执行；异步任务由注册 owner 持有，释放时取消并等待结束。输入通知为每个观察者复制内容/地图/轮次快照，助手帧及工具参数为不可变快照，观察者不能改写模型输出或其他观察者的输入。
 
 `SessionAgent.status` 仅表示实际驱动的 `idle/running`，进入可取消执行时切换为 running，驱动及其执行作用域排空后切换为 idle，不对重复状态发通知。确认等待、用户回答等待和显式中断停止本次驱动后为 idle，具体 Run 状态继续由持久事件查询。作用域关闭时，本地已释放观察者不再调用，仍存活的全局观察者可以收到最后的取消结算与 idle。
 
-`persistence/event_publications.py` 在最外层事务提交后发布事件批次；保存点提交只合并等待发布内容，保存点回滚仅丢弃所属内容，外层回滚不发布。重入提交按批次顺序发布。输入通知按真实 splice 的插入、领取或丢弃身份生成，幂等受理不重复通知，历史重放不发送新通知。
+`persistence/execution/event_publications.py` 在最外层事务提交后发布事件批次；保存点提交只合并等待发布内容，保存点回滚仅丢弃所属内容，外层回滚不发布。重入提交按批次顺序发布。输入通知按真实 splice 的插入、领取或丢弃身份生成，幂等受理不重复通知，历史重放不发送新通知。
 
 助手流按 start → chunk → end 发布。每个 SessionAgent 生命周期内 revision 严格递增，chunk index 从零连续编号，end index 为块数量；chunk 携带毫秒时间及真实块开始／结束、带块索引的文本／推理／工具参数碎片、用量或结束结果。end 的 committed 指向已经提交的 `model.attempt.finished` 序号和真实结果，取消也先结算；结算事务失败则发 abandoned。新 Agent 生命周期重新计数，不重放旧帧。`AssistantStreamAccumulator` 在模型输出进入组装和通知前只捕获一次时间与内容，同类连续文本、思考或同身份工具碎片保存为 `time0 + dt + texts/args`，保留空块、每块边界与时钟回退；块开始／结束、用量和结束结果保留为原始记录。不再保留第二份完整分块数组。快照及工具嵌套参数不可变，执行边界还原为 JSON 数据。工具碎片仅用于记录和展示，只有完整、已校验的调用进入工具调度。
 
@@ -194,9 +171,9 @@ GeoSkill 的版本化地理场景逻辑放 `kunyu/scenes/`，场景数据放 `ba
 
 ## 运行中引导
 
-计划命令由 `commands/plan.py` 注册；`PlanModePlugin` 独立贡献 `agent/plan_mode.py` 中的提示词与 pre-step 通知，`application/plan_mode.py` 在同一 SQLite 事务读取当前控制事实与运行边界后追加选择。空闲切换提交 `plan/changed`；有未完成 Run 时提交 `plan/selected`，只改变待生效目标，同批 L1／L2 工具继续使用已生效模式。重复目标不追加选择，反向选择取消待生效切换。
+计划命令由 `commands/plan.py` 注册；`PlanModePlugin` 独立贡献 `agent/capabilities/plan_mode.py` 中的提示词与 pre-step 通知，`application/execution/plan_mode.py` 在同一 SQLite 事务读取当前控制事实与运行边界后追加选择。空闲切换提交 `plan/changed`；有未完成 Run 时提交 `plan/selected`，只改变待生效目标，同批 L1／L2 工具继续使用已生效模式。重复目标不追加选择，反向选择取消待生效切换。
 
-`runtime/control_projection.py` 统一重放计划、权限与摘要控制；只有 `agent/step/decision` 的 enter 决定消费待生效选择，步骤拒绝、同一步重试、工具确认、取消和重启恢复不消费。模式与输入接纳由同一提交事实生效，不存在先放开写入、再提交接纳的窗口。pre-step 在最后请求曾采用不同模式时追加一次真实模式通知；第一步无历史请求时不添加通知。计划状态随 `ReducedSession` 返回，工具策略读取同一投影，控制查询只读取请求头边界标记，不加载完整请求正文。
+`runtime/projection/control_projection.py` 统一重放计划、权限与摘要控制；只有 `agent/step/decision` 的 enter 决定消费待生效选择，步骤拒绝、同一步重试、工具确认、取消和重启恢复不消费。模式与输入接纳由同一提交事实生效，不存在先放开写入、再提交接纳的窗口。pre-step 在最后请求曾采用不同模式时追加一次真实模式通知；第一步无历史请求时不添加通知。计划状态随 `ReducedSession` 返回，工具策略读取同一投影，控制查询只读取请求头边界标记，不加载完整请求正文。
 
 输入区从完整订阅日志增量折叠已生效模式与待生效目标，独立于最近 256 条事件缓存；计划标记按已选择的目标显示，流未连接时不可操作。退出调用原命令接口并保留草稿；失败显示现有命令错误，重试保留命令 ID。模型审阅通过下述独立插件和通用用户问题服务接入。
 
@@ -224,7 +201,7 @@ GeoSkill 的版本化地理场景逻辑放 `kunyu/scenes/`，场景数据放 `ba
 
 草稿箱拖动开始通过 `POST /agent/queue/interactions/{interaction_id}` 暂停当前会话的下一轮输入领取；受理前核对完整顺序，排序提交后才释放暂停。`QueueInteractionConfig` 默认租约 30 秒、每会话最多八个交互，前端每三分之一租期续租。租约到期、交互取消、组件卸载或会话作用域释放均解除暂停并唤醒调度；暂停会话在并发名额筛选前被排除，不阻塞其他会话。交互状态属于作用域资源，不写入模型历史或持久队列日志；已领取的运行继续执行。队列在受理或排序期间变化时明确返回冲突。
 
-`POST /agent/inbox/{message_id}/edit` 在调度锁内原子移出等待输入，返回原内容、完整地图上下文与未来轮次模型快照；前端一次恢复三个状态并聚焦。编辑中的普通消息及显式技能保留后续轮次语义，运行中再次发送不会改为当前轮引导；已有草稿与未决提交禁止覆盖。队列路由集中在 `api/agent_queue.py`，共享作用域依赖集中在 `api/agent_dependencies.py`。
+`POST /agent/inbox/{message_id}/edit` 在调度锁内原子移出等待输入，返回原内容、完整地图上下文与未来轮次模型快照；前端一次恢复三个状态并聚焦。编辑中的普通消息及显式技能保留后续轮次语义，运行中再次发送不会改为当前轮引导；已有草稿与未决提交禁止覆盖。队列路由集中在 `api/execution/agent_queue.py`，共享作用域依赖集中在 `api/execution/agent_dependencies.py`。
 
 附件专用格式读取、跨会话引用、PTC 与多 Agent 委派仍是后续对齐项；原生签名回放和图片／文件附件已接入。
 
@@ -344,9 +321,9 @@ Canonical `content` 与 `paths`／按文件分组的 `matches` 展示元数据�
 
 ## 用户问题与继续运行
 
-`runtime/questions.py` 统一问题、选项、回答和计划审阅意图类型。`ask_user_question` 使用模型参数 `questions`，每题具有 `id/question/header/options/multi_select`；答案返回 `answers`，保留每题 `id/selected/custom`。推荐标记只改变展示，不预选、不改写原选项标签。所有题目必须逐一回答或跳过，跳过以空 `selected` 表示；单选不能同时带选项与自由输入，多选可补充文字。提交规范化顺序、去除自由输入首尾空白，并遵守 16 KiB 结果上限。
+`runtime/contracts/questions.py` 统一问题、选项、回答和计划审阅意图类型。`ask_user_question` 使用模型参数 `questions`，每题具有 `id/question/header/options/multi_select`；答案返回 `answers`，保留每题 `id/selected/custom`。推荐标记只改变展示，不预选、不改写原选项标签。所有题目必须逐一回答或跳过，跳过以空 `selected` 表示；单选不能同时带选项与自由输入，多选可补充文字。提交规范化顺序、去除自由输入首尾空白，并遵守 16 KiB 结果上限。
 
-交互工具声明 `interaction=True`、独占执行和 L0，通过 `ToolRegistration.question_handler` 提供问题及回答结算，不进入普通工具超时执行。`application/questions.py` 原子提交预算预留、工具开始、准备成本结算和 `question.requested`，进入 `waiting_input` 时没有活动预算预留。等待释放 Runner／scheduler 槽，不消耗人类等待时间；重启保留原问题及待执行批次。
+交互工具声明 `interaction=True`、独占执行和 L0，通过 `ToolRegistration.question_handler` 提供问题及回答结算，不进入普通工具超时执行。`application/execution/questions.py` 原子提交预算预留、工具开始、准备成本结算和 `question.requested`，进入 `waiting_input` 时没有活动预算预留。等待释放 Runner／scheduler 槽，不消耗人类等待时间；重启保留原问题及待执行批次。
 
 回答或关闭经 scheduler 锁和 SQLite 写事务检查原调用、当前问题及决定，原子提交 `question.resolved`、工具结果和 `run.queued`。相同决定重复提交不重新排队，不同决定冲突；非法或迟到答案不改写日志。关闭产生 `ASK_CANCELLED` 工具结果，供模型停止等待用户发言；停止整个运行同时记录问题取消。后续工具先完成原批次，再开始下一模型步骤。数据库迁移 `0013` 更新运行状态约束和单会话未完成运行索引，问题内容和状态仅从会话日志投影，无额外问题表。
 
@@ -452,7 +429,7 @@ Responses 的新 Run 默认输出上限为 16384，独立使用 `max_output_toke
 
 ## 自动压力压缩与溢出恢复
 
-`CompactionPlugin` 在普通供应商重试之前注册 pre_step 与 request_error。命令空闲准入和压缩执行分开，手动与自动共用 `agent/compaction.py`；摘要只使用实际 routed header 的模型／思考参数、保护头与 schema。自动调用由当前 Agent 任务拥有，记录 owner_run_id；当前辅助请求不占普通模型／工具预算，用量单独记录。
+`CompactionPlugin` 在普通供应商重试之前注册 pre_step 与 request_error。命令空闲准入和压缩执行分开，手动与自动共用 `agent/compaction/service.py`；摘要只使用实际 routed header 的模型／思考参数、保护头与 schema。自动调用由当前 Agent 任务拥有，记录 owner_run_id；当前辅助请求不占普通模型／工具预算，用量单独记录。
 
 `PressurePolicy` 默认使用 harness 的 0.8 比例与 65536 headroom，阈值是 `floor(min(context_window × ratio, context_window − max_output_tokens − headroom))`，并须大于 retention_tokens。测量保护系统／业务头、完整历史和 schema；只在完整工具批次之间触发。窗口未知或配置无有效预算时明确告警，当前插件配置支持显式参数，模型设置页没有新增插件参数编辑器。成功摘要后重新测量，默认最多两次摘要；仍高于阈值告警。固定密度和附件结构估算仍不是供应商 token，用于路由的实际文件文字、图片和隐藏推理定价待接入。
 
@@ -490,7 +467,7 @@ confirmation.requested持久保存执行模式、绑定和可审阅说明。批�
 
 参考 harness 的统一 LLM 接口、llm-deepseek 和 llm-pi-ai 责任边界。Python 使用 Pydantic AI 2.54.0 的 Model／Provider 层；底层 OpenAI 3.26、Anthropic 1.12 SDK 的请求构造与 SSE 解码由该模型 SDK 调用。没有使用 SDK 的 Agent 循环，原有 Runner、工具审批、Skill、压缩和持久轨迹仍属于坤舆内核。
 
-`agent/model_providers.py` 定义 LLMService 与作用域 Provider 注册表；统一提供 stream、check_stream 和 models。`ModelProvidersPlugin` 提供注册表，`DeepSeekModelProviderPlugin` 注册固定 Messages 的 deepseek-official，`SDKModelProviderPlugin` 注册多供应商 sdk 路由，`ModelPlugin` 提供公共 LLM 服务。最近作用域优先，同层按显式 rank 选择；没有可服务的已安装 Provider 时明确失败。SDK 通用插件不代替已卸载的官方 DeepSeek 插件。
+`agent/capabilities/model_providers.py` 定义 LLMService 与作用域 Provider 注册表；统一提供 stream、check_stream 和 models。`ModelProvidersPlugin` 提供注册表，`DeepSeekModelProviderPlugin` 注册固定 Messages 的 deepseek-official，`SDKModelProviderPlugin` 注册多供应商 sdk 路由，`ModelPlugin` 提供公共 LLM 服务。最近作用域优先，同层按显式 rank 选择；没有可服务的已安装 Provider 时明确失败。SDK 通用插件不代替已卸载的官方 DeepSeek 插件。
 
 Provider 在凭据等待之前选定，其工厂、配置、地址、输出上限及思考参数在当前调用内保持不变。提供方释放取消所属的凭据等待、图片准备和请求；元数据发现、能力检查与真实运行共用服务及 SDK 生命周期。目录信息仍来自真实 /models 或手工声明；DeepSeek 官方目录明确使用根 OpenAI 目录端点，不在请求失败后切换接口。
 
@@ -545,7 +522,7 @@ HTTP 服务显式选择 headers 或 oauth 认证。OAuth 选项包含可选 clie
 
 登录期间凭据暂存在内存，真实 MCP 握手与工具目录读取成功后才提交；不执行工具作为登录检查。提交重新校验运行空闲、配置修订、服务 URL 和认证方式，成功登录与退出均推进配置修订，旧身份下的审批不能授权新身份。访问令牌刷新只更新私有凭据与绝对过期时间，不推进配置修订。修改服务地址或 OAuth 选项会清除旧凭据。
 
-`persistence/mcp_oauth.py` 保存令牌、客户端元数据、绝对过期时间和实际发现的授权服务器元数据；恢复 SDK 的公开 context 后，重启使用真实授权服务器的 token endpoint 刷新。读接口只公开授权状态、登录进度及临时浏览器入口；令牌不进入配置响应、Agent 历史或工具结果。OAuth SDK 异常日志只保留异常类型，避免上游响应泄漏凭据。存储沿用私有 SQLite，尚无系统凭据库或静态加密。
+`persistence/mcp/oauth.py` 保存令牌、客户端元数据、绝对过期时间和实际发现的授权服务器元数据；恢复 SDK 的公开 context 后，重启使用真实授权服务器的 token endpoint 刷新。读接口只公开授权状态、登录进度及临时浏览器入口；令牌不进入配置响应、Agent 历史或工具结果。OAuth SDK 异常日志只保留异常类型，避免上游响应泄漏凭据。存储沿用私有 SQLite，尚无系统凭据库或静态加密。
 
 设置页参考 Mu useMcpOAuth 的登录／退出与状态展示，复用现有 Button 和 Settings Shell。仅当前页面主动发起的登录自动打开一次系统浏览器；刷新后不重复打开，仍可手动继续授权或取消。失败、拒绝、超时分别显示明确状态。
 
@@ -556,7 +533,7 @@ HTTP 服务显式选择 headers 或 oauth 认证。OAuth 选项包含可选 clie
 
 ## 一层只读多 Agent 委派
 
-`SubagentsPlugin` 安装 `SUBAGENTS` 服务与 `subagent`、`wait_subagents`、`cancel_subagent`、`subagent_result` 工具。职责分为 `agent/subagents.py` 的监督、`tools/workflow/subagents.py` 的模型接口、`persistence/subagents.py` 的同事务受理与数据访问，以及已有的运行器。默认前台等待；后台启动必须显式指定，结束或停止父任务会清理未完成的孩子。每个父 Run 最多8项，子任务不再委派。
+`SubagentsPlugin` 安装 `SUBAGENTS` 服务与 `subagent`、`wait_subagents`、`cancel_subagent`、`subagent_result` 工具。职责分为 `agent/orchestration/subagents.py` 的监督、`tools/workflow/subagents.py` 的模型接口、`persistence/execution/subagents.py` 的同事务受理与数据访问，以及已有的运行器。默认前台等待；后台启动必须显式指定，结束或停止父任务会清理未完成的孩子。每个父 Run 最多8项，子任务不再委派。
 
 创建在一个数据库事务里保存独立会话、只读权限、冻结模型队列与父创建记录；子模型不重新从当前设置计算配置。孩子不继承对话历史和附件，调用者必须在 prompt 提供相关上下文；它继承父作用域的插件贡献，由自己的会话保存工具观察、思考与请求事实。子目录仅允许 L0 非交互工具，不包含写入、计划退出、再次委派和子任务控制。模型写出的斜杠文本不触发人类专用 Skill。当前不提供不同子模型选择或可继续发送的子会话。
 

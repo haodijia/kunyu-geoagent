@@ -1,18 +1,18 @@
-import { Bell, Monitor, Moon, Search, Sun, X } from "lucide-react";
-import { ArrowCircleLeft, SettingTwo } from "@icon-park/react";
-import { useCallback, useEffect, useRef, useState } from "react";
 import { SettingsSidebar } from "@/features/settings/SettingsSidebar";
+import { ArrowCircleLeft, SettingTwo } from "@icon-park/react";
+import { Bell, Monitor, Moon, Search, Sun, X } from "lucide-react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Outlet, useLocation, useNavigate } from "react-router-dom";
 
-import kunyuLogo from "../../../assets/kunyu.svg?raw";
 import { useAppUiStore } from "@/app/store";
 import { AppTitlebar } from "@/components/layout/AppTitlebar";
 import { SidebarItem } from "@/components/navigation/SidebarItem";
-import { TaskSidebarContent } from "@/features/workspaces/TaskSidebarContent";
-import { WorkspaceUploadDialog } from "@/features/workspaces/WorkspaceUploadDialog";
 import type { Workspace } from "@/features/workspaces/api";
+import { WorkspaceUploadDialog } from "@/features/workspaces/files/WorkspaceUploadDialog";
+import { TaskSidebarContent } from "@/features/workspaces/sidebar/TaskSidebarContent";
 import { cn } from "@/lib/utils";
 import { zhCN } from "@/locales/zh-CN";
+import kunyuLogo from "../../../assets/kunyu.svg?raw";
 
 const content = zhCN.shell;
 

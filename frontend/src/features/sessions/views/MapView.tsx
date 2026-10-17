@@ -1,29 +1,29 @@
+import { useQuery } from "@tanstack/react-query";
 import { AlertCircle, LoaderCircle } from "lucide-react";
 import { useRef } from "react";
-import { useQuery } from "@tanstack/react-query";
 
-import "maplibre-gl/dist/maplibre-gl.css";
 import "@/features/maps/map.css";
+import "maplibre-gl/dist/maplibre-gl.css";
 
 import { Button } from "@/components/ui/button";
-import { AgentControls } from "@/features/agent/AgentControls";
+import { AgentControls } from "@/features/agent/controls/AgentControls";
 import { MapToolbar } from "@/features/maps/MapToolbar";
-import { useSessionMap } from "@/features/maps/useSessionMap";
-import { SessionComposer } from "@/features/messages/SessionComposer";
+import { useSessionMap } from "@/features/maps/runtime/useSessionMap";
+import { SessionComposer } from "@/features/messages/composer/SessionComposer";
 import { useSessionWorkspace } from "@/features/sessions/SessionWorkspaceContext";
 import { zhCN } from "@/locales/zh-CN";
 
-import { usePersistentMap } from "@/features/maps/usePersistentMap";
-import { useAnalysisLayers } from "@/features/maps/useAnalysisLayers";
 import { AnalysisPanel } from "@/features/analysis/AnalysisPanel";
-import { useAnalysis } from "@/features/analysis/useAnalysis";
 import type { MapState } from "@/features/analysis/api";
-import { ImageryPanel } from "@/features/maps/ImageryPanel";
-import { imageryApi, imageryKey } from "@/features/maps/imagery-api";
-import { useImageryMap } from "@/features/maps/useImageryMap";
-import { useImageryPreview } from "@/features/maps/useImageryPreview";
-import { useImagerySelection } from "@/features/maps/useImagerySelection";
-import { MapConversation } from "@/features/maps/MapConversation";
+import { useAnalysis } from "@/features/analysis/useAnalysis";
+import { MapConversation } from "@/features/maps/conversation/MapConversation";
+import { ImageryPanel } from "@/features/maps/imagery/ImageryPanel";
+import { imageryApi, imageryKey } from "@/features/maps/imagery/imagery-api";
+import { useImageryMap } from "@/features/maps/imagery/useImageryMap";
+import { useImageryPreview } from "@/features/maps/imagery/useImageryPreview";
+import { useImagerySelection } from "@/features/maps/imagery/useImagerySelection";
+import { useAnalysisLayers } from "@/features/maps/layers/useAnalysisLayers";
+import { usePersistentMap } from "@/features/maps/runtime/usePersistentMap";
 
 const content = zhCN.map;
 

@@ -2,8 +2,8 @@
 
 from functools import partial
 
-from kunyu.agent import services as s
-from kunyu.agent.scope import Context
+from kunyu.agent.core import services as s
+from kunyu.agent.core.scope import Context
 from kunyu.agent.tools.filesystem.images import ReadImageTool
 from kunyu.agent.tools.registry import ToolRegistration
 

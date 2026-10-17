@@ -3,16 +3,23 @@
 from dataclasses import dataclass, field
 from urllib.parse import urlsplit
 
-from kunyu.agent.runtime.models import ModelAdapterError, ModelErrorCode, ModelRequest
-from kunyu.domain.model_connections import (
+from kunyu.agent.runtime.contracts.models import (
+    ModelAdapterError,
+    ModelErrorCode,
+    ModelRequest,
+)
+from kunyu.domain.models.model_connections import (
     MaxTokensField,
     ModelAuthMode,
     ModelProtocol,
     ModelProviderType,
 )
-from kunyu.domain.model_images import ModelImageInput
-from kunyu.domain.model_reasoning import ReasoningParameters, require_parameter_protocol
-from kunyu.domain.model_settings import MAX_MODEL_OUTPUT_TOKENS
+from kunyu.domain.models.model_images import ModelImageInput
+from kunyu.domain.models.model_reasoning import (
+    ReasoningParameters,
+    require_parameter_protocol,
+)
+from kunyu.domain.models.model_settings import MAX_MODEL_OUTPUT_TOKENS
 
 
 @dataclass(frozen=True, slots=True)

@@ -1,13 +1,22 @@
-import { useMemo, useState } from "react";
 import { ChevronRight, Search } from "lucide-react";
+import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
 import { Input } from "@/components/ui/input";
-import { SettingsPageHeader, SettingsPageWrapper } from "@/features/settings/SettingsPage";
+import {
+  displayForProvider,
+  providerCategoryCopy,
+} from "@/features/settings/models/provider-copy";
+import { ProviderLogo } from "@/features/settings/models/ProviderLogo";
+import {
+  providerCatalog,
+  type ProviderCategory,
+} from "@/features/settings/models/providers";
+import {
+  SettingsPageHeader,
+  SettingsPageWrapper,
+} from "@/features/settings/SettingsPage";
 import { zhCN } from "@/locales/zh-CN";
-import { displayForProvider, providerCategoryCopy } from "./provider-copy";
-import { ProviderLogo } from "./ProviderLogo";
-import { providerCatalog, type ProviderCategory } from "./providers";
 
 const content = zhCN.modelConnections;
 

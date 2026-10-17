@@ -1,9 +1,19 @@
-import { createContext, useContext, useMemo, useRef, useState, type ReactNode } from "react";
-import { useNavigate } from "react-router-dom";
-import { useSessionMessages } from "../SessionMessagesContext";
+import {
+  buildMessageAnchors,
+  type MessageAnchor,
+} from "@/features/messages/navigation/model";
+import { useSessionMessages } from "@/features/messages/state/SessionMessagesContext";
 import { useSessionWorkspace } from "@/features/sessions/SessionWorkspaceContext";
 import { sessionAnalysisPath } from "@/features/sessions/routes";
-import { buildMessageAnchors, type MessageAnchor } from "./model";
+import {
+  createContext,
+  useContext,
+  useMemo,
+  useRef,
+  useState,
+  type ReactNode,
+} from "react";
+import { useNavigate } from "react-router-dom";
 
 export interface MessageNavigation {
   readonly anchors: readonly MessageAnchor[];

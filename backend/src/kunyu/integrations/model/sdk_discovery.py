@@ -5,7 +5,7 @@ from urllib.parse import urlsplit, urlunsplit
 
 import httpx
 
-from kunyu.domain.model_connections import ModelProtocol
+from kunyu.domain.models.model_connections import ModelProtocol
 from kunyu.integrations.model.connection import ModelConnectionConfig
 from kunyu.integrations.model.sdk import PreparedSDKModel
 

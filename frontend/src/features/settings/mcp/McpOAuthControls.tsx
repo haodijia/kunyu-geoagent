@@ -1,10 +1,10 @@
-import { useEffect, useRef, useState } from "react";
-import { useQueryClient } from "@tanstack/react-query";
-import { LogIn, LogOut, LoaderCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { mcpApi, type McpServer } from "@/features/settings/mcp/api";
+import { mcpError, mcpQueryKey } from "@/features/settings/mcp/model";
 import { zhCN } from "@/locales/zh-CN";
-import { mcpApi, type McpServer } from "./api";
-import { mcpError, mcpQueryKey } from "./model";
+import { useQueryClient } from "@tanstack/react-query";
+import { LoaderCircle, LogIn, LogOut } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
 const content = zhCN.mcp;
 export function McpOAuthControls({ server }: { readonly server: McpServer }) {
   const cache = useQueryClient(),

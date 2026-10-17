@@ -1,10 +1,10 @@
 """Current-history filesystem scope and model-facing error presentation."""
 
-from kunyu.agent.context import build_model_history
-from kunyu.agent.runtime.input_content import FileInputBlock, ImageInputBlock
-from kunyu.agent.runtime.tools import ToolExecutionError
-from kunyu.domain.agent_context import RunContextSource
-from kunyu.domain.filesystem import FilesystemError, FilesystemScope
+from kunyu.agent.context.history import build_model_history
+from kunyu.agent.runtime.contracts.input_content import FileInputBlock, ImageInputBlock
+from kunyu.agent.runtime.contracts.tools import ToolExecutionError
+from kunyu.domain.conversation.agent_context import RunContextSource
+from kunyu.domain.workspaces.filesystem import FilesystemError, FilesystemScope
 
 
 def filesystem_scope(source: RunContextSource) -> FilesystemScope:

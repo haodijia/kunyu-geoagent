@@ -12,7 +12,7 @@ from mcp.client.subscriptions import ToolsListChanged
 from mcp.shared.exceptions import MCPError
 from mcp_types.version import MODERN_PROTOCOL_VERSIONS
 
-from kunyu.agent.runtime.tools import ToolExecutionError
+from kunyu.agent.runtime.contracts.tools import ToolExecutionError
 from kunyu.domain.mcp import McpSecrets, McpServerConfig
 from kunyu.integrations.mcp.catalog import discover_catalog
 from kunyu.integrations.mcp.oauth_storage import OAuthLoginRequired, contains_exception

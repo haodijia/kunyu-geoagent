@@ -5,8 +5,8 @@ from typing import Literal
 
 from pydantic import Field, model_validator
 
-from kunyu.agent.prompt_files import tool_description
-from kunyu.agent.runtime.tools import (
+from kunyu.agent.prompts.loader import tool_description
+from kunyu.agent.runtime.contracts.tools import (
     ToolCall,
     ToolExecutionError,
     ToolResult,
@@ -21,9 +21,9 @@ from kunyu.agent.tools.shared import (
     validate_arguments,
     validate_model,
 )
-from kunyu.domain.agent_context import RunContextRepository
-from kunyu.domain.analysis import AnalysisError, LayerStyleWrite
-from kunyu.persistence.maps import MapRepository
+from kunyu.domain.conversation.agent_context import RunContextRepository
+from kunyu.domain.geospatial.analysis import AnalysisError, LayerStyleWrite
+from kunyu.persistence.geospatial.maps import MapRepository
 
 
 class ContextArguments(ToolArguments):

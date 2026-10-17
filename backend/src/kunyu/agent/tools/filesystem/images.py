@@ -8,20 +8,23 @@ from uuid import uuid4
 
 from pydantic import Field
 
-from kunyu.agent.filesystem import FilesystemHooks
-from kunyu.agent.prompt_files import prompt_text, tool_description
-from kunyu.agent.runtime.content import TextBlock
-from kunyu.agent.runtime.input_content import ImageInputBlock
-from kunyu.agent.runtime.models import ModelAdapterError
-from kunyu.agent.runtime.tools import (
+from kunyu.agent.capabilities.filesystem import FilesystemHooks
+from kunyu.agent.core.scope import AgentScopes
+from kunyu.agent.prompts.loader import prompt_text, tool_description
+from kunyu.agent.runtime.contracts.content import TextBlock
+from kunyu.agent.runtime.contracts.input_content import ImageInputBlock
+from kunyu.agent.runtime.contracts.models import ModelAdapterError
+from kunyu.agent.runtime.contracts.tools import (
     ToolCall,
     ToolExecutionError,
     ToolResult,
     ToolRiskLevel,
     ToolSpec,
 )
-from kunyu.agent.scope import AgentScopes
-from kunyu.agent.tools.filesystem.files_shared import filesystem_scope, tool_filesystem_error
+from kunyu.agent.tools.filesystem.files_shared import (
+    filesystem_scope,
+    tool_filesystem_error,
+)
 from kunyu.agent.tools.shared import (
     ToolArguments,
     load_source,
@@ -29,26 +32,27 @@ from kunyu.agent.tools.shared import (
     validate_arguments,
     validate_model,
 )
-from kunyu.application.attachment_preparation import PreparedAttachment, normalize_image
-from kunyu.domain.agent_context import RunContextRepository
-from kunyu.domain.attachments import (
+from kunyu.application.conversation.attachment_preparation import normalize_image
+from kunyu.domain.conversation.agent_context import RunContextRepository
+from kunyu.domain.conversation.attachments import (
     MAX_ATTACHMENT_BYTES,
     AttachmentError,
     ImageAttachment,
+    PreparedAttachment,
     ToolImageProducer,
 )
-from kunyu.domain.filesystem import (
+from kunyu.domain.models.model_images import ModelImageInput
+from kunyu.domain.workspaces.filesystem import (
     Filesystem,
     FilesystemError,
     FsInfo,
     FsObservation,
     FsTarget,
 )
-from kunyu.domain.model_images import ModelImageInput
-from kunyu.integrations.filesystem_io import check_cancelled
-from kunyu.integrations.filesystem_operation import filesystem_operation
+from kunyu.integrations.filesystem.io import check_cancelled
+from kunyu.integrations.filesystem.operation import filesystem_operation
 from kunyu.integrations.model.request_images import prepare_image
-from kunyu.persistence.attachments import SQLAlchemyAttachmentStore
+from kunyu.persistence.conversation.attachments import SQLAlchemyAttachmentStore
 
 IMAGE_TYPES = {
     ".png": "image/png",

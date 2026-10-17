@@ -1,11 +1,26 @@
 /** Hover geometry and rail interaction adapted from Mu (Apache-2.0). */
-import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
+import {
+  needsScroll,
+  resolveScrollTopForIndex,
+  resolveStackTop,
+  resolveTickIndexAtOffset,
+  resolveViewportHeight,
+  TICK_GAP,
+  tickCenterOffset,
+  tickStackHeight,
+} from "@/features/messages/navigation/geometry";
+import styles from "@/features/messages/navigation/MessageAnchorRail.module.css";
+import { useMessageNavigation } from "@/features/messages/navigation/MessageNavigationContext";
+import { truncate } from "@/features/messages/navigation/model";
 import { cn } from "@/lib/utils";
 import { zhCN } from "@/locales/zh-CN";
-import { useMessageNavigation } from "./MessageNavigationContext";
-import { truncate } from "./model";
-import { needsScroll, resolveScrollTopForIndex, resolveStackTop, resolveTickIndexAtOffset, resolveViewportHeight, TICK_GAP, tickCenterOffset, tickStackHeight } from "./geometry";
-import styles from "./MessageAnchorRail.module.css";
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+} from "react";
 
 const content = zhCN.conversation.navigation;
 function tone(distance: number): string | undefined {

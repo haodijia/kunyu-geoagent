@@ -2,8 +2,8 @@ import { Compass, LocateFixed, Minus, Plus } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Tooltip } from "@/components/ui/tooltip";
-import { MAP_DIMENSIONS } from "@/features/maps/config";
-import type { useSessionMap } from "@/features/maps/useSessionMap";
+import { MAP_DIMENSIONS } from "@/features/maps/runtime/config";
+import type { useSessionMap } from "@/features/maps/runtime/useSessionMap";
 import { zhCN } from "@/locales/zh-CN";
 
 const content = zhCN.map;

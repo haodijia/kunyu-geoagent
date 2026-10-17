@@ -9,7 +9,7 @@
 面向灾害遥感监测与研判的桌面智能体工作区<br>
 基于 OGE 构建
 
-[反馈问题](https://github.com/haodijia/kunyu-geoagent/issues) · [架构设计](./docs/开发架构设计.md) · [提示词编辑入口](./backend/src/kunyu/agent/prompts/README.md) · [工作区文件存储](./docs/develop/工作区文件存储.md)
+[反馈问题](https://github.com/haodijia/kunyu-geoagent/issues) · [架构设计](./docs/开发架构设计.md) · [代码组织与维护](./docs/develop/代码组织与维护.md) · [提示词编辑入口](./backend/src/kunyu/agent/prompts/README.md) · [工作区文件存储](./docs/develop/工作区文件存储.md)
 
 [![License: Apache 2.0](https://img.shields.io/badge/License-Apache%202.0-D22128?logo=apache&logoColor=white)](LICENSE)
 ![Stars](https://img.shields.io/github/stars/haodijia/kunyu-geoagent?color=F5A623&labelColor=0B1F33)

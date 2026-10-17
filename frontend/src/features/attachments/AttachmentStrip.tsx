@@ -1,10 +1,18 @@
-import { ChevronLeft, ChevronRight, Download, FileText, ImageOff, LoaderCircle, X } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { readAttachment, type Attachment } from "@/features/attachments/api";
+import { ImageLightbox } from "@/features/attachments/ImageLightbox";
+import { zhCN } from "@/locales/zh-CN";
+import {
+  ChevronLeft,
+  ChevronRight,
+  Download,
+  FileText,
+  ImageOff,
+  LoaderCircle,
+  X,
+} from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
-import { ImageLightbox } from "./ImageLightbox";
-import { Button } from "@/components/ui/button";
-import { zhCN } from "@/locales/zh-CN";
-import { readAttachment, type Attachment } from "./api";
 
 const content = zhCN.conversation.attachments;
 

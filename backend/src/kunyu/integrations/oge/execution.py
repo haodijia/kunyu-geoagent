@@ -11,9 +11,9 @@ from uuid import UUID
 
 import httpx
 
-from kunyu.domain.analysis import AnalysisError
-from kunyu.domain.oge import OgeAccount, OgeError
-from kunyu.persistence.oge import OgeAccountStore
+from kunyu.domain.geospatial.analysis import AnalysisError
+from kunyu.domain.geospatial.oge import OgeAccount, OgeError
+from kunyu.persistence.geospatial.oge import OgeAccountStore
 
 BASE_URL = "https://openge.org.cn/api"
 

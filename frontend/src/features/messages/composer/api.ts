@@ -1,6 +1,9 @@
 import { requestBlob, requestJson } from "@/api/client";
-import { serializeMessageInput, type appendUserMessage } from "@/features/messages/api";
-import type { ComposerCommandDescriptor } from "./commands";
+import {
+  serializeMessageInput,
+  type appendUserMessage,
+} from "@/features/messages/api";
+import type { ComposerCommandDescriptor } from "@/features/messages/composer/commands";
 
 export type CommandMessage = Parameters<typeof appendUserMessage>[2];
 export type AgentCommandDescriptor = Omit<ComposerCommandDescriptor, "unavailableReason">;

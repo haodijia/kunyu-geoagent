@@ -1,12 +1,12 @@
-import { useEffect } from "react";
-import { useQuery } from "@tanstack/react-query";
-import { Button } from "@/components/ui/button";
 import { ApiError } from "@/api/client";
-import { MessageMarkdown } from "@/features/messages/MessageMarkdown";
+import { Button } from "@/components/ui/button";
+import { MessageMarkdown } from "@/features/messages/rendering/MessageMarkdown";
+import { getPlan, planQueryKeys } from "@/features/plans/api";
+import { planSummary } from "@/features/plans/plan";
 import { useSessionWorkspace } from "@/features/sessions/SessionWorkspaceContext";
 import { zhCN } from "@/locales/zh-CN";
-import { getPlan, planQueryKeys } from "./api";
-import { planSummary } from "./plan";
+import { useQuery } from "@tanstack/react-query";
+import { useEffect } from "react";
 
 export function PlanPreview({ toolId }: { readonly toolId: string }) {
   const session = useSessionWorkspace();

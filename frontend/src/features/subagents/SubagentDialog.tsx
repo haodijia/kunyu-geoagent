@@ -1,16 +1,16 @@
-import { useLayoutEffect, useRef, useState } from "react";
+import { Button } from "@/components/ui/button";
+import { ToolStatusBadge } from "@/features/agent/tools/ToolActivityParts";
+import { CopyButton } from "@/features/messages/rendering/CopyButton";
+import { MessageMarkdown } from "@/features/messages/rendering/MessageMarkdown";
+import { getSubagent, subagentKeys } from "@/features/subagents/api";
+import { childStatus } from "@/features/subagents/SubagentCard";
+import { useSubagents } from "@/features/subagents/SubagentContext";
+import css from "@/features/subagents/subagents.module.css";
+import { SubagentTranscript } from "@/features/subagents/SubagentTranscript";
+import { zhCN } from "@/locales/zh-CN";
 import { useQuery } from "@tanstack/react-query";
 import { X } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { MessageMarkdown } from "@/features/messages/MessageMarkdown";
-import { CopyButton } from "@/features/messages/CopyButton";
-import { ToolStatusBadge } from "@/features/agent/ToolActivityParts";
-import { zhCN } from "@/locales/zh-CN";
-import { getSubagent, subagentKeys } from "./api";
-import { useSubagents } from "./SubagentContext";
-import { childStatus } from "./SubagentCard";
-import { SubagentTranscript } from "./SubagentTranscript";
-import css from "./subagents.module.css";
+import { useLayoutEffect, useRef, useState } from "react";
 
 const text = zhCN.subagents;
 type Tab = "summary" | "conversation" | "trajectory";

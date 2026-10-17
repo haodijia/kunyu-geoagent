@@ -2,15 +2,15 @@
 
 from functools import partial
 
-from kunyu.agent import services as s
-from kunyu.agent.filesystem import FilesystemHooks, ObservedStateGate
-from kunyu.agent.prompt_files import prompt_text
-from kunyu.agent.runtime.context import PromptSection
-from kunyu.agent.scope import Context
+from kunyu.agent.capabilities.filesystem import FilesystemHooks, ObservedStateGate
+from kunyu.agent.core import services as s
+from kunyu.agent.core.scope import Context
+from kunyu.agent.prompts.loader import prompt_text
+from kunyu.agent.runtime.contracts.context import PromptSection
 from kunyu.agent.tools.filesystem.file_mutations import FileMutationTool
 from kunyu.agent.tools.filesystem.files import ReadTool
 from kunyu.agent.tools.registry import ToolRegistration
-from kunyu.integrations.filesystem import MountedFilesystem
+from kunyu.integrations.filesystem.local import MountedFilesystem
 
 
 class FilesystemPlugin:

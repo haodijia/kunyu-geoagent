@@ -1,9 +1,9 @@
-import { useMemo } from "react";
-import { FileText } from "lucide-react";
 import type { ToolCall } from "@/features/agent/api";
-import { usePlanDocument } from "./PlanDocument";
+import { submittedPlan } from "@/features/plans/plan";
+import { usePlanDocument } from "@/features/plans/PlanDocument";
 import { zhCN } from "@/locales/zh-CN";
-import { submittedPlan } from "./plan";
+import { FileText } from "lucide-react";
+import { useMemo } from "react";
 
 export function PlanCards({ tools }: { readonly tools: readonly ToolCall[] }) {
   const preview = usePlanDocument(),

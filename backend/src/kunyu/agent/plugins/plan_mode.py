@@ -1,11 +1,15 @@
 """Compose plan guidance, step selection and the stable review tool."""
 
-from kunyu.agent import services as s
-from kunyu.agent.plan_mode import narrate_plan_selection, plan_guidance, plan_policy
-from kunyu.agent.runtime.context import PromptSection
-from kunyu.agent.scope import Context
-from kunyu.agent.tools.workflow.plan_mode import ExitPlanModeHandler, ExitPlanModeTool
+from kunyu.agent.capabilities.plan_mode import (
+    narrate_plan_selection,
+    plan_guidance,
+    plan_policy,
+)
+from kunyu.agent.core import services as s
+from kunyu.agent.core.scope import Context
+from kunyu.agent.runtime.contracts.context import PromptSection
 from kunyu.agent.tools.registry import ToolRegistration
+from kunyu.agent.tools.workflow.plan_mode import ExitPlanModeHandler, ExitPlanModeTool
 
 
 class PlanModePlugin:

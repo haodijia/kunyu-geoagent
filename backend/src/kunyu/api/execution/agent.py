@@ -1,0 +1,79 @@
+"""Session-scoped Agent state and lifecycle API."""
+
+from fastapi import APIRouter, Depends
+
+from kunyu.agent.orchestration.scheduler import (
+    RunQueueFullError,
+    RunSchedulerClosingError,
+)
+from kunyu.agent.orchestration.session_agent import SessionAgentIdleError
+from kunyu.api.errors import ApiError
+from kunyu.api.execution.agent_dependencies import (
+    AgentDirectoryDependency,
+    EmptyRequest,
+    require_parent_controls,
+)
+from kunyu.api.execution.agent_queue import router as queue_router
+from kunyu.api.execution.run_models import AgentTurnResponse
+from kunyu.application.conversation.sessions import SessionNotFoundError
+from kunyu.application.execution.run_lifecycle import RunLifecycleConflictError
+from kunyu.domain.execution.confirmations import ConfirmationConflictError
+
+router = APIRouter(
+    prefix="/api/v1/sessions/{session_id}/agent",
+    tags=["agent"],
+    dependencies=[Depends(require_parent_controls)],
+)
+router.include_router(queue_router)
+
+
+@router.get("", response_model=list[AgentTurnResponse])
+def agent_turns(
+    session_id: str,
+    agents: AgentDirectoryDependency,
+) -> list[AgentTurnResponse]:
+    try:
+        return [
+            AgentTurnResponse.from_details(item)
+            for item in agents.for_session(session_id).turns()
+        ]
+    except SessionNotFoundError as error:
+        raise ApiError(404, "NOT_FOUND", str(error)) from error
+
+
+@router.post("/resume", response_model=AgentTurnResponse)
+async def resume_agent(
+    session_id: str,
+    _: EmptyRequest,
+    agents: AgentDirectoryDependency,
+) -> AgentTurnResponse:
+    try:
+        return AgentTurnResponse.from_details(
+            await agents.for_session(session_id).resume()
+        )
+    except SessionAgentIdleError as error:
+        raise ApiError(409, "AGENT_IDLE", str(error)) from error
+    except RunLifecycleConflictError as error:
+        raise ApiError(409, "AGENT_CONFLICT", str(error)) from error
+    except RunQueueFullError as error:
+        raise ApiError(429, "AGENT_QUEUE_FULL", str(error)) from error
+    except RunSchedulerClosingError as error:
+        raise ApiError(503, "SHUTTING_DOWN", str(error)) from error
+
+
+@router.post("/cancel", response_model=AgentTurnResponse)
+async def cancel_agent(
+    session_id: str,
+    _: EmptyRequest,
+    agents: AgentDirectoryDependency,
+) -> AgentTurnResponse:
+    try:
+        return AgentTurnResponse.from_details(
+            await agents.for_session(session_id).cancel()
+        )
+    except SessionAgentIdleError as error:
+        raise ApiError(409, "AGENT_IDLE", str(error)) from error
+    except (RunLifecycleConflictError, ConfirmationConflictError) as error:
+        raise ApiError(409, "AGENT_CONFLICT", str(error)) from error
+    except RunSchedulerClosingError as error:
+        raise ApiError(503, "SHUTTING_DOWN", str(error)) from error

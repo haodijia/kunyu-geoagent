@@ -3,10 +3,15 @@
 from collections.abc import Mapping
 from datetime import UTC, datetime
 
-from kunyu.agent.prompt_files import tool_description
-from kunyu.agent.runtime.events import TodoWriteEvent, TodoWritePayload
-from kunyu.agent.runtime.todos import TodoList
-from kunyu.agent.runtime.tools import ToolCall, ToolResult, ToolRiskLevel, ToolSpec
+from kunyu.agent.prompts.loader import tool_description
+from kunyu.agent.runtime.contracts.todos import TodoList
+from kunyu.agent.runtime.contracts.tools import (
+    ToolCall,
+    ToolResult,
+    ToolRiskLevel,
+    ToolSpec,
+)
+from kunyu.agent.runtime.events.tools import TodoWriteEvent, TodoWritePayload
 from kunyu.agent.tools.shared import (
     ToolArguments,
     load_source,
@@ -15,7 +20,7 @@ from kunyu.agent.tools.shared import (
     validate_arguments,
     validate_model,
 )
-from kunyu.domain.agent_context import RunContextRepository
+from kunyu.domain.conversation.agent_context import RunContextRepository
 
 
 class TodoArguments(ToolArguments):

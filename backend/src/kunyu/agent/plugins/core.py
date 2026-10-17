@@ -1,19 +1,21 @@
 """Prompt, tool, approval and durable turn services."""
 
-from kunyu.agent import services as s
-from kunyu.agent.context import RunContextNotFoundError, register_system_prompt
-from kunyu.agent.hooks import AgentHookRegistry
-from kunyu.agent.runtime.context import (
+from kunyu.agent.context.history import RunContextNotFoundError, register_system_prompt
+from kunyu.agent.core import services as s
+from kunyu.agent.core.hooks import AgentHookRegistry
+from kunyu.agent.core.scope import AgentScopes, Context
+from kunyu.agent.runtime.contracts.context import (
     ContextPreparationRegistry,
     PromptSectionRegistry,
 )
-from kunyu.agent.scope import AgentScopes, Context
 from kunyu.agent.tools.registry import ToolPolicyGate, ToolRegistryFactory
-from kunyu.application.confirmations import ConfirmationService
-from kunyu.application.run_acceptance import RunAcceptanceService
-from kunyu.application.run_lifecycle import RunLifecycleService
-from kunyu.persistence.models import SubagentRecord
-from kunyu.persistence.run_acceptance import SQLAlchemyRunAcceptanceRepository
+from kunyu.application.execution.confirmations import ConfirmationService
+from kunyu.application.execution.run_acceptance import RunAcceptanceService
+from kunyu.application.execution.run_lifecycle import RunLifecycleService
+from kunyu.persistence.execution.admission.repository import (
+    SQLAlchemyRunAcceptanceRepository,
+)
+from kunyu.persistence.records.execution import SubagentRecord
 
 
 class ScopePlugin:

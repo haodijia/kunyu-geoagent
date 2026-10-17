@@ -1,3 +1,13 @@
+import { useSessionEvents } from "@/features/events/SessionEventContext";
+import { useSessionWorkspace } from "@/features/sessions/SessionWorkspaceContext";
+import {
+  cancelSubagent,
+  listSubagents,
+  subagentKeys,
+  type Subagent,
+} from "@/features/subagents/api";
+import { zhCN } from "@/locales/zh-CN";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   createContext,
   lazy,
@@ -7,16 +17,6 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useSessionWorkspace } from "@/features/sessions/SessionWorkspaceContext";
-import { useSessionEvents } from "@/features/events/SessionEventContext";
-import { zhCN } from "@/locales/zh-CN";
-import {
-  cancelSubagent,
-  listSubagents,
-  subagentKeys,
-  type Subagent,
-} from "./api";
 
 const Dialog = lazy(() => import("./SubagentDialog"));
 function useStateForParent() {

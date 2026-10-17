@@ -3,27 +3,28 @@
 from threading import Event
 from uuid import uuid4
 
-from kunyu.agent.runtime.input_content import ImageInputBlock
-from kunyu.agent.runtime.models import ModelAdapterError
-from kunyu.agent.runtime.tools import ToolCall, ToolExecutionError, ToolResult
+from kunyu.agent.runtime.contracts.input_content import ImageInputBlock
+from kunyu.agent.runtime.contracts.models import ModelAdapterError
+from kunyu.agent.runtime.contracts.tools import ToolCall, ToolExecutionError, ToolResult
 from kunyu.agent.tools.oge.arguments import ImageArguments
 from kunyu.agent.tools.oge.shared import OgeTool, oge_tool_error
 from kunyu.agent.tools.shared import tool_result
-from kunyu.application.attachment_preparation import PreparedAttachment, normalize_image
-from kunyu.application.oge import OgeService
-from kunyu.domain.agent_context import RunContextRepository
-from kunyu.domain.attachments import (
+from kunyu.application.analysis.oge import OgeService
+from kunyu.application.conversation.attachment_preparation import normalize_image
+from kunyu.domain.conversation.agent_context import RunContextRepository
+from kunyu.domain.conversation.attachments import (
     AttachmentError,
     ImageAttachment,
+    PreparedAttachment,
     ToolImageProducer,
     attachment_path,
 )
-from kunyu.domain.model_images import ModelImageInput
-from kunyu.domain.oge import OgeError
-from kunyu.integrations.filesystem_io import check_cancelled
-from kunyu.integrations.filesystem_operation import filesystem_operation
+from kunyu.domain.geospatial.oge import OgeError
+from kunyu.domain.models.model_images import ModelImageInput
+from kunyu.integrations.filesystem.io import check_cancelled
+from kunyu.integrations.filesystem.operation import filesystem_operation
 from kunyu.integrations.model.request_images import prepare_image
-from kunyu.persistence.attachments import SQLAlchemyAttachmentStore
+from kunyu.persistence.conversation.attachments import SQLAlchemyAttachmentStore
 
 
 class ImagePreviewTool(OgeTool[ImageArguments]):

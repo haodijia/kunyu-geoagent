@@ -2,11 +2,11 @@ import type { ReactNode } from "react";
 
 import type { AgentTurnState, ToolCall } from "@/features/agent/api";
 import {
-  ToolActivity,
   GeneratingToolActivity,
-} from "@/features/agent/ToolActivity";
-import type { GeneratingTool } from "@/features/events/stream-presentation";
+  ToolActivity,
+} from "@/features/agent/tools/ToolActivity";
 import type { Confirmation } from "@/features/confirmations/api";
+import type { GeneratingTool } from "@/features/events/stream/stream-presentation";
 
 interface ConversationSlots {
   readonly "message.generating-tools": {

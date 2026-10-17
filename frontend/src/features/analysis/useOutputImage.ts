@@ -1,5 +1,5 @@
+import { analysisApi } from "@/features/analysis/api";
 import { useEffect, useState } from "react";
-import { analysisApi } from "./api";
 
 export function useOutputImage(workspaceId: string, outputId: string) {
   const [url, setUrl] = useState<string | null>(null);

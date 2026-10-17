@@ -1,7 +1,7 @@
 from fastapi import Request
 
-from kunyu.application.connection_locks import ConnectionOperationLocks
-from kunyu.application.run_lifecycle import RunLifecycleService
+from kunyu.application.execution.run_lifecycle import RunLifecycleService
+from kunyu.application.models.connection_locks import ConnectionOperationLocks
 from kunyu.persistence.database import Database
 
 

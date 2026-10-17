@@ -7,7 +7,7 @@ import json
 import posixpath
 from collections import OrderedDict
 
-from kunyu.agent.runtime.tools import ToolExecutionError
+from kunyu.agent.runtime.contracts.tools import ToolExecutionError
 
 META_MAX_BYTES = 65_536
 MAX_PATHS = 100

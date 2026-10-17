@@ -1,13 +1,7 @@
-import { create } from "zustand";
 import type { Attachment } from "@/features/attachments/api";
-import type { ReplyQuote } from "@/features/messages/reply-quote";
+import type { ReplyQuote } from "@/features/messages/model/reply-quote";
+import { create } from "zustand";
 
-import {
-  createMapContext,
-  type MapCamera,
-  type MapContext,
-  type MapViewport
-} from "@/features/sessions/map-context";
 import {
   readSidebarCollapsed,
   readSidebarWidth,
@@ -15,8 +9,14 @@ import {
   writeSidebarCollapsed,
   writeSidebarWidth,
   writeThemeMode,
-  type ThemeMode
+  type ThemeMode,
 } from "@/app/storage";
+import {
+  createMapContext,
+  type MapCamera,
+  type MapContext,
+  type MapViewport,
+} from "@/features/sessions/map-context";
 
 export type AnalysisMode = "conversation" | "trace";
 

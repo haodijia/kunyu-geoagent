@@ -230,10 +230,10 @@ api/application/domain/persistence 中分别增加模型连接、Run、确认、
 
 借鉴 deepseek-harness 的 `agent-loop`、`session`、`tools` 三个接缝，阶段二只实现单一 `GeoAgent` 的最小闭环：
 
-1. `kunyu.agent.bootstrap` 选择真实插件组合；`kunyu.agent.kernel` 按依赖安装服务，插件从 Context 构造 EventStore、ModelAdapter、提示词/工具注册表、PolicyGate 和循环服务。每个会话及执行拥有作用域，应用在内核关闭后释放 HTTP client 和数据库。
-2. `kunyu.agent.runtime.runner` 只消费已受理的 run_id，从不可变快照构建模型请求；一次模型响应中的 Tool Call 先组装完整，再按模型关联 ID 校验、登记、过 PolicyGate 和执行。写工具停在持久确认点，不占用模型网络流等待用户。
-3. 事件存储契约负责会话内有序追加；`kunyu.agent.runtime.reducer` 从已提交事件得到 Session/Run 投影。P2-07A 后 `agent_events` 是 Agent 会话与运行事实的唯一事实源，`messages`、`runs`、`run_model_snapshots` 和 `tool_calls` 是可丢弃、可重建的查询投影。`kunyu` 的 SQLite 适配器在同一事务中追加事件并更新投影，禁止绕过 Reducer 直接改变 Agent 状态。WorkspaceMemory、Workspace 和 Artifact 等业务对象不是 Agent 查询投影，仍由各自业务聚合持有。
-4. `kunyu.agent.runtime.tools` 声明 Schema 和调用契约；`kunyu.agent.tools` 提供白名单业务实现。参数校验和 PolicyGate 位于实际执行之前，模型不能通过提示词、工具名或自报 scope 绕过权限。
+1. `kunyu.agent.bootstrap` 选择真实插件组合；`kunyu.agent.core.kernel` 按依赖安装服务，插件从 Context 构造 EventStore、ModelAdapter、提示词/工具注册表、PolicyGate 和循环服务。每个会话及执行拥有作用域，应用在内核关闭后释放 HTTP client 和数据库。
+2. `kunyu.agent.runtime.execution.runner` 只消费已受理的 run_id，从不可变快照构建模型请求；一次模型响应中的 Tool Call 先组装完整，再按模型关联 ID 校验、登记、过 PolicyGate 和执行。写工具停在持久确认点，不占用模型网络流等待用户。
+3. 事件存储契约负责会话内有序追加；`kunyu.agent.runtime.projection.run.replay` 从已提交事件得到 Session/Run 投影。P2-07A 后 `agent_events` 是 Agent 会话与运行事实的唯一事实源，`messages`、`runs`、`run_model_snapshots` 和 `tool_calls` 是可丢弃、可重建的查询投影。`kunyu` 的 SQLite 适配器在同一事务中追加事件并更新投影，禁止绕过 Reducer 直接改变 Agent 状态。WorkspaceMemory、Workspace 和 Artifact 等业务对象不是 Agent 查询投影，仍由各自业务聚合持有。
+4. `kunyu.agent.runtime.contracts.tools` 声明 Schema 和调用契约；`kunyu.agent.tools` 提供白名单业务实现。参数校验和 PolicyGate 位于实际执行之前，模型不能通过提示词、工具名或自报 scope 绕过权限。
 5. Runner 的取消信号终止模型流和未执行工具；已持久的部分正文保持 `interrupted`/`cancelled` 状态。重启只从日志与快照重建，恢复由用户显式触发，不重放状态不明的写入。
 
 组件以代码选择插件组合，通过类型化服务和作用域装配。`kunyu.agent.runtime` 不依赖 FastAPI、SQLAlchemy、具体业务工具或模型 SDK；业务服务与适配器拥有事务、凭据与 API。不引入 Cordis TypeScript 运行时；Python 插件可安装/释放，尚无 profile 动态配置装载、通用消息 surface 或多 Agent；工具支持有界并行和独占调度。
@@ -242,7 +242,7 @@ api/application/domain/persistence 中分别增加模型连接、Run、确认、
 
 Chat Completions wire protocol：Base URL 为包含可选路径前缀的绝对 http/https 地址，去掉尾部 `/` 后追加 `/models` 或 `/chat/completions`；不猜测或补 `/v1`。禁止 userinfo、query、fragment；不跟随重定向发送凭据。认证为 Bearer API Key 或显式 none。DeepSeek Messages 使用配置地址的 /v1/messages、x-api-key、原生块和真实签名；不在失败后改用其他协议。当前不支持 Responses 或任意额外请求参数，原生协议详情见[后端 Agent 结构](后端Agent结构.md#模型协议与签名回放)。
 
-P2-04B 必须扩展已交付的 `kunyu.agent.runtime.models`：
+P2-04B 必须扩展已交付的 `kunyu.agent.runtime.contracts.models`：
 
 - ModelRequest 绑定唯一 RunModelSnapshot 对应的适配器配置，包含输出 Token 上限；取消由 Runner 取消调用任务并关闭 HTTP 流，不以停止读取界面作为取消。
 - 当前模型输出使用 BlockStart、带索引的 TextDelta／ReasoningDelta／ModelToolCallDelta、BlockEnd 和可空 TokenUsage（内容块与 replay 详见《后端Agent结构》），必须有一次终止结果：`stop / tool_calls / length / content_filter`。网络、认证、无终止事件、非法 JSON 等通过稳定异常契约报告，不能把迭代结束直接视为成功。
@@ -419,7 +419,7 @@ P2-02～11 不启用正式消息 Run 入口：旧消息功能持续可用，新�
 
 **前置**：P2-04A 与 P2-01。**结果**：可区分正常完成、工具批次、截断、取消和异常的 ModelAdapter。
 
-**范围**：对照 DSH llm-pi-ai 的 adapter.ts/stream.ts/catalog.ts，按 4.9 扩展现有 kunyu.agent.runtime.models，落实快照绑定、完整结构化调用、终止结果、显式输出字段/用量参数、可靠推理枚举、超时与取消。不引入 pi-ai，不重试或切协议，不保存隐藏推理。
+**范围**：对照 DSH llm-pi-ai 的 adapter.ts/stream.ts/catalog.ts，按 4.9 扩展现有 kunyu.agent.runtime.contracts.models，落实快照绑定、完整结构化调用、终止结果、显式输出字段/用量参数、可靠推理枚举、超时与取消。不引入 pi-ai，不重试或切协议，不保存隐藏推理。
 
 **检查**：用 uv 临时脚本消费真实文本和工具流；检查终止结果、取消后连接释放、低输出上限触发 length、用量缺失保留 null；记录未能在真实服务触发的错误分支，不宣称已验收。P2-10 再验证 Runner 如何消费这些结果。
 

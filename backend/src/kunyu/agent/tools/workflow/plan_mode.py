@@ -6,22 +6,25 @@ from typing import Self
 
 from pydantic import Field, model_validator
 
-from kunyu.agent.prompt_files import tool_description
-from kunyu.agent.runtime.content import TextBlock
-from kunyu.agent.runtime.events import PlanExitSelectedEvent, PlanExitSelectedPayload
-from kunyu.agent.runtime.questions import (
+from kunyu.agent.prompts.loader import tool_description
+from kunyu.agent.runtime.contracts.content import TextBlock
+from kunyu.agent.runtime.contracts.questions import (
     PlanReviewIntent,
     Question,
     QuestionAnswers,
     QuestionOption,
     QuestionSet,
 )
-from kunyu.agent.runtime.tools import (
+from kunyu.agent.runtime.contracts.tools import (
     ToolCall,
     ToolExecutionError,
     ToolResult,
     ToolRiskLevel,
     ToolSpec,
+)
+from kunyu.agent.runtime.events.tools import (
+    PlanExitSelectedEvent,
+    PlanExitSelectedPayload,
 )
 from kunyu.agent.tools.shared import (
     ToolArguments,
@@ -29,8 +32,8 @@ from kunyu.agent.tools.shared import (
     require_bound_call,
     validate_model,
 )
-from kunyu.domain.agent_context import RunContextRepository
-from kunyu.domain.plans import plan_title
+from kunyu.domain.conversation.agent_context import RunContextRepository
+from kunyu.domain.execution.plans import plan_title
 
 REVIEW_ID = "plan-review"
 APPROVE = "Approve"

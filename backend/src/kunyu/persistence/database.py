@@ -6,7 +6,7 @@ from sqlalchemy import Engine, create_engine, event
 from sqlalchemy.engine import URL
 from sqlalchemy.orm import Session, sessionmaker
 
-from kunyu.persistence.event_publications import SessionEventPublications
+from kunyu.persistence.execution.event_publications import SessionEventPublications
 from kunyu.persistence.schema import initialize_database
 from kunyu.settings import get_app_data_directory
 

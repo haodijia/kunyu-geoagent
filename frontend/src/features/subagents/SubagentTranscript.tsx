@@ -1,24 +1,24 @@
-import { useEffect, useMemo, useState } from "react";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
-import { getSession } from "@/features/sessions/api";
-import { SessionWorkspaceProvider } from "@/features/sessions/SessionWorkspaceContext";
+import { listAgentTurns } from "@/features/agent/api";
+import { conversationAssembler } from "@/features/conversation/assembler";
+import { EventStreamNotice } from "@/features/events/EventStreamNotice";
 import {
   SessionEventProvider,
   useSessionEvents,
 } from "@/features/events/SessionEventContext";
-import { EventStreamNotice } from "@/features/events/EventStreamNotice";
+import { TrajectoryInspector } from "@/features/events/trajectory/inspector/TrajectoryInspector";
+import "@/features/events/trajectory/trajectory-theme.css";
+import { TrajectoryLedger } from "@/features/events/trajectory/TrajectoryLedger";
 import { listMessages } from "@/features/messages/api";
-import { listAgentTurns } from "@/features/agent/api";
-import { MessageList } from "@/features/messages/MessageList";
 import type { MessageNavigation } from "@/features/messages/navigation/MessageNavigationContext";
-import { conversationAssembler } from "@/features/conversation/assembler";
-import { TrajectoryLedger } from "@/features/events/TrajectoryLedger";
-import { TrajectoryInspector } from "@/features/events/TrajectoryInspector";
+import { MessageList } from "@/features/messages/rendering/MessageList";
+import { getSession } from "@/features/sessions/api";
+import { SessionWorkspaceProvider } from "@/features/sessions/SessionWorkspaceContext";
+import type { Subagent } from "@/features/subagents/api";
+import css from "@/features/subagents/subagents.module.css";
 import { zhCN } from "@/locales/zh-CN";
-import type { Subagent } from "./api";
-import css from "./subagents.module.css";
-import "@/features/events/trajectory-theme.css";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useEffect, useMemo, useState } from "react";
 
 export function SubagentTranscript({
   child,

@@ -1,9 +1,9 @@
-import { useQuery } from "@tanstack/react-query";
-import { AlertCircle, LoaderCircle } from "lucide-react";
+import { analysisApi, analysisKeys } from "@/features/analysis/api";
+import { OutputCard } from "@/features/analysis/OutputCard";
 import { useSessionWorkspace } from "@/features/sessions/SessionWorkspaceContext";
 import { zhCN } from "@/locales/zh-CN";
-import { analysisApi, analysisKeys } from "./api";
-import { OutputCard } from "./OutputCard";
+import { useQuery } from "@tanstack/react-query";
+import { AlertCircle, LoaderCircle } from "lucide-react";
 
 const content = zhCN.analysis;
 export function AnalysisJobCard({

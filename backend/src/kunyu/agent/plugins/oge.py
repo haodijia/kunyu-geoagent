@@ -2,17 +2,17 @@
 
 from functools import partial
 
-from kunyu.agent import services as s
-from kunyu.agent.scope import Context
+from kunyu.agent.core import services as s
+from kunyu.agent.core.scope import Context
 from kunyu.agent.tools.oge.find_regions import FindRegionsTool
 from kunyu.agent.tools.oge.image_detail import ImageDetailTool
 from kunyu.agent.tools.oge.image_preview import ImagePreviewTool
 from kunyu.agent.tools.oge.my_data import ListMyDataTool, MyDataDetailTool
 from kunyu.agent.tools.oge.search_images import SearchImagesTool
 from kunyu.agent.tools.registry import ToolRegistration
-from kunyu.application.oge import OgeService
+from kunyu.application.analysis.oge import OgeService
 from kunyu.integrations.oge.client import OgeClient
-from kunyu.persistence.oge import OgeAccountStore
+from kunyu.persistence.geospatial.oge import OgeAccountStore
 
 
 class OgePlugin:

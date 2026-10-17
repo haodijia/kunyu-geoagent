@@ -1,13 +1,27 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { CheckCircle2, Circle, LoaderCircle, LogIn, LogOut, TriangleAlert } from "lucide-react";
+import {
+  CheckCircle2,
+  Circle,
+  LoaderCircle,
+  LogIn,
+  LogOut,
+  TriangleAlert,
+} from "lucide-react";
 import { useRef, useState, type FormEvent } from "react";
 
 import { ApiError } from "@/api/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { SettingsPageHeader, SettingsPageWrapper } from "@/features/settings/SettingsPage";
+import {
+  ogeAccountApi,
+  ogeAccountQueryKey,
+  type OgeAccountStatus,
+} from "@/features/settings/oge/api";
+import {
+  SettingsPageHeader,
+  SettingsPageWrapper,
+} from "@/features/settings/SettingsPage";
 import { zhCN } from "@/locales/zh-CN";
-import { ogeAccountApi, ogeAccountQueryKey, type OgeAccountStatus } from "./api";
 
 const content = zhCN.oge;
 

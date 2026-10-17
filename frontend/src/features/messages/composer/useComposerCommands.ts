@@ -5,11 +5,17 @@ import { ApiError } from "@/api/client";
 import { useAppUiStore } from "@/app/store";
 import { agentQueryKeys } from "@/features/agent/api";
 import { messageQueryKeys } from "@/features/messages/api";
+import {
+  composerCommandsApi,
+  type CommandMessage,
+} from "@/features/messages/composer/api";
+import {
+  parseComposerCommand,
+  type ComposerCommandDescriptor,
+} from "@/features/messages/composer/commands";
+import type { ModelPickerPane } from "@/features/messages/composer/ComposerModelPicker";
 import { useSessionWorkspace } from "@/features/sessions/SessionWorkspaceContext";
 import { zhCN } from "@/locales/zh-CN";
-import { parseComposerCommand, type ComposerCommandDescriptor } from "./commands";
-import { composerCommandsApi, type CommandMessage } from "./api";
-import type { ModelPickerPane } from "./ComposerModelPicker";
 
 interface ComposerCommandOptions {
   readonly draft: string;

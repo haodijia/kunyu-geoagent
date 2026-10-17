@@ -1,19 +1,22 @@
-import { toast } from "sonner";
-import { Tooltip } from "@/components/ui/tooltip";
-import { Archive } from "lucide-react";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { useNavigate } from "react-router-dom";
 import { ApiError } from "@/api/client";
 import { clearLastSessionRoute, readLastSessionRoute } from "@/app/storage";
+import { Tooltip } from "@/components/ui/tooltip";
+import {
+  sessionQueryKeys,
+  setSessionArchived,
+  type SessionSummary,
+} from "@/features/sessions/api";
+import {
+  parseSessionRoute,
+  sessionAnalysisPath,
+} from "@/features/sessions/routes";
+import { workspaceQueryKeys } from "@/features/workspaces/api";
 import { cn } from "@/lib/utils";
 import { zhCN } from "@/locales/zh-CN";
-import { workspaceQueryKeys } from "@/features/workspaces/api";
-import {
-  setSessionArchived,
-  sessionQueryKeys,
-  type SessionSummary,
-} from "./api";
-import { parseSessionRoute, sessionAnalysisPath } from "./routes";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { Archive } from "lucide-react";
+import { useNavigate } from "react-router-dom";
+import { toast } from "sonner";
 
 const content = zhCN.workspaceSidebar;
 

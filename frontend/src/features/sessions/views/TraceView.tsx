@@ -1,22 +1,22 @@
-import { useCallback, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { conversationAssembler } from "@/features/conversation/assembler";
 import { EventStreamNotice } from "@/features/events/EventStreamNotice";
 import { useSessionEvents } from "@/features/events/SessionEventContext";
-import { TrajectoryLedger } from "@/features/events/TrajectoryLedger";
-import { TrajectoryInspector } from "@/features/events/TrajectoryInspector";
-import { TrajectoryTimeline } from "@/features/events/TrajectoryTimeline";
-import { TrajectoryToolbar } from "@/features/events/TrajectoryToolbar";
-import { trajectoryTurns } from "@/features/events/trajectory-model";
-import { conversationAssembler } from "@/features/conversation/assembler";
-import { trajectoryTranslate as t } from "@/features/events/trajectory-locales";
+import { TrajectoryLedger } from "@/features/events/trajectory/TrajectoryLedger";
+import { TrajectoryToolbar } from "@/features/events/trajectory/TrajectoryToolbar";
+import { TrajectoryInspector } from "@/features/events/trajectory/inspector/TrajectoryInspector";
+import css from "@/features/events/trajectory/styles/TrajectoryLedger.module.css";
+import { TrajectoryTimeline } from "@/features/events/trajectory/timeline/TrajectoryTimeline";
 import {
   trajectoryTimelineFocusIndexes,
   type TrajectoryTimeRange,
-} from "@/features/events/timeline";
-import { useSessionMessages } from "@/features/messages/SessionMessagesContext";
-import { SessionComposer } from "@/features/messages/SessionComposer";
+} from "@/features/events/trajectory/timeline/timeline";
+import { trajectoryTranslate as t } from "@/features/events/trajectory/trajectory-locales";
+import { trajectoryTurns } from "@/features/events/trajectory/trajectory-model";
+import "@/features/events/trajectory/trajectory-theme.css";
+import { SessionComposer } from "@/features/messages/composer/SessionComposer";
+import { useSessionMessages } from "@/features/messages/state/SessionMessagesContext";
 import { zhCN } from "@/locales/zh-CN";
-import css from "@/features/events/TrajectoryLedger.module.css";
-import "@/features/events/trajectory-theme.css";
+import { useCallback, useLayoutEffect, useMemo, useRef, useState } from "react";
 
 export function TraceView() {
   const eventStream = useSessionEvents();

@@ -6,7 +6,7 @@ from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 from typing import Literal, Protocol
 
-from kunyu.agent.scope import Context, ScopedEntries, ScopeKey
+from kunyu.agent.core.scope import Context, ScopedEntries, ScopeKey
 from kunyu.agent.skills.definitions import (
     DirectoryResourceBase,
     OpaqueResourceBase,

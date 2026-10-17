@@ -1,7 +1,7 @@
-import { MessageMarkdown } from "@/features/messages/MessageMarkdown";
-import { CopyButton } from "@/features/messages/CopyButton";
+import { CopyButton } from "@/features/messages/rendering/CopyButton";
+import { MessageMarkdown } from "@/features/messages/rendering/MessageMarkdown";
+import type { LoadedSkill } from "@/features/skills/session-skills";
 import { zhCN } from "@/locales/zh-CN";
-import type { LoadedSkill } from "./session-skills";
 
 export function SkillPreview({ skill }: { readonly skill: LoadedSkill }) {
   return (

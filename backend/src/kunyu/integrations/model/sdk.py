@@ -15,8 +15,8 @@ from pydantic_ai.models.openai import OpenAIChatModel, OpenAIResponsesModel
 from pydantic_ai.providers.anthropic import AnthropicProvider
 from pydantic_ai.providers.openai import OpenAIProvider
 
-from kunyu.agent.runtime.models import ModelAdapterError, ModelErrorCode
-from kunyu.domain.model_connections import (
+from kunyu.agent.runtime.contracts.models import ModelAdapterError, ModelErrorCode
+from kunyu.domain.models.model_connections import (
     MaxTokensField,
     ModelProtocol,
     ModelProviderType,

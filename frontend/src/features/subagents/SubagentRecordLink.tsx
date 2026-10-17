@@ -1,6 +1,6 @@
 import { Button } from "@/components/ui/button";
+import { useSubagents } from "@/features/subagents/SubagentContext";
 import { zhCN } from "@/locales/zh-CN";
-import { useSubagents } from "./SubagentContext";
 
 export function SubagentRecordLink({ childId }: { readonly childId: string }) {
   const state = useSubagents();

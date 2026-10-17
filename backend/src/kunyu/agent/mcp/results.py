@@ -5,12 +5,17 @@ import base64
 import json
 from uuid import uuid4
 
-from kunyu.agent.runtime.content import TextBlock
-from kunyu.agent.runtime.input_content import ImageInputBlock
-from kunyu.agent.runtime.tools import ToolCall, ToolExecutionError, ToolResult
+from kunyu.agent.runtime.contracts.content import TextBlock
+from kunyu.agent.runtime.contracts.input_content import ImageInputBlock
+from kunyu.agent.runtime.contracts.tools import ToolCall, ToolExecutionError, ToolResult
 from kunyu.agent.tools.shared import load_source
-from kunyu.application.attachment_preparation import PreparedAttachment, normalize_image
-from kunyu.domain.attachments import MAX_ATTACHMENTS, MAX_BATCH_BYTES, ToolImageProducer
+from kunyu.application.conversation.attachment_preparation import normalize_image
+from kunyu.domain.conversation.attachments import (
+    MAX_ATTACHMENTS,
+    MAX_BATCH_BYTES,
+    PreparedAttachment,
+    ToolImageProducer,
+)
 from kunyu.integrations.model.request_images import prepare_image
 
 MAX_RESULT_BYTES = 32 * 1024 * 1024

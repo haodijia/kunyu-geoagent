@@ -1,10 +1,24 @@
-import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from "react";
 import { X } from "lucide-react";
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useRef,
+  useState,
+  type ReactNode,
+} from "react";
 
-import { AlertDialog, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogTitle } from "@/components/ui/alert-dialog";
+import {
+  AlertDialog,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
+import { PlanPreview } from "@/features/plans/PlanPreview";
 import { zhCN } from "@/locales/zh-CN";
-import { PlanPreview } from "./PlanPreview";
 
 interface PlanReaderState {
   readonly document: { readonly toolId: string; readonly title: string } | null;

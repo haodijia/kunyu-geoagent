@@ -7,8 +7,8 @@ from typing import Annotated
 from pydantic import Field, JsonValue, StringConstraints
 from sqlalchemy.orm import Session
 
-from kunyu.agent.prompt_files import tool_description
-from kunyu.agent.runtime.tools import (
+from kunyu.agent.prompts.loader import tool_description
+from kunyu.agent.runtime.contracts.tools import (
     ToolApproval,
     ToolCall,
     ToolConfirmationRequiredError,
@@ -26,13 +26,13 @@ from kunyu.agent.tools.shared import (
     validate_arguments,
     validate_model,
 )
-from kunyu.domain.agent_context import RunContextRepository
-from kunyu.domain.workspace_memory import (
+from kunyu.domain.conversation.agent_context import RunContextRepository
+from kunyu.domain.workspaces.workspace_memory import (
     WorkspaceMemory,
     WorkspaceMemoryPage,
     WorkspaceMemoryRepository,
 )
-from kunyu.persistence.workspace_memory import add_workspace_memory
+from kunyu.persistence.workspaces.workspace_memory import add_workspace_memory
 
 
 class _MemoryReadArguments(ToolArguments):

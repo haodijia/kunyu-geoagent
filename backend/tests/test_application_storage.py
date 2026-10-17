@@ -10,7 +10,7 @@ from unittest.mock import patch
 from uuid import uuid4
 
 from fastapi.testclient import TestClient
-from kunyu.main import create_app
+from kunyu.server import create_app
 from local_model_server import LocalModelServer
 
 

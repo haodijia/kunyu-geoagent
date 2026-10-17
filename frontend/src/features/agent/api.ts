@@ -1,12 +1,12 @@
-import type { Attachment } from "@/features/attachments/api";
 import { requestJson } from "@/api/client";
-import type { ToolContentBlock } from "./tool-content";
+import type { ToolContentBlock } from "@/features/agent/tools/tool-content";
+import type { Attachment } from "@/features/attachments/api";
 import type {
   MaxTokensField,
   ModelAuthMode,
+  ModelImageInput,
   ModelProtocol,
   ModelProviderType,
-  ModelImageInput
 } from "@/features/settings/models/api";
 
 export function discardAgentInput(sessionId: string, messageId: string): Promise<void> {

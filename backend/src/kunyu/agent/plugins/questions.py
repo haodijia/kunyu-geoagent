@@ -1,10 +1,13 @@
 """Compose the durable question service and its model-facing tool."""
 
-from kunyu.agent import services as s
-from kunyu.agent.scope import Context
-from kunyu.agent.tools.workflow.questions import AskUserQuestionHandler, AskUserQuestionTool
+from kunyu.agent.core import services as s
+from kunyu.agent.core.scope import Context
 from kunyu.agent.tools.registry import ToolRegistration
-from kunyu.application.questions import UserQuestionService
+from kunyu.agent.tools.workflow.questions import (
+    AskUserQuestionHandler,
+    AskUserQuestionTool,
+)
+from kunyu.application.execution.questions import UserQuestionService
 
 
 class UserQuestionsPlugin:

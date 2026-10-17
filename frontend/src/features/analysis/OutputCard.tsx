@@ -1,13 +1,20 @@
+import { useAppUiStore } from "@/app/store";
+import { Button } from "@/components/ui/button";
+import {
+  analysisApi,
+  analysisKeys,
+  type AnalysisOutput,
+} from "@/features/analysis/api";
+import { useOutputImage } from "@/features/analysis/useOutputImage";
+import {
+  sessionAnalysisPath,
+  sessionMapPath,
+} from "@/features/sessions/routes";
+import { zhCN } from "@/locales/zh-CN";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Download, LocateFixed, MessageSquarePlus } from "lucide-react";
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { useAppUiStore } from "@/app/store";
-import { Button } from "@/components/ui/button";
-import { sessionAnalysisPath, sessionMapPath } from "@/features/sessions/routes";
-import { zhCN } from "@/locales/zh-CN";
-import { analysisApi, analysisKeys, type AnalysisOutput } from "./api";
-import { useOutputImage } from "./useOutputImage";
 
 const content = zhCN.analysis;
 

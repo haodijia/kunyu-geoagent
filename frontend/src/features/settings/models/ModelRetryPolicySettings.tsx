@@ -1,9 +1,15 @@
 import { useState } from "react";
 
 import { Input } from "@/components/ui/input";
+import type {
+  ModelConnection,
+  RetryPolicy,
+} from "@/features/settings/models/api";
+import {
+  ModelDetailSection,
+  ModelExpandableRow,
+} from "@/features/settings/models/ModelConnectionDetailControls";
 import { zhCN } from "@/locales/zh-CN";
-import type { ModelConnection, RetryPolicy } from "./api";
-import { ModelDetailSection, ModelExpandableRow } from "./ModelConnectionDetailControls";
 
 const content = zhCN.modelConnections.retryPolicy;
 const defaultCodes = ["MODEL_EMPTY_RESPONSE", "PROVIDER_RATE_LIMIT", "PROVIDER_SERVER", "PROVIDER_TIMEOUT", "PROVIDER_NETWORK"];

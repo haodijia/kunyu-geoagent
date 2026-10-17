@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 
-import type { ModelProviderType } from "./api";
+import type { ModelProviderType } from "@/features/settings/models/api";
 
 const marks: Record<ModelProviderType, ReactNode> = {
   openai: (

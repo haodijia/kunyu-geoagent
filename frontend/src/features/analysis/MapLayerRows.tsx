@@ -1,11 +1,18 @@
+import { Button } from "@/components/ui/button";
+import type { MapLayer } from "@/features/analysis/api";
+import { useOutputImage } from "@/features/analysis/useOutputImage";
+import { zhCN } from "@/locales/zh-CN";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { Eye, EyeOff, GripVertical, ImageOff, LocateFixed, Trash2 } from "lucide-react";
+import {
+  Eye,
+  EyeOff,
+  GripVertical,
+  ImageOff,
+  LocateFixed,
+  Trash2,
+} from "lucide-react";
 import { useEffect, useState } from "react";
-import { Button } from "@/components/ui/button";
-import { zhCN } from "@/locales/zh-CN";
-import type { MapLayer } from "./api";
-import { useOutputImage } from "./useOutputImage";
 
 const content = zhCN.analysis;
 export type LayerAction =

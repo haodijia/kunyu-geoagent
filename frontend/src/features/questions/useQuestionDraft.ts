@@ -1,6 +1,6 @@
-import { useState } from "react";
-import type { HumanQuestion } from "./api";
+import type { HumanQuestion } from "@/features/questions/api";
 import { zhCN } from "@/locales/zh-CN";
+import { useState } from "react";
 
 export interface AnswerDraft {
   readonly selected: readonly string[];

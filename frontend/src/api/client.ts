@@ -1,4 +1,4 @@
-import { getRuntimeConnection } from "./runtime";
+import { getRuntimeConnection } from "@/api/runtime";
 import { zhCN } from "@/locales/zh-CN";
 
 const SESSION_HEADER = "X-Kunyu-Session";

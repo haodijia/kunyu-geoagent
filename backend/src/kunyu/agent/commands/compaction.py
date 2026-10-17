@@ -1,8 +1,8 @@
 """Idle-session command admission for the shared compaction service."""
 
 from kunyu.agent.commands.registry import CommandInvocation, CommandResult
-from kunyu.agent.compaction import compact_context
-from kunyu.agent.runtime.events import TERMINAL_RUN_STATES
+from kunyu.agent.compaction.service import compact_context
+from kunyu.agent.runtime.events.base import TERMINAL_RUN_STATES
 
 
 async def compact_history(invocation: CommandInvocation) -> CommandResult:

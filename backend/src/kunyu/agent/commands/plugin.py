@@ -2,7 +2,6 @@
 
 from datetime import UTC, datetime
 
-from kunyu.agent import services as s
 from kunyu.agent.commands.compaction import compact_history
 from kunyu.agent.commands.plan import plan_command
 from kunyu.agent.commands.registry import (
@@ -11,16 +10,17 @@ from kunyu.agent.commands.registry import (
     CommandRegistry,
     CommandResult,
 )
-from kunyu.agent.runtime.events import (
-    EventBatch,
+from kunyu.agent.core import services as s
+from kunyu.agent.core.scope import Context
+from kunyu.agent.runtime.events.session import (
     FeedbackRecordedEvent,
     FeedbackRecordedPayload,
     PermissionChangedEvent,
     PermissionChangedPayload,
 )
-from kunyu.agent.scope import Context
-from kunyu.persistence.commands import read_session_controls
-from kunyu.persistence.compaction_recovery import recover_compactions
+from kunyu.agent.runtime.events.store import EventBatch
+from kunyu.persistence.conversation.commands import read_session_controls
+from kunyu.persistence.conversation.compaction_recovery import recover_compactions
 
 
 async def _permission(invocation: CommandInvocation) -> CommandResult:

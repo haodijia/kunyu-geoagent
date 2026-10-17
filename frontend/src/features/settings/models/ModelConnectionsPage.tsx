@@ -3,12 +3,18 @@ import { ChevronRight, LoaderCircle, Plus } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
 import { Button } from "@/components/ui/button";
-import { SettingsPageHeader, SettingsPageWrapper } from "@/features/settings/SettingsPage";
+import { modelConnectionsApi } from "@/features/settings/models/api";
+import {
+  connectionErrorMessage,
+  connectionStatus,
+} from "@/features/settings/models/model";
+import { providerName } from "@/features/settings/models/provider-copy";
+import { ProviderLogo } from "@/features/settings/models/ProviderLogo";
+import {
+  SettingsPageHeader,
+  SettingsPageWrapper,
+} from "@/features/settings/SettingsPage";
 import { zhCN } from "@/locales/zh-CN";
-import { modelConnectionsApi } from "./api";
-import { connectionErrorMessage, connectionStatus } from "./model";
-import { providerName } from "./provider-copy";
-import { ProviderLogo } from "./ProviderLogo";
 
 const content = zhCN.modelConnections;
 

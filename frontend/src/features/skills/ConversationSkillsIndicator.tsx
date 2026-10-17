@@ -1,10 +1,17 @@
-import { Zap, ArrowLeft } from "lucide-react";
-import { useMemo, useState } from "react";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 import { useSessionEvents } from "@/features/events/SessionEventContext";
+import { SkillPreview } from "@/features/skills/SkillPreview";
+import {
+  collectSessionSkills,
+  type LoadedSkill,
+} from "@/features/skills/session-skills";
 import { zhCN } from "@/locales/zh-CN";
-import { SkillPreview } from "./SkillPreview";
-import { collectSessionSkills, type LoadedSkill } from "./session-skills";
+import { ArrowLeft, Zap } from "lucide-react";
+import { useMemo, useState } from "react";
 
 const copy = zhCN.skills;
 

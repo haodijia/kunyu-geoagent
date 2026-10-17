@@ -6,10 +6,10 @@ from enum import StrEnum
 from time import monotonic
 from typing import Any
 
-from kunyu.agent.model_providers import LLMService
-from kunyu.agent.prompt_files import prompt_text
-from kunyu.agent.runtime.content import TextBlock, ToolCallBlock
-from kunyu.agent.runtime.models import (
+from kunyu.agent.capabilities.model_providers import LLMService
+from kunyu.agent.prompts.loader import prompt_text
+from kunyu.agent.runtime.contracts.content import TextBlock, ToolCallBlock
+from kunyu.agent.runtime.contracts.models import (
     BlockEnd,
     ModelAdapterError,
     ModelErrorCode,
@@ -19,14 +19,14 @@ from kunyu.agent.runtime.models import (
     ModelRequest,
     ModelRole,
 )
-from kunyu.agent.runtime.tools import ToolSchema
-from kunyu.domain.model_connections import (
+from kunyu.agent.runtime.contracts.tools import ToolSchema
+from kunyu.domain.models.model_connections import (
     MaxTokensField,
     ModelAuthMode,
     ModelProtocol,
     ModelProviderType,
 )
-from kunyu.domain.model_reasoning import ReasoningParameters
+from kunyu.domain.models.model_reasoning import ReasoningParameters
 from kunyu.integrations.model.connection import ModelConnectionConfig
 
 MODEL_OPERATION_TIMEOUT_SECONDS = 30

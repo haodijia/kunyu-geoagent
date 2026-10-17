@@ -2,5 +2,5 @@
 .gitattributes text eol=lf
 backend/pyproject.toml text eol=lf
 backend/uv.lock text eol=lf
-backend/src/kunyu/integrations/filesystem_windows.py text eol=lf
+backend/src/kunyu/integrations/filesystem/windows.py text eol=lf
 backend/tests/test_workspace_storage.py text eol=lf

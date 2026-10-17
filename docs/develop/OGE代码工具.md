@@ -77,4 +77,4 @@ result.export("analysis")
 - 结果为 128 × 128、单波段 float32、EPSG:32650，含裁剪外 NoData 和 1089 个有效像元；有效值约 0.08039–0.41527，文件 266240 字节。输出范围包含平台导出的对齐边界，不等于只有请求矩形大小。
 - 已读取真实像元，并生成 PNG 预览和地图瓦片。应用启动、三个工具注册及参数校验、改动文件 Ruff、前端类型检查与构建通过。实际地图展示无页面运行错误，下载得到完整 266240 字节源文件；按项目要求不新增测试文件。
 
-代码入口：`agent/tools/oge/execute_code.py`、`operators.py`、`application/analysis.py`、`integrations/oge/execution.py`、`integrations/analysis_raster.py`。既有数据库结构无需改动，历史任务和成果仍可查看。
+代码入口：`agent/tools/oge/execute_code.py`、`operators.py`、`application/analysis/analysis.py`、`integrations/oge/execution.py`、`integrations/geospatial/analysis_raster.py`。既有数据库结构无需改动，历史任务和成果仍可查看。

@@ -4,13 +4,17 @@ import logging
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
 
-from kunyu.agent import services as s
-from kunyu.agent.compaction import compact_context
-from kunyu.agent.compaction_pressure import PressureConfigurationError, PressurePolicy
-from kunyu.agent.hooks import PreStepInvocation, RequestErrorInvocation
-from kunyu.agent.runtime.hooks import RequestErrorAction, RequestRetry, StepDecision
-from kunyu.agent.runtime.models import ModelErrorCode
-from kunyu.agent.scope import Context
+from kunyu.agent.compaction.pressure import PressureConfigurationError, PressurePolicy
+from kunyu.agent.compaction.service import compact_context
+from kunyu.agent.core import services as s
+from kunyu.agent.core.hooks import PreStepInvocation, RequestErrorInvocation
+from kunyu.agent.core.scope import Context
+from kunyu.agent.runtime.contracts.hooks import (
+    RequestErrorAction,
+    RequestRetry,
+    StepDecision,
+)
+from kunyu.agent.runtime.contracts.models import ModelErrorCode
 
 logger = logging.getLogger(__name__)
 

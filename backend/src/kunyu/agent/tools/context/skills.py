@@ -5,10 +5,15 @@ from typing import Annotated
 
 from pydantic import JsonValue, StringConstraints, TypeAdapter
 
-from kunyu.agent.prompt_files import tool_description
-from kunyu.agent.runtime.content import TextBlock
-from kunyu.agent.runtime.tools import ToolCall, ToolResult, ToolRiskLevel, ToolSpec
-from kunyu.agent.scope import AgentScopes
+from kunyu.agent.core.scope import AgentScopes
+from kunyu.agent.prompts.loader import tool_description
+from kunyu.agent.runtime.contracts.content import TextBlock
+from kunyu.agent.runtime.contracts.tools import (
+    ToolCall,
+    ToolResult,
+    ToolRiskLevel,
+    ToolSpec,
+)
 from kunyu.agent.skills.definitions import SKILL_NAME_PATTERN
 from kunyu.agent.skills.registry import SkillRegistry
 from kunyu.agent.skills.render import render_skill
@@ -19,7 +24,7 @@ from kunyu.agent.tools.shared import (
     validate_arguments,
     validate_model,
 )
-from kunyu.domain.agent_context import RunContextRepository
+from kunyu.domain.conversation.agent_context import RunContextRepository
 
 
 class SkillArguments(ToolArguments):

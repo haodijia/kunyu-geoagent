@@ -8,17 +8,17 @@ from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import Literal
 
-from kunyu.agent import services as s
-from kunyu.agent.runtime.events import (
+from kunyu.agent.core import services as s
+from kunyu.agent.core.scope import Context, ScopedEntries
+from kunyu.agent.orchestration.session_agent import SessionAgent
+from kunyu.agent.runtime.events.session import (
     CommandDoneEvent,
     CommandDonePayload,
     CommandRunEvent,
     CommandRunPayload,
-    EventBatch,
 )
-from kunyu.agent.scope import Context, ScopedEntries
-from kunyu.agent.session_agent import SessionAgent
-from kunyu.domain.run_acceptance import RunAcceptanceRequest
+from kunyu.agent.runtime.events.store import EventBatch
+from kunyu.domain.execution.run_acceptance import RunAcceptanceRequest
 
 logger = logging.getLogger(__name__)
 

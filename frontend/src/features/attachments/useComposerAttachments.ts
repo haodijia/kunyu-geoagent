@@ -1,8 +1,11 @@
-import { useEffect, useRef, useState } from "react";
 import { ApiError } from "@/api/client";
 import { useAppUiStore } from "@/app/store";
+import {
+  uploadAttachments,
+  type AttachmentUpload,
+} from "@/features/attachments/api";
 import { zhCN } from "@/locales/zh-CN";
-import { uploadAttachments, type AttachmentUpload } from "./api";
+import { useEffect, useRef, useState } from "react";
 
 const content = zhCN.conversation.attachments;
 const IMAGE_TYPES = new Set(["image/png", "image/jpeg", "image/webp", "image/gif"]);

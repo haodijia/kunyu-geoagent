@@ -1,5 +1,5 @@
 /** Conversation turn previews adapted from Mu (Apache-2.0). */
-import type { SessionMessage } from "../api";
+import type { SessionMessage } from "@/features/messages/api";
 
 export interface MessageAnchor {
   readonly index: number;

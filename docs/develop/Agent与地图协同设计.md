@@ -206,8 +206,8 @@ NDVI 是连续数值结果，需要固定数值到颜色的映射与数值图例
 - agent/tools/maps/：地图上下文、图层与视角工具。
 - integrations/oge/execution.py：该已发布服务的准确 HTTP 契约。
 - application/oge_jobs.py：提交用例、结果收集与持久监督器；必要时再拆收集模块。
-- domain/analysis.py、persistence/analysis.py：任务、成果及数据访问。
-- api/analysis.py、api/maps.py：会话鉴权、对象归属和响应。
+- domain/geospatial/analysis.py、persistence/geospatial/analysis.py：任务、成果及数据访问。
+- api/geospatial/analysis.py、api/maps.py：会话鉴权、对象归属和响应。
 - frontend/features/maps/：业务图层、图例、对象选择与轻量面板。
 - frontend/features/analysis/：任务/成果卡片，供对话与地图复用。
 

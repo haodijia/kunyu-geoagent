@@ -5,15 +5,21 @@ from collections.abc import Mapping
 
 from pydantic import BaseModel, ConfigDict, JsonValue, TypeAdapter, ValidationError
 
-from kunyu.agent.context import RunContextIntegrityError, validate_run_context_source
-from kunyu.agent.runtime.content import TextBlock
-from kunyu.agent.runtime.tools import (
+from kunyu.agent.context.history import (
+    RunContextIntegrityError,
+    validate_run_context_source,
+)
+from kunyu.agent.runtime.contracts.content import TextBlock
+from kunyu.agent.runtime.contracts.tools import (
     ToolCall,
     ToolExecutionError,
     ToolResult,
     ToolValidationError,
 )
-from kunyu.domain.agent_context import RunContextRepository, RunContextSource
+from kunyu.domain.conversation.agent_context import (
+    RunContextRepository,
+    RunContextSource,
+)
 
 MAX_TOOL_RESULT_BYTES = 16 * 1024
 

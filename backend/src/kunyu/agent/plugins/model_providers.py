@@ -1,12 +1,12 @@
 """The product installs provider capabilities independently from its LLM service."""
 
-from kunyu.agent import services as s
-from kunyu.agent.model_providers import (
+from kunyu.agent.capabilities.model_providers import (
     ModelProvider,
     ModelProviderRegistry,
     is_official_deepseek,
 )
-from kunyu.agent.scope import Context
+from kunyu.agent.core import services as s
+from kunyu.agent.core.scope import Context
 from kunyu.integrations.model.sdk import PreparedSDKModel
 from kunyu.integrations.model.sdk_discovery import (
     discover_deepseek_models,

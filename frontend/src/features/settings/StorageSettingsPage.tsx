@@ -1,10 +1,13 @@
+import { Button } from "@/components/ui/button";
+import {
+  SettingsPageHeader,
+  SettingsPageWrapper,
+} from "@/features/settings/SettingsPage";
+import { zhCN } from "@/locales/zh-CN";
+import type { StorageResult } from "@/types/runtime";
 import { useQuery } from "@tanstack/react-query";
 import { FolderOpen, LoaderCircle } from "lucide-react";
 import { useState } from "react";
-import { Button } from "@/components/ui/button";
-import type { StorageResult } from "@/types/runtime";
-import { zhCN } from "@/locales/zh-CN";
-import { SettingsPageHeader, SettingsPageWrapper } from "./SettingsPage";
 
 const content = zhCN.storage;
 

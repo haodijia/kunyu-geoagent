@@ -1,5 +1,9 @@
-import type { ModelProviderType } from "./api";
-import type { ProviderCatalogEntry, ProviderCatalogId, ProviderCategory } from "./providers";
+import type { ModelProviderType } from "@/features/settings/models/api";
+import type {
+  ProviderCatalogEntry,
+  ProviderCatalogId,
+  ProviderCategory,
+} from "@/features/settings/models/providers";
 
 interface ProviderCopy {
   readonly name: string;

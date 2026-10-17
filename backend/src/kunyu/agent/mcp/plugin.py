@@ -4,15 +4,15 @@ import asyncio
 from builtins import BaseExceptionGroup
 from functools import partial
 
-from kunyu.agent import services as s
+from kunyu.agent.core import services as s
 from kunyu.agent.mcp.oauth import McpOAuthManager
 from kunyu.agent.mcp.resources import register_resources
 from kunyu.agent.mcp.tools import McpTool
-from kunyu.agent.prompt_files import prompt_text
-from kunyu.agent.runtime.context import PromptSection
+from kunyu.agent.prompts.loader import prompt_text
+from kunyu.agent.runtime.contracts.context import PromptSection
 from kunyu.agent.tools.registry import ToolRegistration
 from kunyu.integrations.mcp.connection import McpConnection
-from kunyu.persistence.mcp import McpRepository
+from kunyu.persistence.mcp.servers import McpRepository
 
 
 class McpManager:

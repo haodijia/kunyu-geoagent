@@ -1,3 +1,13 @@
+import { Button } from "@/components/ui/button";
+import { Textarea } from "@/components/ui/textarea";
+import { MessageMarkdown } from "@/features/messages/rendering/MessageMarkdown";
+import type { HumanQuestion, QuestionAnswer } from "@/features/questions/api";
+import {
+  useQuestionDraft,
+  type AnswerDraft,
+} from "@/features/questions/useQuestionDraft";
+import { cn } from "@/lib/utils";
+import { zhCN } from "@/locales/zh-CN";
 import {
   Check,
   ChevronDown,
@@ -8,13 +18,6 @@ import {
   X,
 } from "lucide-react";
 import { useRef, useState, type KeyboardEvent } from "react";
-import { Button } from "@/components/ui/button";
-import { Textarea } from "@/components/ui/textarea";
-import { MessageMarkdown } from "@/features/messages/MessageMarkdown";
-import { cn } from "@/lib/utils";
-import { zhCN } from "@/locales/zh-CN";
-import type { HumanQuestion, QuestionAnswer } from "./api";
-import { useQuestionDraft, type AnswerDraft } from "./useQuestionDraft";
 
 const copy = zhCN.questions;
 function displayLabel(label: string) {

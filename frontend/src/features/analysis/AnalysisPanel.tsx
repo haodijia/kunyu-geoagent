@@ -1,12 +1,29 @@
-import { closestCenter, DndContext, KeyboardSensor, PointerSensor, useSensor, useSensors, type DragEndEvent } from "@dnd-kit/core";
-import { SortableContext, sortableKeyboardCoordinates, verticalListSortingStrategy } from "@dnd-kit/sortable";
+import { Button } from "@/components/ui/button";
+import {
+  analysisApi,
+  analysisKeys,
+  type MapLayer,
+  type MapState,
+} from "@/features/analysis/api";
+import { LayerRow, type LayerAction } from "@/features/analysis/MapLayerRows";
+import { zhCN } from "@/locales/zh-CN";
+import {
+  closestCenter,
+  DndContext,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+} from "@dnd-kit/core";
+import {
+  SortableContext,
+  sortableKeyboardCoordinates,
+  verticalListSortingStrategy,
+} from "@dnd-kit/sortable";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Layers, X } from "lucide-react";
 import { useState } from "react";
-import { Button } from "@/components/ui/button";
-import { zhCN } from "@/locales/zh-CN";
-import { analysisApi, analysisKeys, type MapLayer, type MapState } from "./api";
-import { LayerRow, type LayerAction } from "./MapLayerRows";
 
 const content = zhCN.analysis;
 export function AnalysisPanel({ workspaceId, sessionId, state, layers, error }: {

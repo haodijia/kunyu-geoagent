@@ -9,8 +9,9 @@ from pydantic import JsonValue
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from kunyu.agent.runtime.questions import QuestionAnswers, QuestionSet
-from kunyu.agent.runtime.tools import (
+from kunyu.agent.core.scope import Context, ScopedEntries
+from kunyu.agent.runtime.contracts.questions import QuestionAnswers, QuestionSet
+from kunyu.agent.runtime.contracts.tools import (
     PolicyDecision,
     Tool,
     ToolApproval,
@@ -21,11 +22,14 @@ from kunyu.agent.runtime.tools import (
     ToolResult,
     ToolRiskLevel,
 )
-from kunyu.agent.scope import Context, ScopedEntries
-from kunyu.domain.agent_context import RunContextRepository
-from kunyu.persistence.commands import read_session_controls
+from kunyu.domain.conversation.agent_context import RunContextRepository
+from kunyu.persistence.conversation.commands import read_session_controls
 from kunyu.persistence.database import Database
-from kunyu.persistence.models import RunRecord, SessionEventRecord, SubagentRecord
+from kunyu.persistence.records.execution import (
+    RunRecord,
+    SessionEventRecord,
+    SubagentRecord,
+)
 
 
 class QuestionHandler(Protocol):

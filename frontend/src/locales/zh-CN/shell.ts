@@ -1,0 +1,30 @@
+export const shell = {
+  api: {
+    runtimeUnavailable: "桌面运行时连接不可用。",
+    eventStreamMissingBody: "事件流响应缺少正文。",
+    invalidPath: (path: string) => `接口路径必须以 /api/ 开头：${path}`,
+    requestFailed: (status: number) => `请求失败（${status}）。`,
+  },
+  shell: {
+    productName: "坤舆",
+    sidebarLabel: "任务侧边栏",
+    navigationLabel: "主要导航",
+    newChat: "新会话",
+    search: "搜索",
+    notifications: "通知",
+    more: "更多",
+    share: "分享",
+    geoSkill: "GeoSkill",
+    explore: "探索",
+    scheduledTasks: "定时任务",
+    resizeSidebar: "调整侧边栏宽度",
+    theme: {
+      system: "主题：跟随系统",
+      light: "主题：浅色",
+      dark: "主题：深色",
+    },
+    settings: "设置",
+    collapseSidebar: "收起侧边栏",
+    expandSidebar: "展开侧边栏",
+  },
+} as const;

@@ -4,8 +4,8 @@ from collections.abc import Mapping
 
 from pydantic import Field
 
-from kunyu.agent.prompt_files import tool_description
-from kunyu.agent.runtime.tools import (
+from kunyu.agent.prompts.loader import tool_description
+from kunyu.agent.runtime.contracts.tools import (
     ToolCall,
     ToolExecutionError,
     ToolResult,
@@ -20,9 +20,9 @@ from kunyu.agent.tools.shared import (
     validate_arguments,
     validate_model,
 )
-from kunyu.domain.agent_context import RunContextRepository
-from kunyu.domain.analysis import AnalysisError
-from kunyu.domain.oge import OgeError
+from kunyu.domain.conversation.agent_context import RunContextRepository
+from kunyu.domain.geospatial.analysis import AnalysisError
+from kunyu.domain.geospatial.oge import OgeError
 from kunyu.integrations.oge.execution import ExecutionGateway
 
 

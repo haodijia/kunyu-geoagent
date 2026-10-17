@@ -1,0 +1,128 @@
+from datetime import datetime
+
+from sqlalchemy import select, text, update
+from sqlalchemy.dialects.sqlite import insert
+
+from kunyu.domain.execution.runs import (
+    NONTERMINAL_RUN_STATE_VALUES,
+    UnfinishedRunConflictError,
+)
+from kunyu.domain.workspaces.workspace import Workspace
+from kunyu.domain.workspaces.workspace_files import WorkspaceDirectory
+from kunyu.persistence.database import Database
+from kunyu.persistence.records.conversation import (
+    MessageRecord,
+    SessionArchiveRecord,
+    SessionRecord,
+)
+from kunyu.persistence.records.execution import RunRecord
+from kunyu.persistence.records.workspaces import WorkspaceRecord, WorkspaceRemovalRecord
+from kunyu.persistence.time import as_utc
+
+
+class SQLAlchemyWorkspaceRepository:
+    def __init__(self, database: Database, directories: WorkspaceDirectory) -> None:
+        self._database = database
+        self._directories = directories
+
+    def rename(
+        self, workspace_id: str, name: str, updated_at: datetime
+    ) -> Workspace | None:
+        statement = (
+            update(WorkspaceRecord)
+            .where(
+                WorkspaceRecord.id == workspace_id,
+                ~WorkspaceRecord.id.in_(select(WorkspaceRemovalRecord.workspace_id)),
+            )
+            .values(name=name, updated_at=updated_at)
+            .returning(WorkspaceRecord)
+        )
+        with self._database.sessions.begin() as session:
+            record = session.scalar(statement)
+            return _to_domain(record) if record is not None else None
+
+    def remove(self, workspace_id: str) -> bool:
+        with self._database.sessions.begin() as session:
+            session.execute(text("BEGIN IMMEDIATE"))
+            if session.get(WorkspaceRecord, workspace_id) is None:
+                return False
+            unfinished = session.scalar(
+                select(RunRecord.id)
+                .join(SessionRecord, SessionRecord.id == RunRecord.session_id)
+                .where(
+                    SessionRecord.workspace_id == workspace_id,
+                    RunRecord.state.in_(NONTERMINAL_RUN_STATE_VALUES),
+                )
+                .limit(1)
+            )
+            pending = session.scalar(
+                select(MessageRecord.id)
+                .join(
+                    SessionRecord,
+                    SessionRecord.id == MessageRecord.session_id,
+                )
+                .where(
+                    SessionRecord.workspace_id == workspace_id,
+                    MessageRecord.role == "user",
+                    MessageRecord.run_id.is_(None),
+                    MessageRecord.status == "completed",
+                )
+                .limit(1)
+            )
+            if unfinished is not None or pending is not None:
+                raise UnfinishedRunConflictError(
+                    "Cancel unfinished runs before removing this workspace."
+                )
+            session.execute(
+                insert(SessionArchiveRecord)
+                .from_select(
+                    ["session_id"],
+                    select(SessionRecord.id).where(
+                        SessionRecord.workspace_id == workspace_id
+                    ),
+                )
+                .on_conflict_do_nothing()
+            )
+            session.execute(
+                insert(WorkspaceRemovalRecord)
+                .values(workspace_id=workspace_id)
+                .on_conflict_do_nothing()
+            )
+            return True
+
+    def add(self, workspace: Workspace) -> Workspace:
+        record = WorkspaceRecord(
+            id=workspace.id,
+            name=workspace.name,
+            created_at=workspace.created_at,
+            updated_at=workspace.updated_at,
+        )
+        with self._database.sessions.begin() as session:
+            session.add(record)
+            session.flush()
+            self._directories.prepare(workspace.id)
+        return _to_domain(record)
+
+    def get(self, workspace_id: str) -> Workspace | None:
+        with self._database.sessions() as session:
+            record = session.get(WorkspaceRecord, workspace_id)
+            return _to_domain(record) if record is not None else None
+
+    def list_recent(self) -> list[Workspace]:
+        statement = (
+            select(WorkspaceRecord)
+            .where(~WorkspaceRecord.id.in_(select(WorkspaceRemovalRecord.workspace_id)))
+            .order_by(WorkspaceRecord.updated_at.desc(), WorkspaceRecord.id.desc())
+        )
+        with self._database.sessions() as session:
+            records = session.scalars(statement).all()
+            return [_to_domain(record) for record in records]
+
+
+def _to_domain(record: WorkspaceRecord) -> Workspace:
+    return Workspace(
+        id=record.id,
+        name=record.name,
+        created_at=as_utc(record.created_at),
+        updated_at=as_utc(record.updated_at),
+    )

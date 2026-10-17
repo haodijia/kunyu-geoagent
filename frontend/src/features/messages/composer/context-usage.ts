@@ -1,8 +1,12 @@
+import type { TrajectoryEventProjection } from "@/features/events/projection/events";
+import {
+  parseAssistantStream,
+  type AssistantStreamRecord,
+  type StreamChunk,
+} from "@/features/events/stream/assistant-stream";
+import type { ActiveAssistant } from "@/features/events/stream/live-assistant";
 import type { ModelProviderType } from "@/features/settings/models/api";
 import { providerName } from "@/features/settings/models/provider-copy";
-import type { TrajectoryEventProjection } from "@/features/events/projection";
-import type { ActiveAssistant } from "@/features/events/live-assistant";
-import { parseAssistantStream, type AssistantStreamRecord, type StreamChunk } from "@/features/events/assistant-stream";
 
 export interface RequestTokenUsage {
   readonly inputTokens: number | null;

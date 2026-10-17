@@ -2,7 +2,7 @@
 
 from pydantic_ai import messages as sdk
 
-from kunyu.agent.runtime.models import (
+from kunyu.agent.runtime.contracts.models import (
     BlockEnd,
     BlockStart,
     ModelToolCallDelta,

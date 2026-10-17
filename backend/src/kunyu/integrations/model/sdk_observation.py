@@ -4,7 +4,11 @@ import json
 
 from pydantic import BaseModel
 
-from kunyu.agent.runtime.models import ModelAdapterError, ModelErrorCode, TokenUsage
+from kunyu.agent.runtime.contracts.models import (
+    ModelAdapterError,
+    ModelErrorCode,
+    TokenUsage,
+)
 
 
 def protocol_error(message: str) -> ModelAdapterError:

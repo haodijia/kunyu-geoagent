@@ -1,15 +1,15 @@
-import { useMemo } from "react";
+import { AgentControls } from "@/features/agent/controls/AgentControls";
+import { conversationAssembler } from "@/features/conversation/assembler";
 import { EventStreamNotice } from "@/features/events/EventStreamNotice";
 import { useSessionEvents } from "@/features/events/SessionEventContext";
-import { MessageList } from "@/features/messages/MessageList";
-import { SessionComposer } from "@/features/messages/SessionComposer";
-import { useSessionMessages } from "@/features/messages/SessionMessagesContext";
-import { AgentControls } from "@/features/agent/AgentControls";
-import { zhCN } from "@/locales/zh-CN";
-import { conversationAssembler } from "@/features/conversation/assembler";
+import { SelectionReplyButton } from "@/features/messages/composer/SelectionReplyButton";
+import { SessionComposer } from "@/features/messages/composer/SessionComposer";
 import { MessageAnchorRail } from "@/features/messages/navigation/MessageAnchorRail";
-import { SelectionReplyButton } from "@/features/messages/SelectionReplyButton";
 import { useMessageNavigation } from "@/features/messages/navigation/MessageNavigationContext";
+import { MessageList } from "@/features/messages/rendering/MessageList";
+import { useSessionMessages } from "@/features/messages/state/SessionMessagesContext";
+import { zhCN } from "@/locales/zh-CN";
+import { useMemo } from "react";
 
 export function ConversationView() {
   const navigation = useMessageNavigation();

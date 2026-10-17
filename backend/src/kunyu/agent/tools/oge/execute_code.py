@@ -8,9 +8,10 @@ from collections.abc import Mapping
 
 from pydantic import Field, model_validator
 
-from kunyu.agent.jobs import JobHandle, JobRegistry
-from kunyu.agent.prompt_files import tool_description
-from kunyu.agent.runtime.tools import (
+from kunyu.agent.core.scope import AgentScopes
+from kunyu.agent.orchestration.jobs import JobHandle, JobRegistry
+from kunyu.agent.prompts.loader import tool_description
+from kunyu.agent.runtime.contracts.tools import (
     ToolApproval,
     ToolCall,
     ToolExecutionError,
@@ -18,7 +19,6 @@ from kunyu.agent.runtime.tools import (
     ToolRiskLevel,
     ToolSpec,
 )
-from kunyu.agent.scope import AgentScopes
 from kunyu.agent.tools.shared import (
     ToolArguments,
     load_source,
@@ -27,12 +27,12 @@ from kunyu.agent.tools.shared import (
     validate_arguments,
     validate_model,
 )
-from kunyu.application.analysis import AnalysisService
-from kunyu.application.oge import OgeService
-from kunyu.domain.agent_context import RunContextRepository
-from kunyu.domain.analysis import AnalysisError, AnalysisJob
-from kunyu.domain.map_context import TurnMapContext
-from kunyu.domain.oge import OgeError
+from kunyu.application.analysis.analysis import AnalysisService
+from kunyu.application.analysis.oge import OgeService
+from kunyu.domain.conversation.agent_context import RunContextRepository
+from kunyu.domain.geospatial.analysis import AnalysisError, AnalysisJob
+from kunyu.domain.geospatial.map_context import TurnMapContext
+from kunyu.domain.geospatial.oge import OgeError
 
 logger = logging.getLogger(__name__)
 

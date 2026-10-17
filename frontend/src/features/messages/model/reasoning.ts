@@ -1,0 +1,70 @@
+import type { TrajectoryEventProjection } from "@/features/events/projection/events";
+import {
+  parseAssistantStream,
+  parseStreamOrigin,
+  streamReasoning,
+} from "@/features/events/stream/assistant-stream";
+import {
+  contentText,
+  parseContentBlocks,
+} from "@/features/events/stream/content-blocks";
+
+export interface MessageReasoning {
+  readonly text: string;
+  readonly startedAt: string;
+  readonly finishedAt: string | null;
+}
+
+// Mu's fixed tail keeps live thinking stable and starts at a nearby word boundary.
+export function thoughtTail(text: string): string {
+  const characters = Array.from(text.replace(/\s+/g, " ").trim());
+  if (characters.length <= 120) return characters.join("");
+  const tail = characters.slice(-120);
+  const space = tail.indexOf(" ");
+  return `…${(space > 0 && space < 24 ? tail.slice(space + 1) : tail).join("")}`;
+}
+
+// Reasoning and its timing come from the same durable events used by the trajectory.
+export function collectMessageReasoning(
+  records: readonly TrajectoryEventProjection[],
+) {
+  const thoughts = new Map<string, MessageReasoning>();
+  for (const record of records) {
+    if (record.messageId === null) continue;
+    const thought = thoughts.get(record.messageId);
+    if (record.eventType === "model.attempt.finished") {
+      parseStreamOrigin(record.payload.stream_origin);
+      const settled = streamReasoning(
+        parseAssistantStream(record.payload.stream),
+        record.occurredAt,
+      );
+      const text = contentText(parseContentBlocks(record.payload.blocks), true);
+      if (settled !== null && text !== "")
+        thoughts.set(record.messageId, { ...settled, text });
+      else thoughts.delete(record.messageId);
+    } else if (record.eventType === "message.assistant.reasoning.delta") {
+      const text = record.payload.text;
+      if (typeof text !== "string")
+        throw new Error("Reasoning delta must contain text.");
+      thoughts.set(record.messageId, {
+        text: (thought?.text ?? "") + text,
+        startedAt: thought?.startedAt ?? record.occurredAt,
+        finishedAt: thought?.finishedAt ?? null,
+      });
+    } else if (
+      thought !== undefined &&
+      thought.finishedAt === null &&
+      [
+        "message.assistant.delta",
+        "message.assistant.completed",
+        "model.attempt.finished",
+      ].includes(record.eventType)
+    ) {
+      thoughts.set(record.messageId, {
+        ...thought,
+        finishedAt: record.occurredAt,
+      });
+    }
+  }
+  return thoughts;
+}

@@ -1,7 +1,7 @@
+import { analysisApi, analysisKeys } from "@/features/analysis/api";
+import { useSessionEvents } from "@/features/events/SessionEventContext";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useRef } from "react";
-import { useSessionEvents } from "@/features/events/SessionEventContext";
-import { analysisApi, analysisKeys } from "./api";
 
 export function useAnalysisInvalidation(sessionId: string, workspaceId: string) {
   const { events } = useSessionEvents();

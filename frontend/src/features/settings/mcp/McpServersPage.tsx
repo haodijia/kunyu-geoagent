@@ -1,6 +1,14 @@
+import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
+import {
+  SettingsPageHeader,
+  SettingsPageWrapper,
+} from "@/features/settings/SettingsPage";
+import { McpOAuthControls } from "@/features/settings/mcp/McpOAuthControls";
+import { mcpApi, type McpServer } from "@/features/settings/mcp/api";
+import { mcpError, mcpQueryKey } from "@/features/settings/mcp/model";
+import { zhCN } from "@/locales/zh-CN";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useState } from "react";
-import { useNavigate } from "react-router-dom";
 import {
   Check,
   ChevronDown,
@@ -12,18 +20,10 @@ import {
   Trash2,
   X,
 } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Checkbox } from "@/components/ui/checkbox";
-import {
-  SettingsPageHeader,
-  SettingsPageWrapper,
-} from "@/features/settings/SettingsPage";
-import { zhCN } from "@/locales/zh-CN";
-import { McpOAuthControls } from "./McpOAuthControls";
-import { mcpApi, type McpServer } from "./api";
+import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 
 const content = zhCN.mcp;
-import { mcpError, mcpQueryKey } from "./model";
 
 export function McpServersPage() {
   const navigate = useNavigate();

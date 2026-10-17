@@ -2,12 +2,12 @@
 
 from functools import partial
 
-from kunyu.agent import services as s
-from kunyu.agent.scope import Context
-from kunyu.agent.subagents import SubagentManager
+from kunyu.agent.core import services as s
+from kunyu.agent.core.scope import Context
+from kunyu.agent.orchestration.subagents import SubagentManager
 from kunyu.agent.tools.registry import ToolRegistration
 from kunyu.agent.tools.workflow.subagents import SubagentTool
-from kunyu.persistence.subagents import SQLAlchemySubagentRepository
+from kunyu.persistence.execution.subagents import SQLAlchemySubagentRepository
 
 
 class SubagentsPlugin:
@@ -25,7 +25,12 @@ class SubagentsPlugin:
         )
         context.provide(s.SUBAGENTS, manager)
         context.effect(manager.close, before_children=True)
-        for name in ("subagent", "wait_subagents", "cancel_subagent", "subagent_result"):
+        for name in (
+            "subagent",
+            "wait_subagents",
+            "cancel_subagent",
+            "subagent_result",
+        ):
             context.require(s.TOOLS).register(
                 context,
                 name,

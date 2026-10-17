@@ -3,8 +3,8 @@ import { CSS } from "@dnd-kit/utilities";
 import { CornerDownRight, Delete, Drag, Edit, SendOne } from "@icon-park/react";
 
 import { Button } from "@/components/ui/button";
+import type { SessionMessage } from "@/features/messages/api";
 import { zhCN } from "@/locales/zh-CN";
-import type { SessionMessage } from "../api";
 
 const content = zhCN.conversation.queue;
 

@@ -1,18 +1,18 @@
 import { app, BrowserWindow, ipcMain, shell } from "electron";
 import path from "node:path";
-import { DataStorage } from "./data-storage";
-import { DataStorageController } from "./data-storage-ipc";
+import { DataStorage } from "./storage/storage";
+import { DataStorageController } from "./storage/storage-ipc";
 import { pathToFileURL } from "node:url";
 
 import {
   BackendStartupError,
-  type BackendFailureDetails
-} from "./backend-diagnostics";
-import { BackendProcessManager } from "./backend-process-manager";
-import { BACKEND_DIAGNOSTICS_PAGE_URL } from "./backend-diagnostics-page";
+  type BackendFailureDetails,
+} from "./backend/diagnostics";
+import { BackendProcessManager } from "./backend/process-manager";
+import { BACKEND_DIAGNOSTICS_PAGE_URL } from "./backend/diagnostics-page";
 import {
   RUNTIME_CONNECTION_CHANNEL,
-  type RuntimeConnection
+  type RuntimeConnection,
 } from "../shared/runtime";
 
 const FRONTEND_DEVELOPMENT_URL = "http://127.0.0.1:5173";

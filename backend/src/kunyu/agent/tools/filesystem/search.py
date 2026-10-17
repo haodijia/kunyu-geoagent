@@ -7,9 +7,9 @@ from pathlib import Path
 
 from pydantic import Field, field_validator
 
-from kunyu.agent.prompt_files import prompt_text, tool_description
-from kunyu.agent.runtime.content import TextBlock
-from kunyu.agent.runtime.tools import (
+from kunyu.agent.prompts.loader import prompt_text, tool_description
+from kunyu.agent.runtime.contracts.content import TextBlock
+from kunyu.agent.runtime.contracts.tools import (
     ToolCall,
     ToolExecutionError,
     ToolResult,
@@ -37,11 +37,14 @@ from kunyu.agent.tools.shared import (
     validate_arguments,
     validate_model,
 )
-from kunyu.domain.agent_context import RunContextRepository
-from kunyu.domain.filesystem import FilesystemError
-from kunyu.integrations.filesystem_operation import filesystem_operation
-from kunyu.integrations.search_storage import SEARCH_DIRECTORY, WorkspaceSearchStorage
-from kunyu.integrations.subprocess import LocalSubprocess
+from kunyu.domain.conversation.agent_context import RunContextRepository
+from kunyu.domain.workspaces.filesystem import FilesystemError
+from kunyu.integrations.filesystem.operation import filesystem_operation
+from kunyu.integrations.filesystem.search_storage import (
+    SEARCH_DIRECTORY,
+    WorkspaceSearchStorage,
+)
+from kunyu.integrations.process.subprocess import LocalSubprocess
 
 logger = logging.getLogger(__name__)
 

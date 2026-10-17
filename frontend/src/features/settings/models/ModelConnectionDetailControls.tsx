@@ -1,11 +1,11 @@
-import { useMemo, useState, type ReactNode } from "react";
 import { ChevronDown, Search } from "lucide-react";
+import { useMemo, useState, type ReactNode } from "react";
 
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
+import type { ModelConnection } from "@/features/settings/models/api";
 import { zhCN } from "@/locales/zh-CN";
-import type { ModelConnection } from "./api";
 
 const content = zhCN.modelConnections;
 

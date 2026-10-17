@@ -5,13 +5,13 @@ import {
   RotateCw,
   ShieldCheck,
   Square,
-  X
+  X,
 } from "lucide-react";
 import type { ReactNode } from "react";
 
 import { Button } from "@/components/ui/button";
+import { toolLabel } from "@/features/agent/tools/tool-presentation";
 import type { Confirmation } from "@/features/confirmations/api";
-import { toolLabel } from "@/features/agent/tool-presentation";
 import { cn } from "@/lib/utils";
 import { zhCN } from "@/locales/zh-CN";
 

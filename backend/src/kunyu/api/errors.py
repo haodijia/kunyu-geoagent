@@ -6,7 +6,7 @@ from fastapi.exceptions import RequestValidationError
 from pydantic import BaseModel
 from starlette.responses import JSONResponse
 
-from kunyu.domain.analysis import AnalysisError
+from kunyu.domain.geospatial.analysis import AnalysisError
 
 
 class ErrorDetail(BaseModel):

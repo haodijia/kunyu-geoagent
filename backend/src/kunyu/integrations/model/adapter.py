@@ -14,9 +14,10 @@ from pydantic_ai.exceptions import IncompleteToolCall, ModelHTTPError
 from pydantic_ai.models import ModelRequestParameters
 from pydantic_ai.tools import ToolDefinition
 
-from kunyu.agent.model_providers import ModelProviderRegistry
-from kunyu.agent.runtime.input_content import ImageInputBlock
-from kunyu.agent.runtime.models import (
+from kunyu.agent.capabilities.model_providers import ModelProviderRegistry
+from kunyu.agent.core.scope import Context
+from kunyu.agent.runtime.contracts.input_content import ImageInputBlock
+from kunyu.agent.runtime.contracts.models import (
     ModelAdapterError,
     ModelErrorCode,
     ModelFinish,
@@ -24,9 +25,8 @@ from kunyu.agent.runtime.models import (
     ModelOutput,
     ModelRequest,
 )
-from kunyu.agent.scope import Context
-from kunyu.domain.attachments import ImageAttachment
-from kunyu.domain.model_connections import ModelAuthMode
+from kunyu.domain.conversation.attachments import ImageAttachment
+from kunyu.domain.models.model_connections import ModelAuthMode
 from kunyu.integrations.model.connection import (
     ModelConnectionConfig,
     invalid_request,

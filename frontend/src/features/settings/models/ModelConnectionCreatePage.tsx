@@ -1,17 +1,27 @@
-import { useRef, useState, type FormEvent, type ReactNode } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { LoaderCircle } from "lucide-react";
+import { useRef, useState, type FormEvent, type ReactNode } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { SettingsPageHeader, SettingsPageWrapper } from "@/features/settings/SettingsPage";
+import {
+  modelConnectionsApi,
+  type ModelProtocol,
+  type ModelProviderType,
+} from "@/features/settings/models/api";
+import { connectionErrorMessage } from "@/features/settings/models/model";
+import { displayForProvider } from "@/features/settings/models/provider-copy";
+import { ProviderLogo } from "@/features/settings/models/ProviderLogo";
+import {
+  protocolsForProvider,
+  providerById,
+} from "@/features/settings/models/providers";
+import {
+  SettingsPageHeader,
+  SettingsPageWrapper,
+} from "@/features/settings/SettingsPage";
 import { zhCN } from "@/locales/zh-CN";
-import { modelConnectionsApi, type ModelProtocol, type ModelProviderType } from "./api";
-import { connectionErrorMessage } from "./model";
-import { displayForProvider } from "./provider-copy";
-import { ProviderLogo } from "./ProviderLogo";
-import { providerById, protocolsForProvider } from "./providers";
 
 const content = zhCN.modelConnections;
 

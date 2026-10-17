@@ -1,4 +1,4 @@
-import { ClipboardList, CircleX } from "lucide-react";
+import { CircleX, ClipboardList } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { useSessionEvents } from "@/features/events/SessionEventContext";

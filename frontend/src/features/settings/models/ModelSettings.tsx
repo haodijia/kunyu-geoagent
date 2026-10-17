@@ -2,11 +2,18 @@ import { useState } from "react";
 
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
+import type {
+  ModelCatalogEntry,
+  ModelProtocol,
+  ModelSettings as ModelSettingsInput,
+} from "@/features/settings/models/api";
+import { ModelExpandableRow } from "@/features/settings/models/ModelConnectionDetailControls";
 import { zhCN } from "@/locales/zh-CN";
-import type { ModelCatalogEntry, ModelProtocol, ModelSettings as ModelSettingsInput } from "./api";
-import { ModelExpandableRow } from "./ModelConnectionDetailControls";
 
-import { ReasoningSettings, validReasoningSettings } from "./ReasoningSettings";
+import {
+  ReasoningSettings,
+  validReasoningSettings,
+} from "@/features/settings/models/ReasoningSettings";
 
 const content = zhCN.modelConnections.modelSettings;
 

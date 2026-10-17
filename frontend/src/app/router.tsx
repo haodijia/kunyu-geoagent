@@ -1,22 +1,22 @@
 import { Navigate, createHashRouter, useParams } from "react-router-dom";
 
+import { AppShell } from "@/app/AppShell";
 import { useAppUiStore } from "@/app/store";
-import { StorageSettingsPage } from "@/features/settings/StorageSettingsPage";
-import { ArchivedSessionsPage } from "@/features/sessions/ArchivedSessionsPage";
+import { ArchivedSessionsPage } from "@/features/sessions/archive/ArchivedSessionsPage";
+import { SessionWorkspace } from "@/features/sessions/SessionWorkspace";
+import { ConversationView } from "@/features/sessions/views/ConversationView";
+import { McpServerEditorPage } from "@/features/settings/mcp/McpServerEditorPage";
+import { McpServersPage } from "@/features/settings/mcp/McpServersPage";
 import { ModelConnectionCreatePage } from "@/features/settings/models/ModelConnectionCreatePage";
 import { ModelConnectionDetailPage } from "@/features/settings/models/ModelConnectionDetailPage";
 import { ModelConnectionsPage } from "@/features/settings/models/ModelConnectionsPage";
 import { ModelProviderCatalogPage } from "@/features/settings/models/ModelProviderCatalogPage";
-import { McpServersPage } from "@/features/settings/mcp/McpServersPage";
-import { McpServerEditorPage } from "@/features/settings/mcp/McpServerEditorPage";
-import { SkillsPage } from "@/features/settings/skills/SkillsPage";
 import { OgeSettingsPage } from "@/features/settings/oge/OgeSettingsPage";
 import { SkillEditorPage } from "@/features/settings/skills/SkillEditorPage";
-import { SessionWorkspace } from "@/features/sessions/SessionWorkspace";
-import { ConversationView } from "@/features/sessions/views/ConversationView";
-import { WorkspaceOverview } from "@/features/workspaces/WorkspaceOverview";
+import { SkillsPage } from "@/features/settings/skills/SkillsPage";
+import { StorageSettingsPage } from "@/features/settings/StorageSettingsPage";
 import { LaunchPage } from "@/features/workspaces/LaunchPage";
-import { AppShell } from "./AppShell";
+import { WorkspaceOverview } from "@/features/workspaces/WorkspaceOverview";
 
 function AnalysisIndexRedirect() {
   const { sessionId } = useParams();

@@ -7,7 +7,7 @@ import re
 from dataclasses import dataclass
 from threading import Event
 
-from kunyu.domain.filesystem import FilesystemError
+from kunyu.domain.workspaces.filesystem import FilesystemError
 
 
 def check_cancelled(cancelled: Event, verb: str) -> None:

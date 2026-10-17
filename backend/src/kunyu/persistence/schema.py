@@ -5,7 +5,7 @@ from pathlib import Path
 
 from sqlalchemy import Engine, inspect
 
-from kunyu.persistence.models import Base
+from kunyu.persistence.records.base import Base
 
 SCHEMA_VERSION = 5
 SCHEMA_PATH = Path(__file__).with_name("schema.sql")

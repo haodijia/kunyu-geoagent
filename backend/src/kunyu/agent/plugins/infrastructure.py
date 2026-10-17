@@ -1,20 +1,25 @@
 """Persistence and model providers for the Agent service contracts."""
 
-from kunyu.agent import services as s
-from kunyu.agent.adapters import SnapshotCredentialResolver, StoredRunExecutionProvider
-from kunyu.agent.attachments import RunImageResolver
-from kunyu.agent.scope import Context
-from kunyu.agent.tools.shared import load_source
-from kunyu.integrations.model.adapter import (
-    SDKModelAdapter,
+from kunyu.agent.context.attachments import RunImageResolver
+from kunyu.agent.core import services as s
+from kunyu.agent.core.scope import Context
+from kunyu.agent.orchestration.adapters import (
+    SnapshotCredentialResolver,
+    StoredRunExecutionProvider,
 )
-from kunyu.persistence.agent_context import SQLAlchemyRunContextRepository
-from kunyu.persistence.agent_projections import SQLAlchemyAgentProjectionService
-from kunyu.persistence.attachments import SQLAlchemyAttachmentStore
-from kunyu.persistence.model_connections import SQLAlchemyModelConnectionRepository
-from kunyu.persistence.run_lifecycle import SQLAlchemyRunLifecycleRepository
-from kunyu.persistence.runs import SQLAlchemyEventStore
-from kunyu.persistence.workspace_memory import SQLAlchemyWorkspaceMemoryRepository
+from kunyu.agent.tools.shared import load_source
+from kunyu.integrations.model.adapter import SDKModelAdapter
+from kunyu.persistence.conversation.agent_context import SQLAlchemyRunContextRepository
+from kunyu.persistence.conversation.attachments import SQLAlchemyAttachmentStore
+from kunyu.persistence.execution.agent_projections import (
+    SQLAlchemyAgentProjectionService,
+)
+from kunyu.persistence.execution.run_lifecycle import SQLAlchemyRunLifecycleRepository
+from kunyu.persistence.execution.runs import SQLAlchemyEventStore
+from kunyu.persistence.models.connections import SQLAlchemyModelConnectionRepository
+from kunyu.persistence.workspaces.workspace_memory import (
+    SQLAlchemyWorkspaceMemoryRepository,
+)
 
 
 class PersistencePlugin:

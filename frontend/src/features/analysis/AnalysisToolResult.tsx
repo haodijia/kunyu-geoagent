@@ -1,4 +1,4 @@
-import { AnalysisJobCard } from "./AnalysisJobCard";
+import { AnalysisJobCard } from "@/features/analysis/AnalysisJobCard";
 
 export function AnalysisToolResult({
   value,

@@ -6,17 +6,17 @@ from dataclasses import replace
 
 from pydantic_ai import messages as sdk
 
-from kunyu.agent.prompt_files import prompt_text
-from kunyu.agent.runtime.content import (
+from kunyu.agent.prompts.loader import prompt_text
+from kunyu.agent.runtime.contracts.content import (
     ReasoningBlock,
     ReplayEnvelope,
     TextBlock,
     ToolCallBlock,
 )
-from kunyu.agent.runtime.image_offload import offloaded_image_text
-from kunyu.agent.runtime.input_content import FileInputBlock, ImageInputBlock
-from kunyu.agent.runtime.models import ModelRole
-from kunyu.domain.attachments import attachment_path
+from kunyu.agent.runtime.contracts.input_content import FileInputBlock, ImageInputBlock
+from kunyu.agent.runtime.contracts.models import ModelRole
+from kunyu.agent.runtime.projection.image_offload import offloaded_image_text
+from kunyu.domain.conversation.attachments import attachment_path
 from kunyu.integrations.model.connection import invalid_request
 
 SDK_REPLAY_KIND = "pydantic-model"

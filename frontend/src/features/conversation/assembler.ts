@@ -1,11 +1,11 @@
 import type { AgentTurn } from "@/features/agent/api";
 import type { Confirmation } from "@/features/confirmations/api";
-import type { TrajectoryEventProjection } from "@/features/events/projection";
-import { buildTrajectoryRecords } from "@/features/events/trajectory-records";
-import type { TrajectoryRecord } from "@/features/events/trajectory-model";
+import type { TrajectoryEventProjection } from "@/features/events/projection/events";
+import { buildTrajectoryRecords } from "@/features/events/trajectory/records/build";
+import type { TrajectoryRecord } from "@/features/events/trajectory/trajectory-model";
 import type { SessionMessage } from "@/features/messages/api";
 
-import type { ActiveAssistant } from "@/features/events/live-assistant";
+import type { ActiveAssistant } from "@/features/events/stream/live-assistant";
 
 export interface ConversationSource {
   readonly activeAssistant: ActiveAssistant | null;

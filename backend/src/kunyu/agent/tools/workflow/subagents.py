@@ -5,16 +5,16 @@ from typing import Literal
 
 from pydantic import Field, model_validator
 
-from kunyu.agent.prompt_files import tool_description
-from kunyu.agent.runtime.subagents import ReducedSubagent
-from kunyu.agent.runtime.tools import (
+from kunyu.agent.orchestration.subagents import SubagentManager
+from kunyu.agent.prompts.loader import tool_description
+from kunyu.agent.runtime.contracts.tools import (
     ToolCall,
     ToolExecutionError,
     ToolResult,
     ToolRiskLevel,
     ToolSpec,
 )
-from kunyu.agent.subagents import SubagentManager
+from kunyu.agent.runtime.subagents import ReducedSubagent
 from kunyu.agent.tools.shared import (
     ToolArguments,
     load_source,

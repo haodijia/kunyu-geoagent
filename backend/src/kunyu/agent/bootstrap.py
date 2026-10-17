@@ -4,10 +4,13 @@ from dataclasses import dataclass
 
 import httpx
 
-from kunyu.agent import services as s
 from kunyu.agent.commands.plugin import CommandsPlugin
-from kunyu.agent.kernel import Kernel, Plugin
+from kunyu.agent.core import services as s
+from kunyu.agent.core.kernel import Kernel, Plugin
 from kunyu.agent.mcp.plugin import McpPlugin
+from kunyu.agent.orchestration.retry import RetryPlugin
+from kunyu.agent.orchestration.scheduler import RunScheduler
+from kunyu.agent.orchestration.session_agent import AgentDirectory
 from kunyu.agent.plugins.analysis import AnalysisPlugin
 from kunyu.agent.plugins.attachments import AttachmentToolsPlugin
 from kunyu.agent.plugins.compaction import CompactionPlugin
@@ -40,17 +43,14 @@ from kunyu.agent.plugins.runtime_context import RuntimeContextPlugin
 from kunyu.agent.plugins.search import SearchPlugin
 from kunyu.agent.plugins.subagents import SubagentsPlugin
 from kunyu.agent.plugins.todo import TodoToolsPlugin
-from kunyu.agent.retry import RetryPlugin
-from kunyu.agent.scheduler import RunScheduler
-from kunyu.agent.session_agent import AgentDirectory
 from kunyu.agent.skills.plugin import (
     FilesystemSkillsPlugin,
     SkillPlugin,
     SkillToolsPlugin,
 )
-from kunyu.application.confirmations import ConfirmationService
-from kunyu.application.connection_locks import ConnectionOperationLocks
-from kunyu.application.run_lifecycle import RunLifecycleService
+from kunyu.application.execution.confirmations import ConfirmationService
+from kunyu.application.execution.run_lifecycle import RunLifecycleService
+from kunyu.application.models.connection_locks import ConnectionOperationLocks
 from kunyu.persistence.database import Database
 
 DEFAULT_MODEL_PLUGIN = ModelPlugin()

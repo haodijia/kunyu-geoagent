@@ -1,11 +1,11 @@
 // Adapted from Mu HiveToolCard's compact row layout (Apache-2.0, AionUi).
-import { ChevronRight, Users } from "lucide-react";
-import { ToolStatusBadge } from "@/features/agent/ToolActivityParts";
-import { toolLabel } from "@/features/agent/tool-presentation";
+import { ToolStatusBadge } from "@/features/agent/tools/ToolActivityParts";
+import { toolLabel } from "@/features/agent/tools/tool-presentation";
+import { useSubagents } from "@/features/subagents/SubagentContext";
+import type { Subagent } from "@/features/subagents/api";
+import css from "@/features/subagents/subagents.module.css";
 import { zhCN } from "@/locales/zh-CN";
-import { useSubagents } from "./SubagentContext";
-import type { Subagent } from "./api";
-import css from "./subagents.module.css";
+import { ChevronRight, Users } from "lucide-react";
 
 export function childStatus(child: Subagent) {
   return child.status === "model_running" || child.status === "tool_running"

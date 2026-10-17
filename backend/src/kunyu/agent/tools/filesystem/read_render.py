@@ -4,8 +4,8 @@ from collections.abc import Iterable
 from dataclasses import dataclass
 from pathlib import PurePosixPath
 
-from kunyu.agent.prompt_files import prompt_text
-from kunyu.domain.filesystem import FilesystemError
+from kunyu.agent.prompts.loader import prompt_text
+from kunyu.domain.workspaces.filesystem import FilesystemError
 
 READ_LIMIT = 2000
 READ_MAX_LINE_LENGTH = 2000

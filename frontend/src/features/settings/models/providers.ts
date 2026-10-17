@@ -1,4 +1,9 @@
-import type { MaxTokensField, ModelAuthMode, ModelProtocol, ModelProviderType } from "./api";
+import type {
+  MaxTokensField,
+  ModelAuthMode,
+  ModelProtocol,
+  ModelProviderType,
+} from "@/features/settings/models/api";
 
 export type ProviderCategory = "recommended" | "api" | "aggregators" | "local";
 export type ProviderCatalogId =
