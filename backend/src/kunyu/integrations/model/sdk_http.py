@@ -15,10 +15,13 @@ class ModelSDKTransport(httpx2.AsyncBaseTransport):
         self._client = client
 
     async def handle_async_request(self, request: httpx2.Request) -> httpx2.Response:
+        request_headers = httpx.Headers(request.headers.multi_items())
+        # The borrowed client decodes responses, so it owns compression negotiation.
+        request_headers["Accept-Encoding"] = self._client.headers["Accept-Encoding"]
         borrowed = httpx.Request(
             request.method,
             str(request.url),
-            headers=request.headers.multi_items(),
+            headers=request_headers,
             content=await request.aread(),
             extensions=request.extensions,
         )
