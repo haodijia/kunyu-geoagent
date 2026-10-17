@@ -4,7 +4,6 @@ import asyncio
 import base64
 import json
 import os
-import time
 from pathlib import Path
 from urllib.parse import urlsplit
 from uuid import UUID
@@ -13,25 +12,28 @@ import httpx
 
 from kunyu.domain.geospatial.analysis import AnalysisError
 from kunyu.domain.geospatial.oge import OgeAccount, OgeError
-from kunyu.persistence.geospatial.oge import OgeAccountStore
+from kunyu.integrations.oge.auth import OgeAuth
 
 BASE_URL = "https://openge.org.cn/api"
 
 
 class ExecutionGateway:
-    def __init__(self, http: httpx.AsyncClient, accounts: OgeAccountStore) -> None:
-        self.http, self.accounts = http, accounts
+    def __init__(self, http: httpx.AsyncClient, auth: OgeAuth) -> None:
+        self.http, self.auth = http, auth
         # OGE compilation stores DAGs in the user's remote interpreter session.
         self.submissions = asyncio.Lock()
 
-    def account(
+    async def account(
         self, subject: str | None = None, base: str | None = None
     ) -> OgeAccount:
-        account = self.accounts.read()
-        if account is None:
-            raise OgeError("OGE_AUTH_REQUIRED", "Log in to OGE in settings.", 401)
-        if account.tokens.exp <= time.time():
-            raise OgeError("OGE_AUTH_EXPIRED", "OGE login expired; log in again.", 401)
+        account = await self.auth.account()
+        self._validate_account(account, subject, base)
+        return account
+
+    @staticmethod
+    def _validate_account(
+        account: OgeAccount, subject: str | None, base: str | None
+    ) -> None:
         url = urlsplit(account.base_url)
         if url.hostname != "openge.org.cn" or url.path.rstrip("/") != "/api":
             raise OgeError(
@@ -46,14 +48,13 @@ class ExecutionGateway:
                 "Restore the account that submitted this job.",
                 409,
             )
-        return account
 
-    def subject(self) -> tuple[str, str]:
-        account = self.account()
+    async def subject(self) -> tuple[str, str]:
+        account = await self.account()
         return account.username, account.base_url
 
     def binding(self) -> str:
-        account = self.accounts.read()
+        account = self.auth.read()
         return "oge:execute-code:v1:" + (
             "unconfigured" if account is None else account.username
         )
@@ -75,7 +76,24 @@ class ExecutionGateway:
     async def request(
         self, method: str, path: str, subject: str, base: str, *, body=None, params=None
     ):
-        account = self.account(subject, base)
+        return await self.auth.run(
+            lambda account: self._request(
+                account, method, path, subject, base, body=body, params=params
+            )
+        )
+
+    async def _request(
+        self,
+        account: OgeAccount,
+        method: str,
+        path: str,
+        subject: str,
+        base: str,
+        *,
+        body=None,
+        params=None,
+    ):
+        self._validate_account(account, subject, base)
         async with self.http.stream(
             method,
             BASE_URL + path,
@@ -89,20 +107,27 @@ class ExecutionGateway:
         ) as response:
             if response.status_code in {401, 403}:
                 raise OgeError(
-                    "OGE_AUTH_REQUIRED",
-                    "Restore the OGE account login.",
+                    "OGE_AUTH_REJECTED",
+                    "OGE rejected authentication.",
                     response.status_code,
                 )
             response.raise_for_status()
-            raw = bytearray()
-            async for chunk in response.aiter_bytes():
-                raw.extend(chunk)
-                if len(raw) > 8 * 1024 * 1024:
-                    raise OgeError(
-                        "OGE_RESPONSE_TOO_LARGE", "OGE metadata exceeds 8 MiB."
-                    )
-        if path == "/computation-api/getState":
+            raw = await self._read_metadata(response)
+        if path == "/computation-api/getState" and not raw.lstrip().startswith(b"{"):
             return raw.decode("utf-8").strip()
+        return self._decode_metadata(raw)
+
+    @staticmethod
+    async def _read_metadata(response: httpx.Response) -> bytearray:
+        raw = bytearray()
+        async for chunk in response.aiter_bytes():
+            raw.extend(chunk)
+            if len(raw) > 8 * 1024 * 1024:
+                raise OgeError("OGE_RESPONSE_TOO_LARGE", "OGE metadata exceeds 8 MiB.")
+        return raw
+
+    @staticmethod
+    def _decode_metadata(raw: bytearray):
         try:
             value = json.loads(raw)
         except ValueError as error:
@@ -110,6 +135,8 @@ class ExecutionGateway:
                 "OGE_PROTOCOL_ERROR", "OGE returned invalid JSON."
             ) from error
         if isinstance(value, dict) and "code" in value:
+            if value["code"] == 40003:
+                raise OgeError("OGE_AUTH_REJECTED", "OGE rejected authentication.", 401)
             if value["code"] not in {200, 20000}:
                 raise AnalysisError(
                     "OGE_REMOTE_ERROR",
@@ -126,7 +153,7 @@ class ExecutionGateway:
             base,
             body={
                 "code": code,
-                "userId": self.user_id(self.account(subject, base)),
+                "userId": self.user_id(await self.account(subject, base)),
                 "sampleName": name,
             },
         )
@@ -238,7 +265,7 @@ class ExecutionGateway:
             raise AnalysisError(
                 "OGE_PROTOCOL_ERROR", "Invalid OGE batch result catalog."
             )
-        user_id = self.user_id(self.account(subject, base))
+        user_id = self.user_id(await self.account(subject, base))
         matches = [
             item
             for item in catalog
@@ -257,13 +284,28 @@ class ExecutionGateway:
                 "OGE_RESULT_IDENTITY",
                 "OGE result ownership or identity does not match.",
             )
-        account = self.account(subject, base)
+        return await self.auth.run(
+            lambda account: self._download(
+                account, matches[0]["id"], user_id, subject, base, target
+            )
+        )
+
+    async def _download(
+        self,
+        account: OgeAccount,
+        result_id: str,
+        user_id: str,
+        subject: str,
+        base: str,
+        target: Path,
+    ) -> bool:
+        self._validate_account(account, subject, base)
         partial = target.with_suffix(".partial.tif")
         try:
             async with self.http.stream(
                 "GET",
                 BASE_URL + "/asset/batch-result/downloadBatchResult",
-                params={"id": matches[0]["id"], "userUuid": user_id},
+                params={"id": result_id, "userUuid": user_id},
                 headers={
                     "Authorization": "Bearer " + account.tokens.token.get_secret_value()
                 },
@@ -272,11 +314,22 @@ class ExecutionGateway:
             ) as response:
                 if response.status_code in {401, 403}:
                     raise OgeError(
-                        "OGE_AUTH_REQUIRED",
-                        "Restore the OGE account login.",
+                        "OGE_AUTH_REJECTED",
+                        "OGE rejected authentication.",
                         response.status_code,
                     )
                 response.raise_for_status()
+                if (
+                    response.headers.get("content-type", "")
+                    .split(";", 1)[0]
+                    .strip()
+                    .lower()
+                    == "application/json"
+                ):
+                    self._decode_metadata(await self._read_metadata(response))
+                    raise AnalysisError(
+                        "OGE_INVALID_RASTER", "OGE returned JSON instead of a TIFF."
+                    )
                 size = 0
                 prefix = bytearray()
                 with partial.open("wb") as stream:

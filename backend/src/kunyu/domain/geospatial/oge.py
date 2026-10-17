@@ -73,6 +73,8 @@ class OgeAccount(BaseModel):
 
     base_url: str
     username: str
+    password: SecretStr | None = Field(default=None, exclude=True, repr=False)
+    reauth_required: bool = False
     tokens: OgeTokens
     updated_at: str
 

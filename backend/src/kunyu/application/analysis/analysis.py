@@ -45,7 +45,7 @@ class AnalysisService:
         call_id: str,
         parameters: dict[str, JsonValue],
     ) -> AnalysisJob:
-        subject, base = self.gateway.subject()
+        subject, base = await self.gateway.subject()
         parameters = {
             **parameters,
             "filename": f"kunyu-result-{datetime.now(UTC):%Y%m%d-%H%M%S-%f}",

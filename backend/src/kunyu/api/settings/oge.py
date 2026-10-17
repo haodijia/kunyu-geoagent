@@ -26,9 +26,9 @@ def api_error(error: OgeError) -> ApiError:
 
 
 @router.get("", response_model=OgeAccountStatus)
-def account_status(service: Service) -> OgeAccountStatus:
+async def account_status(service: Service) -> OgeAccountStatus:
     try:
-        return service.status()
+        return await service.status()
     except OgeError as error:
         raise api_error(error) from None
 

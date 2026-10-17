@@ -15,7 +15,6 @@ from kunyu.integrations.geospatial.analysis_raster import AnalysisRaster
 from kunyu.integrations.oge.execution import ExecutionGateway
 from kunyu.persistence.geospatial.analysis import AnalysisRepository
 from kunyu.persistence.geospatial.maps import MapRepository
-from kunyu.persistence.geospatial.oge import OgeAccountStore
 
 
 class AnalysisPlugin:
@@ -37,7 +36,9 @@ class AnalysisPlugin:
         repository = AnalysisRepository(database)
         service = AnalysisService(
             repository,
-            ExecutionGateway(context.require(s.HTTP_CLIENT), OgeAccountStore(database)),
+            ExecutionGateway(
+                context.require(s.HTTP_CLIENT), context.require(s.OGE).auth
+            ),
             AnalysisRaster(database.path.parent),
         )
         maps = MapRepository(database, repository)

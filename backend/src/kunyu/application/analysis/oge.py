@@ -3,13 +3,11 @@
 import asyncio
 import logging
 import time
-from datetime import UTC, datetime
 
 from pydantic import JsonValue
 
 from kunyu.domain.geospatial.oge import (
     DEFAULT_OGE_BASE_URL,
-    OgeAccount,
     OgeAccountStatus,
     OgeAssetPage,
     OgeAssetRecord,
@@ -19,6 +17,7 @@ from kunyu.domain.geospatial.oge import (
     OgeLogin,
     OgeRegionNode,
 )
+from kunyu.integrations.oge.auth import OgeAuth
 from kunyu.integrations.oge.client import OgeClient
 from kunyu.persistence.geospatial.oge import OgeAccountStore
 
@@ -28,13 +27,24 @@ logger = logging.getLogger(__name__)
 
 class OgeService:
     def __init__(self, client: OgeClient, accounts: OgeAccountStore) -> None:
-        self._client, self._accounts = client, accounts
-        self._account_lock = asyncio.Lock()
+        self._client = client
+        self.auth = OgeAuth(client, accounts)
         self._region_lock = asyncio.Lock()
         self._region_cache: tuple[str, float, list[OgeRegionNode]] | None = None
 
-    def status(self) -> OgeAccountStatus:
-        account = self._accounts.read()
+    async def status(self) -> OgeAccountStatus:
+        account = self.auth.read()
+        if (
+            account is not None
+            and account.password is not None
+            and not account.reauth_required
+        ):
+            try:
+                account = await self.auth.account()
+            except OgeError as error:
+                if error.code != "OGE_AUTH_REJECTED":
+                    raise
+                account = self.auth.read()
         if account is None:
             return OgeAccountStatus(
                 state="signed_out",
@@ -44,7 +54,9 @@ class OgeService:
                 updated_at=None,
             )
         return OgeAccountStatus(
-            state="signed_in" if account.tokens.exp > time.time() else "expired",
+            state="signed_in"
+            if not account.reauth_required and account.tokens.exp > time.time()
+            else "expired",
             base_url=account.base_url,
             username=account.username,
             expires_at=account.tokens.exp,
@@ -52,31 +64,17 @@ class OgeService:
         )
 
     async def login(self, request: OgeLogin) -> OgeAccountStatus:
-        async with self._account_lock:
-            tokens = await self._client.login(request)
-            if tokens.exp <= time.time() or tokens.refreshExp <= time.time():
-                raise OgeError(
-                    "OGE_PROTOCOL_ERROR", "OGE returned already-expired tokens."
-                )
-            self._accounts.save(
-                OgeAccount(
-                    base_url=request.base_url,
-                    username=request.username,
-                    tokens=tokens,
-                    updated_at=datetime.now(UTC).isoformat(),
-                )
-            )
-            self._region_cache = None
-            return self.status()
+        await self.auth.login(request)
+        self._region_cache = None
+        return await self.status()
 
     async def logout(self) -> OgeAccountStatus:
-        async with self._account_lock:
-            self._accounts.clear()
-            self._region_cache = None
-            return self.status()
+        await self.auth.logout()
+        self._region_cache = None
+        return await self.status()
 
     def _base_url(self) -> str:
-        account = self._accounts.read()
+        account = self.auth.read()
         return DEFAULT_OGE_BASE_URL if account is None else account.base_url
 
     async def search_images(self, fields: dict[str, str]) -> OgeImagePage:
@@ -107,41 +105,27 @@ class OgeService:
     async def image_preview(self, image_id: int) -> bytes:
         return await self._client.preview(self._base_url(), image_id)
 
-    def _require_account(self) -> OgeAccount:
-        account = self._accounts.read()
-        if account is None:
-            logger.warning("OGE personal data request requires login.")
-            raise OgeError(
-                "OGE_AUTH_REQUIRED",
-                "Log in to OGE in settings before reading personal data.",
-                401,
-            )
-        if account.tokens.exp <= time.time():
-            logger.warning("OGE personal data request has an expired login.")
-            raise OgeError(
-                "OGE_AUTH_EXPIRED", "OGE login expired; log in again in settings.", 401
-            )
-        return account
-
     async def list_my_data(self, body: dict[str, JsonValue]) -> OgeAssetPage:
-        account = self._require_account()
-        data = await self._client.json(
-            account.base_url,
-            "POST",
-            "/asset/myData/list",
-            body=body,
-            token=account.tokens.token,
+        data = await self.auth.run(
+            lambda account: self._client.json(
+                account.base_url,
+                "POST",
+                "/asset/myData/list",
+                body=body,
+                token=account.tokens.token,
+            )
         )
         return self._client.validate(OgeAssetPage, data)
 
     async def my_data_detail(self, asset_uuid: str) -> dict[str, JsonValue]:
-        account = self._require_account()
-        data = await self._client.json(
-            account.base_url,
-            "GET",
-            "/asset/myData/detail",
-            params={"assetUuid": asset_uuid},
-            token=account.tokens.token,
+        data = await self.auth.run(
+            lambda account: self._client.json(
+                account.base_url,
+                "GET",
+                "/asset/myData/detail",
+                params={"assetUuid": asset_uuid},
+                token=account.tokens.token,
+            )
         )
         if data is None:
             raise OgeError(

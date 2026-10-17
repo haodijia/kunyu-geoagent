@@ -67,7 +67,7 @@ class OperatorTool:
         load_source(self._contexts, self._run_id)
         args = validate_model(self.spec.name, self._arguments, call.arguments)
         try:
-            subject, base = self._gateway.subject()
+            subject, base = await self._gateway.subject()
             if isinstance(args, DefinitionArguments):
                 value = await self._gateway.request(
                     "GET",

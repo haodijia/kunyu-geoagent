@@ -13,17 +13,17 @@ export const settings = {
     username: "平台账号",
     password: "密码",
     login: "登录",
-    loginAgain: "重新登录或切换账号",
+    loginAgain: "更新凭据或切换账号",
     loggingIn: "正在登录…",
     logout: "退出登录",
     loading: "正在读取账号状态…",
     retry: "重新加载",
-    expiresAt: (time: string) => `登录有效期至 ${time}`,
-    expiredHelp: "请重新登录以继续使用需要账号授权的服务。",
+    expiresAt: (time: string) => `当前令牌有效期至 ${time}`,
+    expiredHelp: "自动重连需要有效的登录凭据，请更新账号和密码。",
     credentialsHelp:
-      "密码仅用于此次登录，不保存；登录令牌由本机后端保存，不会提供给 Agent。",
+      "账号、密码和令牌由本机后端保存，令牌过期后自动重新登录；密码和令牌不会提供给 Agent。",
     discoveryHelp:
-      "影像检索、详情、预览和行政区查询无需登录，Agent 可以直接使用。退出登录只清除本机保存的令牌。",
+      "影像检索、详情、预览和行政区查询无需登录，Agent 可以直接使用。退出登录会清除本机保存的账号、密码和令牌。",
     errors: {
       requestFailed: "操作失败，请稍后重试。",
       invalidInput: "请检查平台地址、账号和密码。",

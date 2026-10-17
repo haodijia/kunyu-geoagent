@@ -35,6 +35,11 @@ class OgeAccountStore:
 
     def save(self, account: OgeAccount) -> None:
         value = account.model_dump(mode="json", exclude={"tokens"})
+        value["password"] = (
+            account.password.get_secret_value()
+            if account.password is not None
+            else None
+        )
         value["tokens"] = {
             "token": account.tokens.token.get_secret_value(),
             "refreshToken": account.tokens.refreshToken.get_secret_value(),
