@@ -17,7 +17,6 @@ import {
 } from "@/features/workspaces/api";
 import { WorkspaceActions } from "./WorkspaceActions";
 import { SessionRow } from "@/features/sessions/SessionRow";
-import { workspaceOverviewPath } from "./routes";
 import { zhCN } from "@/locales/zh-CN";
 
 const content = zhCN.workspaceSidebar;
@@ -83,7 +82,9 @@ export function WorkspaceGroup({
       stickyHeader
       stickyTop={0}
       header={
-        <button type="button" className="min-w-0 flex-1 truncate text-left text-[13px] font-normal text-t-primary hover:underline" onClick={(event) => { event.stopPropagation(); void navigate(workspaceOverviewPath(workspace.id)); }} onKeyDown={(event) => event.stopPropagation()}>{workspace.name}</button>
+        <span className="min-w-0 flex-1 truncate text-[13px] font-normal text-t-primary">
+          {workspace.name}
+        </span>
       }
       trailing={
         <span className="flex items-center gap-[6px]">

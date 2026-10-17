@@ -8,7 +8,6 @@ import {
   type Workspace,
   workspaceQueryKeys
 } from "@/features/workspaces/api";
-import { workspaceOverviewPath } from "./routes";
 import { zhCN } from "@/locales/zh-CN";
 
 const content = zhCN.workspaceStart;
@@ -67,7 +66,7 @@ function RecentWorkspace({ workspace }: { readonly workspace: Workspace }) {
           <FolderClosed className="size-4.5" strokeWidth={1.8} aria-hidden="true" />
         </span>
         <h2 className="m-0 min-w-0 flex-1 truncate text-base font-semibold text-foreground">
-          <button type="button" className="hover:underline" onClick={() => void navigate(workspaceOverviewPath(workspace.id))}>{workspace.name}</button>
+          {workspace.name}
         </h2>
       </div>
 
