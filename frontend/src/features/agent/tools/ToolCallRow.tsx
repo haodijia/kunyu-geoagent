@@ -35,8 +35,6 @@ import { zhCN } from "@/locales/zh-CN";
 import { Down, Right } from "@icon-park/react";
 import { useMemo, useState } from "react";
 
-import { AnalysisToolResult } from "@/features/analysis/AnalysisToolResult";
-
 const content = zhCN.conversation.tools;
 
 export function ToolCallRow({
@@ -54,7 +52,7 @@ export function ToolCallRow({
   const resultContent = useMemo(() => tool.status === "completed" ? parseToolContent(tool.content) : [], [tool.status, tool.content]);
   const images = useMemo(() => toolContentImages(resultContent), [resultContent]);
   const outcome = toolOutcomeSummary(tool);
-  const showOutput = !tool.name.startsWith("map_") && !tool.name.startsWith("oge_") && !tool.name.startsWith("job_") && tool.name !== "ask_user_question";
+  const showOutput = tool.name !== "ask_user_question";
   const hasDetails =
     Object.keys(tool.arguments).length > 0 ||
     resultContent.length > 0 ||
@@ -102,7 +100,6 @@ export function ToolCallRow({
           {tool.error_summary}
         </p>
       ) : null}
-      {tool.status === "completed" && tool.name === "oge_execute_code" && <AnalysisToolResult value={tool.result} sessionId={tool.session_id} />}
       {tool.name === "subagent" && <SubagentCard toolCallId={tool.id} />}
       {denied && <p className={styles.callDenied} data-tool-denied={tool.id}>{content.denied}</p>}
       {expanded ? (

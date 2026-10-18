@@ -7,7 +7,6 @@ import {
   toolContentImages,
   toolContentText,
 } from "@/features/agent/tools/tool-content";
-import { AnalysisToolResult } from "@/features/analysis/AnalysisToolResult";
 import { AttachmentStrip } from "@/features/attachments/AttachmentStrip";
 import { collectImageOffloads } from "@/features/attachments/image-offloads";
 import { useSessionEvents } from "@/features/events/SessionEventContext";
@@ -31,25 +30,6 @@ export function ToolResultPresentation({
     !("content" in output)
   )
     return null;
-  if (
-    "result" in output &&
-    output.result !== null &&
-    typeof output.result === "object" &&
-    ("analysis_job_id" in output.result ||
-      "analysis_output_id" in output.result)
-  )
-    return <AnalysisToolResult value={output.result} sessionId={session.id} />;
-  if (
-    (record.source.tool_name === "oge_execute_code" ||
-      record.source.tool_name === "job_output") &&
-    "result" in output &&
-    output.result !== null &&
-    typeof output.result === "object" &&
-    "result" in output.result
-  )
-    return (
-      <AnalysisToolResult value={output.result.result} sessionId={session.id} />
-    );
   if (record.source.tool_name === "read") {
     if (!("result" in output))
       throw new Error("Read result has no presentation metadata.");
