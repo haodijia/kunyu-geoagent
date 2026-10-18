@@ -77,6 +77,8 @@ def _freeze(state: _State) -> ReducedRun:
                 status=item.status,
                 result=item.result,
                 content=item.content,
+                display=item.display,
+                compact=item.compact,
                 error_code=item.error_code,
                 error_summary=item.error_summary,
                 created_at=item.created_at,

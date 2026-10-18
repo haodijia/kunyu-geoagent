@@ -1,5 +1,8 @@
 """Read scoped image files and publish durable model-visible image receipts."""
 
+from kunyu.agent.tools.outputs.filesystem import IMAGE
+from kunyu.agent.runtime.contracts.tools import BaseTool
+
 from collections.abc import Mapping
 from contextlib import closing
 from pathlib import PurePosixPath
@@ -67,7 +70,9 @@ class _ImageReadArguments(ToolArguments):
     file_path: str = Field(min_length=1, max_length=4096)
 
 
-class ReadImageTool:
+class ReadImageTool(BaseTool):
+    output_contract = IMAGE
+
     def __init__(
         self,
         run_id: str,

@@ -5,6 +5,7 @@ from typing import Literal
 
 from pydantic import JsonValue
 
+from kunyu.agent.runtime.contracts.tool_output import ToolCompaction, ToolDisplay
 from kunyu.agent.runtime.contracts.tool_content import ToolContentBlock
 from kunyu.agent.runtime.events.base import TERMINAL_RUN_STATES, ResumePhase, RunState
 from kunyu.domain.models.model_connections import (
@@ -95,6 +96,8 @@ class ToolCall:
     status: ToolCallStatus
     result: JsonValue | None
     content: tuple[ToolContentBlock, ...]
+    display: ToolDisplay | None
+    compact: ToolCompaction | None
     error_code: str | None
     error_summary: str | None
     created_at: datetime

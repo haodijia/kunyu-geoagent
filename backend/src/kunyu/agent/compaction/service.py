@@ -13,6 +13,7 @@ from sqlalchemy import func, select, text
 from kunyu.agent.compaction.pressure import PressurePolicy, measure_pressure
 from kunyu.agent.compaction.prompt import checkpoint_headings, frame_summary
 from kunyu.agent.compaction.selection import select_prefix
+from kunyu.agent.compaction.tool_results import compact_tool_results
 from kunyu.agent.context.history import build_model_history, build_model_history_nodes
 from kunyu.agent.context.token_estimate import estimate_message
 from kunyu.agent.core import services as s
@@ -133,8 +134,9 @@ async def compact_context(
     selection = select_prefix(build_model_history_nodes(source), retention)
     if selection is None:
         return CompactionResult("success", "当前历史已在最近保留范围内，无需请求压缩。")
-    selected = tuple(
-        message for node in selection.selected for message in node.messages
+    selected = compact_tool_results(
+        tuple(message for node in selection.selected for message in node.messages),
+        source,
     )
     retained = tuple(
         message for node in selection.retained for message in node.messages
@@ -193,7 +195,9 @@ async def compact_context(
         retained_messages=tuple(message_snapshot(message) for message in retained),
         protected_messages=protected,
         retention_tokens=retention,
-        estimated_selected_tokens=selection.estimated_tokens,
+        estimated_selected_tokens=sum(
+            estimate_message(message) for message in selected
+        ),
     )
     database, projections = (
         agent.ctx.require(s.DATABASE),

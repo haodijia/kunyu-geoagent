@@ -1,5 +1,8 @@
 """Run-bound skill instruction and text resource loaders."""
 
+from kunyu.agent.tools.outputs.workflow import SKILL
+from kunyu.agent.runtime.contracts.tools import BaseTool
+
 from collections.abc import Mapping
 from typing import Annotated
 
@@ -35,7 +38,9 @@ class SkillResourceArguments(SkillArguments):
     path: Annotated[str, StringConstraints(min_length=1, max_length=1000)]
 
 
-class SkillTool:
+class SkillTool(BaseTool):
+    output_contract = SKILL
+
     def __init__(
         self,
         run_id: str,

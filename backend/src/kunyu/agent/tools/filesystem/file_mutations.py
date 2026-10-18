@@ -1,5 +1,8 @@
 """Guarded workspace text mutations and canonical model/diff result separation."""
 
+from kunyu.agent.tools.outputs.filesystem import MUTATION
+from kunyu.agent.runtime.contracts.tools import BaseTool
+
 from collections.abc import Mapping
 
 from pydantic import Field, model_validator
@@ -54,7 +57,9 @@ class _EditArguments(ToolArguments):
         return self
 
 
-class FileMutationTool:
+class FileMutationTool(BaseTool):
+    output_contract = MUTATION
+
     def __init__(
         self,
         run_id: str,

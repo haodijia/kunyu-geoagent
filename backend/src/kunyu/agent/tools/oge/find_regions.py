@@ -1,5 +1,7 @@
 """Resolve names to OGE codes without sending the whole region tree to the model."""
 
+from kunyu.agent.tools.outputs.oge import REGIONS
+
 from kunyu.agent.runtime.contracts.tools import ToolCall, ToolResult
 from kunyu.agent.tools.oge.arguments import FindRegionsArguments
 from kunyu.agent.tools.oge.shared import OgeTool, oge_tool_error
@@ -10,6 +12,8 @@ from kunyu.domain.geospatial.oge import OgeError
 
 
 class FindRegionsTool(OgeTool[FindRegionsArguments]):
+    output_contract = REGIONS
+
     def __init__(
         self, run_id: str, contexts: RunContextRepository, service: OgeService
     ) -> None:

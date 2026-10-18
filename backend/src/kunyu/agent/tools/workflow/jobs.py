@@ -1,5 +1,8 @@
 """Harness-compatible generic background output and control tools."""
 
+from kunyu.agent.runtime.contracts.tools import BaseTool
+from kunyu.agent.tools.outputs.workflow import JOB, JOBS
+
 from collections.abc import Mapping
 
 from pydantic import Field
@@ -36,10 +39,13 @@ class OutputArguments(JobArguments):
     timeout_ms: int = Field(default=30_000, ge=1)
 
 
-class JobTool:
+class JobTool(BaseTool):
     def __init__(
         self, run_id: str, jobs: JobRegistry, contexts: RunContextRepository, name: str
     ) -> None:
+        self.output_contract = {"job_list": JOBS, "job_output": JOB, "job_kill": JOB}[
+            name
+        ]
         self.run_id, self.jobs, self.contexts, self.name = run_id, jobs, contexts, name
         self.arguments = {
             "job_list": ListArguments,

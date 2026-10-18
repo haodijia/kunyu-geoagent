@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from enum import Enum
 from typing import TYPE_CHECKING, Literal, Protocol
@@ -10,6 +10,7 @@ from typing import TYPE_CHECKING, Literal, Protocol
 from pydantic import JsonValue
 
 from kunyu.agent.runtime.contracts.tool_content import ToolContent
+from kunyu.agent.runtime.contracts.tool_output import ToolCompaction, ToolDisplay
 
 if TYPE_CHECKING:
     from kunyu.agent.runtime.events.store import EventDraft
@@ -100,6 +101,34 @@ class ToolResult:
     events: tuple[EventDraft, ...] = ()
 
 
+@dataclass(frozen=True, slots=True)
+class ToolOutputContract:
+    agent: Callable[[ToolResult], ToolContent]
+    frontend: Callable[[ToolResult], ToolDisplay]
+    compact: Callable[[ToolResult], ToolCompaction]
+
+    def __post_init__(self) -> None:
+        if not all(
+            callable(project) for project in (self.agent, self.frontend, self.compact)
+        ):
+            raise ValueError("All three tool result projections must be callable.")
+
+
+class BaseTool:
+    """Every tool explicitly chooses all three result projections."""
+
+    output_contract: ToolOutputContract
+
+    def agent_result(self, result: ToolResult) -> ToolContent:
+        return self.output_contract.agent(result)
+
+    def frontend_result(self, result: ToolResult) -> ToolDisplay:
+        return self.output_contract.frontend(result)
+
+    def compact_result(self, result: ToolResult) -> ToolCompaction:
+        return self.output_contract.compact(result)
+
+
 class ToolRegistryError(RuntimeError):
     """A fixed tool registry is invalid or cannot resolve a requested tool."""
 
@@ -141,12 +170,20 @@ class PolicyGate(Protocol):
 
 
 class Tool(Protocol):
+    output_contract: ToolOutputContract
+
     @property
     def spec(self) -> ToolSpec: ...
 
     def validate(self, arguments: object) -> Mapping[str, object]: ...
 
     async def execute(self, call: ToolCall) -> ToolResult: ...
+
+    def agent_result(self, result: ToolResult) -> ToolContent: ...
+
+    def frontend_result(self, result: ToolResult) -> ToolDisplay: ...
+
+    def compact_result(self, result: ToolResult) -> ToolCompaction: ...
 
 
 class ToolRegistry:
@@ -155,6 +192,18 @@ class ToolRegistry:
     def __init__(self, tools: tuple[Tool, ...]) -> None:
         registered: dict[str, Tool] = {}
         for tool in tools:
+            if not isinstance(tool, BaseTool):
+                raise ToolRegistryError(
+                    "Tools must declare agent, frontend and compaction result projections."
+                )
+            try:
+                contract = tool.output_contract
+            except AttributeError as error:
+                raise ToolRegistryError(
+                    "The tool has no explicit output contract."
+                ) from error
+            if not isinstance(contract, ToolOutputContract):
+                raise ToolRegistryError("The tool output contract is invalid.")
             name = tool.spec.name
             if not name:
                 raise ToolRegistryError("Tool names must not be empty.")

@@ -1,5 +1,8 @@
 """Foreground ripgrep discovery with canonical text and separate search cards."""
 
+from kunyu.agent.tools.outputs.filesystem import SEARCH
+from kunyu.agent.runtime.contracts.tools import BaseTool
+
 import logging
 import os
 from collections.abc import Mapping
@@ -91,7 +94,9 @@ class _GrepArguments(_SearchArguments):
         return value
 
 
-class SearchTool:
+class SearchTool(BaseTool):
+    output_contract = SEARCH
+
     def __init__(
         self,
         run_id: str,

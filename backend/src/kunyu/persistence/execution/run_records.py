@@ -2,6 +2,7 @@ from uuid import uuid4
 
 from pydantic import TypeAdapter
 
+from kunyu.agent.runtime.contracts.tool_output import TOOL_DISPLAY, ToolCompaction
 from kunyu.agent.runtime.contracts.tool_content import ToolContentBlock
 from kunyu.agent.runtime.events.base import ResumePhase, RunState
 from kunyu.agent.runtime.events.store import AgentEvent, EventDraft
@@ -136,6 +137,8 @@ def tool_call_record(call: ToolCall, updated_sequence: int) -> ToolCallRecord:
         status=call.status.value,
         result=call.result,
         content=[block.model_dump(mode="json") for block in call.content],
+        display=None if call.display is None else call.display.model_dump(mode="json"),
+        compact=None if call.compact is None else call.compact.model_dump(mode="json"),
         error_code=call.error_code,
         error_summary=call.error_summary,
         created_at=call.created_at,
@@ -217,6 +220,12 @@ def tool_call_to_domain(record: ToolCallRecord) -> ToolCall:
         content=TypeAdapter(tuple[ToolContentBlock, ...]).validate_python(
             record.content
         ),
+        display=None
+        if record.display is None
+        else TOOL_DISPLAY.validate_python(record.display),
+        compact=None
+        if record.compact is None
+        else ToolCompaction.model_validate(record.compact),
         error_code=record.error_code,
         error_summary=record.error_summary,
         created_at=as_utc(record.created_at),

@@ -139,6 +139,8 @@ def _complete_tool(state: _State, event: ToolCompletedEvent, sequence: int) -> N
     tool.status = "completed"
     tool.result = event.payload.result
     tool.content = event.payload.content
+    tool.display = event.payload.display
+    tool.compact = event.payload.compact
     tool.updated_at = event.occurred_at
     tool.updated_sequence = sequence
     if state.state is RunState.WAITING_INPUT:

@@ -1,5 +1,8 @@
 """Approved service producers register one session-owned background job."""
 
+from kunyu.agent.tools.outputs.oge import ANALYSIS
+from kunyu.agent.runtime.contracts.tools import BaseTool
+
 import asyncio
 import json
 import logging
@@ -68,7 +71,9 @@ class ExecuteCodeArguments(ToolArguments):
         return self
 
 
-class ExecuteCodeTool:
+class ExecuteCodeTool(BaseTool):
+    output_contract = ANALYSIS
+
     def __init__(
         self,
         run_id: str,

@@ -1,5 +1,9 @@
 """Workspace memory read/write tools and the confirmed local write handler."""
 
+from kunyu.agent.tools.outputs.workflow import MEMORY
+from kunyu.agent.tools.outputs.workflow import MEMORY_SAVED
+from kunyu.agent.runtime.contracts.tools import BaseTool
+
 from collections.abc import Callable, Mapping
 from datetime import datetime
 from typing import Annotated
@@ -50,7 +54,9 @@ class _MemoryWriteArguments(ToolArguments):
     ]
 
 
-class MemoryReadTool:
+class MemoryReadTool(BaseTool):
+    output_contract = MEMORY
+
     def __init__(
         self,
         run_id: str,
@@ -95,7 +101,9 @@ MEMORY_WRITE_APPROVAL = ToolApproval(
 )
 
 
-class MemoryWriteTool:
+class MemoryWriteTool(BaseTool):
+    output_contract = MEMORY_SAVED
+
     def __init__(self, run_id: str, contexts: RunContextRepository) -> None:
         self._run_id = run_id
         self._contexts = contexts

@@ -1,5 +1,8 @@
 """Model-facing one-shot delegation, collection and cancellation."""
 
+from kunyu.agent.runtime.contracts.tools import BaseTool
+from kunyu.agent.tools.outputs.workflow import CHILDREN, DELEGATE, REPORT
+
 from collections.abc import Mapping
 from typing import Literal
 
@@ -80,7 +83,7 @@ def result_snapshot(child: ReducedSubagent, manager: SubagentManager) -> dict:
     }
 
 
-class SubagentTool:
+class SubagentTool(BaseTool):
     def __init__(
         self,
         run_id: str,
@@ -89,6 +92,12 @@ class SubagentTool:
             "subagent", "wait_subagents", "cancel_subagent", "subagent_result"
         ],
     ):
+        self.output_contract = {
+            "subagent": DELEGATE,
+            "wait_subagents": CHILDREN,
+            "cancel_subagent": CHILDREN,
+            "subagent_result": REPORT,
+        }[name]
         self.run_id, self.manager, self.name = run_id, manager, name
         models = {
             "subagent": DelegateArguments,

@@ -1,5 +1,8 @@
 """Authenticated discovery of the user's uploaded OGE assets."""
 
+from kunyu.agent.tools.outputs.oge import ASSETS
+from kunyu.agent.tools.outputs.oge import ASSET
+
 from kunyu.agent.runtime.contracts.tools import ToolCall, ToolResult
 from kunyu.agent.tools.oge.arguments import ListMyDataArguments, MyDataDetailArguments
 from kunyu.agent.tools.oge.shared import OgeTool, oge_tool_error
@@ -10,6 +13,8 @@ from kunyu.domain.geospatial.oge import OgeError
 
 
 class ListMyDataTool(OgeTool[ListMyDataArguments]):
+    output_contract = ASSETS
+
     def __init__(
         self, run_id: str, contexts: RunContextRepository, service: OgeService
     ) -> None:
@@ -44,6 +49,8 @@ class ListMyDataTool(OgeTool[ListMyDataArguments]):
 
 
 class MyDataDetailTool(OgeTool[MyDataDetailArguments]):
+    output_contract = ASSET
+
     def __init__(
         self, run_id: str, contexts: RunContextRepository, service: OgeService
     ) -> None:

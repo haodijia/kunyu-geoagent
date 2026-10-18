@@ -1,5 +1,8 @@
 """Model-facing, line-numbered reads over the bound filesystem service."""
 
+from kunyu.agent.tools.outputs.filesystem import READ
+from kunyu.agent.runtime.contracts.tools import BaseTool
+
 from collections.abc import Mapping
 from contextlib import closing
 from threading import Event
@@ -50,7 +53,9 @@ class _ReadArguments(ToolArguments):
     limit: int = Field(default=READ_LIMIT, ge=1, le=READ_LIMIT)
 
 
-class ReadTool:
+class ReadTool(BaseTool):
+    output_contract = READ
+
     def __init__(
         self,
         run_id: str,

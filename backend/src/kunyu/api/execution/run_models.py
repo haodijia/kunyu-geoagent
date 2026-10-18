@@ -3,6 +3,7 @@ from typing import Literal
 
 from pydantic import BaseModel, JsonValue
 
+from kunyu.agent.runtime.contracts.tool_output import ToolCompaction, ToolDisplay
 from kunyu.agent.runtime.contracts.tool_content import ToolContentBlock
 from kunyu.domain.execution.runs import Run, RunDetails, RunModelSnapshot, ToolCall
 from kunyu.domain.geospatial.map_context import TurnMapContext
@@ -24,6 +25,8 @@ class ToolCallResponse(BaseModel):
     status: Literal["pending", "running", "completed", "failed", "cancelled"]
     result: JsonValue | None
     content: tuple[ToolContentBlock, ...]
+    display: ToolDisplay | None
+    compact: ToolCompaction | None
     error_code: str | None
     error_summary: str | None
     created_at: datetime
@@ -46,6 +49,8 @@ class ToolCallResponse(BaseModel):
             status=tool.status.value,
             result=tool.result,
             content=tool.content,
+            display=tool.display,
+            compact=tool.compact,
             error_code=tool.error_code,
             error_summary=tool.error_summary,
             created_at=tool.created_at,

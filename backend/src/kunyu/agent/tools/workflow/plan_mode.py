@@ -1,5 +1,8 @@
 """Present complete plans through the shared human-question channel."""
 
+from kunyu.agent.tools.outputs.workflow import PLAN
+from kunyu.agent.runtime.contracts.tools import BaseTool
+
 from collections.abc import Mapping
 from datetime import UTC, datetime
 from typing import Self
@@ -53,7 +56,9 @@ class ExitPlanArguments(ToolArguments):
         return self
 
 
-class ExitPlanModeTool:
+class ExitPlanModeTool(BaseTool):
+    output_contract = PLAN
+
     def __init__(self, run_id: str) -> None:
         self._run_id = run_id
         self.spec = ToolSpec(

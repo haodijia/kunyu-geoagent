@@ -1,5 +1,8 @@
 """Model-facing consumer of the human-question interaction seam."""
 
+from kunyu.agent.tools.outputs.workflow import QUESTIONS
+from kunyu.agent.runtime.contracts.tools import BaseTool
+
 from collections.abc import Mapping
 
 from pydantic import Field
@@ -30,7 +33,9 @@ class _AskArguments(ToolArguments):
     questions: list[QuestionInput] = Field(min_length=1, max_length=10)
 
 
-class AskUserQuestionTool:
+class AskUserQuestionTool(BaseTool):
+    output_contract = QUESTIONS
+
     def __init__(self, run_id: str) -> None:
         self._run_id = run_id
         self.spec = ToolSpec(

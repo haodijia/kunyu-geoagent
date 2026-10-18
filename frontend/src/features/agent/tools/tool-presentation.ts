@@ -73,26 +73,3 @@ export function isWaitingQuestion(tool: ToolCall, records: readonly TrajectoryEv
     request.eventType === "question.requested" && request.payload.tool_call_id === tool.id &&
     !records.some((decision) => decision.eventType === "question.resolved" && decision.entityId === request.entityId));
 }
-
-/** Human-readable results belong in chat; complete payloads remain in the trace. */
-export function toolOutcomeSummary(tool: ToolCall): string | null {
-  if (tool.status !== "completed" || tool.result === null || typeof tool.result !== "object" || Array.isArray(tool.result)) return null;
-  const result = tool.result as Readonly<Record<string, unknown>>;
-  if (tool.name === "oge_download_preview") return result.numeric_values_available === true
-    ? zhCN.analysis.resultPreviewDescription
-    : zhCN.analysis.resultImageDescription;
-  if (tool.name === "oge_get_image_preview") return zhCN.analysis.imagePreviewDescription;
-  if (tool.name === "oge_find_regions" && Array.isArray(result.regions)) {
-    return result.regions.map((value) => {
-      if (value === null || typeof value !== "object" || !("name" in value) || typeof value.name !== "string") return "";
-      return "code" in value ? `${value.name}（${String(value.code)}）` : value.name;
-    }).filter(Boolean).join("、");
-  }
-  if (tool.name === "oge_search_operators" && Array.isArray(result.operators)) {
-    return result.operators.map((value) => value !== null && typeof value === "object" && "name" in value ? String(value.name) : "").filter(Boolean).join("、");
-  }
-  if (tool.name === "oge_search_images" && typeof result.total === "number") return zhCN.conversation.tools.imageMatches(result.total);
-  if (tool.name === "oge_get_operator_definition" && typeof result.description === "string") return result.description;
-  if (tool.name === "oge_get_image_detail" && typeof result.productName === "string") return `${result.productName}${typeof result.phenomenonTime === "string" ? ` · ${result.phenomenonTime}` : ""}`;
-  return null;
-}

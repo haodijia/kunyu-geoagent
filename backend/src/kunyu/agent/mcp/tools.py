@@ -1,5 +1,8 @@
 """MCP tools use the existing schema validation, policy and execution pipeline."""
 
+from kunyu.agent.tools.outputs.mcp import MCP
+from kunyu.agent.runtime.contracts.tools import BaseTool
+
 import json
 from collections.abc import Mapping
 
@@ -20,7 +23,9 @@ from kunyu.agent.tools.shared import require_bound_call
 from kunyu.integrations.mcp.connection import request_error
 
 
-class McpTool:
+class McpTool(BaseTool):
+    output_contract = MCP
+
     def __init__(
         self,
         run_id: str,

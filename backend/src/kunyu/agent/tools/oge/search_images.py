@@ -1,5 +1,7 @@
 """Paginated imagery discovery with compact, typed image summaries."""
 
+from kunyu.agent.tools.outputs.oge import IMAGERY
+
 from kunyu.agent.runtime.contracts.tools import ToolCall, ToolResult
 from kunyu.agent.tools.oge.arguments import SearchImagesArguments
 from kunyu.agent.tools.oge.shared import OgeTool, oge_tool_error
@@ -10,6 +12,8 @@ from kunyu.domain.geospatial.oge import OgeError
 
 
 class SearchImagesTool(OgeTool[SearchImagesArguments]):
+    output_contract = IMAGERY
+
     def __init__(
         self, run_id: str, contexts: RunContextRepository, service: OgeService
     ) -> None:

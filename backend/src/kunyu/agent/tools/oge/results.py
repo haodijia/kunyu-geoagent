@@ -1,5 +1,8 @@
 """Durable model previews and source GeoTIFF download references."""
 
+from kunyu.agent.runtime.contracts.tools import BaseTool
+from kunyu.agent.tools.outputs.oge import DOWNLOAD, PREVIEW
+
 from collections.abc import Mapping
 from uuid import uuid4
 
@@ -43,7 +46,7 @@ class OutputArguments(ToolArguments):
     output_id: str = Field(min_length=1, max_length=64)
 
 
-class ResultTool:
+class ResultTool(BaseTool):
     def __init__(
         self,
         run_id: str,
@@ -53,6 +56,10 @@ class ResultTool:
         *,
         name: str,
     ) -> None:
+        self.output_contract = {
+            "oge_download_preview": PREVIEW,
+            "oge_download_result": DOWNLOAD,
+        }[name]
         self._run_id, self._contexts, self._service, self._attachments = (
             run_id,
             contexts,

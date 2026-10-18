@@ -1,5 +1,8 @@
 """Harness-style named MCP resource tools, sharing the normal Agent tool loop."""
 
+from kunyu.agent.tools.outputs.mcp import MCP
+from kunyu.agent.runtime.contracts.tools import BaseTool
+
 import json
 from functools import partial
 
@@ -34,7 +37,9 @@ class ResourceReadArguments(ToolArguments):
     uri: str = Field(min_length=1, max_length=8192)
 
 
-class McpResourceTool:
+class McpResourceTool(BaseTool):
+    output_contract = MCP
+
     def __init__(self, run_id: str, manager, operation: str) -> None:
         self.run_id, self.manager, self.operation = run_id, manager, operation
         self.arguments = (

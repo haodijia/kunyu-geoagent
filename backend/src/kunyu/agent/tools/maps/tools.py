@@ -1,5 +1,8 @@
 """Map tools read and mutate only the calling session's typed map objects."""
 
+from kunyu.agent.runtime.contracts.tools import BaseTool
+from kunyu.agent.tools.outputs.maps import CONTEXT, PRESENT, STYLE
+
 from collections.abc import Mapping
 from typing import Literal
 
@@ -56,7 +59,7 @@ class StyleArguments(ToolArguments):
     position: int = Field(ge=0, le=1000)
 
 
-class MapTool:
+class MapTool(BaseTool):
     def __init__(
         self,
         run_id: str,
@@ -65,6 +68,11 @@ class MapTool:
         *,
         name: str,
     ) -> None:
+        self.output_contract = {
+            "map_get_context": CONTEXT,
+            "map_present": PRESENT,
+            "map_set_layer_style": STYLE,
+        }[name]
         self._run_id, self._contexts, self._maps = run_id, contexts, maps
         self._arguments = (
             ContextArguments

@@ -122,6 +122,8 @@ def approve_events(
     result = _JSON_OBJECT_ADAPTER.validate_python(
         handler.execute(database_session, confirmation.workspace_id, call, now)
     )
+    bound = tool_registries.for_run(run.id).require(tool.name)
+    output = tool_result(result)
     actual_milliseconds = min(
         reserved_milliseconds,
         max(0, (monotonic_ns() - started_ns) // 1_000_000),
@@ -180,7 +182,9 @@ def approve_events(
                 **common,
                 next_tool_index=next_tool_index,
                 result=result,
-                content=tool_result(result).content,
+                content=bound.agent_result(output),
+                display=bound.frontend_result(output),
+                compact=bound.compact_result(output),
             ),
             occurred_at=now,
         ),

@@ -315,6 +315,8 @@ CREATE TABLE tool_calls (
 	arguments JSON NOT NULL, 
 	status VARCHAR(32) NOT NULL, 
 	result JSON, 
+	display JSON,
+	compact JSON,
 	error_code VARCHAR(100), 
 	error_summary VARCHAR(500), 
 	created_at DATETIME NOT NULL, 
@@ -482,4 +484,4 @@ CREATE TABLE oge_account (
     CONSTRAINT ck_oge_account_singleton CHECK (id = 1)
 );
 
-PRAGMA user_version = 5;
+PRAGMA user_version = 6;

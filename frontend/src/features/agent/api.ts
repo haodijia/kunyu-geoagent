@@ -1,5 +1,6 @@
 import { requestJson } from "@/api/client";
 import type { ToolContentBlock } from "@/features/agent/tools/tool-content";
+import type { ToolCompaction, ToolDisplay } from "@/features/agent/tools/tool-output";
 import type { Attachment } from "@/features/attachments/api";
 import type {
   MaxTokensField,
@@ -93,6 +94,8 @@ export interface ToolCall {
   readonly status: "pending" | "running" | "completed" | "failed" | "cancelled";
   readonly result: unknown;
   readonly content: readonly ToolContentBlock[];
+  readonly display: ToolDisplay | null;
+  readonly compact: ToolCompaction | null;
   readonly error_code: string | null;
   readonly error_summary: string | null;
   readonly created_at: string;

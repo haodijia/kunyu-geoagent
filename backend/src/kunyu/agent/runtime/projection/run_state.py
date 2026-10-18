@@ -9,6 +9,7 @@ from pydantic import JsonValue
 
 from kunyu.agent.runtime.contracts.content import ContentBlock, ReplayEnvelope
 from kunyu.agent.runtime.contracts.questions import QuestionAnswers, QuestionSet
+from kunyu.agent.runtime.contracts.tool_output import ToolCompaction, ToolDisplay
 from kunyu.agent.runtime.contracts.tool_content import ToolContentBlock
 from kunyu.agent.runtime.events.assistant import StepDecisionPayload
 from kunyu.agent.runtime.events.base import ResumePhase, RunState
@@ -72,6 +73,8 @@ class ReducedToolCall:
     status: ToolStatus
     result: JsonValue | None
     content: tuple[ToolContentBlock, ...]
+    display: ToolDisplay | None
+    compact: ToolCompaction | None
     error_code: str | None
     error_summary: str | None
     created_at: datetime
@@ -198,6 +201,8 @@ class _ToolCall:
     status: ToolStatus = "pending"
     result: JsonValue | None = None
     content: tuple[ToolContentBlock, ...] = ()
+    display: ToolDisplay | None = None
+    compact: ToolCompaction | None = None
     error_code: str | None = None
     error_summary: str | None = None
     updated_at: datetime | None = None

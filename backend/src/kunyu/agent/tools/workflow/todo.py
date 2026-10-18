@@ -1,5 +1,8 @@
 """Run-bound task list updates; the runner commits snapshot and result together."""
 
+from kunyu.agent.tools.outputs.workflow import TODO
+from kunyu.agent.runtime.contracts.tools import BaseTool
+
 from collections.abc import Mapping
 from datetime import UTC, datetime
 
@@ -27,7 +30,9 @@ class TodoArguments(ToolArguments):
     todos: TodoList
 
 
-class TodoWriteTool:
+class TodoWriteTool(BaseTool):
+    output_contract = TODO
+
     def __init__(self, run_id: str, contexts: RunContextRepository) -> None:
         self._run_id, self._contexts = run_id, contexts
         self._spec = ToolSpec(

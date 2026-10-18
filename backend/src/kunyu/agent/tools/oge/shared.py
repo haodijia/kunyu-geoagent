@@ -4,6 +4,7 @@ from collections.abc import Mapping
 
 from kunyu.agent.prompts.loader import tool_description
 from kunyu.agent.runtime.contracts.tools import (
+    BaseTool,
     ToolCall,
     ToolExecutionError,
     ToolRiskLevel,
@@ -24,7 +25,7 @@ from kunyu.domain.conversation.agent_context import (
 from kunyu.domain.geospatial.oge import OgeError
 
 
-class OgeTool[T: ToolArguments]:
+class OgeTool[T: ToolArguments](BaseTool):
     def __init__(
         self,
         run_id: str,

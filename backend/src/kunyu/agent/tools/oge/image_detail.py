@@ -1,5 +1,7 @@
 """Full metadata for one OGE image; absent images are explicit failures."""
 
+from kunyu.agent.tools.outputs.oge import IMAGE_DETAIL
+
 from kunyu.agent.runtime.contracts.tools import ToolCall, ToolResult
 from kunyu.agent.tools.oge.arguments import ImageArguments
 from kunyu.agent.tools.oge.shared import OgeTool, oge_tool_error
@@ -10,6 +12,8 @@ from kunyu.domain.geospatial.oge import OgeError
 
 
 class ImageDetailTool(OgeTool[ImageArguments]):
+    output_contract = IMAGE_DETAIL
+
     def __init__(
         self, run_id: str, contexts: RunContextRepository, service: OgeService
     ) -> None:

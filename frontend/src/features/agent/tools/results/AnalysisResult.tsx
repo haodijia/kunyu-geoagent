@@ -9,19 +9,17 @@ import { useState } from "react";
 
 const content = zhCN.analysis;
 
-export function AnalysisResult({ value, sessionId }: {
-  readonly value: unknown;
+export function AnalysisResult({ jobId, sessionId }: {
+  readonly jobId: string;
   readonly sessionId: string;
 }) {
-  if (value === null || typeof value !== "object" || !("analysis_job_id" in value) || typeof value.analysis_job_id !== "string")
-    throw new Error("Analysis tool result has no job identity.");
   const session = useSessionWorkspace();
   const { jobs, outputs } = useAnalysis(sessionId, session.workspace_id);
   if (jobs.isError || outputs.isError)
     return <p role="alert" className="text-xs text-destructive">{content.loadFailed}</p>;
   if (jobs.isPending || outputs.isPending)
     return <p role="status" className="text-xs text-muted-foreground">{content.loading}</p>;
-  const job = jobs.data.find(item => item.id === value.analysis_job_id);
+  const job = jobs.data.find(item => item.id === jobId);
   if (job === undefined)
     return <p role="alert" className="text-xs text-destructive">{content.loadFailed}</p>;
   const output = outputs.data.find(item => item.job_id === job.id);

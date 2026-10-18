@@ -8,6 +8,7 @@ from pydantic import Field, JsonValue, model_validator
 from kunyu.agent.runtime.contracts.questions import QuestionAnswers, QuestionSet
 from kunyu.agent.runtime.contracts.todos import TodoList
 from kunyu.agent.runtime.contracts.tool_content import ToolContent
+from kunyu.agent.runtime.contracts.tool_output import ToolCompaction, ToolDisplay
 from kunyu.agent.runtime.events.base import (
     EventPayload,
     NonNegativeInt,
@@ -40,6 +41,8 @@ class ToolProgressPayload(EventPayload):
 class ToolCompletedPayload(ToolProgressPayload):
     result: JsonValue
     content: ToolContent
+    display: ToolDisplay
+    compact: ToolCompaction
 
 
 class ToolFailedPayload(ToolProgressPayload):

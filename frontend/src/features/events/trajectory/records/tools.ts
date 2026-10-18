@@ -62,6 +62,8 @@ export function toolRecord(
       ? {
           result: completed.result,
           content: parseToolContent(completed.content),
+          display: completed.display,
+          compact: completed.compact,
         }
       : snapshot?.error_summary !== null &&
           snapshot?.error_summary !== undefined

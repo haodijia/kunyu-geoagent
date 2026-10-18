@@ -11,6 +11,7 @@ from sqlalchemy.orm import Session
 
 from kunyu.agent.runtime.contracts.questions import QuestionAnswers
 from kunyu.agent.runtime.contracts.tool_content import TOOL_CONTENT_ADAPTER
+from kunyu.agent.runtime.contracts.tool_output import TOOL_DISPLAY, ToolCompaction
 from kunyu.agent.runtime.contracts.tools import ToolCall, ToolExecutionError, ToolResult
 from kunyu.agent.runtime.events.base import RunState
 from kunyu.agent.runtime.events.run import (
@@ -268,7 +269,12 @@ class UserQuestionService:
                         "Question tool content and events must be immutable tuples."
                     )
                 _JSON_VALUE.validate_python(result.result)
-                TOOL_CONTENT_ADAPTER.validate_python(result.content)
+                bound = self._tools.for_run(run.run_id).require(tool.name)
+                agent_content = TOOL_CONTENT_ADAPTER.validate_python(
+                    bound.agent_result(result)
+                )
+                display = TOOL_DISPLAY.validate_python(bound.frontend_result(result))
+                compact = ToolCompaction.model_validate(bound.compact_result(result))
                 for event in result.events:
                     validate_event_draft(event)
                     if event.session_id != run.session_id or event.run_id not in (
@@ -331,7 +337,9 @@ class UserQuestionService:
                             **common,
                             next_tool_index=tool.batch_index + 1,
                             result=result.result,
-                            content=result.content,
+                            content=agent_content,
+                            display=display,
+                            compact=compact,
                         ),
                         occurred_at=finished_at,
                     )

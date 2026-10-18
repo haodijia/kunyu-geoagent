@@ -24,6 +24,11 @@ from kunyu.agent.runtime.contracts.tools import (
     ToolRiskLevel,
     ToolValidationError,
 )
+from kunyu.agent.runtime.contracts.tool_output import (
+    TOOL_DISPLAY,
+    ToolCompaction,
+    ToolDisplay,
+)
 from kunyu.agent.runtime.events.run import (
     BudgetReservedEvent,
     BudgetReservedPayload,
@@ -72,6 +77,8 @@ class _Invocation:
     finished_at: datetime
     result: JsonValue | None = None
     content: tuple[ToolContentBlock, ...] = ()
+    display: ToolDisplay | None = None
+    compact: ToolCompaction | None = None
     events: tuple[EventDraft, ...] = ()
     error_code: str | None = None
     error_summary: str | None = None
@@ -338,14 +345,16 @@ class ToolBatchExecutor[AdapterConfigT]:
         started = self._monotonic_ns()
         try:
             async with asyncio.timeout(timeout / 1_000):
-                result, content, events = _parse_tool_result(
-                    await item.tool.execute(item.call), item.call
+                result, content, display, compact, events = _parse_tool_result(
+                    await item.tool.execute(item.call), item.call, item.tool
                 )
             return _Invocation(
                 elapsed_milliseconds(started, self._monotonic_ns()),
                 self._clock(),
                 result=result,
                 content=content,
+                display=display,
+                compact=compact,
                 events=events,
             )
         except TimeoutError:
@@ -453,6 +462,8 @@ class ToolBatchExecutor[AdapterConfigT]:
                             next_tool_index=tool.batch_index + 1,
                             result=invocation.result,
                             content=invocation.content,
+                            display=invocation.display,
+                            compact=invocation.compact,
                         ),
                         occurred_at=invocation.finished_at,
                     )
@@ -477,20 +488,34 @@ class ToolBatchExecutor[AdapterConfigT]:
 
 
 def _parse_tool_result(
-    result: object, call: ToolCall
-) -> tuple[JsonValue, tuple[ToolContentBlock, ...], tuple[EventDraft, ...]]:
+    result: object, call: ToolCall, tool: Tool
+) -> tuple[
+    JsonValue,
+    tuple[ToolContentBlock, ...],
+    ToolDisplay,
+    ToolCompaction,
+    tuple[EventDraft, ...],
+]:
     if not isinstance(result, ToolResult):
         raise ToolExecutionError("The tool returned an invalid result envelope.")
     if not isinstance(result.content, tuple):
         raise ToolExecutionError("Tool content must be an immutable block tuple.")
-    content = TOOL_CONTENT_ADAPTER.validate_python(result.content)
+    content = TOOL_CONTENT_ADAPTER.validate_python(tool.agent_result(result))
+    display = TOOL_DISPLAY.validate_python(tool.frontend_result(result))
+    compact = ToolCompaction.model_validate(tool.compact_result(result))
     if not isinstance(result.events, tuple):
         raise ToolExecutionError("Tool event drafts must be an immutable tuple.")
     for event in result.events:
         validate_event_draft(event)
         if event.run_id != call.run_id:
             raise ToolExecutionError("Tool event draft belongs to a different run.")
-    return _JSON_VALUE_ADAPTER.validate_python(result.result), content, result.events
+    return (
+        _JSON_VALUE_ADAPTER.validate_python(result.result),
+        content,
+        display,
+        compact,
+        result.events,
+    )
 
 
 def _tool_common(tool: ReducedToolCall) -> dict[str, object]:

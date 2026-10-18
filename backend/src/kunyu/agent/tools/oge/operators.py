@@ -1,5 +1,8 @@
 """Discover live operator metadata without registering hundreds of tools."""
 
+from kunyu.agent.runtime.contracts.tools import BaseTool
+from kunyu.agent.tools.outputs.oge import OPERATOR, OPERATORS
+
 from collections.abc import Mapping
 
 from pydantic import Field
@@ -36,7 +39,7 @@ class DefinitionArguments(ToolArguments):
     name: str = Field(min_length=1, max_length=200)
 
 
-class OperatorTool:
+class OperatorTool(BaseTool):
     def __init__(
         self,
         run_id: str,
@@ -45,6 +48,10 @@ class OperatorTool:
         *,
         name: str,
     ) -> None:
+        self.output_contract = {
+            "oge_search_operators": OPERATORS,
+            "oge_get_operator_definition": OPERATOR,
+        }[name]
         self._run_id, self._contexts, self._gateway = run_id, contexts, gateway
         self._arguments = (
             SearchArguments if name == "oge_search_operators" else DefinitionArguments

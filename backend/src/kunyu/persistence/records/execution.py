@@ -263,6 +263,8 @@ class ToolCallRecord(Base):
     arguments: Mapped[dict[str, Any]] = mapped_column(JSON, nullable=False)
     status: Mapped[str] = mapped_column(String(32), nullable=False)
     result: Mapped[Any | None] = mapped_column(JSON)
+    display: Mapped[dict[str, Any] | None] = mapped_column(JSON)
+    compact: Mapped[dict[str, Any] | None] = mapped_column(JSON)
     content: Mapped[list[dict[str, Any]]] = mapped_column(
         JSON, nullable=False, server_default="[]"
     )

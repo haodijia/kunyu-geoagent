@@ -1,5 +1,7 @@
 """Persist OGE PNG previews through the existing model-visible image receipt flow."""
 
+from kunyu.agent.tools.outputs.oge import IMAGE_PREVIEW
+
 from threading import Event
 from uuid import uuid4
 
@@ -28,6 +30,8 @@ from kunyu.persistence.conversation.attachments import SQLAlchemyAttachmentStore
 
 
 class ImagePreviewTool(OgeTool[ImageArguments]):
+    output_contract = IMAGE_PREVIEW
+
     def __init__(
         self,
         run_id: str,
