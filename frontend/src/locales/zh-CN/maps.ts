@@ -29,6 +29,21 @@ export const maps = {
     thinking: "思考",
     selectedImage: (id: number) => `已选影像 · ${id}`,
     clearSelection: "清除影像选择",
+    presentation: {
+      requested: {
+        candidates: "已请求在地图展示候选影像，等待地图确认。",
+        output: "已请求在地图展示分析结果，等待地图确认。",
+      },
+      applied: {
+        candidates: "候选影像已在地图显示。",
+        output: "分析结果已在地图显示。",
+      },
+      failed: {
+        candidates: "候选影像未能在地图显示。",
+        output: "分析结果未能在地图显示。",
+      },
+      readFailed: "地图回执读取失败，暂时无法确认最新展示状态。",
+    },
   },
   analysis: {
     title: "图层",
@@ -45,6 +60,9 @@ export const maps = {
     toolRgbDescription: "三波段 RGB 栅格，预览展示结果的色彩与覆盖范围。",
     toolRasterSize: (width: number, height: number) => `栅格尺寸：${width} × ${height} 像元`,
     toolDisplayRange: (minimum: number, maximum: number) => `预览显示范围：${minimum} ～ ${maximum}`,
+    resultPreviewDescription: "已读取分析结果预览，供模型查看。预览颜色用于表达数值变化，原始像元数值保留在 GeoTIFF 中。",
+    resultImageDescription: "已读取分析结果预览，供模型查看。预览图不替代原始分析结果。",
+    imagePreviewDescription: "已读取卫星影像缩略图，供模型查看。缩略图用于快速浏览，不代表完整分辨率的分析结果。",
     displayRange: "显示值域",
     viewMap: "查看地图",
     downloadCog: "下载 GeoTIFF",

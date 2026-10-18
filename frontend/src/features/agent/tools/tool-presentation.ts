@@ -78,6 +78,10 @@ export function isWaitingQuestion(tool: ToolCall, records: readonly TrajectoryEv
 export function toolOutcomeSummary(tool: ToolCall): string | null {
   if (tool.status !== "completed" || tool.result === null || typeof tool.result !== "object" || Array.isArray(tool.result)) return null;
   const result = tool.result as Readonly<Record<string, unknown>>;
+  if (tool.name === "oge_download_preview") return result.numeric_values_available === true
+    ? zhCN.analysis.resultPreviewDescription
+    : zhCN.analysis.resultImageDescription;
+  if (tool.name === "oge_get_image_preview") return zhCN.analysis.imagePreviewDescription;
   if (tool.name === "oge_find_regions" && Array.isArray(result.regions)) {
     return result.regions.map((value) => {
       if (value === null || typeof value !== "object" || !("name" in value) || typeof value.name !== "string") return "";

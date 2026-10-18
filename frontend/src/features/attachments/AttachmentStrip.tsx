@@ -16,12 +16,13 @@ import { toast } from "sonner";
 
 const content = zhCN.conversation.attachments;
 
-export function AttachmentStrip({ sessionId, attachments, disabled = false, onRemove, offloadedIds }: {
+export function AttachmentStrip({ sessionId, attachments, disabled = false, onRemove, offloadedIds, imageLayout = "thumbnail" }: {
   readonly sessionId: string;
   readonly attachments: readonly Attachment[];
   readonly offloadedIds?: ReadonlySet<string>;
   readonly disabled?: boolean;
   readonly onRemove?: (id: string) => void;
+  readonly imageLayout?: "thumbnail" | "preview";
 }) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const [edges, setEdges] = useState({ left: false, right: false });
@@ -35,17 +36,18 @@ export function AttachmentStrip({ sessionId, attachments, disabled = false, onRe
     return () => { observer.disconnect(); scroller.removeEventListener("scroll", update); };
   }, [attachments]);
   if (attachments.length === 0) return null;
-  return <div className="relative min-w-0 max-w-full"><div ref={scrollRef} aria-label={content.list} className="flex min-w-0 max-w-full items-center gap-2 overflow-x-auto py-1.5 [scrollbar-width:none]">
-    {attachments.map((ref) => <AttachmentCard key={ref.id} sessionId={sessionId} attachment={ref} offloaded={offloadedIds?.has(ref.id) === true} disabled={disabled} onRemove={onRemove} />)}
+  return <div className="relative min-w-0 max-w-full"><div ref={scrollRef} aria-label={content.list} className={`flex min-w-0 max-w-full gap-2 overflow-x-auto py-1.5 [scrollbar-width:none] ${imageLayout === "preview" ? "flex-col items-start" : "items-center"}`}>
+    {attachments.map((ref) => <AttachmentCard key={ref.id} sessionId={sessionId} attachment={ref} offloaded={offloadedIds?.has(ref.id) === true} disabled={disabled} onRemove={onRemove} imageLayout={imageLayout} />)}
   </div>
     {edges.left && <div className="pointer-events-none absolute inset-y-0 left-0 flex w-[60px] items-center bg-[linear-gradient(to_left,transparent,var(--attachment-surface,var(--mu-composer-bg))_70%)]"><Button type="button" size="icon" variant="outline" className="pointer-events-auto size-7 rounded-full bg-background shadow-sm" aria-label={content.scrollLeft} onClick={() => scrollRef.current?.scrollBy({ left: -200, behavior: "smooth" })}><ChevronLeft className="size-3.5" /></Button></div>}
     {edges.right && <div className="pointer-events-none absolute inset-y-0 right-0 flex w-[60px] items-center justify-end bg-[linear-gradient(to_right,transparent,var(--attachment-surface,var(--mu-composer-bg))_70%)]"><Button type="button" size="icon" variant="outline" className="pointer-events-auto size-7 rounded-full bg-background shadow-sm" aria-label={content.scrollRight} onClick={() => scrollRef.current?.scrollBy({ left: 200, behavior: "smooth" })}><ChevronRight className="size-3.5" /></Button></div>}
   </div>;
 }
 
-function AttachmentCard({ sessionId, attachment: ref, disabled, onRemove, offloaded }: {
+function AttachmentCard({ sessionId, attachment: ref, disabled, onRemove, offloaded, imageLayout }: {
   readonly sessionId: string; readonly attachment: Attachment; readonly disabled: boolean; readonly offloaded: boolean;
   readonly onRemove: ((id: string) => void) | undefined;
+  readonly imageLayout: "thumbnail" | "preview";
 }) {
   const [url, setUrl] = useState<string | null>(null);
   const [failed, setFailed] = useState(false);
@@ -73,9 +75,9 @@ function AttachmentCard({ sessionId, attachment: ref, disabled, onRemove, offloa
     } catch (error) { console.error("[attachments] Download failed.", { sessionId, attachmentId: ref.id, error }); toast.error(content.downloadFailed); }
     finally { setDownloading(false); }
   }
-  return <div className="relative shrink-0" data-attachment-id={ref.id}>
-    {ref.kind === "image" ? <Button type="button" variant="ghost" className="size-[60px] overflow-hidden rounded-lg border border-border bg-accent p-0" disabled={url === null} onClick={() => setPreview(true)} aria-label={content.preview(ref.name)} title={offloaded ? `${ref.name} · ${content.offloaded}` : ref.name}>
-      {url !== null ? <img src={url} alt={ref.name} className="size-full object-cover" /> : failed ? <span className="px-1 text-[10px] text-destructive">{content.previewFailed}</span> : <LoaderCircle className="size-4 animate-spin" />}
+  return <div className={`relative shrink-0 ${imageLayout === "preview" && ref.kind === "image" ? "w-full max-w-lg" : ""}`} data-attachment-id={ref.id}>
+    {ref.kind === "image" ? <Button type="button" variant="ghost" className={`overflow-hidden rounded-lg bg-accent p-0 ${imageLayout === "preview" ? "h-auto min-h-16 w-full" : "size-[60px] border border-border"}`} disabled={disabled || url === null} onClick={() => setPreview(true)} aria-label={content.preview(ref.name)} title={offloaded ? `${ref.name} · ${content.offloaded}` : ref.name}>
+      {url !== null ? <img src={url} alt={ref.name} className={imageLayout === "preview" ? "max-h-64 w-full object-contain" : "size-full object-cover"} onError={() => { console.error("[attachments] Image decoding failed.", { attachmentId: ref.id }); setFailed(true); setUrl(null); }} /> : failed ? <span className="px-1 text-[10px] text-destructive">{content.previewFailed}</span> : <LoaderCircle className="size-4 animate-spin" />}
     </Button> : <Button type="button" variant="ghost" onClick={() => void download()} disabled={downloading} className="flex h-[60px] max-w-[250px] gap-3 rounded-lg border border-border bg-accent px-3 text-left" title={ref.name} aria-label={content.download(ref.name)}>
       {downloading ? <LoaderCircle className="size-7 shrink-0 animate-spin" /> : <FileText className="size-7 shrink-0 text-muted-foreground" strokeWidth={1.5} />}
       <span className="flex min-w-0 flex-col gap-0.5"><span className="max-w-[150px] truncate text-[13px] font-normal">{ref.name}</span><span className="text-[11px] font-normal text-muted-foreground">{formatBytes(ref.bytes)}</span></span>
