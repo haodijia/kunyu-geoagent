@@ -1,6 +1,7 @@
 import type { AgentTurnState, ToolCall } from "@/features/agent/api";
 import { TodoItems } from "@/features/agent/plan/TodoItems";
 import { parseTodos } from "@/features/agent/plan/todos";
+import { AnalysisResult } from "@/features/agent/tools/results/AnalysisResult";
 import { FileMutationResult } from "@/features/agent/tools/results/FileMutationResult";
 import { ImageReadResult } from "@/features/agent/tools/results/ImageReadResult";
 import { ReadResult } from "@/features/agent/tools/results/ReadResult";
@@ -105,7 +106,9 @@ export function ToolCallRow({
       {expanded ? (
         <div className={styles.detailPanel}>
           {outcome !== null && outcome !== "" && <p className="text-xs leading-5 text-secondary-foreground">{outcome}</p>}
-          {tool.status === "completed" && showOutput && resultContent.length > 0 ? tool.name === "todo_write" ? (
+          {tool.status === "completed" && showOutput && resultContent.length > 0 ? tool.name === "oge_execute_code" ? (
+            <AnalysisResult value={tool.result} sessionId={tool.session_id} />
+          ) : tool.name === "todo_write" ? (
             <div className="mb-2">
               <div className="mb-1 flex items-center justify-between text-[11px] text-secondary-foreground">
                 <span>{content.output}</span>
