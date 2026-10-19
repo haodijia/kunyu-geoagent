@@ -56,11 +56,6 @@ class PresentationReceipt(BaseModel):
         return self
 
 
-@router.delete("/sessions/{session_id}/map/selection", response_model=MapState)
-def clear_image_selection(session_id: str, repository: Maps):
-    return repository.clear_image_selection(session_id)
-
-
 @router.get("/sessions/{session_id}/map/layers/{layer_id}/preview")
 async def layer_preview(
     session_id: str,

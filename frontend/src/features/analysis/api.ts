@@ -164,7 +164,6 @@ export const analysisApi = {
     ),
   layerPreview: (sessionId: string, layerId: string, signal?: AbortSignal) =>
     requestBlob(`${mapPath(sessionId)}/layers/${encodeURIComponent(layerId)}/preview`, signal),
-  clearSelection: (sessionId: string) => requestJson<MapState>(`${mapPath(sessionId)}/selection`, { method: "DELETE" }),
   receipt: (sessionId: string, requestId: string, status: "applied" | "failed", error: string | null) =>
     requestJson<MapState>(`${mapPath(sessionId)}/presentations/${encodeURIComponent(requestId)}`, {
       method: "PUT", body: JSON.stringify({ status, error }),

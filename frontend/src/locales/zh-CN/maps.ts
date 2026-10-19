@@ -12,8 +12,6 @@ export const maps = {
     you: "你",
     runFailed: "Agent 运行失败，可展开完整对话查看原因。",
     thinking: "思考",
-    selectedImage: (id: number) => `已选影像 · ${id}`,
-    clearSelection: "清除影像选择",
     presentation: {
       requested: {
         candidates: "已请求在地图展示候选影像，等待地图确认。",

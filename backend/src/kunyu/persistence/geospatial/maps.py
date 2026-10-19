@@ -116,23 +116,6 @@ class MapRepository:
             )
             return value
 
-    def clear_image_selection(self, session_id: str) -> MapState:
-        self.state(session_id)
-        with self.database.sessions.begin() as tx:
-            tx.execute(text("BEGIN IMMEDIATE"))
-            require_session(tx, session_id, writable=True)
-            row = tx.get(MapStateRecord, session_id)
-            current = MapState.model_validate(row.value)
-            value = current.model_copy(
-                update={"image_selection": None, "revision": current.revision + 1}
-            )
-            row.value = value.model_dump(mode="json")
-            tx.flush()
-            publish(
-                self.database, tx, session_id, "map/changed", session_id, value.revision
-            )
-            return value
-
     def receipt(
         self, session_id: str, request_id: str, status: str, error: str | None
     ) -> MapState:
