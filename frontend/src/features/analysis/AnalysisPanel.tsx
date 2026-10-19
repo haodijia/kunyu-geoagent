@@ -26,8 +26,7 @@ import { Layers, X } from "lucide-react";
 import { useState } from "react";
 
 const content = zhCN.analysis;
-export function AnalysisPanel({ workspaceId, sessionId, state, layers, error }: {
-  readonly workspaceId: string;
+export function AnalysisPanel({ sessionId, state, layers, error }: {
   readonly sessionId: string;
   readonly state: MapState;
   readonly layers: readonly MapLayer[];
@@ -42,7 +41,7 @@ export function AnalysisPanel({ workspaceId, sessionId, state, layers, error }: 
   const mutation = useMutation({
     mutationFn: async ({ layer, action }: { layer: MapLayer; action: LayerAction }) => {
       if (action.kind === "select" || action.kind === "focus") {
-        const value = await analysisApi[action.kind](sessionId, layer.output_id);
+        const value = await analysisApi[action.kind](sessionId, layer.id);
         client.setQueryData(analysisKeys.map(sessionId), value);
       } else if (action.kind === "remove") {
         await analysisApi.removeLayer(sessionId, layer);
@@ -55,7 +54,10 @@ export function AnalysisPanel({ workspaceId, sessionId, state, layers, error }: 
       }
     },
     onError: (reason) => console.error("[map] Updating a layer failed.", { sessionId, reason }),
-    onSettled: () => client.invalidateQueries({ queryKey: analysisKeys.layers(sessionId) }),
+    onSettled: () => Promise.all([
+      client.invalidateQueries({ queryKey: analysisKeys.layers(sessionId) }),
+      client.invalidateQueries({ queryKey: analysisKeys.map(sessionId) }),
+    ]),
   });
   const ordered = [...layers].sort((left, right) => right.position - left.position);
   function reorder({ active, over }: DragEndEvent) {
@@ -81,15 +83,18 @@ export function AnalysisPanel({ workspaceId, sessionId, state, layers, error }: 
     {open && <div className="min-h-0 space-y-2 overflow-y-auto border-t border-border p-3">
       {(error || mutation.isError) && <div role="alert" className="text-xs text-destructive">
         {error ? content.loadFailed : content.actionFailed}
-        <Button size="sm" variant="ghost" onClick={() => void client.invalidateQueries({ queryKey: analysisKeys.layers(sessionId) })}>{content.refresh}</Button>
+        <Button size="sm" variant="ghost" onClick={() => void Promise.all([
+          client.invalidateQueries({ queryKey: analysisKeys.layers(sessionId) }),
+          client.invalidateQueries({ queryKey: ["map-layer-preview", sessionId] }),
+        ])}>{content.refresh}</Button>
       </div>}
       {layers.length === 0 && <p className="py-3 text-xs text-muted-foreground">{content.emptyLayers}</p>}
       <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={reorder}>
         <SortableContext items={ordered.map((layer) => layer.id)} strategy={verticalListSortingStrategy}>
-          {ordered.map((layer) => <LayerRow workspaceId={workspaceId}
+          {ordered.map((layer) => <LayerRow sessionId={sessionId}
             key={`${layer.id}:${layer.revision}`}
             layer={layer}
-            selected={layer.output_id === state.selected_output_id}
+            selected={layer.id === state.selected_layer_id}
             disabled={mutation.isPending}
             onAction={(action) => mutation.mutate({ layer, action })}
           />)}

@@ -1,7 +1,5 @@
 """Persistent map presentation with optimistic revisions and output references."""
 
-from uuid import uuid4
-
 from sqlalchemy import select, text
 
 from kunyu.domain.geospatial.analysis import (
@@ -15,10 +13,19 @@ from kunyu.domain.geospatial.analysis import (
     MapViewWrite,
 )
 from kunyu.domain.geospatial.imagery import candidate_bounds
+from kunyu.domain.geospatial.map_context import ImageSelectionReference
 from kunyu.persistence.database import Database
 from kunyu.persistence.geospatial.analysis import AnalysisRepository
 from kunyu.persistence.geospatial.analysis_shared import publish, require_session
 from kunyu.persistence.geospatial.imagery import ImageryRepository
+from kunyu.persistence.geospatial.map_layers import (
+    add_image_layers,
+    add_output_layer,
+    normalize_positions,
+    ordered_layers,
+    require_layer,
+    retain_image_layer,
+)
 from kunyu.persistence.records.geospatial import MapLayerRecord, MapStateRecord
 
 
@@ -54,7 +61,6 @@ class MapRepository:
                 )
             output = self.outputs.output(session_id, reference_id)
             bounds = output.bounds
-            self.add(session_id, reference_id)
         else:
             raise AnalysisError(
                 "INVALID_TARGET", "Unsupported map presentation target.", 422
@@ -83,11 +89,25 @@ class MapRepository:
                 ),
             }
             if target == "candidates":
-                changes.update(candidate_set_id=reference_id)
-                if current.candidate_set_id != reference_id or image_id is not None:
-                    changes.update(selected_image_id=image_id)
+                layers = add_image_layers(tx, candidates)
+                if image_id is not None:
+                    selected = next(
+                        layer for layer in layers if layer.image["image_id"] == image_id
+                    )
+                    retain_image_layer(tx, selected)
+                    bounds = None if selected.bounds is None else tuple(selected.bounds)
+                    changes.update(
+                        selected_layer_id=selected.id,
+                        image_selection=ImageSelectionReference(
+                            candidate_set_id=reference_id, image_id=image_id
+                        ),
+                    )
             else:
-                changes.update(selected_output_id=reference_id)
+                selected = add_output_layer(tx, session_id, output)
+                changes.update(selected_layer_id=selected.id)
+            changes["presentation"] = changes["presentation"].model_copy(
+                update={"bounds": bounds}
+            )
             value = current.model_copy(update=changes)
             row.value = value.model_dump(mode="json")
             tx.flush()
@@ -96,46 +116,20 @@ class MapRepository:
             )
             return value
 
-    def choose_image(
-        self,
-        session_id: str,
-        candidate_set_id: str,
-        image_id: int | None,
-    ) -> MapState:
-        candidates = self.imagery.get(session_id, candidate_set_id)
-        if image_id is not None and not any(
-            image.imageId == image_id for image in candidates.images
-        ):
-            raise AnalysisError(
-                "INVALID_IMAGE", "The image is not part of this candidate set.", 422
-            )
+    def clear_image_selection(self, session_id: str) -> MapState:
+        self.state(session_id)
         with self.database.sessions.begin() as tx:
             tx.execute(text("BEGIN IMMEDIATE"))
             require_session(tx, session_id, writable=True)
             row = tx.get(MapStateRecord, session_id)
-            if row is None:
-                raise AnalysisError(
-                    "MAP_NOT_INITIALIZED",
-                    "Present image candidates before selecting one.",
-                )
             current = MapState.model_validate(row.value)
-            if current.candidate_set_id != candidate_set_id:
-                raise AnalysisError(
-                    "MAP_CONFLICT",
-                    "Image candidates changed; refresh before selecting.",
-                )
             value = current.model_copy(
-                update={"selected_image_id": image_id, "revision": current.revision + 1}
+                update={"image_selection": None, "revision": current.revision + 1}
             )
             row.value = value.model_dump(mode="json")
             tx.flush()
             publish(
-                self.database,
-                tx,
-                session_id,
-                "map/changed",
-                candidate_set_id,
-                value.revision,
+                self.database, tx, session_id, "map/changed", session_id, value.revision
             )
             return value
 
@@ -238,58 +232,55 @@ class MapRepository:
                 )
             ]
 
+    def layer(self, session_id: str, layer_id: str) -> MapLayer:
+        with self.database.sessions() as tx:
+            require_session(tx, session_id)
+            return MapLayer.model_validate(require_layer(tx, session_id, layer_id))
+
     def add(self, session_id: str, output_id: str) -> MapLayer:
         output = self.outputs.output(session_id, output_id)
         self.state(session_id)
         with self.database.sessions.begin() as tx:
             tx.execute(text("BEGIN IMMEDIATE"))
             require_session(tx, session_id, writable=True)
-            existing = tx.scalar(
-                select(MapLayerRecord).where(
-                    MapLayerRecord.session_id == session_id,
-                    MapLayerRecord.output_id == output_id,
-                )
-            )
-            if existing is not None:
-                return MapLayer.model_validate(existing)
-            row = MapLayerRecord(
-                id=f"layer_{uuid4()}",
-                session_id=session_id,
-                output_id=output.id,
-                title=output.title,
-                visible=True,
-                opacity=0.85,
-                position=len(self.layers(session_id)),
-                revision=1,
-            )
-            tx.add(row)
-            tx.flush()
-            publish(self.database, tx, session_id, "map/changed", row.id, 1)
+            row = add_output_layer(tx, session_id, output)
+            publish(self.database, tx, session_id, "map/changed", row.id, row.revision)
             return MapLayer.model_validate(row)
 
     def select(
-        self, session_id: str, output_id: str, *, focus: bool = False
+        self, session_id: str, layer_id: str, *, focus: bool = False
     ) -> MapState:
-        self.outputs.output(session_id, output_id)
         self.state(session_id)
         with self.database.sessions.begin() as tx:
             tx.execute(text("BEGIN IMMEDIATE"))
             require_session(tx, session_id, writable=True)
+            layer = require_layer(tx, session_id, layer_id)
             row = tx.get(MapStateRecord, session_id)
             current = MapState.model_validate(row.value)
-            changes = {
-                "selected_output_id": output_id,
-                "revision": current.revision + 1,
-            }
+            changes = {"selected_layer_id": layer_id, "revision": current.revision + 1}
             if focus:
+                if layer.bounds is None:
+                    raise AnalysisError(
+                        "NO_LAYER_BOUNDS",
+                        "The layer has no verified geographic bounds.",
+                        422,
+                    )
                 changes.update(
-                    focus_output_id=output_id, focus_revision=current.focus_revision + 1
+                    focus_layer_id=layer_id, focus_revision=current.focus_revision + 1
+                )
+            elif layer.image is not None:
+                retain_image_layer(tx, layer)
+                changes.update(
+                    image_selection=ImageSelectionReference(
+                        candidate_set_id=layer.image["candidate_set_id"],
+                        image_id=layer.image["image_id"],
+                    )
                 )
             value = current.model_copy(update=changes)
             row.value = value.model_dump(mode="json")
             tx.flush()
             publish(
-                self.database, tx, session_id, "map/changed", session_id, value.revision
+                self.database, tx, session_id, "map/changed", layer_id, value.revision
             )
             return value
 
@@ -299,21 +290,13 @@ class MapRepository:
         with self.database.sessions.begin() as tx:
             tx.execute(text("BEGIN IMMEDIATE"))
             require_session(tx, session_id, writable=True)
-            row = tx.get(MapLayerRecord, layer_id)
-            if row is None or row.session_id != session_id:
-                raise AnalysisError("NOT_FOUND", "Map layer was not found.", 404)
+            row = require_layer(tx, session_id, layer_id)
             if row.revision != update.expected_revision:
                 raise AnalysisError(
                     "MAP_CONFLICT",
                     "Map layer changed; refresh before applying the style.",
                 )
-            ordered = list(
-                tx.scalars(
-                    select(MapLayerRecord)
-                    .where(MapLayerRecord.session_id == session_id)
-                    .order_by(MapLayerRecord.position, MapLayerRecord.id)
-                )
-            )
+            ordered = ordered_layers(tx, session_id)
             if update.position >= len(ordered):
                 raise AnalysisError(
                     "INVALID_POSITION", "Layer position is outside the stack.", 422
@@ -338,9 +321,7 @@ class MapRepository:
         with self.database.sessions.begin() as tx:
             tx.execute(text("BEGIN IMMEDIATE"))
             require_session(tx, session_id, writable=True)
-            row = tx.get(MapLayerRecord, layer_id)
-            if row is None or row.session_id != session_id:
-                raise AnalysisError("NOT_FOUND", "Map layer was not found.", 404)
+            row = require_layer(tx, session_id, layer_id)
             if row.revision != expected_revision:
                 raise AnalysisError(
                     "MAP_CONFLICT", "Map layer changed; refresh before removing it."
@@ -348,14 +329,25 @@ class MapRepository:
             revision = row.revision + 1
             tx.delete(row)
             tx.flush()
-            ordered = tx.scalars(
-                select(MapLayerRecord)
-                .where(MapLayerRecord.session_id == session_id)
-                .order_by(MapLayerRecord.position, MapLayerRecord.id)
-            )
-            for position, item in enumerate(ordered):
-                if item.position != position:
-                    item.position = position
-                    item.revision += 1
+            normalize_positions(tx, session_id)
+            state = tx.get(MapStateRecord, session_id)
+            if state is not None:
+                current = MapState.model_validate(state.value)
+                changes = {"revision": current.revision + 1}
+                if current.selected_layer_id == layer_id:
+                    changes["selected_layer_id"] = None
+                if current.focus_layer_id == layer_id:
+                    changes["focus_layer_id"] = None
+                if (
+                    row.image is not None
+                    and current.image_selection is not None
+                    and (
+                        current.image_selection.candidate_set_id
+                        == row.image["candidate_set_id"]
+                        and current.image_selection.image_id == row.image["image_id"]
+                    )
+                ):
+                    changes["image_selection"] = None
+                state.value = current.model_copy(update=changes).model_dump(mode="json")
             tx.flush()
             publish(self.database, tx, session_id, "map/changed", layer_id, revision)

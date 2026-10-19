@@ -5,6 +5,9 @@ from typing import Literal, Self
 
 from pydantic import BaseModel, ConfigDict, Field, JsonValue, model_validator
 
+from kunyu.domain.geospatial.imagery import LayerImage
+from kunyu.domain.geospatial.map_context import ImageSelectionReference
+
 EXECUTING_STATES = ("submitting", "queued", "running", "collecting")
 
 
@@ -100,13 +103,12 @@ class MapState(AnalysisValue):
     view_revision: int = 1
     viewport: MapViewport
     camera: MapCamera
-    selected_output_id: str | None = None
-    focus_output_id: str | None = None
+    selected_layer_id: str | None = None
+    focus_layer_id: str | None = None
     focus_revision: int = 0
     applied_focus_revision: int = 0
     presentation: MapPresentation | None = None
-    candidate_set_id: str | None = None
-    selected_image_id: int | None = None
+    image_selection: ImageSelectionReference | None = None
 
 
 class MapViewWrite(AnalysisValue):
@@ -119,12 +121,21 @@ class MapViewWrite(AnalysisValue):
 class MapLayer(AnalysisValue):
     id: str
     session_id: str
-    output_id: str
+    output_id: str | None
+    image: LayerImage | None
+    bounds: tuple[float, float, float, float] | None
+    temporary: bool
     title: str
     visible: bool
     opacity: float = Field(ge=0, le=1, allow_inf_nan=False)
     position: int
     revision: int
+
+    @model_validator(mode="after")
+    def source(self) -> Self:
+        if (self.output_id is None) == (self.image is None):
+            raise ValueError("A map layer must reference exactly one output or image.")
+        return self
 
 
 class LayerStyleWrite(AnalysisValue):

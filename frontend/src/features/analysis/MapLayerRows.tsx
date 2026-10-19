@@ -1,6 +1,6 @@
 import { Button } from "@/components/ui/button";
 import type { MapLayer } from "@/features/analysis/api";
-import { useOutputImage } from "@/features/analysis/useOutputImage";
+import { useLayerPreview } from "@/features/maps/layers/useLayerPreview";
 import { zhCN } from "@/locales/zh-CN";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
@@ -20,8 +20,8 @@ export type LayerAction =
   | { readonly kind: "opacity"; readonly value: number }
   | { readonly kind: "reorder"; readonly position: number };
 
-export function LayerRow({ workspaceId, layer, selected, disabled, onAction }: {
-  readonly workspaceId: string;
+export function LayerRow({ sessionId, layer, selected, disabled, onAction }: {
+  readonly sessionId: string;
   readonly layer: MapLayer;
   readonly selected: boolean;
   readonly disabled: boolean;
@@ -29,7 +29,7 @@ export function LayerRow({ workspaceId, layer, selected, disabled, onAction }: {
 }) {
   const [opacity, setOpacity] = useState(layer.opacity);
   useEffect(() => { if (!disabled) setOpacity(layer.opacity); }, [layer.opacity, disabled]);
-  const image = useOutputImage(workspaceId, layer.output_id);
+  const image = useLayerPreview(sessionId, layer.id);
   const sortable = useSortable({ id: layer.id, disabled });
   return <section
     ref={sortable.setNodeRef}
@@ -49,7 +49,14 @@ export function LayerRow({ workspaceId, layer, selected, disabled, onAction }: {
             : image.error ? <ImageOff className="size-4 text-muted-foreground" aria-label={content.previewFailed} />
               : <span className="size-5 animate-pulse rounded bg-border" aria-label={content.loading} />}
         </span>
-        <span className="line-clamp-2 text-xs font-medium" title={layer.title}>{layer.title}</span>
+        <span className="min-w-0 space-y-1">
+          <span className="block line-clamp-2 text-xs font-medium" title={layer.title}>{layer.title}</span>
+          {layer.image !== null && <span className="block text-[11px] text-muted-foreground">
+            {layer.image.resolution === null ? zhCN.mapConversation.unknownResolution : `${layer.image.resolution}${content.metres}`} · {layer.image.cloud === null ? content.unknownCloud : zhCN.mapConversation.cloud(layer.image.cloud)}
+          </span>}
+          {layer.temporary && <span className="block text-[11px] text-muted-foreground">{content.temporaryLayer}</span>}
+          {layer.bounds === null && <span className="block text-[11px] text-destructive">{zhCN.mapConversation.noFootprint}</span>}
+        </span>
       </button>
       <Button size="icon" className="size-6 shrink-0" variant="ghost" disabled={disabled} aria-label={content.show} aria-pressed={layer.visible} onClick={() => onAction({ kind: "visibility" })}>
         {layer.visible ? <Eye className="size-3.5" /> : <EyeOff className="size-3.5" />}

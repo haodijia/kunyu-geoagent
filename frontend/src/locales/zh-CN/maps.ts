@@ -1,16 +1,9 @@
 export const maps = {
   mapConversation: {
-    candidates: "候选影像",
-    loading: "正在读取影像…",
-    candidatesFailed: "候选影像读取失败。",
     retry: "重试",
-    emptyCandidates: "本次检索没有候选影像。",
     unknownResolution: "分辨率未知",
     cloud: (value: number) => `云量 ${value}%`,
     noFootprint: "无有效覆盖范围",
-    selectionPrompt: "请使用我选中的影像，",
-    previewLoading: "正在加载影像预览…",
-    previewFailed: "影像预览加载失败。",
     locate: "定位结果",
     receiptFailed: "地图展示回执未保存。",
     history: "完整对话",
@@ -39,6 +32,9 @@ export const maps = {
   },
   analysis: {
     title: "图层",
+    temporaryLayer: "点选保留，清理同批其余影像",
+    metres: "米",
+    unknownCloud: "云量未知",
     loading: "正在读取分析结果…",
     loadFailed: "分析数据读取失败，请重试。",
     actionFailed: "操作失败，请刷新后重试。",

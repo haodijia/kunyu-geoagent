@@ -36,10 +36,7 @@ def context_compact(result):
     return compact(
         label("map_context"),
         {
-            "selected_image_id": data["state"]["selected_image_id"],
-            "selected_output_id": data["state"]["selected_output_id"],
-            "candidate_set_id": data["state"]["candidate_set_id"],
-            "revision": data["state"]["revision"],
+            "state": data["state"],
             "layers": data["layers"],
         },
     )

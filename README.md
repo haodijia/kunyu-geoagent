@@ -45,7 +45,7 @@ uv sync --project backend
 
 Electron 二进制默认从 npmmirror 下载，避免无法连接 GitHub 时安装失败；镜像地址配置在 `electron/.npmrc`。
 
-数据库统一由 `backend/src/kunyu/persistence/schema.sql` 初始化，版本保存在 SQLite `user_version`，不再运行 Alembic 迁移链。旧开发库不会自动升级或删除；保留备份后使用新的 `KUNYU_APP_DATA_DIR`，或由开发者显式升级数据库。当前基线为版本 5，含模型、会话日志、审批、MCP、OAuth、子任务、分析成果和地图共 25 张表。
+数据库统一由 `backend/src/kunyu/persistence/schema.sql` 初始化，版本保存在 SQLite `user_version`，不再运行 Alembic 迁移链。当前基线为版本 7，含模型、会话日志、审批、MCP、OAuth、子任务、分析成果和地图共 25 张表。版本 5、6 在启动事务中迁移工具结果与统一图层结构，失败整体回滚；更早的开发库需显式迁移，不会自动删除。
 
 旧版本 4 的本机开发数据在应用关闭后显式迁到独立业务目录：
 
@@ -74,7 +74,7 @@ uv run --project backend python -m kunyu.main
 
 Agent 系统提示词可直接编辑 [system.md](backend/src/kunyu/agent/prompts/system.md)，下一次模型请求生效。记忆工具及上下文代码入口见[记忆工具与上下文](docs/develop/记忆工具与上下文.md)，目录职责及 Tool、Skill 扩展约定见[后端 Agent 结构](docs/develop/后端Agent结构.md)。
 
-Agent 可通过 `map_present` 主动展示卫星影像候选，在地图中选择并继续同一会话。地图消息逐行渐隐，完整对话、审批及后台任务状态始终可访问。
+Agent 可通过 `map_present` 将检索影像放入地图的统一图层列表。影像与分析成果共用显隐、透明度、排序和定位；选定后保留所选影像，清理同批其余临时图层，继续同一会话。地图消息逐行渐隐，完整对话、审批及工具执行状态始终可访问。
 
 OGE 分析使用三个通用工具：`oge_search_operators` 检索实际算子目录，`oge_get_operator_definition` 查询参数与示例，`oge_execute_code` 编写并执行可组合的 Python 算子链。后端校验所选影像，调用原生 JWT 编译与批计算接口，保存任务身份，再下载保留数值的 GeoTIFF。每次调用导出一个栅格，支持单波段数值或三波段 uint8 / uint16 RGB 上图；RGB 显示拉伸不改变源数据。不再使用专用 NDVI GP 工具和录制运行模式。
 

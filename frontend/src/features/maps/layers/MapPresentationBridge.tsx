@@ -24,11 +24,11 @@ export function MapPresentationBridge() {
     }
     store.setMapImageSelection(
       session.id,
-      map.data.candidate_set_id === null || map.data.selected_image_id === null
+      map.data.image_selection === null
         ? null
         : {
-            candidateSetId: map.data.candidate_set_id,
-            imageId: map.data.selected_image_id,
+            candidateSetId: map.data.image_selection.candidate_set_id,
+            imageId: map.data.image_selection.image_id,
           },
     );
   }, [session.id, session.workspace_id, map.data]);

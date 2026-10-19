@@ -100,14 +100,20 @@ class MapLayerRecord(Base):
     __table_args__ = (
         UniqueConstraint("session_id", "output_id", name="uq_map_layers_output"),
         CheckConstraint("opacity >= 0 AND opacity <= 1", name="ck_map_layers_opacity"),
+        CheckConstraint(
+            "(output_id IS NULL) != (image IS NULL)", name="ck_map_layers_source"
+        ),
     )
     id: Mapped[str] = mapped_column(String(64), primary_key=True)
     session_id: Mapped[str] = mapped_column(
         ForeignKey("sessions.id", ondelete="CASCADE"), nullable=False
     )
-    output_id: Mapped[str] = mapped_column(
-        ForeignKey("analysis_outputs.id", ondelete="CASCADE"), nullable=False
+    output_id: Mapped[str | None] = mapped_column(
+        ForeignKey("analysis_outputs.id", ondelete="CASCADE"), nullable=True
     )
+    image: Mapped[dict | None] = mapped_column(JSON(none_as_null=True), nullable=True)
+    bounds: Mapped[list | None] = mapped_column(JSON(none_as_null=True), nullable=True)
+    temporary: Mapped[bool] = mapped_column(Boolean, nullable=False)
     title: Mapped[str] = mapped_column(String(200), nullable=False)
     visible: Mapped[bool] = mapped_column(Boolean, nullable=False)
     opacity: Mapped[float] = mapped_column(Float, nullable=False)

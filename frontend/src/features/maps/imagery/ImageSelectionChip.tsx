@@ -1,5 +1,4 @@
-import { analysisKeys, type MapState } from "@/features/analysis/api";
-import { imageryApi } from "@/features/maps/imagery/imagery-api";
+import { analysisApi, analysisKeys, type MapState } from "@/features/analysis/api";
 import { useMapState } from "@/features/maps/runtime/usePersistentMap";
 import { useSessionMessages } from "@/features/messages/state/SessionMessagesContext";
 import { zhCN } from "@/locales/zh-CN";
@@ -17,9 +16,7 @@ export function ImageSelectionChip({
   const { requestFrozen } = useSessionMessages();
   const clear = useMutation({
     mutationFn: () => {
-      if (state === undefined || state.candidate_set_id === null)
-        throw new Error("An image candidate set is required.");
-      return imageryApi.choose(state.session_id, state.candidate_set_id, null);
+      return analysisApi.clearSelection(sessionId);
     },
     onSuccess: (value) =>
       client.setQueryData<MapState>(analysisKeys.map(sessionId), (current) =>
@@ -34,11 +31,11 @@ export function ImageSelectionChip({
       });
     },
   });
-  if (state === undefined || state.selected_image_id === null) return null;
+  if (state === undefined || state.image_selection === null) return null;
   return (
     <div className="mx-auto mb-2 w-[calc(100%-3rem)] max-w-[880px] text-xs">
       <span className="inline-flex items-center gap-2 rounded-full border border-primary/20 bg-background/95 px-3 py-1 text-primary">
-        {zhCN.mapConversation.selectedImage(state.selected_image_id)}
+        {zhCN.mapConversation.selectedImage(state.image_selection.image_id)}
         <button
           type="button"
           aria-label={zhCN.mapConversation.clearSelection}

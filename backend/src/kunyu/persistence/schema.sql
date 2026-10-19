@@ -464,7 +464,10 @@ CREATE TABLE map_states (
 CREATE TABLE map_layers (
 	id VARCHAR(64) NOT NULL,
 	session_id VARCHAR(64) NOT NULL,
-	output_id VARCHAR(64) NOT NULL,
+	output_id VARCHAR(64),
+	image JSON,
+	bounds JSON,
+	temporary BOOLEAN NOT NULL,
 	title VARCHAR(200) NOT NULL,
 	visible BOOLEAN NOT NULL,
 	opacity FLOAT NOT NULL,
@@ -473,6 +476,7 @@ CREATE TABLE map_layers (
 	PRIMARY KEY (id),
 	CONSTRAINT uq_map_layers_output UNIQUE (session_id, output_id),
 	CONSTRAINT ck_map_layers_opacity CHECK (opacity >= 0 AND opacity <= 1),
+	CONSTRAINT ck_map_layers_source CHECK ((output_id IS NULL) != (image IS NULL)),
 	FOREIGN KEY(session_id) REFERENCES sessions (id) ON DELETE CASCADE,
 	FOREIGN KEY(output_id) REFERENCES analysis_outputs (id) ON DELETE CASCADE
 );
@@ -484,4 +488,4 @@ CREATE TABLE oge_account (
     CONSTRAINT ck_oge_account_singleton CHECK (id = 1)
 );
 
-PRAGMA user_version = 6;
+PRAGMA user_version = 7;

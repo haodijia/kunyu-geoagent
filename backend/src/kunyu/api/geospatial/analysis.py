@@ -9,7 +9,6 @@ from pydantic import BaseModel, ConfigDict, Field, model_validator
 from kunyu.api.errors import ApiError
 from kunyu.application.analysis.analysis import AnalysisService
 from kunyu.domain.geospatial.analysis import (
-    AnalysisError,
     AnalysisJob,
     AnalysisOutput,
     LayerStyleWrite,
@@ -17,7 +16,6 @@ from kunyu.domain.geospatial.analysis import (
     MapState,
     MapViewWrite,
 )
-from kunyu.domain.geospatial.imagery import image_ring
 from kunyu.domain.geospatial.oge import OgeError
 from kunyu.persistence.geospatial.maps import MapRepository
 
@@ -41,10 +39,9 @@ class OutputReference(BaseModel):
     output_id: str
 
 
-class ImageSelection(BaseModel):
+class LayerReference(BaseModel):
     model_config = ConfigDict(extra="forbid")
-    candidate_set_id: str = Field(min_length=1, max_length=128)
-    image_id: int | None = Field(gt=0)
+    layer_id: str
 
 
 class PresentationReceipt(BaseModel):
@@ -59,48 +56,31 @@ class PresentationReceipt(BaseModel):
         return self
 
 
-@router.get("/sessions/{session_id}/imagery/{candidate_set_id}")
-def image_candidates(session_id: str, candidate_set_id: str, repository: Maps):
-    candidates = repository.imagery.get(session_id, candidate_set_id)
-    return {
-        "id": candidates.id,
-        "session_id": session_id,
-        "images": [
-            {**image.model_dump(mode="json"), "footprint": image_ring(image)}
-            for image in candidates.images
-        ],
-    }
+@router.delete("/sessions/{session_id}/map/selection", response_model=MapState)
+def clear_image_selection(session_id: str, repository: Maps):
+    return repository.clear_image_selection(session_id)
 
 
-@router.get(
-    "/sessions/{session_id}/imagery/{candidate_set_id}/images/{image_id}/preview"
-)
-async def candidate_preview(
+@router.get("/sessions/{session_id}/map/layers/{layer_id}/preview")
+async def layer_preview(
     session_id: str,
-    candidate_set_id: str,
-    image_id: int,
+    layer_id: str,
     request: Request,
     repository: Maps,
+    service: Analysis,
 ):
-    candidates = repository.imagery.get(session_id, candidate_set_id)
-    if not any(image.imageId == image_id for image in candidates.images):
-        raise AnalysisError(
-            "INVALID_IMAGE", "The image is not in this candidate set.", 404
-        )
-    try:
-        raw = await request.app.state.oge_service.image_preview(image_id)
-    except OgeError as error:
-        raise ApiError(error.status, error.code, str(error)) from None
-    return Response(raw, media_type="image/png")
-
-
-@router.put("/sessions/{session_id}/map/selection", response_model=MapState)
-def select_image(session_id: str, selection: ImageSelection, repository: Maps):
-    return repository.choose_image(
-        session_id,
-        selection.candidate_set_id,
-        selection.image_id,
-    )
+    layer = repository.layer(session_id, layer_id)
+    if layer.image is not None:
+        try:
+            raw = await request.app.state.oge_service.image_preview(
+                layer.image.image_id
+            )
+        except OgeError as error:
+            raise ApiError(error.status, error.code, str(error)) from None
+        return Response(raw, media_type="image/png")
+    output = repository.outputs.output(session_id, layer.output_id)
+    _, path = repository.outputs.files(output.workspace_id, output.id)
+    return FileResponse(service.raster.path(path), media_type="image/png")
 
 
 @router.put(
@@ -206,10 +186,10 @@ def remove_layer(
 
 
 @router.post("/sessions/{session_id}/map/select", response_model=MapState)
-def select_output(session_id: str, body: OutputReference, repository: Maps):
-    return repository.select(session_id, body.output_id)
+def select_layer(session_id: str, body: LayerReference, repository: Maps):
+    return repository.select(session_id, body.layer_id)
 
 
 @router.post("/sessions/{session_id}/map/focus", response_model=MapState)
-def focus_output(session_id: str, body: OutputReference, repository: Maps):
-    return repository.select(session_id, body.output_id, focus=True)
+def focus_layer(session_id: str, body: LayerReference, repository: Maps):
+    return repository.select(session_id, body.layer_id, focus=True)

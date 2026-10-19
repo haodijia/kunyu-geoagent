@@ -48,12 +48,11 @@ export interface MapState {
   readonly view_revision: number;
   readonly viewport: MapViewport;
   readonly camera: MapCamera;
-  readonly selected_output_id: string | null;
-  readonly focus_output_id: string | null;
+  readonly selected_layer_id: string | null;
+  readonly focus_layer_id: string | null;
   readonly focus_revision: number;
   readonly applied_focus_revision: number;
-  readonly candidate_set_id: string | null;
-  readonly selected_image_id: number | null;
+  readonly image_selection: { readonly candidate_set_id: string; readonly image_id: number } | null;
   readonly presentation: MapPresentation | null;
 }
 export interface MapPresentation {
@@ -70,7 +69,18 @@ export interface MapPresentation {
 export interface MapLayer {
   readonly id: string;
   readonly session_id: string;
-  readonly output_id: string;
+  readonly output_id: string | null;
+  readonly image: {
+    readonly candidate_set_id: string;
+    readonly image_id: number;
+    readonly product_name: string;
+    readonly acquired_at: string;
+    readonly resolution: string | null;
+    readonly cloud: number | null;
+    readonly footprint: readonly (readonly [number, number])[] | null;
+  } | null;
+  readonly bounds: readonly [number, number, number, number] | null;
+  readonly temporary: boolean;
   readonly title: string;
   readonly visible: boolean;
   readonly opacity: number;
@@ -121,15 +131,15 @@ export const analysisApi = {
       method: "POST",
       body: JSON.stringify({ output_id: outputId }),
     }),
-  focus: (id: string, outputId: string) =>
+  focus: (id: string, layerId: string) =>
     requestJson<MapState>(`${mapPath(id)}/focus`, {
       method: "POST",
-      body: JSON.stringify({ output_id: outputId }),
+      body: JSON.stringify({ layer_id: layerId }),
     }),
-  select: (id: string, outputId: string) =>
+  select: (id: string, layerId: string) =>
     requestJson<MapState>(`${mapPath(id)}/select`, {
       method: "POST",
-      body: JSON.stringify({ output_id: outputId }),
+      body: JSON.stringify({ layer_id: layerId }),
     }),
   style: (id: string, layer: MapLayer, style: LayerStyle) =>
     requestJson<MapLayer>(
@@ -152,4 +162,11 @@ export const analysisApi = {
     requestBlob(
       `${workspaceResultsPath(id)}/${encodeURIComponent(outputId)}/download`,
     ),
+  layerPreview: (sessionId: string, layerId: string, signal?: AbortSignal) =>
+    requestBlob(`${mapPath(sessionId)}/layers/${encodeURIComponent(layerId)}/preview`, signal),
+  clearSelection: (sessionId: string) => requestJson<MapState>(`${mapPath(sessionId)}/selection`, { method: "DELETE" }),
+  receipt: (sessionId: string, requestId: string, status: "applied" | "failed", error: string | null) =>
+    requestJson<MapState>(`${mapPath(sessionId)}/presentations/${encodeURIComponent(requestId)}`, {
+      method: "PUT", body: JSON.stringify({ status, error }),
+    }),
 };
