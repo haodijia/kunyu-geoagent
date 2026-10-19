@@ -32,7 +32,6 @@ export interface SelectedMapFeature {
 }
 
 export interface MapContext {
-  readonly imageSelection: {readonly candidateSetId: string; readonly imageId: number} | null;
   readonly camera: MapCamera;
   readonly activeObservationId: string | null;
   readonly activeResultLayerId: string | null;
@@ -47,7 +46,6 @@ export interface MapContext {
 
 export function createMapContext(workspaceId: string): MapContext {
   return {
-    imageSelection: null,
     camera: INITIAL_MAP_CAMERA,
     activeObservationId: null,
     activeResultLayerId: null,
@@ -63,7 +61,6 @@ export function createMapContext(workspaceId: string): MapContext {
 
 export function mapContextFromSnapshot(snapshot: TurnMapContext): MapContext {
   return {
-    imageSelection: snapshot.image_selection === null ? null : {candidateSetId: snapshot.image_selection.candidate_set_id, imageId: snapshot.image_selection.image_id},
     camera: INITIAL_MAP_CAMERA,
     activeObservationId: snapshot.active_observation_id,
     activeResultLayerId: snapshot.active_result_layer_id,

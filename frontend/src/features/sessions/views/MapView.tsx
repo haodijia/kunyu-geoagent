@@ -96,7 +96,7 @@ function MapCanvas({
       <div ref={targetRef} className="absolute inset-0" />
       <MapToolbar map={map} />
       <MapLayers map={map} state={state} workspaceId={session.workspace_id} layers={layers} onError={layerError} />
-      <AnalysisPanel sessionId={session.id} state={state} layers={layers} error={persistent.layers.isError || Object.keys(layerErrors).length > 0} />
+      <AnalysisPanel sessionId={session.id} layers={layers} error={persistent.layers.isError || Object.keys(layerErrors).length > 0} />
       {presentation.pendingFocus && (
         <Button
           variant="secondary"

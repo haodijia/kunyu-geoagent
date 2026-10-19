@@ -9,6 +9,7 @@ import {
   type LoadedSkill,
 } from "@/features/skills/session-skills";
 import { Fragment } from "react";
+import { referenceParts } from "@/features/workspaces/references";
 
 export function UserSkillText({ text, skills }: {
   readonly text: string;
@@ -28,6 +29,8 @@ export function UserSkillText({ text, skills }: {
           <SkillPreview skill={part.skill} />
         </PopoverContent>
       </Popover>
-    ) : <Fragment key={index}>{part.text}</Fragment>
+    ) : <Fragment key={index}>{referenceParts(part.text).map((reference, position) => reference.target === undefined
+      ? <Fragment key={position}>{reference.text}</Fragment>
+      : <span key={position} data-ref-chip="workspace" title={reference.target} className="mx-0.5 rounded bg-muted px-1 font-medium text-primary">{reference.text}</span>)}</Fragment>
   ));
 }

@@ -30,7 +30,7 @@ export const maps = {
   },
   analysis: {
     title: "图层",
-    temporaryLayer: "点选保留，清理同批其余影像",
+    referenceHint: "在输入框使用 @ 引用影像或工作区结果。",
     metres: "米",
     unknownCloud: "云量未知",
     loading: "正在读取分析结果…",
@@ -51,8 +51,6 @@ export const maps = {
     downloadCog: "下载 GeoTIFF",
     downloadPreview: "下载预览",
     addToConversation: "加入对话",
-    resultPrompt: (id: string) =>
-      `请读取并解释分析结果 ${id}，结合地图查看其覆盖范围。`,
     states: {
       submitting: "正在提交",
       queued: "已提交",

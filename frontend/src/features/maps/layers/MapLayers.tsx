@@ -1,9 +1,8 @@
 import { getRuntimeConnection } from "@/api/runtime";
-import { analysisApi, analysisKeys, workspaceResultsPath, type MapLayer, type MapState } from "@/features/analysis/api";
+import { workspaceResultsPath, type MapLayer, type MapState } from "@/features/analysis/api";
 import { useLayerPreview } from "@/features/maps/layers/useLayerPreview";
 import type { useSessionMap } from "@/features/maps/runtime/useSessionMap";
 import { zhCN } from "@/locales/zh-CN";
-import { useQueryClient } from "@tanstack/react-query";
 import type { Map as LibreMap } from "maplibre-gl";
 import { useEffect } from "react";
 
@@ -16,24 +15,6 @@ export function MapLayers({ map, state, workspaceId, layers, onError }: {
   readonly layers: readonly MapLayer[];
   readonly onError: (layerId: string, error: string | null) => void;
 }) {
-  const client = useQueryClient();
-  const instance = map.getMap();
-  useEffect(() => {
-    if (!map.ready || instance === null) return;
-    const click = (event: { lngLat: { lng: number; lat: number } }) => {
-      const layer = [...layers].sort((a, b) => b.position - a.position).find(item => {
-        const bounds = item.bounds;
-        return item.visible && instance.getLayer(item.id) !== undefined && instance.isSourceLoaded(item.id) && bounds !== null && event.lngLat.lng >= bounds[0] && event.lngLat.lng <= bounds[2] && event.lngLat.lat >= bounds[1] && event.lngLat.lat <= bounds[3];
-      });
-      if (layer === undefined) return;
-      void analysisApi.select(state.session_id, layer.id).then(value => {
-        client.setQueryData(analysisKeys.map(state.session_id), value);
-        return client.invalidateQueries({ queryKey: analysisKeys.layers(state.session_id) });
-      }).catch(error => { console.error("[map] Layer selection failed.", error); onError(layer.id, zhCN.analysis.actionFailed); });
-    };
-    instance.on("click", click);
-    return () => { instance.off("click", click); };
-  }, [instance, map.ready, layers, state.session_id, client, onError]);
   useEffect(() => {
     if (!map.ready || state.focus_revision <= map.appliedFocusRevision.current) return;
     const layer = layers.find(item => item.id === state.focus_layer_id);

@@ -10,6 +10,11 @@ export interface WorkspaceFile {
   readonly kind: "file" | "image";
 }
 
+export function searchWorkspaceFiles(workspaceId: string, query: string, signal: AbortSignal): Promise<WorkspaceFile[]> {
+  const params = new URLSearchParams({ query });
+  return requestJson(`/api/v1/workspaces/${encodeURIComponent(workspaceId)}/files?${params}`, { signal });
+}
+
 export async function uploadWorkspaceFile(workspaceId: string, file: File, signal: AbortSignal): Promise<WorkspaceFile> {
   if (file.size > maxWorkspaceFileBytes) throw new Error(zhCN.workspaceFiles.tooLarge);
   const kind = file.type.startsWith("image/") ? "image" : "file";

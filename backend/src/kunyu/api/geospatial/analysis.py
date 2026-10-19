@@ -180,11 +180,6 @@ def remove_layer(
     return Response(status_code=204)
 
 
-@router.post("/sessions/{session_id}/map/select", response_model=MapState)
-def select_layer(session_id: str, body: LayerReference, repository: Maps):
-    return repository.select(session_id, body.layer_id)
-
-
 @router.post("/sessions/{session_id}/map/focus", response_model=MapState)
 def focus_layer(session_id: str, body: LayerReference, repository: Maps):
-    return repository.select(session_id, body.layer_id, focus=True)
+    return repository.focus(session_id, body.layer_id)

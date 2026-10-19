@@ -136,11 +136,6 @@ export const analysisApi = {
       method: "POST",
       body: JSON.stringify({ layer_id: layerId }),
     }),
-  select: (id: string, layerId: string) =>
-    requestJson<MapState>(`${mapPath(id)}/select`, {
-      method: "POST",
-      body: JSON.stringify({ layer_id: layerId }),
-    }),
   style: (id: string, layer: MapLayer, style: LayerStyle) =>
     requestJson<MapLayer>(
       `${mapPath(id)}/layers/${encodeURIComponent(layer.id)}`,

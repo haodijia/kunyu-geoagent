@@ -3,7 +3,7 @@ from dataclasses import dataclass
 
 from kunyu.agent.core.scope import Context
 from kunyu.agent.orchestration.inbox import SessionInbox
-from kunyu.agent.prompts.loader import prompt_text, read_prompt
+from kunyu.agent.prompts.loader import read_prompt
 from kunyu.agent.runtime.contracts.content import ToolCallBlock, text_content
 from kunyu.agent.runtime.contracts.context import (
     AgentContext,
@@ -26,7 +26,6 @@ from kunyu.domain.conversation.agent_context import (
     RunContextRepository,
     RunContextSource,
 )
-from kunyu.domain.geospatial.map_context import TurnMapContext
 
 
 class RunContextNotFoundError(LookupError):
@@ -77,19 +76,6 @@ class ScopedAgentContextProvider:
         proposals = []
         for message in (*initial, *claimed):
             content = message.content
-            frozen_map = (
-                source.run.map_snapshot
-                if message.delivery == "followup"
-                else message.map_context
-            )
-            selection = TurnMapContext.model_validate(frozen_map).image_selection
-            if message.source == "user" and selection is not None:
-                content += "\n\n" + prompt_text(
-                    "context.yaml",
-                    "map_selection",
-                    candidate_set_id=selection.candidate_set_id,
-                    image_id=str(selection.image_id),
-                )
             proposals.append(
                 StepMessagePayload(
                     message_id=message.message_id,
@@ -365,11 +351,13 @@ def _visible_assistant_step(
     model_calls = tuple(
         block for block in assistant.blocks if isinstance(block, ToolCallBlock)
     )
-    if [
-        (block.id, block.name, json.loads(block.arguments)) for block in model_calls
-    ] != [(call.provider_call_id, call.name, call.arguments) for call in calls]:
+    # Wire arguments belong to provider replay; committed tool arguments include
+    # validation and schema defaults. Only their ordered identities must match.
+    if [(block.id, block.name) for block in model_calls] != [
+        (call.provider_call_id, call.name) for call in calls
+    ]:
         raise RunContextIntegrityError(
-            "Canonical assistant blocks differ from the committed tool batch."
+            "Canonical assistant identities differ from the committed tool batch."
         )
     assistant_message = ModelMessage(
         role=ModelRole.ASSISTANT,

@@ -24,7 +24,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { AttachmentStrip } from "@/features/attachments/AttachmentStrip";
 import type { useComposerAttachments } from "@/features/attachments/useComposerAttachments";
 import { MapLocationLabel } from "@/features/maps/conversation/MapLocationLabel";
-import { ComposerCommandMenu } from "@/features/messages/composer/ComposerCommandMenu";
+import { ComposerSuggestionMenu } from "@/features/messages/composer/ComposerSuggestionMenu";
+import { useWorkspaceReferences } from "@/features/messages/composer/useWorkspaceReferences";
 import {
   ComposerModelPicker,
   type ComposerModelGroup,
@@ -39,6 +40,7 @@ import {
 import type { ContextUsage } from "@/features/messages/composer/context-usage";
 import type { ReplyQuote } from "@/features/messages/model/reply-quote";
 import type { MapViewport } from "@/features/sessions/map-context";
+import { insertReference, mentionQuery, type WorkspaceReference } from "@/features/workspaces/references";
 import { zhCN } from "@/locales/zh-CN";
 
 const content = zhCN.conversation;
@@ -48,6 +50,7 @@ interface ConversationComposerProps {
   readonly mapViewport: MapViewport;
   readonly contextUsage: ContextUsage | null;
   readonly sessionId: string;
+  readonly workspaceId: string;
   readonly attachmentState: ReturnType<typeof useComposerAttachments>;
   readonly draft: string;
   readonly quote: ReplyQuote | null;
@@ -84,7 +87,7 @@ interface ConversationComposerProps {
 }
 
 export function ConversationComposer({
-  mapViewport, contextUsage, sessionId, attachmentState, draft, quote, onQuoteClear, queuedDraft, error, draftFrozen, modelDisabled, modelGroups,
+  mapViewport, contextUsage, sessionId, workspaceId, attachmentState, draft, quote, onQuoteClear, queuedDraft, error, draftFrozen, modelDisabled, modelGroups,
   pending, interactionLocked, running, stopPending, reasoningOptions, selectedModel,
   defaultReasoningEffort,
   selectedReasoningEffort, sendDisabled, showModelSettings, commands,
@@ -99,12 +102,18 @@ export function ConversationComposer({
   const formRef = useRef<HTMLFormElement>(null);
   const commandMenuId = useId();
   const [activeIndex, setActiveIndex] = useState(0);
+  const [caret, setCaret] = useState(draft.length);
   const [dismissedDraft, setDismissedDraft] = useState<string | null>(null);
   const isCommand = quote === null && draft.trimStart().startsWith("/");
   const inputLocked = pending || stopPending || draftFrozen || commandPending || interactionLocked;
   const matchingCommands = quote === null ? filterComposerCommands(commands, draft) : null;
   const menuOpen = matchingCommands !== null && dismissedDraft !== draft && !inputLocked;
   const activeCommand = matchingCommands?.[activeIndex];
+  const referenceQuery = !inputLocked && !isCommand && dismissedDraft !== draft ? mentionQuery(draft, caret) : null;
+  const references = useWorkspaceReferences(workspaceId, sessionId, referenceQuery?.query ?? null);
+  const referencesOpen = referenceQuery !== null;
+  const suggestionsOpen = menuOpen || referencesOpen;
+  const referenceItems = references.items.map(item => ({ id: item.target, label: `@${item.name}`, description: item.detail, detail: content.references.kinds[item.kind], inputHint: null, unavailableReason: null }));
   const attachmentsTooLarge = attachmentState.attachments.reduce((sum, ref) => sum + ref.bytes, 0) > 32 * 1024 * 1024;
   const canSend = !attachmentsTooLarge && (draft.trim().length > 0 || attachmentState.attachments.length > 0) && !attachmentState.pending && !attachmentState.retryAvailable && !pending && !stopPending && !commandPending && !interactionLocked &&
     (isCommand ? !draftFrozen : !sendDisabled);
@@ -119,13 +128,25 @@ export function ConversationComposer({
   }, [draft]);
 
   useEffect(() => {
-    if (!menuOpen) return;
+    if (!suggestionsOpen) return;
     function dismissOutside(event: PointerEvent) {
       if (!formRef.current?.contains(event.target as Node)) setDismissedDraft(draft);
     }
     document.addEventListener("pointerdown", dismissOutside);
     return () => document.removeEventListener("pointerdown", dismissOutside);
-  }, [draft, menuOpen]);
+  }, [draft, suggestionsOpen]);
+
+  function selectReference(item: WorkspaceReference) {
+    if (referenceQuery === null) return;
+    const inserted = insertReference(draft, referenceQuery.start, referenceQuery.end, item);
+    onDraftChange(inserted.value);
+    setActiveIndex(0);
+    setCaret(inserted.caret);
+    requestAnimationFrame(() => {
+      textareaRef.current?.focus();
+      textareaRef.current?.setSelectionRange(inserted.caret, inserted.caret);
+    });
+  }
 
   function submit() {
     if (!canSend) return;
@@ -158,6 +179,22 @@ export function ConversationComposer({
 
   function handleKeyDown(event: KeyboardEvent<HTMLTextAreaElement>) {
     if (event.nativeEvent.isComposing || event.nativeEvent.keyCode === 229) return;
+    if (referencesOpen) {
+      if (event.key === "Escape") {
+        event.preventDefault(); setDismissedDraft(draft); return;
+      }
+      if (event.key === "ArrowDown" || event.key === "ArrowUp") {
+        event.preventDefault();
+        if (references.items.length > 0) setActiveIndex(index => (index + (event.key === "ArrowDown" ? 1 : -1) + references.items.length) % references.items.length);
+        return;
+      }
+      if (!event.shiftKey && (event.key === "Enter" || event.key === "Tab")) {
+        event.preventDefault();
+        const item = references.items[activeIndex];
+        if (item !== undefined) selectReference(item);
+        return;
+      }
+    }
     if (menuOpen && matchingCommands !== null) {
       if (event.key === "Escape") {
         event.preventDefault();
@@ -195,6 +232,7 @@ export function ConversationComposer({
   function handleChange(event: ChangeEvent<HTMLTextAreaElement>) {
     setActiveIndex(0);
     setDismissedDraft(null);
+    setCaret(event.target.selectionStart);
     onDraftChange(event.target.value);
   }
 
@@ -218,16 +256,28 @@ export function ConversationComposer({
         }}
       >
         {menuOpen && matchingCommands !== null && (
-          <ComposerCommandMenu
+          <ComposerSuggestionMenu
             id={commandMenuId}
-            commands={matchingCommands}
+            items={matchingCommands.map(command => ({ id: command.name, label: `/${command.name}`, description: command.description, detail: command.when_to_use, inputHint: command.input_hint, unavailableReason: command.unavailableReason }))}
+            copy={content.commands}
             activeIndex={activeIndex}
             pending={commandCatalogPending}
             error={commandCatalogError}
             onActiveIndexChange={setActiveIndex}
-            onSelect={selectCommand}
+            onSelect={(index) => selectCommand(matchingCommands[index]!)}
           />
         )}
+        {referencesOpen && <ComposerSuggestionMenu
+          id={commandMenuId}
+          items={referenceItems}
+          copy={content.references}
+          activeIndex={activeIndex}
+          pending={references.pending}
+          error={references.error}
+          onRetry={references.retry}
+          onActiveIndexChange={setActiveIndex}
+          onSelect={index => selectReference(references.items[index]!)}
+        />}
         <input ref={fileInputRef} type="file" multiple className="hidden" tabIndex={-1} aria-label={content.attachments.add} onChange={(event) => {
           const files = Array.from(event.target.files ?? []); event.target.value = "";
           if (!inputLocked) void attachmentState.addFiles(files);
@@ -245,9 +295,9 @@ export function ConversationComposer({
           role="combobox"
           aria-autocomplete="list"
           aria-haspopup="listbox"
-          aria-expanded={menuOpen}
-          aria-controls={menuOpen ? commandMenuId : undefined}
-          aria-activedescendant={menuOpen && activeCommand !== undefined ? `${commandMenuId}-${activeCommand.name}` : undefined}
+          aria-expanded={suggestionsOpen}
+          aria-controls={suggestionsOpen ? commandMenuId : undefined}
+          aria-activedescendant={referencesOpen && referenceItems[activeIndex] !== undefined ? `${commandMenuId}-${referenceItems[activeIndex]!.id}` : menuOpen && activeCommand !== undefined ? `${commandMenuId}-${activeCommand.name}` : undefined}
           className="block min-h-6 w-full resize-none overflow-y-auto rounded-none border-0 bg-transparent px-0 py-0 text-[13px] leading-5 text-foreground shadow-none outline-none placeholder:text-muted-foreground focus-visible:border-transparent focus-visible:ring-0 disabled:cursor-wait"
           value={draft}
           placeholder={queuedDraft ? content.queue.editPlaceholder : running ? content.steeringPlaceholder : content.composerPlaceholder}
@@ -258,6 +308,7 @@ export function ConversationComposer({
             event.preventDefault(); if (!inputLocked) void attachmentState.addFiles(Array.from(event.clipboardData.files));
           }}
           onChange={handleChange}
+          onSelect={event => setCaret(event.currentTarget.selectionStart)}
           onKeyDown={handleKeyDown}
           aria-label={content.composerLabel}
         />

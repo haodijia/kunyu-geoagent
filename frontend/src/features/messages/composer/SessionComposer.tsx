@@ -150,6 +150,7 @@ export function SessionComposer() {
     />
     {activeTurn?.state === "waiting_input" ? <QuestionComposer turn={activeTurn} onCancel={() => stopMutation.mutate()} cancelPending={stopMutation.isPending} cancelError={stopMutation.isError ? zhCN.conversation.runActionFailed : null} /> : <ConversationComposer
       sessionId={session.id}
+      workspaceId={session.workspace_id}
       contextUsage={contextUsage}
       attachmentState={attachmentState}
       mapViewport={mapContext.viewport}

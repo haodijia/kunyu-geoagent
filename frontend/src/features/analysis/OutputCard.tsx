@@ -11,6 +11,7 @@ import {
   sessionMapPath,
 } from "@/features/sessions/routes";
 import { zhCN } from "@/locales/zh-CN";
+import { referenceText } from "@/features/workspaces/references";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Download, LocateFixed, MessageSquarePlus } from "lucide-react";
 import { useState } from "react";
@@ -77,7 +78,7 @@ export function OutputCard({
     if (sessionId === null) throw new Error("Choose an active session before referencing a result.");
     const store = useAppUiStore.getState();
     const previous = store.composerDraftBySession[sessionId];
-    const reference = content.resultPrompt(output.id);
+    const reference = referenceText(output.title, `analysis-output:${output.id}`);
     store.setComposerDraft(
       sessionId,
       previous === undefined || previous.trim() === ""

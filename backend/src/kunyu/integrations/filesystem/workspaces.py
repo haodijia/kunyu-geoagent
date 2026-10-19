@@ -1,5 +1,8 @@
 """Provision private workspace roots and publish original bytes without overwrites."""
 
+import mimetypes
+import os
+import stat
 from pathlib import Path, PurePosixPath
 from threading import Event
 from typing import Literal
@@ -52,6 +55,51 @@ class ManagedWorkspaceFiles:
                 pass
         except OSError as error:
             raise io_error(error, "/workspace", "create") from error
+
+    def search(
+        self, workspace_id: str, query: str, limit: int, cancelled: Event
+    ) -> list[WorkspaceFile]:
+        scope = FilesystemScope(workspace_id, None, ())
+        pending = [()]
+        result = []
+        while pending:
+            parts = pending.pop()
+            path = "/workspace" + ("/" + "/".join(parts) if parts else "")
+            target = FsTarget(path, scope, "workspace", parts, None)
+            try:
+                with (
+                    open_directory(self.root, target, cancelled) as directory,
+                    os.scandir(directory) as entries,
+                ):
+                    for entry in sorted(entries, key=lambda item: item.name):
+                        check_cancelled(cancelled, "list")
+                        if entry.name.startswith(".kunyu-"):
+                            continue
+                        info = entry.stat(follow_symlinks=False)
+                        child = (*parts, entry.name)
+                        if stat.S_ISDIR(info.st_mode):
+                            pending.append(child)
+                        elif stat.S_ISREG(info.st_mode):
+                            virtual_path = "/workspace/" + "/".join(child)
+                            if query.casefold() not in virtual_path.casefold():
+                                continue
+                            media_type, _ = mimetypes.guess_type(entry.name)
+                            result.append(
+                                WorkspaceFile(
+                                    entry.name,
+                                    virtual_path,
+                                    info.st_size,
+                                    "image"
+                                    if media_type is not None
+                                    and media_type.startswith("image/")
+                                    else "file",
+                                )
+                            )
+                            if len(result) == limit:
+                                return result
+            except OSError as error:
+                raise io_error(error, path, "list") from error
+        return result
 
     def save(
         self,

@@ -16,15 +16,16 @@ import { useEffect, useState } from "react";
 
 const content = zhCN.analysis;
 export type LayerAction =
-  | { readonly kind: "select" | "focus" | "visibility" | "remove" }
+  | { readonly kind: "focus" | "visibility" | "remove" }
   | { readonly kind: "opacity"; readonly value: number }
   | { readonly kind: "reorder"; readonly position: number };
 
-export function LayerRow({ sessionId, layer, selected, disabled, onAction }: {
+export function LayerRow({ sessionId, layer, expanded, disabled, onInspect, onAction }: {
   readonly sessionId: string;
   readonly layer: MapLayer;
-  readonly selected: boolean;
+  readonly expanded: boolean;
   readonly disabled: boolean;
+  readonly onInspect: () => void;
   readonly onAction: (action: LayerAction) => void;
 }) {
   const [opacity, setOpacity] = useState(layer.opacity);
@@ -34,7 +35,7 @@ export function LayerRow({ sessionId, layer, selected, disabled, onAction }: {
   return <section
     ref={sortable.setNodeRef}
     style={{ transform: CSS.Transform.toString(sortable.transform), transition: sortable.transition, zIndex: sortable.isDragging ? 1 : undefined, position: "relative" }}
-    className={`space-y-2 rounded-lg border bg-background p-2 ${selected ? "border-foreground/40" : "border-border"} ${sortable.isDragging ? "opacity-60" : ""}`}
+    className={`space-y-2 rounded-lg border bg-background p-2 ${expanded ? "border-foreground/40" : "border-border"} ${sortable.isDragging ? "opacity-60" : ""}`}
   >
     <div className="flex items-center gap-2">
       <button type="button" ref={sortable.setActivatorNodeRef} {...sortable.attributes} {...sortable.listeners} disabled={disabled}
@@ -42,7 +43,7 @@ export function LayerRow({ sessionId, layer, selected, disabled, onAction }: {
         aria-label={`${content.reorder} · ${layer.title}`} title={content.reorder}>
         <GripVertical className="size-3.5" />
       </button>
-      <button type="button" disabled={disabled} onClick={() => onAction({ kind: "select" })} aria-label={layer.title} aria-pressed={selected}
+      <button type="button" onClick={onInspect} aria-label={layer.title} aria-expanded={expanded}
         className="flex min-w-0 flex-1 items-center gap-2 rounded text-left outline-none focus-visible:ring-2 focus-visible:ring-ring">
         <span className="flex size-12 shrink-0 items-center justify-center overflow-hidden rounded-md bg-muted">
           {image.url !== null ? <img src={image.url} alt={content.previewAlt} className="size-full object-contain" />
@@ -54,7 +55,6 @@ export function LayerRow({ sessionId, layer, selected, disabled, onAction }: {
           {layer.image !== null && <span className="block text-[11px] text-muted-foreground">
             {layer.image.resolution === null ? zhCN.mapConversation.unknownResolution : `${layer.image.resolution}${content.metres}`} · {layer.image.cloud === null ? content.unknownCloud : zhCN.mapConversation.cloud(layer.image.cloud)}
           </span>}
-          {layer.temporary && <span className="block text-[11px] text-muted-foreground">{content.temporaryLayer}</span>}
           {layer.bounds === null && <span className="block text-[11px] text-destructive">{zhCN.mapConversation.noFootprint}</span>}
         </span>
       </button>
@@ -62,6 +62,11 @@ export function LayerRow({ sessionId, layer, selected, disabled, onAction }: {
         {layer.visible ? <Eye className="size-3.5" /> : <EyeOff className="size-3.5" />}
       </Button>
     </div>
+    {expanded && <div className="space-y-1 pl-6 text-[11px] text-muted-foreground">
+      {image.url !== null && <img src={image.url} alt={content.previewAlt} className="max-h-48 w-full rounded object-contain" />}
+      <p className="break-all">{layer.image === null ? layer.output_id : `image_id: ${layer.image.image_id}`}</p>
+      <p>{content.referenceHint}</p>
+    </div>}
     <div className="flex items-center gap-1 pl-6">
       <label className="flex min-w-0 flex-1 items-center gap-2 text-[11px] text-muted-foreground">
         <span className="sr-only">{content.opacity}</span>

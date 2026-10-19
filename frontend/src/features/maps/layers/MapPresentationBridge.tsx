@@ -22,15 +22,6 @@ export function MapPresentationBridge() {
       store.setMapView(session.id, map.data.viewport, map.data.camera);
       hydratedSession.current = session.id;
     }
-    store.setMapImageSelection(
-      session.id,
-      map.data.image_selection === null
-        ? null
-        : {
-            candidateSetId: map.data.image_selection.candidate_set_id,
-            imageId: map.data.image_selection.image_id,
-          },
-    );
   }, [session.id, session.workspace_id, map.data]);
   useEffect(() => {
     for (const event of events) {

@@ -31,7 +31,6 @@ from kunyu.application.analysis.analysis import AnalysisService
 from kunyu.application.analysis.oge import OgeService
 from kunyu.domain.conversation.agent_context import RunContextRepository
 from kunyu.domain.geospatial.analysis import AnalysisError, AnalysisJob
-from kunyu.domain.geospatial.map_context import TurnMapContext
 from kunyu.domain.geospatial.oge import OgeError
 
 
@@ -40,12 +39,12 @@ class ExecuteCodeArguments(ToolArguments):
     code: str = Field(
         min_length=1,
         max_length=12000,
-        description="OGE Python SDK code; compose operators then export exactly one Coverage with result.export(name). selected_image is injected from image_id or the map selection.",
+        description="OGE Python SDK code; compose operators then export exactly one Coverage with result.export(name). selected_image is injected only from an explicit image_id.",
     )
     image_id: int | None = Field(
         default=None,
         gt=0,
-        description="Real OGE image ID, independent of search candidate sets. Omit to use the user's map selection, or when the script loads its own inputs.",
+        description="Real OGE image ID from the user's explicit reference or verified metadata. Omit only when the script loads its own inputs.",
     )
     crs: str = Field(pattern=r"^EPSG:[0-9]{4,6}$")
     scale: float = Field(gt=0, le=100000, allow_inf_nan=False)
@@ -102,23 +101,7 @@ class ExecuteCodeTool(BaseTool):
         )
 
     async def _parameters(self, args: ExecuteCodeArguments) -> dict:
-        source = load_source(self._contexts, self._run_id)
-        frozen_map = source.run.map_snapshot
-        for message in reversed(source.reduced_session.user_messages):
-            if (
-                message.run_id == self._run_id
-                and message.source == "user"
-                and message.delivery == "steer"
-                and not message.discarded
-                and message.applied_step is not None
-                and message.applied_step <= source.run.step
-            ):
-                frozen_map = message.map_context
-                break
-        selection = TurnMapContext.model_validate(frozen_map).image_selection
         image_id = args.image_id
-        if image_id is None and selection is not None:
-            image_id = selection.image_id
         image = None
         if image_id is not None:
             detail = await self._oge.image_detail(image_id)

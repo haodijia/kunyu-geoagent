@@ -3,7 +3,6 @@ import {
   analysisApi,
   analysisKeys,
   type MapLayer,
-  type MapState,
 } from "@/features/analysis/api";
 import { LayerRow, type LayerAction } from "@/features/analysis/MapLayerRows";
 import { zhCN } from "@/locales/zh-CN";
@@ -26,13 +25,13 @@ import { Layers, X } from "lucide-react";
 import { useState } from "react";
 
 const content = zhCN.analysis;
-export function AnalysisPanel({ sessionId, state, layers, error }: {
+export function AnalysisPanel({ sessionId, layers, error }: {
   readonly sessionId: string;
-  readonly state: MapState;
   readonly layers: readonly MapLayer[];
   readonly error: boolean;
 }) {
   const [open, setOpen] = useState(true);
+  const [inspectedLayerId, setInspectedLayerId] = useState<string | null>(null);
   const client = useQueryClient();
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
@@ -40,8 +39,8 @@ export function AnalysisPanel({ sessionId, state, layers, error }: {
   );
   const mutation = useMutation({
     mutationFn: async ({ layer, action }: { layer: MapLayer; action: LayerAction }) => {
-      if (action.kind === "select" || action.kind === "focus") {
-        const value = await analysisApi[action.kind](sessionId, layer.id);
+      if (action.kind === "focus") {
+        const value = await analysisApi.focus(sessionId, layer.id);
         client.setQueryData(analysisKeys.map(sessionId), value);
       } else if (action.kind === "remove") {
         await analysisApi.removeLayer(sessionId, layer);
@@ -92,10 +91,11 @@ export function AnalysisPanel({ sessionId, state, layers, error }: {
       <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={reorder}>
         <SortableContext items={ordered.map((layer) => layer.id)} strategy={verticalListSortingStrategy}>
           {ordered.map((layer) => <LayerRow sessionId={sessionId}
-            key={`${layer.id}:${layer.revision}`}
+            key={layer.id}
             layer={layer}
-            selected={layer.id === state.selected_layer_id}
+            expanded={layer.id === inspectedLayerId}
             disabled={mutation.isPending}
+            onInspect={() => setInspectedLayerId(current => current === layer.id ? null : layer.id)}
             onAction={(action) => mutation.mutate({ layer, action })}
           />)}
         </SortableContext>

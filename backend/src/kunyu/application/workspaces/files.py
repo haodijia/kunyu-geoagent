@@ -41,6 +41,15 @@ class WorkspaceFileService:
         self.database = database
         self.storage = ManagedWorkspaceFiles(database.path.parent)
 
+    async def search(
+        self, workspace_id: str, query: str, limit: int
+    ) -> list[WorkspaceFile]:
+        with self.database.sessions() as transaction:
+            require_active_workspace(transaction, workspace_id)
+        return await filesystem_operation(
+            lambda cancelled: self.storage.search(workspace_id, query, limit, cancelled)
+        )
+
     async def upload(
         self,
         workspace_id: str,

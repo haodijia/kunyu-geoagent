@@ -230,9 +230,7 @@ class MapRepository:
             publish(self.database, tx, session_id, "map/changed", row.id, row.revision)
             return MapLayer.model_validate(row)
 
-    def select(
-        self, session_id: str, layer_id: str, *, focus: bool = False
-    ) -> MapState:
+    def focus(self, session_id: str, layer_id: str) -> MapState:
         self.state(session_id)
         with self.database.sessions.begin() as tx:
             tx.execute(text("BEGIN IMMEDIATE"))
@@ -241,24 +239,15 @@ class MapRepository:
             row = tx.get(MapStateRecord, session_id)
             current = MapState.model_validate(row.value)
             changes = {"selected_layer_id": layer_id, "revision": current.revision + 1}
-            if focus:
-                if layer.bounds is None:
-                    raise AnalysisError(
-                        "NO_LAYER_BOUNDS",
-                        "The layer has no verified geographic bounds.",
-                        422,
-                    )
-                changes.update(
-                    focus_layer_id=layer_id, focus_revision=current.focus_revision + 1
+            if layer.bounds is None:
+                raise AnalysisError(
+                    "NO_LAYER_BOUNDS",
+                    "The layer has no verified geographic bounds.",
+                    422,
                 )
-            elif layer.image is not None:
-                retain_image_layer(tx, layer)
-                changes.update(
-                    image_selection=ImageSelectionReference(
-                        candidate_set_id=layer.image["candidate_set_id"],
-                        image_id=layer.image["image_id"],
-                    )
-                )
+            changes.update(
+                focus_layer_id=layer_id, focus_revision=current.focus_revision + 1
+            )
             value = current.model_copy(update=changes)
             row.value = value.model_dump(mode="json")
             tx.flush()
