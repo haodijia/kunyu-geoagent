@@ -1,6 +1,7 @@
 """Generic job provider, model tools and harness-style completion delivery."""
 
 import json
+from datetime import UTC, datetime
 from functools import partial
 
 from kunyu.agent.core import services as s
@@ -8,6 +9,8 @@ from kunyu.agent.core.scope import Context
 from kunyu.agent.orchestration.jobs import Job, JobRegistry
 from kunyu.agent.prompts.loader import read_prompt
 from kunyu.agent.runtime.contracts.context import PromptSection
+from kunyu.agent.runtime.events.session import JobChangedEvent, JobChangedPayload
+from kunyu.agent.runtime.events.store import EventBatch
 from kunyu.agent.tools.registry import ToolRegistration
 from kunyu.agent.tools.workflow.jobs import JobTool
 from kunyu.domain.execution.run_acceptance import ModelSelection, RunAcceptanceRequest
@@ -15,11 +18,29 @@ from kunyu.domain.execution.run_acceptance import ModelSelection, RunAcceptanceR
 
 class JobsPlugin:
     name = "jobs-local"
-    requires = ()
+    requires = (s.PROJECTIONS,)
     provides = (s.JOBS,)
 
     async def apply(self, context: Context) -> None:
-        jobs = JobRegistry()
+        projections = context.require(s.PROJECTIONS)
+
+        def changed(job: Job) -> None:
+            projections.commit(
+                EventBatch(
+                    session_id=job.owner,
+                    run_id=None,
+                    events=(
+                        JobChangedEvent(
+                            session_id=job.owner,
+                            event_type="job/changed",
+                            payload=JobChangedPayload.model_validate(job.snapshot()),
+                            occurred_at=datetime.now(UTC),
+                        ),
+                    ),
+                )
+            )
+
+        jobs = JobRegistry(changed)
         context.provide(s.JOBS, jobs)
         context.effect(jobs.close, before_children=True)
 

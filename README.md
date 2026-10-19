@@ -76,7 +76,7 @@ Agent 系统提示词可直接编辑 [system.md](backend/src/kunyu/agent/prompts
 
 Agent 可通过 `map_present` 主动展示卫星影像候选，在地图中选择并继续同一会话。地图消息逐行渐隐，完整对话、审批及后台任务状态始终可访问。
 
-OGE 分析使用三个通用工具：`oge_search_operators` 检索实际算子目录，`oge_get_operator_definition` 查询参数与示例，`oge_execute_code` 编写并执行可组合的 Python 算子链。后端校验所选影像，调用原生 JWT 编译与批计算接口，保存任务身份，再下载保留数值的 GeoTIFF。每次调用导出一个栅格，支持单波段数值或三波段 uint8 RGB 上图；不再使用专用 NDVI GP 工具和录制运行模式。
+OGE 分析使用三个通用工具：`oge_search_operators` 检索实际算子目录，`oge_get_operator_definition` 查询参数与示例，`oge_execute_code` 编写并执行可组合的 Python 算子链。后端校验所选影像，调用原生 JWT 编译与批计算接口，保存任务身份，再下载保留数值的 GeoTIFF。每次调用导出一个栅格，支持单波段数值或三波段 uint8 / uint16 RGB 上图；RGB 显示拉伸不改变源数据。不再使用专用 NDVI GP 工具和录制运行模式。
 
 代码工具提交后前台等待 120 秒，到期返回同一后台 job；后续沿用 harness 的 `job_output` 和完成通知，远端持续计算，不重复提交。成果由 Agent 调用 `map_present` 上图。协议、限制与验收见 [OGE 代码工具](docs/develop/OGE代码工具.md)，地图流程见[地图会话交互设计](docs/develop/地图会话交互设计.md)。
 

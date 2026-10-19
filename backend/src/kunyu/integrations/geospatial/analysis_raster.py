@@ -16,6 +16,7 @@ from rasterio.warp import transform_bounds
 
 from kunyu.domain.geospatial.analysis import AnalysisError
 from kunyu.integrations.filesystem.io import check_cancelled
+from kunyu.integrations.geospatial.rgb_display import rgb_ranges, rgb_rgba
 
 
 class AnalysisRaster:
@@ -56,11 +57,11 @@ class AnalysisRaster:
             scalar = scalar or (
                 src.count == 1 and np.issubdtype(np.dtype(src.dtypes[0]), np.floating)
             )
-            rgb = src.count == 3 and set(src.dtypes) == {"uint8"}
+            rgb = src.count == 3 and set(src.dtypes) <= {"uint8", "uint16"}
             if src.crs is None or not (scalar or rgb):
                 raise AnalysisError(
                     "UNSUPPORTED_RASTER",
-                    "Map rendering requires a georeferenced numeric single band or three-band uint8 RGB raster.",
+                    "Map rendering requires a georeferenced numeric single band or three-band uint8/uint16 RGB raster.",
                 )
             bounds = list(transform_bounds(src.crs, "EPSG:4326", *src.bounds))
             if not all(math.isfinite(value) for value in bounds):
@@ -73,6 +74,7 @@ class AnalysisRaster:
                 resampling=Resampling.nearest,
             )
             limits = None
+            color_limits = None
             if scalar:
                 valid = data[0].compressed()
                 valid = valid[np.isfinite(valid)]
@@ -92,11 +94,13 @@ class AnalysisRaster:
                     limits[1] = limits[0] + max(1, abs(limits[0]) * 0.01)
                 rgba = _scalar_rgba(data[0], *limits)
             else:
-                rgba = np.dstack(
-                    (
-                        np.moveaxis(data.filled(0), 0, -1),
-                        src.dataset_mask(out_shape=(512, 512)),
-                    )
+                color_limits = (
+                    [[0.0, 255.0]] * 3
+                    if set(src.dtypes) == {"uint8"} and display_range is None
+                    else rgb_ranges(data, display_range)
+                )
+                rgba = rgb_rgba(
+                    data, src.dataset_mask(out_shape=(512, 512)), color_limits
                 )
             metadata = {
                 "width": src.width,
@@ -110,6 +114,7 @@ class AnalysisRaster:
                 else None,
                 "display_kind": "scalar" if scalar else "rgb",
                 "display_range": limits,
+                "display_ranges": color_limits,
                 "palette": "viridis" if scalar else None,
                 "numeric_values_available": scalar,
             }
@@ -120,14 +125,31 @@ class AnalysisRaster:
     def tile(self, relative: str, z: int, x: int, y: int, metadata: dict) -> bytes:
         if z < 0 or z > 24 or x < 0 or y < 0 or x >= 2**z or y >= 2**z:
             raise AnalysisError("INVALID_TILE", "Invalid tile coordinates.", 422)
-        limits = metadata.get("display_range")
+        limits = metadata["display_range"]
+        color_limits = (
+            metadata["display_ranges"] if metadata["display_kind"] == "rgb" else None
+        )
         return _render_tile(
-            self.path(relative), z, x, y, None if limits is None else tuple(limits)
+            self.path(relative),
+            z,
+            x,
+            y,
+            None if limits is None else tuple(limits),
+            None
+            if color_limits is None
+            else tuple(tuple(band) for band in color_limits),
         )
 
 
 @lru_cache(maxsize=128)
-def _render_tile(path: Path, z: int, x: int, y: int, limits: tuple | None) -> bytes:
+def _render_tile(
+    path: Path,
+    z: int,
+    x: int,
+    y: int,
+    limits: tuple | None,
+    color_limits: tuple | None,
+) -> bytes:
     size = 256
     unit = 20037508.342789244
     span = 2 * unit / (2**z)
@@ -151,7 +173,11 @@ def _render_tile(path: Path, z: int, x: int, y: int, limits: tuple | None) -> by
         ) as vrt,
     ):
         if limits is None:
-            rgba = np.moveaxis(vrt.read(indexes=(1, 2, 3, 4), out_dtype="uint8"), 0, -1)
+            rgba = rgb_rgba(
+                vrt.read(indexes=(1, 2, 3), masked=True),
+                vrt.read(vrt.count),
+                color_limits,
+            )
         else:
             band = vrt.read(1, masked=True)
             rgba = _scalar_rgba(band, *limits)

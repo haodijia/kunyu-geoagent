@@ -4,7 +4,6 @@ import { useMemo, useState } from "react";
 import { agentQueryKeys, cancelAgent } from "@/features/agent/api";
 import { ConversationPlanBar } from "@/features/agent/plan/ConversationPlanBar";
 import { useSessionEvents } from "@/features/events/SessionEventContext";
-import { BackgroundJobs } from "@/features/jobs/BackgroundJobs";
 import { ImageSelectionChip } from "@/features/maps/imagery/ImageSelectionChip";
 import { messageQueryKeys } from "@/features/messages/api";
 import {
@@ -147,7 +146,6 @@ export function SessionComposer() {
     <>
     <QueuedMessages onDraftLockChange={setQueueEditing} />
     <ImageSelectionChip sessionId={session.id} />
-    <BackgroundJobs sessionId={session.id} />
     <ConversationPlanBar
       runId={activeTurn?.id ?? null}
       processing={activeTurn !== undefined && activeTurn.state !== "interrupted" && !(activeTurn.state === "ready" && activeTurn.requires_resume)}

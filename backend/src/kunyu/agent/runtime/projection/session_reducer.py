@@ -12,6 +12,7 @@ from kunyu.agent.runtime.events.session import (
     BusinessObjectChangedEvent,
     InboxMessagePayload,
     InboxSplicedEvent,
+    JobChangedEvent,
     QueueDispatchedEvent,
     QueueModeEvent,
     QueueReorderedEvent,
@@ -145,6 +146,17 @@ def reduce_session(events: Iterable[AgentEvent]) -> ReducedSession:
             )
 
         if isinstance(event, BusinessObjectChangedEvent):
+            continue
+
+        if isinstance(event, JobChangedEvent):
+            owner_events = run_events.get(event.payload.owner_run_id)
+            if not owner_events or not any(
+                call.tool_call_id == event.payload.tool_call_id
+                for call in reduce_run(owner_events).tool_calls
+            ):
+                raise SessionReductionError(
+                    "A background job must identify its originating tool call."
+                )
             continue
 
         if isinstance(event, (SubagentCreatedEvent, SubagentSettledEvent)):

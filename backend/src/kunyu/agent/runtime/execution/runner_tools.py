@@ -12,6 +12,11 @@ from kunyu.agent.runtime.contracts.tool_content import (
     TOOL_CONTENT_ADAPTER,
     ToolContentBlock,
 )
+from kunyu.agent.runtime.contracts.tool_output import (
+    TOOL_DISPLAY,
+    ToolCompaction,
+    ToolDisplay,
+)
 from kunyu.agent.runtime.contracts.tools import (
     PolicyDecision,
     PolicyGate,
@@ -23,11 +28,6 @@ from kunyu.agent.runtime.contracts.tools import (
     ToolResult,
     ToolRiskLevel,
     ToolValidationError,
-)
-from kunyu.agent.runtime.contracts.tool_output import (
-    TOOL_DISPLAY,
-    ToolCompaction,
-    ToolDisplay,
 )
 from kunyu.agent.runtime.events.run import (
     BudgetReservedEvent,
@@ -132,9 +132,17 @@ class ToolBatchExecutor[AdapterConfigT]:
             decision = self._policy.decide(prepared.call)
             if decision is PolicyDecision.CONFIRM:
                 # Approval owns the exact write and commits its durable result.
-                await self._confirmations.request(
-                    current.run_id, persisted.tool_call_id
-                )
+                try:
+                    await self._confirmations.request(
+                        current.run_id, persisted.tool_call_id
+                    )
+                except ToolExecutionError as error:
+                    outcome = await self._reject(
+                        current, persisted, error.code, str(error)
+                    )
+                    if outcome != "completed":
+                        return outcome
+                    continue
                 return "waiting"
             if decision is PolicyDecision.CONTRACT_CHANGED:
                 outcome = await self._reject(
@@ -216,6 +224,10 @@ class ToolBatchExecutor[AdapterConfigT]:
         arguments = _JSON_OBJECT_ADAPTER.validate_python(
             dict(tool.validate(persisted.arguments))
         )
+        if arguments != persisted.arguments:
+            raise ToolValidationError(
+                "The stored tool arguments no longer match the tool schema."
+            )
         return _PreparedTool(
             persisted,
             tool,

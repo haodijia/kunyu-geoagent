@@ -40,6 +40,7 @@ from kunyu.agent.runtime.events.session import (
     ContextInjectedEvent,
     FeedbackRecordedEvent,
     InboxSplicedEvent,
+    JobChangedEvent,
     PermissionChangedEvent,
     PlanChangedEvent,
     PlanSelectedEvent,
@@ -67,6 +68,7 @@ from kunyu.agent.runtime.events.tools import (
 type EventDraft = Annotated[
     SessionCreatedEvent
     | BusinessObjectChangedEvent
+    | JobChangedEvent
     | UserMessageAppendedEvent
     | ContextInjectedEvent
     | InboxSplicedEvent

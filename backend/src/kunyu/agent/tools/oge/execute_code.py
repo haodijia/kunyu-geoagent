@@ -1,11 +1,6 @@
 """Approved service producers register one session-owned background job."""
 
-from kunyu.agent.tools.outputs.oge import ANALYSIS
-from kunyu.agent.runtime.contracts.tools import BaseTool
-
-import asyncio
 import json
-import logging
 import math
 from collections.abc import Mapping
 
@@ -15,6 +10,7 @@ from kunyu.agent.core.scope import AgentScopes
 from kunyu.agent.orchestration.jobs import JobHandle, JobRegistry
 from kunyu.agent.prompts.loader import tool_description
 from kunyu.agent.runtime.contracts.tools import (
+    BaseTool,
     ToolApproval,
     ToolCall,
     ToolExecutionError,
@@ -22,6 +18,7 @@ from kunyu.agent.runtime.contracts.tools import (
     ToolRiskLevel,
     ToolSpec,
 )
+from kunyu.agent.tools.outputs.oge import ANALYSIS
 from kunyu.agent.tools.shared import (
     ToolArguments,
     load_source,
@@ -36,8 +33,6 @@ from kunyu.domain.conversation.agent_context import RunContextRepository
 from kunyu.domain.geospatial.analysis import AnalysisError, AnalysisJob
 from kunyu.domain.geospatial.map_context import TurnMapContext
 from kunyu.domain.geospatial.oge import OgeError
-
-logger = logging.getLogger(__name__)
 
 
 class ExecuteCodeArguments(ToolArguments):
@@ -208,24 +203,17 @@ class ExecuteCodeTool(BaseTool):
             source.session.id,
             self._scopes.for_session(source.session.id),
             "analysis",
-            f"{self.spec.name}: {job.id}",
+            arguments.title,
             observe,
+            job_id=job.id,
+            call=call,
             cancel=cancel_remote,
-            reference=job.id,
         )
-        try:
-            await self._jobs.wait(
-                background_id, source.session.id, self._wait_timeout_seconds
-            )
-        except asyncio.CancelledError:
-            logger.info(
-                "Stopped the foreground wait for %s; the owned job continues.",
-                background_id,
-            )
-            raise
         return tool_result(
             {
                 "analysis_job_id": job.id,
-                **self._jobs.read(background_id, source.session.id),
+                **await self._jobs.wait_and_read(
+                    background_id, source.session.id, self._wait_timeout_seconds
+                ),
             }
         )

@@ -1,7 +1,5 @@
 """Run projection tools; derived exclusively from committed events."""
 
-import json
-
 from kunyu.agent.runtime.contracts.content import ToolCallBlock
 from kunyu.agent.runtime.events.base import ResumePhase, RunState
 from kunyu.agent.runtime.events.tools import (
@@ -56,12 +54,13 @@ def _request_tool(state: _State, event: ToolRequestedEvent, sequence: int) -> No
     if payload.batch_index >= len(blocks):
         raise RunReductionError("Tool request has no canonical model block.")
     block = blocks[payload.batch_index]
-    if (block.id, block.name, json.loads(block.arguments)) != (
+    # The model block preserves wire input; the tool event owns the normalized
+    # execution/approval snapshot, which includes schema defaults.
+    if (block.id, block.name) != (
         payload.provider_call_id,
         payload.name,
-        payload.arguments,
     ):
-        raise RunReductionError("Tool request differs from its canonical model block.")
+        raise RunReductionError("Tool request identity differs from its model block.")
     state.tools[payload.tool_call_id] = _ToolCall(
         tool_call_id=payload.tool_call_id,
         provider_call_id=payload.provider_call_id,

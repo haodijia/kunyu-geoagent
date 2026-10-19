@@ -18,6 +18,7 @@ import {
 import { collectImageOffloads } from "@/features/attachments/image-offloads";
 import type { Confirmation } from "@/features/confirmations/api";
 import { useSessionEvents } from "@/features/events/SessionEventContext";
+import { toolJob } from "@/features/jobs/job-state";
 import { SubagentCard } from "@/features/subagents/SubagentCard";
 import { zhCN } from "@/locales/zh-CN";
 import { Down, Right } from "@icon-park/react";
@@ -40,16 +41,19 @@ export function ToolCallRow({
   if (tool.status === "completed" && (tool.display === null || tool.compact === null))
     throw new Error("Completed tool has no declared result projections.");
   const display = tool.status === "completed" ? parseToolDisplay(tool.display) : null;
+  const job = toolJob(tool.id, records);
+  const error = job?.status === "failed" ? job.detail : tool.error_summary;
   const hasDetails =
     Object.keys(tool.arguments).length > 0 ||
     (display !== null && display.kind !== "none") ||
-    tool.error_summary !== null ||
+    error !== null ||
     confirmation !== undefined;
   const duration = toolDuration(tool.id, records);
   const status = toolStatus(tool, runState, confirmation, records);
   const denied = status === "denied";
   const waitingQuestion = status === "waiting_input";
   const target = waitingQuestion ? { text: zhCN.questions.waiting, path: false }
+    : job !== undefined ? { text: `${job.label} · ${content.status[status]}`, path: false }
     : !expanded && tool.compact !== null ? { text: tool.compact.summary, path: false }
     : toolTarget(tool.arguments);
 
@@ -84,9 +88,9 @@ export function ToolCallRow({
           )
         ) : null}
       </button>
-      {!denied && tool.status === "failed" && !expanded ? (
-        <p className={styles.callError}>
-          {tool.error_summary}
+      {!denied && status === "failed" && !expanded ? (
+        <p className={styles.callError} title={error ?? undefined}>
+          {error}
         </p>
       ) : null}
       {tool.name === "subagent" && tool.status !== "completed" && <SubagentCard toolCallId={tool.id} />}
@@ -94,9 +98,9 @@ export function ToolCallRow({
       {expanded ? (
         <div className={styles.detailPanel}>
           {display !== null && <ToolResultView display={display} sessionId={tool.session_id} toolCallId={tool.id} offloadedIds={imageOffloads.get(tool.id)} />}
-          {!denied && tool.error_summary !== null ? (
+          {!denied && error !== null ? (
             <ToolDetail label={content.error} danger>
-              {tool.error_summary}
+              {error}
             </ToolDetail>
           ) : null}
           {Object.keys(tool.arguments).length > 0 && <ToolParameters arguments={tool.arguments} />}

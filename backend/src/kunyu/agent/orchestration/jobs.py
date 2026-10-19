@@ -13,7 +13,7 @@ from uuid import uuid4
 from pydantic import JsonValue
 
 from kunyu.agent.core.scope import Context
-from kunyu.agent.runtime.contracts.tools import ToolExecutionError
+from kunyu.agent.runtime.contracts.tools import ToolCall, ToolExecutionError
 
 logger = logging.getLogger(__name__)
 JobStatus = Literal["running", "stopping", "completed", "failed", "killed"]
@@ -27,6 +27,8 @@ class Job:
     kind: str
     label: str
     cancel: Callable[[], Awaitable[None]] | None
+    owner_run_id: str
+    tool_call_id: str
     notice_id: str = field(default_factory=lambda: uuid4().hex)
     status: JobStatus = "running"
     detail: str | None = None
@@ -47,6 +49,8 @@ class Job:
             "id": self.id,
             "kind": self.kind,
             "label": self.label,
+            "owner_run_id": self.owner_run_id,
+            "tool_call_id": self.tool_call_id,
             "status": self.status,
             "detail": self.detail,
             "started_at": self.started_at,
@@ -55,8 +59,9 @@ class Job:
 
 
 class JobHandle:
-    def __init__(self, job: Job) -> None:
+    def __init__(self, job: Job, changed: Callable[[Job], None]) -> None:
         self._job = job
+        self._changed = changed
 
     def append(self, text: str) -> None:
         if self._job.settled.is_set():
@@ -69,15 +74,17 @@ class JobHandle:
     def progress(self, detail: str) -> None:
         if self._job.settled.is_set():
             raise RuntimeError("Cannot update a settled job.")
-        self._job.detail = detail[:512]
+        detail = detail[:512]
+        if self._job.detail != detail:
+            self._job.detail = detail
+            self._changed(self._job)
 
 
 class JobRegistry:
-    def __init__(self) -> None:
+    def __init__(self, changed: Callable[[Job], None]) -> None:
         self._jobs: dict[str, Job] = {}
-        self._counters: dict[str, int] = {}
+        self._changed = changed
         self._owners: set[str] = set()
-        self._references: dict[tuple[str, str], str] = {}
         self._owner_closures: dict[str, asyncio.Task[None]] = {}
         self._controller: Callable[[Job], Awaitable[None]] | None = None
         self._closing = False
@@ -95,8 +102,9 @@ class JobRegistry:
         label: str,
         run: Callable[[JobHandle], Awaitable[JsonValue]],
         *,
+        job_id: str,
+        call: ToolCall,
         cancel: Callable[[], Awaitable[None]] | None = None,
-        reference: str | None = None,
     ) -> str:
         scope.assert_active()
         if self._closing or self._controller is None:
@@ -109,26 +117,33 @@ class JobRegistry:
             del self._owner_closures[owner]
         if not kind or not label or len(kind) > 64 or len(label) > 200:
             raise ValueError("Background jobs require a kind and label.")
-        if reference is not None and (owner, reference) in self._references:
-            return self._references[owner, reference]
+        if not job_id or len(job_id) > 128:
+            raise ValueError("Background jobs require a stable job ID.")
+        if job_id in self._jobs:
+            previous = self.require(job_id, owner)
+            if (previous.owner_run_id, previous.tool_call_id) != (
+                call.run_id,
+                call.call_id,
+            ):
+                raise ToolExecutionError(
+                    "Background job identity belongs to another tool call."
+                )
+            return previous.id
         if owner not in self._owners:
             self._owners.add(owner)
             scope.effect(lambda: self.close_owner(owner), before_children=True)
-        number = self._counters.get(kind, 0) + 1
-        self._counters[kind] = number
-        job = Job(f"{kind}-{number}", owner, kind, label, cancel)
+        job = Job(job_id, owner, kind, label, cancel, call.run_id, call.call_id)
+        self._changed(job)
         self._jobs[job.id] = job
-        if reference is not None:
-            self._references[owner, reference] = job.id
         job.task = asyncio.create_task(self._run(job, run), name=f"job:{job.id}")
         job.task.add_done_callback(lambda task: self._finished(job, task))
         return job.id
 
-    @staticmethod
-    def _finished(job: Job, task: asyncio.Task[None]) -> None:
+    def _finished(self, job: Job, task: asyncio.Task[None]) -> None:
         if task.cancelled() and not job.settled.is_set():
             job.status, job.finished_at = "killed", time.time()
             job.settled.set()
+            self._changed(job)
         elif not task.cancelled():
             error = task.exception()
             if error is not None:
@@ -159,6 +174,18 @@ class JobRegistry:
         finally:
             job.waiters -= 1
         return job
+
+    async def wait_and_read(
+        self, job_id: str, owner: str, seconds: float
+    ) -> dict[str, JsonValue]:
+        try:
+            await self.wait(job_id, owner, seconds)
+        except asyncio.CancelledError:
+            logger.info(
+                "Stopped waiting for job %s; its owned execution continues.", job_id
+            )
+            raise
+        return self.read(job_id, owner)
 
     def read_at(self, job_id: str, owner: str, offset: int) -> dict[str, JsonValue]:
         job = self.require(job_id, owner)
@@ -212,6 +239,7 @@ class JobRegistry:
             return {"outcome": "already-finished", "job": job.snapshot()}
         job.suppress_notice = True
         job.status = "stopping"
+        self._changed(job)
         if job.task is None:
             raise RuntimeError("A registered job has no task.")
         job.task.cancel()
@@ -221,7 +249,7 @@ class JobRegistry:
         self, job: Job, run: Callable[[JobHandle], Awaitable[JsonValue]]
     ) -> None:
         try:
-            job.result = await run(JobHandle(job))
+            job.result = await run(JobHandle(job, self._changed))
             if len(json.dumps(job.result, ensure_ascii=False).encode()) > 10_000:
                 raise ValueError(
                     "Background result exceeds the model result limit; return a durable artifact reference."
@@ -238,6 +266,7 @@ class JobRegistry:
             job.finished_at = time.time()
             awaited = job.waiters > 0
             job.settled.set()
+            self._changed(job)
         if not awaited and not job.suppress_notice and not self._closing:
             if self._controller is None:
                 raise RuntimeError("The job controller detached before settlement.")
@@ -269,9 +298,6 @@ class JobRegistry:
         for job in jobs:
             del self._jobs[job.id]
         self._owners.discard(owner)
-        self._references = {
-            key: value for key, value in self._references.items() if key[0] != owner
-        }
 
     async def close(self) -> None:
         self._closing = True

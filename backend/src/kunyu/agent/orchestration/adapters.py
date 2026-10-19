@@ -1,6 +1,7 @@
 """Bind durable Kunyu state and credentials to the internal runner contracts."""
 
 from kunyu.agent.runtime.contracts.models import ModelAdapterError, ModelErrorCode
+from kunyu.agent.runtime.contracts.tools import ToolExecutionError
 from kunyu.agent.runtime.events.run import ModelSnapshotPayload
 from kunyu.agent.runtime.execution.runner_types import (
     ConfirmationRequester,
@@ -8,6 +9,11 @@ from kunyu.agent.runtime.execution.runner_types import (
 )
 from kunyu.application.execution.confirmations import ConfirmationService
 from kunyu.application.execution.questions import UserQuestionService
+from kunyu.domain.execution.confirmations import (
+    ConfirmationConflictError,
+    ConfirmationNotFoundError,
+    ConfirmationPolicyError,
+)
 from kunyu.domain.models.model_connections import (
     MaxTokensField,
     ModelAuthMode,
@@ -55,7 +61,18 @@ class ServiceConfirmationRequester(ConfirmationRequester):
         self._service = service
 
     async def request(self, run_id: str, tool_call_id: str) -> None:
-        self._service.request(run_id, tool_call_id)
+        try:
+            self._service.request(run_id, tool_call_id)
+        except ConfirmationConflictError as error:
+            raise ToolExecutionError(
+                str(error), code="TOOL_APPROVAL_CONFLICT"
+            ) from error
+        except ConfirmationNotFoundError as error:
+            raise ToolExecutionError(
+                str(error), code="TOOL_APPROVAL_NOT_FOUND"
+            ) from error
+        except ConfirmationPolicyError as error:
+            raise ToolExecutionError(str(error), code="TOOL_APPROVAL_DENIED") from error
 
 
 class SnapshotCredentialResolver:

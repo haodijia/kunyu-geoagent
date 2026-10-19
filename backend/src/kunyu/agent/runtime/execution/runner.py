@@ -1,6 +1,7 @@
 """Bounded, event-sourced model and tool execution for one accepted run."""
 
 import asyncio
+import logging
 from builtins import ExceptionGroup
 from collections.abc import Callable
 from datetime import datetime
@@ -45,6 +46,8 @@ from kunyu.agent.runtime.execution.runner_types import (
 )
 from kunyu.agent.runtime.execution.runner_types import summary as summarize
 from kunyu.agent.runtime.projection.run_state import ReducedRun
+
+logger = logging.getLogger(__name__)
 
 
 class Runner[AdapterConfigT](AgentRuntime):
@@ -126,12 +129,13 @@ class Runner[AdapterConfigT](AgentRuntime):
             await asyncio.shield(self._interrupt_if_active(run_id))
             raise
         except Exception as error:
+            logger.exception("Agent extension failed for run %s.", run_id)
             run = (await self._require_execution(run_id)).run
             self._hooks.error(run, error)
             if run.state not in TERMINAL_RUN_STATES:
                 try:
                     await self._fail_run(
-                        run, "AGENT_EXTENSION_ERROR", "An Agent extension failed."
+                        run, "AGENT_EXTENSION_ERROR", f"{type(error).__name__}: {error}"
                     )
                 except Exception as settlement_error:  # noqa: BLE001 -- report extension and storage failures together
                     raise ExceptionGroup(

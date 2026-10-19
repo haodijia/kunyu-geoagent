@@ -1,8 +1,5 @@
 """Harness-compatible generic background output and control tools."""
 
-from kunyu.agent.runtime.contracts.tools import BaseTool
-from kunyu.agent.tools.outputs.workflow import JOB, JOBS
-
 from collections.abc import Mapping
 
 from pydantic import Field
@@ -10,11 +7,13 @@ from pydantic import Field
 from kunyu.agent.orchestration.jobs import JobRegistry
 from kunyu.agent.prompts.loader import tool_description
 from kunyu.agent.runtime.contracts.tools import (
+    BaseTool,
     ToolCall,
     ToolResult,
     ToolRiskLevel,
     ToolSpec,
 )
+from kunyu.agent.tools.outputs.workflow import JOB, JOBS
 from kunyu.agent.tools.shared import (
     ToolArguments,
     load_source,
@@ -74,7 +73,9 @@ class JobTool(BaseTool):
         if self.name == "job_kill":
             return tool_result(await self.jobs.kill(args.job_id, owner))
         if args.wait:
-            await self.jobs.wait(
-                args.job_id, owner, min(args.timeout_ms, 600_000) / 1_000
+            return tool_result(
+                await self.jobs.wait_and_read(
+                    args.job_id, owner, min(args.timeout_ms, 600_000) / 1_000
+                )
             )
         return tool_result(self.jobs.read(args.job_id, owner))

@@ -4,6 +4,7 @@
 import type { AgentTurnState, ToolCall } from "@/features/agent/api";
 import type { Confirmation } from "@/features/confirmations/api";
 import type { TrajectoryEventProjection } from "@/features/events/projection/events";
+import { toolJob } from "@/features/jobs/job-state";
 import { zhCN } from "@/locales/zh-CN";
 
 type ToolKind = "read" | "edit" | "shell" | "search" | "web" | "agent" | "other";
@@ -32,6 +33,7 @@ export function toolLabel(name: string): string {
 }
 
 export function toolTarget(arguments_: ToolCall["arguments"]): ToolTargetValue | undefined {
+  if (typeof arguments_.title === "string" && arguments_.title) return { text: arguments_.title, path: false };
   if (typeof arguments_.image_id === "number") return { text: String(arguments_.image_id), path: false };
   if (typeof arguments_.start_time === "string" && typeof arguments_.end_time === "string") {
     return { text: `${arguments_.start_time} → ${arguments_.end_time}`, path: false };
@@ -50,6 +52,11 @@ export function toolTarget(arguments_: ToolCall["arguments"]): ToolTargetValue |
 
 export function toolStatus(tool: ToolCall, runState: AgentTurnState | null, confirmation: Confirmation | undefined, records: readonly TrajectoryEventProjection[]): ToolDisplayStatus {
   if (confirmation?.status === "rejected") return "denied";
+  const job = toolJob(tool.id, records);
+  if (job !== undefined) {
+    if (job.status === "running" || job.status === "stopping") return "running";
+    return job.status === "killed" ? "cancelled" : job.status;
+  }
   if (tool.status === "completed" || tool.status === "failed" || tool.status === "cancelled") return tool.status;
   if (runState === "interrupted") return "interrupted";
   if (runState === "cancelled" || runState === "completed" || runState === "failed") return "cancelled";
@@ -60,11 +67,13 @@ export function toolStatus(tool: ToolCall, runState: AgentTurnState | null, conf
 }
 
 export function toolDuration(toolId: string, records: readonly TrajectoryEventProjection[]): number | null {
+  const job = toolJob(toolId, records);
+  if (job !== undefined && job.finished_at === null) return null;
   const events = records.filter((record) => record.entityId === toolId);
   const start = events.findLast((record) => record.eventType === "tool.started");
   const end = events.findLast((record) => ["tool.completed", "tool.failed", "tool.cancelled"].includes(record.eventType));
   if (start === undefined || end === undefined || end.sequence < start.sequence) return null;
-  const milliseconds = Date.parse(end.occurredAt) - Date.parse(start.occurredAt);
+  const milliseconds = Math.max(Date.parse(end.occurredAt), job === undefined ? 0 : job.finished_at! * 1_000) - Date.parse(start.occurredAt);
   return Number.isFinite(milliseconds) && milliseconds >= 0 ? milliseconds : null;
 }
 

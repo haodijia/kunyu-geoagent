@@ -56,6 +56,12 @@ export function projectSessionEvent(
       requiredString(event, "message_id"),
     );
   }
+  if (event.event_type === "job/changed") {
+    return {
+      ...projection(event, "tool", requiredString(event, "tool_call_id")),
+      runId: requiredString(event, "owner_run_id"),
+    };
+  }
   if (
     event.event_type === "subagent/created" ||
     event.event_type === "subagent/settled"

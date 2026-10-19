@@ -46,7 +46,7 @@
 .pathPreview { display: flex; direction: ltr; unicode-bidi: isolate; }
 .pathHead { flex: 0 100000 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .pathTail { flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.callError { margin: 0 8px 4px 32px; color: var(--danger); font: 12px/1.6 var(--font-mono); overflow-wrap: anywhere; }
+.callError { margin: 0 8px 4px 32px; color: var(--danger); font: 12px/1.6 var(--font-mono); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .callDenied { margin: 0 8px 4px 32px; color: var(--text-secondary); font-size: 12px; line-height: 1.6; overflow-wrap: anywhere; }
 .detailPanel { display: flex; flex-direction: column; gap: 6px; margin: 4px 6px 8px 26px; min-width: 0; font-size: 13px; line-height: 20px; }
 .resultCard { min-width: 0; overflow: hidden; border: 1px solid var(--border-base); border-radius: 10px; background: var(--bg-2); }
@@ -66,8 +66,5 @@
 .parameters > .resultCard { margin-top: 4px; }
 .detailMetadata { color: var(--color-text-3); font-size: 11px; }
 .statusDot { display: inline-block; width: 6px; height: 6px; flex-shrink: 0; border-radius: 50%; background: var(--text-disabled); }
-.statusDot[data-tool-status="running"] { background: var(--mu-tool-processing); animation: tool-breathing 1.5s ease-in-out infinite; }
 .statusDot[data-tool-status="completed"] { background: var(--success); }
 .statusDot[data-tool-status="failed"] { background: var(--danger); }
-@keyframes tool-breathing { 0%, 100% { opacity: 0.4; } 50% { opacity: 1; } }
-@media (prefers-reduced-motion: reduce) { .statusDot[data-tool-status="running"] { animation: none; } }

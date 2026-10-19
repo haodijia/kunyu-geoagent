@@ -18,7 +18,7 @@ import {
   Search,
   Terminal,
 } from "@icon-park/react";
-import { ChevronRight } from "lucide-react";
+import { ChevronRight, LoaderCircle } from "lucide-react";
 import { useState, type ReactNode } from "react";
 
 const content = zhCN.conversation.tools;
@@ -30,6 +30,7 @@ export function ToolKindIcon({ name }: { readonly name: string }) {
 }
 
 export function ToolStatusBadge({ status, label }: { readonly status: ToolDisplayStatus; readonly label: string }) {
+  if (status === "running") return <LoaderCircle className="size-3 shrink-0 animate-spin text-primary motion-reduce:animate-none" role="img" aria-label={label} />;
   return <span className={styles.statusDot} data-tool-status={status} role="img" aria-label={label} />;
 }
 

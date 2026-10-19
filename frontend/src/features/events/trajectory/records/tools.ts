@@ -11,6 +11,7 @@ import {
 } from "@/features/events/trajectory/records/shared";
 import type { TrajectoryRecord } from "@/features/events/trajectory/trajectory-model";
 import { sanitizeTrajectoryValue } from "@/features/events/trajectory/trajectory-sanitize";
+import { toolJob } from "@/features/jobs/job-state";
 import { zhCN } from "@/locales/zh-CN";
 
 export function toolRecord(
@@ -31,6 +32,7 @@ export function toolRecord(
         event.eventType === "tool.cancelled",
     );
   const snapshot = context.tools.get(first.entityId);
+  const job = toolJob(first.entityId, context.allEvents);
   const name =
     snapshot?.name ??
     stringValue(requested?.payload.name) ??
@@ -64,6 +66,7 @@ export function toolRecord(
           content: parseToolContent(completed.content),
           display: completed.display,
           compact: completed.compact,
+          background_job: job,
         }
       : snapshot?.error_summary !== null &&
           snapshot?.error_summary !== undefined
@@ -83,7 +86,8 @@ export function toolRecord(
     text: `${name} ${safeString(input)}`,
     searchText: `${name} ${toolLabel(name)} ${safeString(input)} ${safeString(output)}`,
     status,
-    completedAt: terminal?.occurredAt ?? null,
+    completedAt: job === undefined ? terminal?.occurredAt ?? null
+      : job.finished_at === null ? null : new Date(job.finished_at * 1_000).toISOString(),
     startedAt: started?.occurredAt ?? null,
     isError: status === "failed",
     source: {

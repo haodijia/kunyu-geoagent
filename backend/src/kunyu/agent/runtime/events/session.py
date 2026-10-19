@@ -228,3 +228,20 @@ class BusinessObjectPayload(EventPayload):
 class BusinessObjectChangedEvent(_SessionEventDraft):
     event_type: Literal["analysis/job", "analysis/output", "map/changed"]
     payload: BusinessObjectPayload
+
+
+class JobChangedPayload(EventPayload):
+    id: str = Field(min_length=1, max_length=128)
+    owner_run_id: str
+    tool_call_id: str
+    kind: str
+    label: str
+    status: Literal["running", "stopping", "completed", "failed", "killed"]
+    detail: str | None
+    started_at: float
+    finished_at: float | None
+
+
+class JobChangedEvent(_SessionEventDraft):
+    event_type: Literal["job/changed"]
+    payload: JobChangedPayload
