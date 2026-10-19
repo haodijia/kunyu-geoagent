@@ -279,7 +279,7 @@ export function ConversationComposer({
               onReasoningEffortChange={onReasoningEffortChange}
               onClose={() => textareaRef.current?.focus()}
             />
-            <ContextUsageIndicator key={contextUsage?.requestSequence} value={contextUsage} />
+          <ContextUsageIndicator value={contextUsage} />
             <Button
               type="submit" size="icon" className="composer-send ml-1 size-7 rounded-full shadow-none"
               disabled={!canSend}

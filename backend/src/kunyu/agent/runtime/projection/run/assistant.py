@@ -217,9 +217,7 @@ def _finish_model_attempt(
             if isinstance(record, RawChunk) and isinstance(record.chunk, UsageChunk)
         ]
         if (
-            len(usage) > 1
-            and payload.outcome != "error"
-            or not usage
+            not usage
             and any(
                 value is not None
                 for value in (
@@ -229,7 +227,11 @@ def _finish_model_attempt(
                 )
             )
             or usage
-            and (usage[0].input_tokens, usage[0].output_tokens, usage[0].total_tokens)
+            and (
+                usage[-1].input_tokens,
+                usage[-1].output_tokens,
+                usage[-1].total_tokens,
+            )
             != (payload.input_tokens, payload.output_tokens, payload.total_tokens)
         ):
             raise RunReductionError("Attempt accounting must match its stream usage.")

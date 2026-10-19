@@ -2,8 +2,9 @@ export const conversation = {
   conversation: {
     contextUsage: {
       label: "上下文用量",
-      latestRequest: "最近一次模型请求",
-      totalUnknown: "总用量未知",
+      model: "当前模型",
+      reported: "供应商最近上报",
+      estimated: "实时估算，随生成内容和工具结果更新；供应商上报后校准。",
       windowUnknown: "上下文窗口未知",
       usedOfWindow: (percent: string, used: string, limit: string) =>
         `${percent} · ${used} / ${limit} 上下文用量`,
@@ -12,7 +13,7 @@ export const conversation = {
       output: (tokens: string) => `输出 ${tokens}`,
       cacheRead: (tokens: string) => `缓存读取 ${tokens}`,
       cacheWrite: (tokens: string) => `缓存写入 ${tokens}`,
-      compacted: "历史已压缩；此处仍为上次请求用量，下次请求后更新。",
+      compacted: "历史已压缩，上下文估算已更新。",
       compactionRunning: "正在压缩上下文…",
       compactionFailed: "压缩未替换历史。",
     },

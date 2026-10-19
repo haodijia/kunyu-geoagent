@@ -92,8 +92,7 @@ class BlockAssembler:
             # input and providers which only include content in their closing event.
             partial.block = output.block
         elif isinstance(output, TokenUsage):
-            if self.usage is not None:
-                raise ValueError("Model usage was reported more than once.")
+            # Provider samples are cumulative snapshots, not billable deltas.
             self.usage = output
         elif isinstance(output, ModelFinish):
             self.finish, self._replay = output.reason, output.replay_state

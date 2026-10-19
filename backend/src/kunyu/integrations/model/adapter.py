@@ -192,6 +192,7 @@ class SDKModelAdapter:
                     sdk_messages(request, images), prepared.settings, params
                 ) as stream:
                     iterator = stream.__aiter__()
+                    reported_usage = None
                     while True:
                         try:
                             async with asyncio.timeout(STREAM_IDLE_TIMEOUT_SECONDS):
@@ -205,9 +206,13 @@ class SDKModelAdapter:
                         registration.owner.assert_active()
                         for output in mapper.push(event):
                             yield output
+                        usage = prepared.observation.usage()
+                        if usage is not None and usage != reported_usage:
+                            yield usage
+                            reported_usage = usage
                     response = prepared.final_response(stream, params)
                     usage = prepared.observation.usage()
-                    if usage is not None:
+                    if usage is not None and usage != reported_usage:
                         yield usage
                     if (
                         not prepared.observation.terminal

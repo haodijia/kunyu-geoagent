@@ -47,24 +47,21 @@ export function ContextUsageIndicator({ value }: ContextUsageIndicatorProps) {
     },
     [],
   );
-  const usage = value?.usage;
-  const contextWindow = value?.contextWindow;
-  const contextTokens = value?.contextTokens;
+  if (value === null) return null;
+  const { usage, contextWindow, contextTokens } = value;
   const content = zhCN.conversation.contextUsage;
   const ratio =
-    contextTokens == null || contextWindow == null
+    contextWindow === null
       ? null
       : contextTokens / contextWindow;
   const main =
-    contextTokens == null
-      ? content.totalUnknown
-      : contextWindow == null
-        ? content.tokensUsed(formatTokenCount(contextTokens))
-        : content.usedOfWindow(
-            formatUsagePercentage(contextTokens / contextWindow),
-            formatTokenCount(contextTokens),
-            formatTokenCount(contextWindow, true),
-          );
+    contextWindow === null
+      ? content.tokensUsed(formatTokenCount(contextTokens))
+      : content.usedOfWindow(
+          formatUsagePercentage(contextTokens / contextWindow),
+          formatTokenCount(contextTokens),
+          formatTokenCount(contextWindow, true),
+        );
   const breakdown = [
     usage?.inputTokens == null
       ? null
@@ -104,8 +101,9 @@ export function ContextUsageIndicator({ value }: ContextUsageIndicatorProps) {
           className="relative flex size-8 shrink-0 cursor-pointer items-center justify-center rounded-full outline-none focus-visible:ring-2 focus-visible:ring-ring"
           data-context-usage
           data-usage-tokens={contextTokens}
+          data-usage-estimated={value.estimated}
           data-context-window={contextWindow}
-          data-request-sequence={value?.requestSequence}
+          data-request-sequence={value.requestSequence}
           aria-label={`${content.label} · ${main}`}
           title={main}
           onPointerEnter={reveal}
@@ -152,14 +150,6 @@ export function ContextUsageIndicator({ value }: ContextUsageIndicatorProps) {
               />
             )}
           </svg>
-          <span
-            className="absolute text-[8px] font-medium tabular-nums text-secondary-foreground"
-            aria-hidden="true"
-          >
-            {ratio === null
-              ? "?"
-              : `${Math.min(100, Math.round(ratio * 100))}%`}
-          </span>
         </button>
       </PopoverTrigger>
       <PopoverContent
@@ -175,31 +165,32 @@ export function ContextUsageIndicator({ value }: ContextUsageIndicatorProps) {
         onCloseAutoFocus={(event) => event.preventDefault()}
       >
         <p className="text-sm font-medium text-foreground">{main}</p>
+        {value.estimated && (
+          <p className="mt-1 text-xs text-muted-foreground">{content.estimated}</p>
+        )}
         {contextWindow == null && (
           <p className="mt-1 text-xs text-muted-foreground">
             {content.windowUnknown}
           </p>
         )}
         {breakdown !== "" && (
-          <p className="mt-1 text-xs text-muted-foreground">{breakdown}</p>
+          <p className="mt-1 text-xs text-muted-foreground">{content.reported} · {breakdown}</p>
         )}
-        {value !== null && (
-          <p className="mt-1 text-xs break-words text-muted-foreground">
-            {content.latestRequest} · {providerName[value.providerType]} /{" "}
-            {value.modelId}
-          </p>
-        )}
-        {value?.compaction?.outcome === "running" && (
+        <p className="mt-1 text-xs break-words text-muted-foreground">
+          {content.model} · {providerName[value.providerType]} /{" "}
+          {value.modelId}
+        </p>
+        {value.compaction?.outcome === "running" && (
           <p role="status" className="mt-1 text-xs text-muted-foreground">
             {content.compactionRunning}
           </p>
         )}
-        {value?.historyCompacted && (
+        {value.historyCompacted && (
           <p className="mt-1 text-xs text-muted-foreground">
             {content.compacted}
           </p>
         )}
-        {value?.compaction != null &&
+        {value.compaction !== null &&
           !["running", "completed"].includes(value.compaction.outcome) && (
             <p className="mt-1 text-xs text-muted-foreground">
               {content.compactionFailed}
