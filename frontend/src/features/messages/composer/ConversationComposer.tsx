@@ -101,13 +101,15 @@ export function ConversationComposer({
   const [activeIndex, setActiveIndex] = useState(0);
   const [dismissedDraft, setDismissedDraft] = useState<string | null>(null);
   const isCommand = quote === null && draft.trimStart().startsWith("/");
-  const inputLocked = pending || draftFrozen || commandPending || interactionLocked;
+  const inputLocked = pending || stopPending || draftFrozen || commandPending || interactionLocked;
   const matchingCommands = quote === null ? filterComposerCommands(commands, draft) : null;
   const menuOpen = matchingCommands !== null && dismissedDraft !== draft && !inputLocked;
   const activeCommand = matchingCommands?.[activeIndex];
   const attachmentsTooLarge = attachmentState.attachments.reduce((sum, ref) => sum + ref.bytes, 0) > 32 * 1024 * 1024;
-  const canSend = !attachmentsTooLarge && (draft.trim().length > 0 || attachmentState.attachments.length > 0) && !attachmentState.pending && !attachmentState.retryAvailable && !pending && !commandPending && !interactionLocked &&
+  const canSend = !attachmentsTooLarge && (draft.trim().length > 0 || attachmentState.attachments.length > 0) && !attachmentState.pending && !attachmentState.retryAvailable && !pending && !stopPending && !commandPending && !interactionLocked &&
     (isCommand ? !draftFrozen : !sendDisabled);
+  const primaryStops = running && !canSend;
+  const primaryPending = primaryStops ? stopPending : pending || commandPending;
 
   useEffect(() => {
     const textarea = textareaRef.current;
@@ -279,26 +281,21 @@ export function ConversationComposer({
               onReasoningEffortChange={onReasoningEffortChange}
               onClose={() => textareaRef.current?.focus()}
             />
-          <ContextUsageIndicator value={contextUsage} />
+            <ContextUsageIndicator value={contextUsage} />
             <Button
-              type="submit" size="icon" className="composer-send ml-1 size-7 rounded-full shadow-none"
-              disabled={!canSend}
-              aria-label={pending ? content.sending : draftFrozen ? content.retrySend : queuedDraft ? content.queue.sendEdited : running ? content.steer : content.send}
+              type={primaryStops ? "button" : "submit"}
+              variant={primaryStops ? "outline" : "default"}
+              size="icon"
+              className={`composer-send ml-1 size-7 rounded-full shadow-none${primaryStops ? " border-border bg-accent text-muted-foreground" : ""}`}
+              disabled={primaryStops ? stopPending || commandPending : !canSend}
+              onClick={primaryStops ? onStop : undefined}
+              aria-label={primaryStops ? content.stop : pending ? content.sending : draftFrozen ? content.retrySend : queuedDraft ? content.queue.sendEdited : running ? content.steer : content.send}
             >
-              {pending || commandPending ? <LoaderCircle className="size-3.5 animate-spin" strokeWidth={2.1} />
-                : draftFrozen ? <RotateCw className="size-3.5" strokeWidth={2.1} />
-                  : <ArrowUp className="size-4" strokeWidth={2.1} />}
+              {primaryPending ? <LoaderCircle className="size-3.5 animate-spin" strokeWidth={2.1} />
+                : primaryStops ? <Square className="size-3" fill="currentColor" strokeWidth={2.1} />
+                  : draftFrozen ? <RotateCw className="size-3.5" strokeWidth={2.1} />
+                    : <ArrowUp className="size-4" strokeWidth={2.1} />}
             </Button>
-            {running && (
-              <Button
-                type="button" variant="outline" size="icon"
-                className="ml-1 size-7 rounded-full border-border bg-accent text-muted-foreground shadow-none"
-                disabled={stopPending || commandPending} onClick={onStop} aria-label={content.stop}
-              >
-                {stopPending ? <LoaderCircle className="size-3.5 animate-spin" strokeWidth={2.1} />
-                  : <Square className="size-3" fill="currentColor" strokeWidth={2.1} />}
-              </Button>
-            )}
           </div>
         </div>
         {attachmentsTooLarge && <p role="alert" className="mt-2 text-xs text-destructive">{content.attachments.tooLarge}</p>}
