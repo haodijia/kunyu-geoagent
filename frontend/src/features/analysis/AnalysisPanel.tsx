@@ -1,10 +1,11 @@
 import { Button } from "@/components/ui/button";
+import { useAppUiStore } from "@/app/store";
 import {
   analysisApi,
   analysisKeys,
   type MapLayer,
 } from "@/features/analysis/api";
-import { LayerRow, type LayerAction } from "@/features/analysis/MapLayerRows";
+import { LayerRow, type LayerMutation } from "@/features/analysis/MapLayerRows";
 import { zhCN } from "@/locales/zh-CN";
 import {
   closestCenter,
@@ -31,18 +32,15 @@ export function AnalysisPanel({ sessionId, layers, error }: {
   readonly error: boolean;
 }) {
   const [open, setOpen] = useState(true);
-  const [inspectedLayerId, setInspectedLayerId] = useState<string | null>(null);
+  const inspectedLayerId = useAppUiStore(state => state.mapExpandedLayerBySession[sessionId]);
   const client = useQueryClient();
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
   );
   const mutation = useMutation({
-    mutationFn: async ({ layer, action }: { layer: MapLayer; action: LayerAction }) => {
-      if (action.kind === "focus") {
-        const value = await analysisApi.focus(sessionId, layer.id);
-        client.setQueryData(analysisKeys.map(sessionId), value);
-      } else if (action.kind === "remove") {
+    mutationFn: async ({ layer, action }: { layer: MapLayer; action: LayerMutation }) => {
+      if (action.kind === "remove") {
         await analysisApi.removeLayer(sessionId, layer);
       } else {
         await analysisApi.style(sessionId, layer, {
@@ -53,10 +51,7 @@ export function AnalysisPanel({ sessionId, layers, error }: {
       }
     },
     onError: (reason) => console.error("[map] Updating a layer failed.", { sessionId, reason }),
-    onSettled: () => Promise.all([
-      client.invalidateQueries({ queryKey: analysisKeys.layers(sessionId) }),
-      client.invalidateQueries({ queryKey: analysisKeys.map(sessionId) }),
-    ]),
+    onSettled: () => client.invalidateQueries({ queryKey: analysisKeys.layers(sessionId) }),
   });
   const ordered = [...layers].sort((left, right) => right.position - left.position);
   function reorder({ active, over }: DragEndEvent) {
@@ -95,8 +90,12 @@ export function AnalysisPanel({ sessionId, layers, error }: {
             layer={layer}
             expanded={layer.id === inspectedLayerId}
             disabled={mutation.isPending}
-            onInspect={() => setInspectedLayerId(current => current === layer.id ? null : layer.id)}
-            onAction={(action) => mutation.mutate({ layer, action })}
+            onInspect={() => useAppUiStore.getState().inspectMapLayer(sessionId, inspectedLayerId === layer.id ? null : layer.id)}
+            onAction={(action) => {
+              if (action.kind === "focus") {
+                if (layer.bounds !== null) useAppUiStore.getState().focusMap(sessionId, layer.bounds);
+              } else mutation.mutate({ layer, action });
+            }}
           />)}
         </SortableContext>
       </DndContext>

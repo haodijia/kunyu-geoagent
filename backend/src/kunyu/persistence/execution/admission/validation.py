@@ -1,39 +1,21 @@
-"""Validate the stored model, image capability and selected imagery before admission."""
+"""Validate model availability and admitted attachment capabilities."""
 
 from kunyu.domain.conversation.attachments import Attachment, AttachmentError
 from kunyu.domain.execution.run_acceptance import (
     CredentialUnavailableError,
-    InvalidMapContextError,
     ModelUnverifiedError,
-    RunAcceptanceRequest,
     UnsupportedModelCapabilityError,
 )
-from kunyu.domain.geospatial.map_context import TurnMapContext
 from kunyu.domain.models.model_connections import ModelAuthMode
 from kunyu.domain.models.model_images import ModelImageInput
 from kunyu.domain.models.model_reasoning import (
     ModelReasoningSettings,
     reasoning_parameters,
 )
-from kunyu.persistence.database import Database
-from kunyu.persistence.geospatial.imagery import ImageryRepository
 from kunyu.persistence.records.models import (
     ModelCatalogEntryRecord,
     ModelConnectionRecord,
 )
-
-
-def require_image_selection(database: Database, request: RunAcceptanceRequest) -> None:
-    selection = TurnMapContext.model_validate(request.map_context).image_selection
-    if selection is None:
-        return
-    candidates = ImageryRepository(database).get(
-        request.session_id, selection.candidate_set_id
-    )
-    if not any(image.imageId == selection.image_id for image in candidates.images):
-        raise InvalidMapContextError(
-            "The selected image does not belong to this candidate set."
-        )
 
 
 def validate_model(

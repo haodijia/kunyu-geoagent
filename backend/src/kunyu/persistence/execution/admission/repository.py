@@ -38,7 +38,6 @@ from kunyu.persistence.execution.admission.events import turn_events
 from kunyu.persistence.execution.admission.snapshots import _session_state, load_result
 from kunyu.persistence.execution.admission.validation import (
     require_image_input,
-    require_image_selection,
     validate_model,
 )
 from kunyu.persistence.execution.agent_projections import (
@@ -153,7 +152,6 @@ class SQLAlchemyRunAcceptanceRepository:
                 raise InvalidMapContextError(
                     "The map context does not belong to the current workspace."
                 )
-            require_image_selection(self._database, request)
             selection = request.model_selection
             connection = database_session.get(
                 ModelConnectionRecord, selection.connection_id
@@ -366,7 +364,6 @@ class SQLAlchemyRunAcceptanceRepository:
                 raise InvalidMapContextError(
                     "The steering map belongs to another workspace."
                 )
-            require_image_selection(self._database, request)
             selection = request.model_selection
             if (
                 selection.connection_id,

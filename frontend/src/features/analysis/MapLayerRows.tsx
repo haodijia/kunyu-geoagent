@@ -15,10 +15,11 @@ import {
 import { useEffect, useState } from "react";
 
 const content = zhCN.analysis;
-export type LayerAction =
-  | { readonly kind: "focus" | "visibility" | "remove" }
+export type LayerMutation =
+  | { readonly kind: "visibility" | "remove" }
   | { readonly kind: "opacity"; readonly value: number }
   | { readonly kind: "reorder"; readonly position: number };
+export type LayerAction = LayerMutation | { readonly kind: "focus" };
 
 export function LayerRow({ sessionId, layer, expanded, disabled, onInspect, onAction }: {
   readonly sessionId: string;
@@ -77,7 +78,7 @@ export function LayerRow({ sessionId, layer, expanded, disabled, onInspect, onAc
           onKeyUp={(event) => { if (["ArrowLeft", "ArrowRight", "Home", "End", "ArrowUp", "ArrowDown"].includes(event.key) && opacity !== layer.opacity) onAction({ kind: "opacity", value: opacity }); }} />
         <span className="w-8 text-right tabular-nums">{Math.round(opacity * 100)}%</span>
       </label>
-      <Button size="icon" className="size-6" variant="ghost" aria-label={content.focus} disabled={disabled} onClick={() => onAction({ kind: "focus" })}><LocateFixed className="size-3.5" /></Button>
+      <Button size="icon" className="size-6" variant="ghost" aria-label={content.focus} disabled={layer.bounds === null} onClick={() => onAction({ kind: "focus" })}><LocateFixed className="size-3.5" /></Button>
       <Button size="icon" className="size-6" variant="ghost" aria-label={content.remove} disabled={disabled} onClick={() => onAction({ kind: "remove" })}><Trash2 className="size-3.5" /></Button>
     </div>
   </section>;

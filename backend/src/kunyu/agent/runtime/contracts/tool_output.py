@@ -6,7 +6,6 @@ from pydantic import BaseModel, ConfigDict, Field, JsonValue, TypeAdapter
 
 from kunyu.agent.runtime.contracts.tool_content import ToolContent
 from kunyu.domain.conversation.attachments import ImageAttachment
-from kunyu.domain.geospatial.analysis import MapPresentation
 
 
 class OutputValue(BaseModel):
@@ -40,24 +39,13 @@ class AnalysisDisplay(OutputValue):
     job_id: str = Field(min_length=1)
 
 
-class MapDisplay(OutputValue):
-    kind: Literal["map"] = "map"
-    summary: str = Field(min_length=1, max_length=240)
-    presentation: MapPresentation
-
-
 class StatusDisplay(OutputValue):
     kind: Literal["none", "subagent"]
     summary: str = Field(min_length=1, max_length=240)
 
 
 type ToolDisplay = Annotated[
-    TextDisplay
-    | DataDisplay
-    | ImagesDisplay
-    | AnalysisDisplay
-    | MapDisplay
-    | StatusDisplay,
+    TextDisplay | DataDisplay | ImagesDisplay | AnalysisDisplay | StatusDisplay,
     Field(discriminator="kind"),
 ]
 TOOL_DISPLAY = TypeAdapter(ToolDisplay)

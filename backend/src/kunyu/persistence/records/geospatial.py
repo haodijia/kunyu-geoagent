@@ -87,14 +87,6 @@ class AnalysisOutputRecord(Base):
     )
 
 
-class MapStateRecord(Base):
-    __tablename__ = "map_states"
-    session_id: Mapped[str] = mapped_column(
-        ForeignKey("sessions.id", ondelete="CASCADE"), primary_key=True
-    )
-    value: Mapped[dict] = mapped_column(JSON, nullable=False)
-
-
 class MapLayerRecord(Base):
     __tablename__ = "map_layers"
     __table_args__ = (

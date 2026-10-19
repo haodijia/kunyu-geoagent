@@ -454,13 +454,6 @@ CREATE TABLE analysis_outputs (
 
 CREATE INDEX ix_analysis_outputs_workspace_created ON analysis_outputs (workspace_id, created_at);
 
-CREATE TABLE map_states (
-	session_id VARCHAR(64) NOT NULL,
-	value JSON NOT NULL,
-	PRIMARY KEY (session_id),
-	FOREIGN KEY(session_id) REFERENCES sessions (id) ON DELETE CASCADE
-);
-
 CREATE TABLE map_layers (
 	id VARCHAR(64) NOT NULL,
 	session_id VARCHAR(64) NOT NULL,
@@ -488,4 +481,4 @@ CREATE TABLE oge_account (
     CONSTRAINT ck_oge_account_singleton CHECK (id = 1)
 );
 
-PRAGMA user_version = 7;
+PRAGMA user_version = 8;

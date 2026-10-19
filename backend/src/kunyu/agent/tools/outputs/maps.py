@@ -1,6 +1,6 @@
-"""Map projections describe receipts rather than claiming a render succeeded."""
+"""Report committed layer changes without claiming that a client rendered them."""
 
-from kunyu.agent.runtime.contracts.tool_output import MapDisplay, TextDisplay
+from kunyu.agent.runtime.contracts.tool_output import TextDisplay
 from kunyu.agent.runtime.contracts.tools import ToolOutputContract
 from kunyu.agent.tools.outputs.shared import (
     agent_content,
@@ -8,12 +8,10 @@ from kunyu.agent.tools.outputs.shared import (
     label,
     object_result,
 )
-from kunyu.domain.geospatial.analysis import MapPresentation
 
 
 def present_display(result):
-    receipt = MapPresentation.model_validate(object_result(result)["presentation"])
-    return MapDisplay(summary=label("map_" + receipt.status), presentation=receipt)
+    return TextDisplay(summary=label("map_added"), text=label("map_added"))
 
 
 def present_compact(result):
@@ -32,14 +30,7 @@ def context_display(result):
 
 
 def context_compact(result):
-    data = object_result(result)
-    return compact(
-        label("map_context"),
-        {
-            "state": data["state"],
-            "layers": data["layers"],
-        },
-    )
+    return compact(label("map_context"), object_result(result))
 
 
 CONTEXT = ToolOutputContract(agent_content, context_display, context_compact)

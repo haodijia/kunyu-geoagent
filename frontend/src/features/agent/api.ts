@@ -122,7 +122,6 @@ export interface StepModelSnapshot {
 }
 
 export interface TurnMapContext {
-  readonly image_selection: {readonly candidate_set_id: string; readonly image_id: number} | null;
   readonly workspace_id: string;
   readonly viewport: {
     readonly latitude: number;

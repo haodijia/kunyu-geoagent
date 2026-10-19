@@ -21,9 +21,6 @@ export function useAnalysisInvalidation(sessionId: string, workspaceId: string) 
       }
       if (event.event_type === "map/changed") {
         void client.invalidateQueries({
-          queryKey: analysisKeys.map(sessionId),
-        });
-        void client.invalidateQueries({
           queryKey: analysisKeys.layers(sessionId),
         });
       }

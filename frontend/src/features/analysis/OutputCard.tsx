@@ -45,8 +45,7 @@ export function OutputCard({
             opacity: layer.opacity,
             position: layer.position,
           });
-        const state = await analysisApi.focus(sessionId, layer.id);
-        client.setQueryData(analysisKeys.map(sessionId), state);
+        useAppUiStore.getState().focusMap(sessionId, output.bounds);
         await client.invalidateQueries({
           queryKey: analysisKeys.layers(sessionId),
         });

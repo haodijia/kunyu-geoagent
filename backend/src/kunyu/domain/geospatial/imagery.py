@@ -2,13 +2,15 @@
 
 import math
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 
-from kunyu.domain.geospatial.map_context import ImageSelectionReference
 from kunyu.domain.geospatial.oge import OgeImageRecord
 
 
-class LayerImage(ImageSelectionReference):
+class LayerImage(BaseModel):
+    model_config = ConfigDict(extra="forbid", frozen=True)
+    candidate_set_id: str = Field(min_length=1, max_length=128)
+    image_id: int = Field(gt=0)
     product_name: str
     acquired_at: str
     resolution: str | None

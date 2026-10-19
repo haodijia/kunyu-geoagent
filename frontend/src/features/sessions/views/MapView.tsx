@@ -13,57 +13,19 @@ import { useSessionWorkspace } from "@/features/sessions/SessionWorkspaceContext
 import { zhCN } from "@/locales/zh-CN";
 
 import { AnalysisPanel } from "@/features/analysis/AnalysisPanel";
-import type { MapState } from "@/features/analysis/api";
+import { analysisApi, analysisKeys } from "@/features/analysis/api";
+import { useQuery } from "@tanstack/react-query";
 import { MapConversation } from "@/features/maps/conversation/MapConversation";
 import { MapLayers } from "@/features/maps/layers/MapLayers";
-import { useMapPresentation } from "@/features/maps/layers/useMapPresentation";
-import { usePersistentMap } from "@/features/maps/runtime/usePersistentMap";
+import { useMapFocus } from "@/features/maps/runtime/useMapFocus";
 
 const content = zhCN.map;
 
 export function MapView() {
   const session = useSessionWorkspace();
-  const persistent = usePersistentMap(session.id);
-  if (persistent.state.isError)
-    return (
-      <div
-        className="flex h-full items-center justify-center gap-3 text-sm text-destructive"
-        role="alert"
-      >
-        {zhCN.analysis.loadFailed}
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => void persistent.state.refetch()}
-        >
-          {content.retry}
-        </Button>
-      </div>
-    );
-  if (persistent.state.data === undefined)
-    return (
-      <div
-        className="flex h-full items-center justify-center text-sm text-muted-foreground"
-        role="status"
-      >
-        {zhCN.analysis.loading}
-      </div>
-    );
-  return (
-    <MapCanvas
-      key={session.id}
-      state={persistent.state.data}
-      persistent={persistent}
-    />
-  );
+  return <MapCanvas key={session.id} />;
 }
-function MapCanvas({
-  state,
-  persistent,
-}: {
-  readonly state: MapState;
-  readonly persistent: ReturnType<typeof usePersistentMap>;
-}) {
+function MapCanvas() {
   const targetRef = useRef<HTMLDivElement>(null);
   const overlayRef = useRef<HTMLDivElement>(null);
   const session = useSessionWorkspace();
@@ -72,10 +34,10 @@ function MapCanvas({
     overlayRef,
     session.id,
     session.workspace_id,
-    state,
-    persistent.save,
   );
-  const layers = persistent.layers.data ?? [];
+  useMapFocus(session.id, map);
+  const layerQuery = useQuery({ queryKey: analysisKeys.layers(session.id), queryFn: () => analysisApi.layers(session.id) });
+  const layers = layerQuery.data ?? [];
   const [layerErrors, setLayerErrors] = useState<Readonly<Record<string, string>>>({});
   const layerError = useCallback((id: string, error: string | null) => {
     setLayerErrors(current => {
@@ -86,7 +48,6 @@ function MapCanvas({
       return next;
     });
   }, []);
-  const presentation = useMapPresentation(map, state, layers, Object.keys(layerErrors).length > 0);
 
   return (
     <div
@@ -95,37 +56,8 @@ function MapCanvas({
     >
       <div ref={targetRef} className="absolute inset-0" />
       <MapToolbar map={map} />
-      <MapLayers map={map} state={state} workspaceId={session.workspace_id} layers={layers} onError={layerError} />
-      <AnalysisPanel sessionId={session.id} layers={layers} error={persistent.layers.isError || Object.keys(layerErrors).length > 0} />
-      {presentation.pendingFocus && (
-        <Button
-          variant="secondary"
-          size="sm"
-          className="absolute top-4 left-1/2 z-10 -translate-x-1/2 shadow-sm"
-          onClick={presentation.focus}
-        >
-          {zhCN.mapConversation.locate}
-        </Button>
-      )}
-      {presentation.receiptError && (
-        <p
-          role="alert"
-          className="absolute top-16 right-4 z-10 rounded-lg bg-background/95 px-3 py-2 text-xs text-destructive"
-        >
-          {zhCN.mapConversation.receiptFailed}
-          <Button variant="ghost" size="sm" onClick={presentation.retryReceipt}>
-            {zhCN.mapConversation.retry}
-          </Button>
-        </p>
-      )}
-      {persistent.saveFailed && (
-        <div
-          className="absolute top-16 right-32 z-10 rounded-lg bg-background px-3 py-2 text-xs text-destructive"
-          role="alert"
-        >
-          {zhCN.analysis.saveFailed}
-        </div>
-      )}
+      <MapLayers map={map} workspaceId={session.workspace_id} layers={layers} onError={layerError} />
+      <AnalysisPanel sessionId={session.id} layers={layers} error={layerQuery.isError || Object.keys(layerErrors).length > 0} />
       <div className="pointer-events-none absolute right-4 bottom-[calc(var(--map-overlay-height,180px)+3rem)] z-10 max-w-80 [&>*]:pointer-events-auto">
         {map.failed ? (
           <div

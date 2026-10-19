@@ -1,6 +1,5 @@
 import { useAppUiStore } from "@/app/store";
 import { useSessionEvents } from "@/features/events/SessionEventContext";
-import { useMapState } from "@/features/maps/runtime/usePersistentMap";
 import { useSessionWorkspace } from "@/features/sessions/SessionWorkspaceContext";
 import { sessionMapPath } from "@/features/sessions/routes";
 import { useEffect, useRef } from "react";
@@ -12,17 +11,6 @@ export function MapPresentationBridge() {
   const navigate = useNavigate();
   const location = useLocation();
   const handled = useRef(new Set<string>());
-  const hydratedSession = useRef<string | null>(null);
-  const map = useMapState(session.id);
-  useEffect(() => {
-    if (map.data === undefined) return;
-    const store = useAppUiStore.getState();
-    store.initializeMapContext(session.id, session.workspace_id);
-    if (hydratedSession.current !== session.id) {
-      store.setMapView(session.id, map.data.viewport, map.data.camera);
-      hydratedSession.current = session.id;
-    }
-  }, [session.id, session.workspace_id, map.data]);
   useEffect(() => {
     for (const event of events) {
       if (
@@ -50,11 +38,15 @@ export function MapPresentationBridge() {
         !("request_id" in request) ||
         typeof request.request_id !== "string" ||
         !("open_map" in request) ||
-        typeof request.open_map !== "boolean"
+        typeof request.open_map !== "boolean" ||
+        !("focus" in request) || typeof request.focus !== "boolean" ||
+        !("bounds" in request) || (request.bounds !== null && (!Array.isArray(request.bounds) || request.bounds.length !== 4 || !request.bounds.every(value => typeof value === "number" && Number.isFinite(value))))
       )
         throw new Error("Invalid map presentation request.");
       if (handled.current.has(request.request_id)) continue;
       handled.current.add(request.request_id);
+      if (request.focus && request.bounds !== null)
+        useAppUiStore.getState().focusMap(session.id, [request.bounds[0], request.bounds[1], request.bounds[2], request.bounds[3]]);
       if (
         request.open_map &&
         location.pathname !== sessionMapPath(session.workspace_id, session.id)

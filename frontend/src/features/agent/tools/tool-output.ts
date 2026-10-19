@@ -1,4 +1,3 @@
-import type { MapPresentation } from "@/features/analysis/api";
 import { parseAttachments, type Attachment } from "@/features/attachments/api";
 import type { ToolContentBlock } from "@/features/agent/tools/tool-content";
 
@@ -8,7 +7,6 @@ export type ToolDisplay = { readonly summary: string } & (
   | { readonly kind: "read" | "search" | "file_change" | "image_read" | "todos"; readonly data: unknown; readonly text: string; readonly images: readonly Image[] }
   | { readonly kind: "images"; readonly images: readonly Image[]; readonly description: string }
   | { readonly kind: "analysis"; readonly job_id: string }
-  | { readonly kind: "map"; readonly presentation: MapPresentation }
   | { readonly kind: "none" | "subagent" }
 );
 
@@ -29,9 +27,6 @@ export function parseToolDisplay(value: unknown): ToolDisplay {
     case "analysis":
       if (!("job_id" in value) || typeof value.job_id !== "string" || !value.job_id) break;
       return { kind: "analysis", summary, job_id: value.job_id };
-    case "map":
-      if (!("presentation" in value) || value.presentation === null || typeof value.presentation !== "object") break;
-      return { kind: "map", summary, presentation: value.presentation as MapPresentation };
     case "images": {
       if (!("images" in value) || !("description" in value) || typeof value.description !== "string") break;
       const images = parseImages(value.images);

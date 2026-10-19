@@ -1,8 +1,5 @@
 """Map tools read and mutate only the calling session's typed map objects."""
 
-from kunyu.agent.runtime.contracts.tools import BaseTool
-from kunyu.agent.tools.outputs.maps import CONTEXT, PRESENT, STYLE
-
 from collections.abc import Mapping
 from typing import Literal
 
@@ -10,12 +7,14 @@ from pydantic import Field, model_validator
 
 from kunyu.agent.prompts.loader import tool_description
 from kunyu.agent.runtime.contracts.tools import (
+    BaseTool,
     ToolCall,
     ToolExecutionError,
     ToolResult,
     ToolRiskLevel,
     ToolSpec,
 )
+from kunyu.agent.tools.outputs.maps import CONTEXT, PRESENT, STYLE
 from kunyu.agent.tools.shared import (
     ToolArguments,
     load_source,
@@ -103,14 +102,14 @@ class MapTool(BaseTool):
         try:
             if self.spec.name == "map_get_context":
                 value = {
-                    "state": self._maps.state(session_id).model_dump(mode="json"),
+                    "viewport": source.run.map_snapshot["viewport"],
                     "layers": [
                         layer.model_dump(mode="json")
                         for layer in self._maps.layers(session_id)
                     ],
                 }
             elif self.spec.name == "map_present":
-                state = self._maps.present(
+                presentation = self._maps.present(
                     session_id,
                     call.call_id,
                     args.target,
@@ -120,8 +119,7 @@ class MapTool(BaseTool):
                     image_id=args.image_id,
                 )
                 value = {
-                    "presentation": state.presentation.model_dump(mode="json"),
-                    "state_revision": state.revision,
+                    "presentation": presentation.model_dump(mode="json"),
                 }
             else:
                 value = self._maps.style(

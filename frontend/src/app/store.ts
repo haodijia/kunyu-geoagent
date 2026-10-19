@@ -1,6 +1,7 @@
 import type { Attachment } from "@/features/attachments/api";
 import type { ReplyQuote } from "@/features/messages/model/reply-quote";
 import { create } from "zustand";
+import { readMapView, writeMapView } from "@/features/maps/runtime/map-view-storage";
 
 import {
   readSidebarCollapsed,
@@ -13,6 +14,7 @@ import {
 } from "@/app/storage";
 import {
   createMapContext,
+  type MapBounds,
   type MapCamera,
   type MapContext,
   type MapViewport,
@@ -35,6 +37,11 @@ interface AppUiState {
   readonly setComposerQuote: (sessionId: string, quote: ReplyQuote | null) => void;
   readonly composerQueuedBySession: Readonly<Record<string, boolean>>;
   readonly mapContextBySession: Readonly<Record<string, MapContext>>;
+  readonly mapExpandedLayerBySession: Readonly<Record<string, string | null>>;
+  readonly inspectMapLayer: (sessionId: string, layerId: string | null) => void;
+  readonly mapFocusBySession: Readonly<Record<string, MapBounds>>;
+  readonly focusMap: (sessionId: string, bounds: MapBounds) => void;
+  readonly clearMapFocus: (sessionId: string) => void;
   readonly modelSelectionBySession: Readonly<Record<string, SessionModelSelection>>;
   readonly sidebarCollapsed: boolean;
   readonly sidebarWidth: number;
@@ -68,6 +75,20 @@ export const useAppUiStore = create<AppUiState>((set) => ({
   setComposerAttachments: (sessionId, attachments) => set((state) => ({ composerAttachmentsBySession: { ...state.composerAttachmentsBySession, [sessionId]: attachments } })),
   composerQueuedBySession: {},
   mapContextBySession: {},
+  mapExpandedLayerBySession: {},
+  inspectMapLayer: (sessionId, layerId) => set(state => {
+    const context = state.mapContextBySession[sessionId];
+    if (context === undefined) throw new Error("Map context must be initialized before inspecting a layer.");
+    writeMapView(sessionId, { viewport: context.viewport, camera: context.camera, expanded_layer_id: layerId });
+    return { mapExpandedLayerBySession: { ...state.mapExpandedLayerBySession, [sessionId]: layerId } };
+  }),
+  mapFocusBySession: {},
+  focusMap: (sessionId, bounds) => set(state => ({ mapFocusBySession: { ...state.mapFocusBySession, [sessionId]: [...bounds] } })),
+  clearMapFocus: (sessionId) => set(state => {
+    const next = { ...state.mapFocusBySession };
+    delete next[sessionId];
+    return { mapFocusBySession: next };
+  }),
   modelSelectionBySession: {},
   sidebarCollapsed: readSidebarCollapsed(),
   sidebarWidth: readSidebarWidth(),
@@ -87,11 +108,15 @@ export const useAppUiStore = create<AppUiState>((set) => ({
       if (state.mapContextBySession[sessionId] !== undefined) {
         return state;
       }
+      const saved = readMapView(sessionId);
+      const initial = createMapContext(workspaceId);
+      const context = saved === null ? initial : { ...initial, viewport: saved.viewport, camera: saved.camera };
       return {
         mapContextBySession: {
           ...state.mapContextBySession,
-          [sessionId]: createMapContext(workspaceId)
-        }
+          [sessionId]: context,
+        },
+        mapExpandedLayerBySession: { ...state.mapExpandedLayerBySession, [sessionId]: saved === null ? null : saved.expanded_layer_id },
       };
     }),
   setAnalysisMode: (sessionId, mode) =>
@@ -128,6 +153,7 @@ export const useAppUiStore = create<AppUiState>((set) => ({
       if (current === undefined) {
         throw new Error("Map context must be initialized before updating its view.");
       }
+      writeMapView(sessionId, { viewport, camera, expanded_layer_id: state.mapExpandedLayerBySession[sessionId] ?? null });
       return {
         mapContextBySession: {
           ...state.mapContextBySession,

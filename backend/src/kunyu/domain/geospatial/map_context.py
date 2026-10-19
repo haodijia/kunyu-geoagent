@@ -3,12 +3,6 @@
 from pydantic import BaseModel, ConfigDict, Field, JsonValue
 
 
-class ImageSelectionReference(BaseModel):
-    model_config = ConfigDict(extra="forbid", frozen=True)
-    candidate_set_id: str = Field(min_length=1, max_length=128)
-    image_id: int = Field(gt=0)
-
-
 class MapViewportInput(BaseModel):
     model_config = ConfigDict(extra="forbid")
     latitude: float = Field(ge=-90, le=90, allow_inf_nan=False)
@@ -20,7 +14,6 @@ class TurnMapContext(BaseModel):
     model_config = ConfigDict(extra="forbid")
     workspace_id: str = Field(min_length=1, max_length=64)
     viewport: MapViewportInput
-    image_selection: ImageSelectionReference | None = None
     event_id: None = None
     selected_aoi_id: None = None
     selected_feature: None = None

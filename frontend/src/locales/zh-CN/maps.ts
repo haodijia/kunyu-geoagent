@@ -4,29 +4,13 @@ export const maps = {
     unknownResolution: "分辨率未知",
     cloud: (value: number) => `云量 ${value}%`,
     noFootprint: "无有效覆盖范围",
-    locate: "定位结果",
-    receiptFailed: "地图展示回执未保存。",
     history: "完整对话",
     closeHistory: "收起对话",
     messages: "最近消息",
     you: "你",
     runFailed: "Agent 运行失败，可展开完整对话查看原因。",
     thinking: "思考",
-    presentation: {
-      requested: {
-        candidates: "已请求在地图展示候选影像，等待地图确认。",
-        output: "已请求在地图展示分析结果，等待地图确认。",
-      },
-      applied: {
-        candidates: "候选影像已在地图显示。",
-        output: "分析结果已在地图显示。",
-      },
-      failed: {
-        candidates: "候选影像未能在地图显示。",
-        output: "分析结果未能在地图显示。",
-      },
-      readFailed: "地图回执读取失败，暂时无法确认最新展示状态。",
-    },
+
   },
   analysis: {
     title: "图层",
@@ -81,7 +65,6 @@ export const maps = {
     refresh: "重新读取",
     close: "收起面板",
     open: "展开分析面板",
-    saveFailed: "地图视图保存失败，请重新读取地图状态。",
     outputReference: "结果引用",
     spatialReference: "空间参考",
     displaySize: "显示影像尺寸",

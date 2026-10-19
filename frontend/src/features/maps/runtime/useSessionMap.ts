@@ -18,14 +18,11 @@ import {
 } from "@/features/maps/runtime/config";
 import {
   INITIAL_MAP_VIEWPORT,
-  type MapCamera,
   type MapDimension,
-  type MapViewport,
 } from "@/features/sessions/map-context";
 import { zhCN } from "@/locales/zh-CN";
 
 import { getRuntimeConnection } from "@/api/runtime";
-import type { MapState } from "@/features/analysis/api";
 
 setWorkerUrl(workerUrl);
 
@@ -104,18 +101,7 @@ export function useSessionMap(
   overlayRef: RefObject<HTMLDivElement | null>,
   sessionId: string,
   workspaceId: string,
-  initialState: MapState,
-  onViewChange: (
-    viewport: MapViewport,
-    camera: MapCamera,
-    appliedFocusRevision: number,
-  ) => void,
 ) {
-  const initial = useRef(initialState);
-  initial.current = initialState;
-  const onView = useRef(onViewChange);
-  onView.current = onViewChange;
-  const appliedFocus = useRef(initialState.applied_focus_revision);
   const mapRef = useRef<Map | null>(null);
   const overlayHeightRef = useRef(0);
   const dimensionRef = useRef<MapDimension>("2d");
@@ -134,8 +120,7 @@ export function useSessionMap(
     const container = target.parentElement;
     const store = useAppUiStore.getState();
     store.initializeMapContext(sessionId, workspaceId);
-    const context = initial.current;
-    store.setMapView(sessionId, context.viewport, context.camera);
+    const context = useAppUiStore.getState().mapContextBySession[sessionId]!;
 
     dimensionRef.current = context.camera.dimension;
     setDimension(context.camera.dimension);
@@ -192,7 +177,7 @@ export function useSessionMap(
     );
     map.getCanvas().setAttribute("aria-label", zhCN.map.label);
 
-    const persistView = () => {
+    const rememberView = () => {
       const center = map.getCenter().wrap();
       const viewport = {
         longitude: center.lng,
@@ -205,7 +190,6 @@ export function useSessionMap(
         pitch: map.getPitch(),
       };
       useAppUiStore.getState().setMapView(sessionId, viewport, camera);
-      onView.current(viewport, camera, appliedFocus.current);
     };
     const onStyleLoad = () => {
       applyDimension(map, dimensionRef.current);
@@ -258,19 +242,19 @@ export function useSessionMap(
     resizeObserver.observe(overlay);
     resize();
     map.on("style.load", onStyleLoad);
-    map.on("moveend", persistView);
+    map.on("moveend", rememberView);
     map.on("idle", onIdle);
     map.on("error", onError);
     map.on("webglcontextlost", onContextLost);
     startLoadTimer();
 
     return () => {
-      persistView();
+      rememberView();
       clearTimeout(loadTimer);
       themeObserver.disconnect();
       resizeObserver.disconnect();
       map.off("style.load", onStyleLoad);
-      map.off("moveend", persistView);
+      map.off("moveend", rememberView);
       map.off("idle", onIdle);
       map.off("error", onError);
       map.off("webglcontextlost", onContextLost);
@@ -317,10 +301,6 @@ export function useSessionMap(
 
   return {
     getMap: () => mapRef.current,
-    markFocusApplied: (revision: number) => {
-      appliedFocus.current = revision;
-    },
-    appliedFocusRevision: appliedFocus,
     dimension,
     ready,
     focusBounds,

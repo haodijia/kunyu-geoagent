@@ -6,12 +6,20 @@ export interface MapViewport {
   readonly zoom: number;
 }
 
+export type MapBounds = readonly [number, number, number, number];
+
 export type MapDimension = "2d" | "3d";
 
 export interface MapCamera {
   readonly dimension: MapDimension;
   readonly bearing: number;
   readonly pitch: number;
+}
+
+export interface MapView {
+  readonly viewport: MapViewport;
+  readonly camera: MapCamera;
+  readonly expanded_layer_id: string | null;
 }
 
 export const INITIAL_MAP_VIEWPORT: MapViewport = {

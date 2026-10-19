@@ -1,5 +1,4 @@
 import { requestBlob, requestJson } from "@/api/client";
-import type { MapCamera, MapViewport } from "@/features/sessions/map-context";
 
 export interface AnalysisJob {
   readonly id: string;
@@ -42,30 +41,6 @@ export interface AnalysisOutput {
   readonly revision: number;
   readonly created_at: string;
 }
-export interface MapState {
-  readonly session_id: string;
-  readonly revision: number;
-  readonly view_revision: number;
-  readonly viewport: MapViewport;
-  readonly camera: MapCamera;
-  readonly selected_layer_id: string | null;
-  readonly focus_layer_id: string | null;
-  readonly focus_revision: number;
-  readonly applied_focus_revision: number;
-  readonly image_selection: { readonly candidate_set_id: string; readonly image_id: number } | null;
-  readonly presentation: MapPresentation | null;
-}
-export interface MapPresentation {
-  readonly request_id: string;
-  readonly target: "candidates" | "output";
-  readonly reference_id: string;
-  readonly image_id: number | null;
-  readonly open_map: boolean;
-  readonly focus: boolean;
-  readonly bounds: readonly [number, number, number, number] | null;
-  readonly status: "requested" | "applied" | "failed";
-  readonly error: string | null;
-}
 export interface MapLayer {
   readonly id: string;
   readonly session_id: string;
@@ -95,7 +70,6 @@ export interface LayerStyle {
 export const analysisKeys = {
   jobs: (id: string) => ["analysis", id, "jobs"] as const,
   outputs: (id: string) => ["analysis", "workspaces", id, "outputs"] as const,
-  map: (id: string) => ["analysis", id, "map"] as const,
   layers: (id: string) => ["analysis", id, "layers"] as const,
 };
 export const analysisPath = (sessionId: string) =>
@@ -108,33 +82,11 @@ export const analysisApi = {
   jobs: (id: string) => requestJson<AnalysisJob[]>(`${analysisPath(id)}/jobs`),
   outputs: (id: string) =>
     requestJson<AnalysisOutput[]>(workspaceResultsPath(id)),
-  map: (id: string) => requestJson<MapState>(mapPath(id)),
   layers: (id: string) => requestJson<MapLayer[]>(`${mapPath(id)}/layers`),
-  saveView: (
-    id: string,
-    expectedViewRevision: number,
-    viewport: MapViewport,
-    camera: MapCamera,
-    appliedFocusRevision: number,
-  ) =>
-    requestJson<MapState>(mapPath(id), {
-      method: "PUT",
-      body: JSON.stringify({
-        expected_view_revision: expectedViewRevision,
-        viewport,
-        camera,
-        applied_focus_revision: appliedFocusRevision,
-      }),
-    }),
   addLayer: (id: string, outputId: string) =>
     requestJson<MapLayer>(`${mapPath(id)}/layers`, {
       method: "POST",
       body: JSON.stringify({ output_id: outputId }),
-    }),
-  focus: (id: string, layerId: string) =>
-    requestJson<MapState>(`${mapPath(id)}/focus`, {
-      method: "POST",
-      body: JSON.stringify({ layer_id: layerId }),
     }),
   style: (id: string, layer: MapLayer, style: LayerStyle) =>
     requestJson<MapLayer>(
@@ -159,8 +111,4 @@ export const analysisApi = {
     ),
   layerPreview: (sessionId: string, layerId: string, signal?: AbortSignal) =>
     requestBlob(`${mapPath(sessionId)}/layers/${encodeURIComponent(layerId)}/preview`, signal),
-  receipt: (sessionId: string, requestId: string, status: "applied" | "failed", error: string | null) =>
-    requestJson<MapState>(`${mapPath(sessionId)}/presentations/${encodeURIComponent(requestId)}`, {
-      method: "PUT", body: JSON.stringify({ status, error }),
-    }),
 };

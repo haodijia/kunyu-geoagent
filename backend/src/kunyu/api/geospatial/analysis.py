@@ -1,10 +1,10 @@
 """Workspace results, session analysis and map presentation endpoints."""
 
-from typing import Annotated, Literal, Self
+from typing import Annotated
 
 from fastapi import APIRouter, Depends, Request, Response
 from fastapi.responses import FileResponse
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic import BaseModel, ConfigDict
 
 from kunyu.api.errors import ApiError
 from kunyu.application.analysis.analysis import AnalysisService
@@ -13,8 +13,6 @@ from kunyu.domain.geospatial.analysis import (
     AnalysisOutput,
     LayerStyleWrite,
     MapLayer,
-    MapState,
-    MapViewWrite,
 )
 from kunyu.domain.geospatial.oge import OgeError
 from kunyu.persistence.geospatial.maps import MapRepository
@@ -39,23 +37,6 @@ class OutputReference(BaseModel):
     output_id: str
 
 
-class LayerReference(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-    layer_id: str
-
-
-class PresentationReceipt(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-    status: Literal["applied", "failed"]
-    error: str | None = Field(default=None, min_length=1, max_length=1000)
-
-    @model_validator(mode="after")
-    def valid_error(self) -> Self:
-        if (self.status == "failed") != (self.error is not None):
-            raise ValueError("Only failed presentation receipts require an error.")
-        return self
-
-
 @router.get("/sessions/{session_id}/map/layers/{layer_id}/preview")
 async def layer_preview(
     session_id: str,
@@ -76,15 +57,6 @@ async def layer_preview(
     output = repository.outputs.output(session_id, layer.output_id)
     _, path = repository.outputs.files(output.workspace_id, output.id)
     return FileResponse(service.raster.path(path), media_type="image/png")
-
-
-@router.put(
-    "/sessions/{session_id}/map/presentations/{request_id}", response_model=MapState
-)
-def presentation_receipt(
-    session_id: str, request_id: str, receipt: PresentationReceipt, repository: Maps
-):
-    return repository.receipt(session_id, request_id, receipt.status, receipt.error)
 
 
 @router.get("/sessions/{session_id}/analysis/jobs", response_model=list[AnalysisJob])
@@ -145,16 +117,6 @@ def tile(workspace_id: str, output_id: str, z: int, x: int, y: int, service: Ana
     )
 
 
-@router.get("/sessions/{session_id}/map", response_model=MapState)
-def map_state(session_id: str, repository: Maps):
-    return repository.state(session_id)
-
-
-@router.put("/sessions/{session_id}/map", response_model=MapState)
-def map_view(session_id: str, body: MapViewWrite, repository: Maps):
-    return repository.view(session_id, body)
-
-
 @router.get("/sessions/{session_id}/map/layers", response_model=list[MapLayer])
 def layers(session_id: str, repository: Maps):
     return repository.layers(session_id)
@@ -178,8 +140,3 @@ def remove_layer(
 ):
     repository.remove(session_id, layer_id, expected_revision)
     return Response(status_code=204)
-
-
-@router.post("/sessions/{session_id}/map/focus", response_model=MapState)
-def focus_layer(session_id: str, body: LayerReference, repository: Maps):
-    return repository.focus(session_id, body.layer_id)

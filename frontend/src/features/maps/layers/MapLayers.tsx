@@ -1,5 +1,5 @@
 import { getRuntimeConnection } from "@/api/runtime";
-import { workspaceResultsPath, type MapLayer, type MapState } from "@/features/analysis/api";
+import { workspaceResultsPath, type MapLayer } from "@/features/analysis/api";
 import { useLayerPreview } from "@/features/maps/layers/useLayerPreview";
 import type { useSessionMap } from "@/features/maps/runtime/useSessionMap";
 import { zhCN } from "@/locales/zh-CN";
@@ -8,20 +8,12 @@ import { useEffect } from "react";
 
 type SessionMap = ReturnType<typeof useSessionMap>;
 
-export function MapLayers({ map, state, workspaceId, layers, onError }: {
+export function MapLayers({ map, workspaceId, layers, onError }: {
   readonly map: SessionMap;
-  readonly state: MapState;
   readonly workspaceId: string;
   readonly layers: readonly MapLayer[];
   readonly onError: (layerId: string, error: string | null) => void;
 }) {
-  useEffect(() => {
-    if (!map.ready || state.focus_revision <= map.appliedFocusRevision.current) return;
-    const layer = layers.find(item => item.id === state.focus_layer_id);
-    if (layer?.bounds === null || layer === undefined) return;
-    map.markFocusApplied(state.focus_revision);
-    map.focusBounds([[layer.bounds[0], layer.bounds[1]], [layer.bounds[2], layer.bounds[3]]]);
-  }, [map, state, layers]);
   return layers.map(layer => <LayerSource key={layer.id} map={map} workspaceId={workspaceId} layer={layer} layers={layers} onError={onError} />);
 }
 

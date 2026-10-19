@@ -7,7 +7,7 @@ from sqlalchemy import Engine, inspect
 
 from kunyu.persistence.records.base import Base
 
-SCHEMA_VERSION = 7
+SCHEMA_VERSION = 8
 SCHEMA_PATH = Path(__file__).with_name("schema.sql")
 
 
@@ -21,18 +21,6 @@ def initialize_database(engine: Engine) -> None:
         tables = set(inspect(connection).get_table_names())
         version = connection.exec_driver_sql("PRAGMA user_version").scalar_one()
         if tables:
-            if version == 5:
-                from kunyu.persistence.migrations.tool_outputs import (
-                    migrate_tool_outputs,
-                )
-
-                migrate_tool_outputs(connection)
-                version = connection.exec_driver_sql("PRAGMA user_version").scalar_one()
-            if version == 6:
-                from kunyu.persistence.migrations.map_layers import migrate_map_layers
-
-                migrate_map_layers(connection)
-                version = connection.exec_driver_sql("PRAGMA user_version").scalar_one()
             if version != SCHEMA_VERSION:
                 raise DatabaseSchemaError(
                     "Unsupported development database schema. Preserve this database "

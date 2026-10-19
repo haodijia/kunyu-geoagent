@@ -6,7 +6,6 @@ from typing import Literal, Self
 from pydantic import BaseModel, ConfigDict, Field, JsonValue, model_validator
 
 from kunyu.domain.geospatial.imagery import LayerImage
-from kunyu.domain.geospatial.map_context import ImageSelectionReference
 
 EXECUTING_STATES = ("submitting", "queued", "running", "collecting")
 
@@ -65,26 +64,6 @@ class AnalysisOutput(AnalysisValue):
     created_at: datetime
 
 
-class MapViewport(AnalysisValue):
-    longitude: float = Field(default=108.521, ge=-180, le=180, allow_inf_nan=False)
-    latitude: float = Field(
-        default=25.932, ge=-85.0511287798066, le=85.0511287798066, allow_inf_nan=False
-    )
-    zoom: float = Field(default=11, ge=0, le=24, allow_inf_nan=False)
-
-
-class MapCamera(AnalysisValue):
-    dimension: Literal["2d", "3d"] = "2d"
-    bearing: float = Field(default=0, ge=-180, le=180, allow_inf_nan=False)
-    pitch: float = Field(default=0, ge=0, le=80, allow_inf_nan=False)
-
-    @model_validator(mode="after")
-    def dimension_pitch(self) -> Self:
-        if self.dimension == "2d" and self.pitch != 0:
-            raise ValueError("A 2D camera must have zero pitch.")
-        return self
-
-
 class MapPresentation(AnalysisValue):
     request_id: str
     target: Literal["candidates", "output"]
@@ -93,29 +72,6 @@ class MapPresentation(AnalysisValue):
     open_map: bool
     focus: bool
     bounds: tuple[float, float, float, float] | None
-    status: Literal["requested", "applied", "failed"] = "requested"
-    error: str | None = None
-
-
-class MapState(AnalysisValue):
-    session_id: str
-    revision: int
-    view_revision: int = 1
-    viewport: MapViewport
-    camera: MapCamera
-    selected_layer_id: str | None = None
-    focus_layer_id: str | None = None
-    focus_revision: int = 0
-    applied_focus_revision: int = 0
-    presentation: MapPresentation | None = None
-    image_selection: ImageSelectionReference | None = None
-
-
-class MapViewWrite(AnalysisValue):
-    expected_view_revision: int = Field(ge=1)
-    applied_focus_revision: int = Field(ge=0)
-    viewport: MapViewport
-    camera: MapCamera
 
 
 class MapLayer(AnalysisValue):
