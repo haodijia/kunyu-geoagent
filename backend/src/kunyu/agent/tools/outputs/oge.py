@@ -172,8 +172,8 @@ IMAGE_DETAIL = ToolOutputContract(
 def assets_display(result):
     data = object_result(result)
     return TextDisplay(
-        summary=label("assets", total=data["total"]),
-        text=label("assets", total=data["total"]),
+        summary=label("assets", total=len(data["assets"])),
+        text=label("assets", total=len(data["assets"])),
     )
 
 
@@ -182,7 +182,7 @@ def assets_compact(result):
     return compact(
         assets_display(result).summary,
         {
-            "total": data["total"],
+            "page": data["page"],
             "next_page": data["next_page"],
             "assets": [
                 {"assetUuid": row["assetUuid"], "reference": row["reference"]}

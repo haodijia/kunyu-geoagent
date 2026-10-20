@@ -47,7 +47,7 @@ API 沿用 Electron 的桌面会话鉴权。页面仅返回账号与有效期，
 | `oge_search_images` | 时间范围、行政区／闭合多边形／矩形三选一、可选产品 ID 和云量、页码；每页固定请求 100 景，输出仅含 `page`、`next_page`、`images`，末页 `next_page=null` |
 | `oge_get_image_detail` | image_id；返回完整详情，data=null 明确报不存在 |
 | `oge_get_image_preview` | 输入仅 `image_id`；通过已有附件机制持久保存，返回预览图片及 `file_path`；仅供预览，无地理参考，不自动上图 |
-| `oge_list_my_data` | page、page_size、可选 keywords 和 data_type；每页最多 10 个资产，返回 next_page、assetUuid 和 Personal:Asset 引用 |
+| `oge_list_my_data` | 输入 `page`、可选 `keywords` 和 `data_type`，每页固定请求 100 个资产；输出仅含 `page`、`next_page`、`assets`，末页 `next_page=null`；每项保留 assetUuid 和 Personal:Asset 引用 |
 | `oge_get_my_data_detail` | asset_uuid；返回完整资产详情、bandStats（如有）和 Personal:Asset 引用 |
 
 行政区树按平台地址缓存一小时；只向 Agent 返回匹配候选，重名不会自动选第一个。各地层级使用平台返回值，县级为 4，不推测代码。坐标使用 WGS84，经纬度边界、闭合多边形、日期和云量均在发出请求前校验。

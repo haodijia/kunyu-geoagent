@@ -143,14 +143,13 @@ class ImageArguments(ToolArguments):
 
 class ListMyDataArguments(ToolArguments):
     page: int = Field(default=1, ge=1)
-    page_size: int = Field(default=10, ge=1, le=10)
     keywords: str | None = Field(default=None, min_length=1, max_length=200)
     data_type: Literal["grid", "vector", "other"] | None = None
 
     def body(self) -> dict[str, JsonValue]:
         body: dict[str, JsonValue] = {
             "pageNumber": self.page,
-            "pageSize": self.page_size,
+            "pageSize": 100,
         }
         if self.keywords is not None:
             body["keywords"] = self.keywords
