@@ -2,18 +2,17 @@ import { useQuery } from "@tanstack/react-query";
 import { FolderClosed } from "lucide-react";
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
-import { Link, useLocation, useParams } from "react-router-dom";
+import { useLocation, useParams } from "react-router-dom";
 
 import { Button } from "@/components/ui/button";
 import { analysisApi, analysisKeys } from "@/features/analysis/api";
-import { OutputCard } from "@/features/analysis/OutputCard";
-import { getSession, sessionQueryKeys } from "@/features/sessions/api";
-import { sessionAnalysisPath } from "@/features/sessions/routes";
 import {
   getWorkspace,
   listSessions,
   workspaceQueryKeys,
 } from "@/features/workspaces/api";
+import { WorkspaceFileBrowser } from "@/features/workspaces/files/WorkspaceFileBrowser";
+import { WorkspaceResults } from "@/features/workspaces/WorkspaceResults";
 import { WorkspaceViewSwitcher } from "@/features/workspaces/WorkspaceViewSwitcher";
 import { zhCN } from "@/locales/zh-CN";
 
@@ -77,9 +76,7 @@ function WorkspaceOverviewContent({
       />
       <div className="mx-auto max-w-6xl">
         <header className="mb-8">
-          <h1 className="text-xl font-semibold">
-            {workspace.data.name} · {content.results}
-          </h1>
+          <h1 className="text-xl font-semibold">{workspace.data.name}</h1>
           <p className="mt-2 text-sm text-muted-foreground">
             {content.description}
           </p>
@@ -102,111 +99,26 @@ function WorkspaceOverviewContent({
               {content.retry}
             </Button>
           </div>
-        ) : outputs.data.length === 0 ? (
-          <p className="py-12 text-center text-sm text-muted-foreground">
-            {content.emptyResults}
-          </p>
         ) : (
-          <div className="grid items-start gap-x-10 gap-y-8 lg:grid-cols-2">
-            {outputs.data.map((output) => (
-              <article
-                key={output.id}
-                className="min-w-0 border-t border-border pt-4"
-              >
-                <ResultSource
-                  sessionId={output.session_id}
-                  sourceTitle={output.source_session_title}
-                  workspaceId={workspaceId}
-                />
-                <OutputCard
-                  output={output}
-                  workspaceId={workspaceId}
-                  compact
-                  sessionId={
-                    originSession !== undefined
-                      ? originSession.id
-                      : sessions.isSuccess &&
-                          sessions.data.some(
-                            (session) => session.id === output.session_id,
-                          )
-                        ? output.session_id
-                        : null
-                  }
-                />
-                <time
-                  dateTime={output.created_at}
-                  className="text-xs text-muted-foreground"
-                >
-                  {new Date(output.created_at).toLocaleString("zh-CN")}
-                </time>
-              </article>
-            ))}
-          </div>
+          <WorkspaceResults
+            outputs={outputs.data}
+            workspaceId={workspaceId}
+            sessions={sessions.data ?? []}
+            originSessionId={originSession?.id ?? null}
+          />
         )}
+        {sessions.isError && (
+          <p role="alert" className="mt-3 text-sm text-destructive">
+            {content.sourceFailed}
+          </p>
+        )}
+        <WorkspaceFileBrowser
+          workspaceId={workspaceId}
+          outputs={outputs.data ?? []}
+          sessionId={originSession?.id ?? null}
+        />
       </div>
     </section>
-  );
-}
-
-function ResultSource({
-  sessionId,
-  sourceTitle,
-  workspaceId,
-}: {
-  readonly sessionId: string | null;
-  readonly sourceTitle: string;
-  readonly workspaceId: string;
-}) {
-  if (sessionId === null)
-    return (
-      <p className="text-xs text-muted-foreground">
-        {content.sourceSession} · {sourceTitle} · {content.deletedSession}
-      </p>
-    );
-  return (
-    <ExistingResultSource sessionId={sessionId} workspaceId={workspaceId} />
-  );
-}
-
-function ExistingResultSource({
-  sessionId,
-  workspaceId,
-}: {
-  readonly sessionId: string;
-  readonly workspaceId: string;
-}) {
-  const session = useQuery({
-    queryKey: sessionQueryKeys.detail(sessionId),
-    queryFn: () => getSession(sessionId),
-  });
-  if (session.isPending)
-    return (
-      <p role="status" className="text-xs text-muted-foreground">
-        {content.loadingSource}
-      </p>
-    );
-  if (session.isError)
-    return (
-      <p role="alert" className="text-xs text-destructive">
-        {content.sourceFailed}
-      </p>
-    );
-  return (
-    <p className="text-xs text-muted-foreground">
-      {content.sourceSession} ·{" "}
-      {session.data.archived ? (
-        <span>
-          {session.data.title} · {content.archivedSession}
-        </span>
-      ) : (
-        <Link
-          className="hover:text-foreground hover:underline"
-          to={sessionAnalysisPath(workspaceId, sessionId, "conversation")}
-        >
-          {session.data.title}
-        </Link>
-      )}
-    </p>
   );
 }
 

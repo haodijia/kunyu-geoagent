@@ -1,4 +1,21 @@
 export const workspaces = {
+  workspaceBrowser: {
+    title: "文件",
+    directory: "文件路径",
+    directoryContents: "目录内容",
+    refresh: "刷新目录",
+    loading: "正在读取目录…",
+    loadFailed: "目录读取失败，请刷新重试。",
+    empty: "此文件夹为空。",
+    selectFile: "选择文件以查看内容",
+    preview: "文件预览",
+    loadingPreview: "正在加载预览…",
+    previewFailed: "文件预览失败。",
+    unsupported: "此格式暂不支持预览，可下载查看。",
+    tooLarge: "文件超过预览大小限制，可下载查看。",
+    download: "下载原文件",
+    downloadFailed: "文件下载失败，请重试。",
+  },
   workspaceFiles: {
     title: "上传工作区文件",
     close: "关闭上传",

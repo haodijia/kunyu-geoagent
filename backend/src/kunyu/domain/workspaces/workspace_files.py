@@ -1,5 +1,6 @@
 """Original workspace files shared by every conversation in that workspace."""
 
+from collections.abc import Iterator
 from dataclasses import dataclass
 from typing import Literal, Protocol
 
@@ -26,3 +27,26 @@ class WorkspaceResource(BaseModel):
     file_path: str
     kind: Literal["file", "image", "result"]
     detail: str
+
+
+class WorkspaceEntry(BaseModel):
+    model_config = ConfigDict(frozen=True)
+    name: str
+    file_path: str
+    kind: Literal["file", "directory"]
+    bytes: int | None
+    media_type: str | None
+    modified_at: str
+
+
+class WorkspaceListing(BaseModel):
+    file_path: str
+    entries: list[WorkspaceEntry]
+
+
+@dataclass(frozen=True, slots=True)
+class WorkspaceContent:
+    name: str
+    bytes: int
+    media_type: str
+    chunks: Iterator[bytes]

@@ -1,6 +1,7 @@
 """Upload admission and publication into active, conversation-independent workspaces."""
 
-from collections.abc import AsyncIterable
+from collections.abc import AsyncIterable, Iterator
+from contextlib import contextmanager
 from threading import Event
 from typing import Literal
 
@@ -10,8 +11,11 @@ from sqlalchemy.orm import Session
 from kunyu.application.workspaces.service import WorkspaceNotFoundError
 from kunyu.domain.workspaces.workspace_files import (
     MAX_WORKSPACE_FILE_BYTES,
+    WorkspaceContent,
     WorkspaceFile,
+    WorkspaceListing,
 )
+from kunyu.integrations.filesystem.browse import WorkspaceBrowser
 from kunyu.integrations.filesystem.operation import filesystem_operation
 from kunyu.integrations.filesystem.workspaces import (
     ManagedWorkspaceFiles,
@@ -40,6 +44,23 @@ class WorkspaceFileService:
     def __init__(self, database: Database) -> None:
         self.database = database
         self.storage = ManagedWorkspaceFiles(database.path.parent)
+        self.browser = WorkspaceBrowser(database.path.parent)
+
+    async def list(self, workspace_id: str, file_path: str) -> WorkspaceListing:
+        with self.database.sessions() as transaction:
+            require_active_workspace(transaction, workspace_id)
+        return await filesystem_operation(
+            lambda cancelled: self.browser.list(workspace_id, file_path, cancelled)
+        )
+
+    @contextmanager
+    def open(
+        self, workspace_id: str, file_path: str, max_bytes: int | None
+    ) -> Iterator[WorkspaceContent]:
+        with self.database.sessions() as transaction:
+            require_active_workspace(transaction, workspace_id)
+        with self.browser.open(workspace_id, file_path, max_bytes) as content:
+            yield content
 
     async def upload(
         self,
