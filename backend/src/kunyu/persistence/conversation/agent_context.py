@@ -1,14 +1,16 @@
 from sqlalchemy import select
 
+from kunyu.agent.runtime.events.run import ModelSnapshotPayload
 from kunyu.agent.runtime.events.session import ContextInjectedPayload
 from kunyu.agent.runtime.projection.session_reducer import reduce_session
 from kunyu.domain.conversation.agent_context import InjectedContext, RunContextSource
 from kunyu.domain.conversation.sessions import Session
+from kunyu.domain.workspaces.filesystem import FilesystemScope
 from kunyu.domain.workspaces.workspace import Workspace
 from kunyu.persistence.database import Database
 from kunyu.persistence.execution import run_records
 from kunyu.persistence.records.conversation import SessionRecord
-from kunyu.persistence.records.execution import SessionEventRecord
+from kunyu.persistence.records.execution import RunRecord, SessionEventRecord
 from kunyu.persistence.records.workspaces import WorkspaceRecord
 from kunyu.persistence.time import as_utc
 
@@ -16,6 +18,32 @@ from kunyu.persistence.time import as_utc
 class SQLAlchemyRunContextRepository:
     def __init__(self, database: Database) -> None:
         self._database = database
+
+    def get_filesystem_scope(self, run_id: str) -> FilesystemScope | None:
+        with self._database.sessions() as session:
+            row = session.execute(
+                select(SessionRecord.workspace_id, SessionRecord.id)
+                .join(RunRecord, RunRecord.session_id == SessionRecord.id)
+                .where(RunRecord.id == run_id)
+            ).one_or_none()
+            return None if row is None else FilesystemScope(row.workspace_id, row.id)
+
+    def get_request_snapshot(self, run_id: str) -> ModelSnapshotPayload | None:
+        with self._database.sessions() as session:
+            snapshot = session.scalar(
+                select(SessionEventRecord.payload["model_snapshot"])
+                .where(
+                    SessionEventRecord.run_id == run_id,
+                    SessionEventRecord.event_type == "request.header",
+                )
+                .order_by(SessionEventRecord.sequence.desc())
+                .limit(1)
+            )
+            return (
+                None
+                if snapshot is None
+                else ModelSnapshotPayload.model_validate(snapshot)
+            )
 
     def get(self, run_id: str) -> RunContextSource | None:
         with self._database.sessions() as database_session:

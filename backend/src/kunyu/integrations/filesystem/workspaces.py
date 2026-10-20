@@ -48,7 +48,7 @@ class ManagedWorkspaceFiles:
         self.root = data_directory
 
     def prepare(self, workspace_id: str) -> None:
-        scope = FilesystemScope(workspace_id, None, ())
+        scope = FilesystemScope(workspace_id, None)
         target = FsTarget("/workspace", scope, "workspace", (), None)
         try:
             with open_directory(self.root, target, Event()):
@@ -59,7 +59,7 @@ class ManagedWorkspaceFiles:
     def search(
         self, workspace_id: str, query: str, limit: int, cancelled: Event
     ) -> list[WorkspaceFile]:
-        scope = FilesystemScope(workspace_id, None, ())
+        scope = FilesystemScope(workspace_id, None)
         pending = [()]
         result = []
         while pending:
@@ -111,7 +111,7 @@ class ManagedWorkspaceFiles:
     ) -> WorkspaceFile:
         validate_filename(name)
         folder = "images" if kind == "image" else "data"
-        scope = FilesystemScope(workspace_id, None, ())
+        scope = FilesystemScope(workspace_id, None)
         target = FsTarget(
             f"/workspace/{folder}/{name}", scope, "workspace", (folder, name), None
         )

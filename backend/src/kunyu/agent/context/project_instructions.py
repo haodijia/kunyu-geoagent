@@ -22,7 +22,7 @@ MAX_INSTRUCTION_BYTES = 128 * 1024
 def instruction_targets(
     source: RunContextSource, filesystem: Filesystem
 ) -> tuple[FsTarget, ...]:
-    scope = FilesystemScope(source.workspace.id, source.session.id, ())
+    scope = FilesystemScope(source.workspace.id, source.session.id)
     paths = {"/workspace/AGENTS.md"}
     for run in source.reduced_session.runs:
         if run.created_sequence > source.run.created_sequence:

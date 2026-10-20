@@ -1,8 +1,5 @@
 """Foreground ripgrep discovery with canonical text and separate search cards."""
 
-from kunyu.agent.tools.outputs.filesystem import SEARCH
-from kunyu.agent.runtime.contracts.tools import BaseTool
-
 import logging
 import os
 from collections.abc import Mapping
@@ -13,6 +10,7 @@ from pydantic import Field, field_validator
 from kunyu.agent.prompts.loader import prompt_text, tool_description
 from kunyu.agent.runtime.contracts.content import TextBlock
 from kunyu.agent.runtime.contracts.tools import (
+    BaseTool,
     ToolCall,
     ToolExecutionError,
     ToolResult,
@@ -33,15 +31,15 @@ from kunyu.agent.tools.filesystem.search_results import (
     parse_matches,
     sample_paths,
 )
+from kunyu.agent.tools.outputs.filesystem import SEARCH
 from kunyu.agent.tools.shared import (
     ToolArguments,
-    load_source,
     require_bound_call,
     validate_arguments,
     validate_model,
 )
 from kunyu.domain.conversation.agent_context import RunContextRepository
-from kunyu.domain.workspaces.filesystem import FilesystemError
+from kunyu.domain.workspaces.filesystem import Filesystem, FilesystemError
 from kunyu.integrations.filesystem.operation import filesystem_operation
 from kunyu.integrations.filesystem.search_storage import (
     SEARCH_DIRECTORY,
@@ -103,6 +101,7 @@ class SearchTool(BaseTool):
         contexts: RunContextRepository,
         subprocess: LocalSubprocess,
         storage: WorkspaceSearchStorage,
+        filesystem: Filesystem,
         *,
         name: str,
     ) -> None:
@@ -110,6 +109,7 @@ class SearchTool(BaseTool):
             raise ValueError("Unknown search tool.")
         self._run_id, self._contexts = run_id, contexts
         self._subprocess, self._storage = subprocess, storage
+        self._filesystem = filesystem
         self._arguments = _GlobArguments if name == "glob" else _GrepArguments
         self.spec = ToolSpec(
             name=name,
@@ -128,7 +128,7 @@ class SearchTool(BaseTool):
     async def execute(self, call: ToolCall) -> ToolResult:
         require_bound_call(call, self._run_id, self.spec.name)
         arguments = validate_model(self.spec.name, self._arguments, call.arguments)
-        scope = filesystem_scope(load_source(self._contexts, self._run_id))
+        scope = filesystem_scope(self._contexts, self._run_id)
         binary = os.environ.get("KUNYU_RIPGREP_PATH")
         if not binary or not Path(binary).is_absolute():
             raise ToolExecutionError(
@@ -136,7 +136,8 @@ class SearchTool(BaseTool):
                 code="SEARCH_FAILED",
             )
         try:
-            with self._storage.root(scope, arguments.path) as (cwd, root, descriptor):
+            target = self._filesystem.resolve(arguments.path or "/workspace", scope)
+            with self._storage.root(target) as (cwd, root, descriptor):
                 argv = [binary, "--no-config", "--path-separator=/"]
                 if self.spec.name == "glob":
                     argv.extend(

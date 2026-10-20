@@ -1,23 +1,15 @@
-"""Current-history filesystem scope and model-facing error presentation."""
+"""Run-owned filesystem scope and model-facing error presentation."""
 
-from kunyu.agent.context.history import build_model_history
-from kunyu.agent.runtime.contracts.input_content import FileInputBlock, ImageInputBlock
 from kunyu.agent.runtime.contracts.tools import ToolExecutionError
-from kunyu.domain.conversation.agent_context import RunContextSource
+from kunyu.domain.conversation.agent_context import RunContextRepository
 from kunyu.domain.workspaces.filesystem import FilesystemError, FilesystemScope
 
 
-def filesystem_scope(source: RunContextSource) -> FilesystemScope:
-    return FilesystemScope(
-        source.workspace.id,
-        source.session.id,
-        tuple(
-            block.attachment
-            for message in build_model_history(source)
-            for block in message.content
-            if isinstance(block, (FileInputBlock, ImageInputBlock))
-        ),
-    )
+def filesystem_scope(contexts: RunContextRepository, run_id: str) -> FilesystemScope:
+    scope = contexts.get_filesystem_scope(run_id)
+    if scope is None:
+        raise ToolExecutionError("The tool call references an unknown run.")
+    return scope
 
 
 def tool_filesystem_error(error: FilesystemError, path: str) -> ToolExecutionError:

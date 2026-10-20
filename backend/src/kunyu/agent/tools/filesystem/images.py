@@ -1,8 +1,5 @@
 """Read scoped image files and publish durable model-visible image receipts."""
 
-from kunyu.agent.tools.outputs.filesystem import IMAGE
-from kunyu.agent.runtime.contracts.tools import BaseTool
-
 from collections.abc import Mapping
 from contextlib import closing
 from pathlib import PurePosixPath
@@ -18,6 +15,7 @@ from kunyu.agent.runtime.contracts.content import TextBlock
 from kunyu.agent.runtime.contracts.input_content import ImageInputBlock
 from kunyu.agent.runtime.contracts.models import ModelAdapterError
 from kunyu.agent.runtime.contracts.tools import (
+    BaseTool,
     ToolCall,
     ToolExecutionError,
     ToolResult,
@@ -28,9 +26,9 @@ from kunyu.agent.tools.filesystem.files_shared import (
     filesystem_scope,
     tool_filesystem_error,
 )
+from kunyu.agent.tools.outputs.filesystem import IMAGE
 from kunyu.agent.tools.shared import (
     ToolArguments,
-    load_source,
     require_bound_call,
     validate_arguments,
     validate_model,
@@ -99,8 +97,8 @@ class ReadImageTool(BaseTool):
     async def execute(self, call: ToolCall) -> ToolResult:
         require_bound_call(call, self._run_id, self.spec.name)
         arguments = validate_model(self.spec.name, _ImageReadArguments, call.arguments)
-        source = load_source(self._contexts, self._run_id)
-        snapshot = source.run.request_snapshot
+        scope = filesystem_scope(self._contexts, self._run_id)
+        snapshot = self._contexts.get_request_snapshot(self._run_id)
         if snapshot is None:
             raise ToolExecutionError(
                 "The calling model route has no committed request."
@@ -114,9 +112,9 @@ class ReadImageTool(BaseTool):
                 code="IMAGE_INPUT_DISABLED",
             )
         path = arguments.file_path
-        actor = self._scopes.for_session(source.session.id)
+        actor = self._scopes.for_session(scope.session_id)
         try:
-            target = self._filesystem.resolve(path, filesystem_scope(source))
+            target = self._filesystem.resolve(path, scope)
             path = target.display_path
             existing = (
                 target.attachment

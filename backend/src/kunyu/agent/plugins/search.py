@@ -1,4 +1,4 @@
-"""Search is subprocess-backed discovery, independent of the filesystem provider."""
+"""Search is subprocess-backed discovery, using the shared filesystem path resolver."""
 
 from functools import partial
 
@@ -14,7 +14,7 @@ from kunyu.integrations.process.subprocess import LocalSubprocess
 
 class SearchPlugin:
     name = "tool-fs-search"
-    requires = (s.DATABASE, s.TOOLS, s.CONTEXTS, s.PROMPTS)
+    requires = (s.DATABASE, s.TOOLS, s.CONTEXTS, s.PROMPTS, s.FILESYSTEM)
     provides = (s.SUBPROCESS,)
 
     async def apply(self, context: Context) -> None:
@@ -32,6 +32,7 @@ class SearchPlugin:
                         contexts=context.require(s.CONTEXTS),
                         subprocess=subprocess,
                         storage=storage,
+                        filesystem=context.require(s.FILESYSTEM),
                     )
                 ),
             )

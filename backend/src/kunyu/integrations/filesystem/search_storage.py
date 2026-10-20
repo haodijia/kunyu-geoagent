@@ -1,6 +1,5 @@
 """Workspace search roots and immutable, session-owned recovery artifacts."""
 
-import posixpath
 import re
 import stat
 from contextlib import ExitStack, contextmanager
@@ -40,7 +39,16 @@ class WorkspaceSearchStorage:
         self._root = data_directory.resolve()
 
     @contextmanager
-    def root(self, scope: FilesystemScope, path: str | None):
+    def root(self, target: FsTarget):
+        if target.kind != "workspace":
+            raise FilesystemError(
+                "FS_OUT_OF_SCOPE", "Search paths must stay inside /workspace."
+            )
+        if target.parts and target.parts[0].casefold() == SEARCH_DIRECTORY:
+            raise FilesystemError(
+                "FS_PERMISSION_DENIED", "Search artifacts are excluded from discovery."
+            )
+        scope = target.scope
         dummy = FsTarget(
             "/workspace/.search-root", scope, "workspace", (".search-root",), None
         )
@@ -49,12 +57,9 @@ class WorkspaceSearchStorage:
             descriptor = handles.enter_context(
                 open_parent(self._root, dummy, create=True)
             )
-            relative = self._relative(path)
+            relative = "/".join(target.parts) if target.parts else "."
             if relative != ".":
-                parts = tuple(relative.split("/"))
-                target = FsTarget(
-                    f"/workspace/{relative}", scope, "workspace", parts, None
-                )
+                parts = target.parts
                 parent = handles.enter_context(open_parent(self._root, target))
                 info = probe_at(parent, parts[-1])
                 if info is None:
@@ -75,29 +80,6 @@ class WorkspaceSearchStorage:
                 relative,
                 descriptor,
             )
-
-    @staticmethod
-    def _relative(path: str | None) -> str:
-        if path is None:
-            return "."
-        if "\x00" in path or len(path) > 4096:
-            raise FilesystemError("FS_INVALID_PATH", "Invalid search path.")
-        normalized = posixpath.normpath(
-            path if path.startswith("/") else f"/workspace/{path}"
-        )
-        if normalized == "/workspace":
-            return "."
-        if not normalized.startswith("/workspace/"):
-            raise FilesystemError(
-                "FS_OUT_OF_SCOPE", "Search paths must stay inside /workspace."
-            )
-        relative = normalized[len("/workspace/") :]
-        if relative.split("/")[0].casefold() == SEARCH_DIRECTORY:
-            raise FilesystemError(
-                "FS_PERMISSION_DENIED",
-                "Search recovery artifacts are read-only and are excluded from discovery.",
-            )
-        return relative
 
     def save(
         self, scope: FilesystemScope, name: str, text: str, cancelled: Event

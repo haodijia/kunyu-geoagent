@@ -18,7 +18,6 @@ class FilesystemError(RuntimeError):
 class FilesystemScope:
     workspace_id: str
     session_id: str | None
-    attachments: tuple[Attachment, ...]
 
 
 @dataclass(frozen=True, slots=True)

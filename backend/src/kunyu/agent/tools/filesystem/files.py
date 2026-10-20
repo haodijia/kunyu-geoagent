@@ -1,8 +1,5 @@
 """Model-facing, line-numbered reads over the bound filesystem service."""
 
-from kunyu.agent.tools.outputs.filesystem import READ
-from kunyu.agent.runtime.contracts.tools import BaseTool
-
 from collections.abc import Mapping
 from contextlib import closing
 from threading import Event
@@ -14,6 +11,7 @@ from kunyu.agent.core.scope import AgentScopes
 from kunyu.agent.prompts.loader import tool_description
 from kunyu.agent.runtime.contracts.content import TextBlock
 from kunyu.agent.runtime.contracts.tools import (
+    BaseTool,
     ToolCall,
     ToolResult,
     ToolRiskLevel,
@@ -29,9 +27,9 @@ from kunyu.agent.tools.filesystem.read_render import (
     format_read_output,
     lang_from_path,
 )
+from kunyu.agent.tools.outputs.filesystem import READ
 from kunyu.agent.tools.shared import (
     ToolArguments,
-    load_source,
     require_bound_call,
     validate_arguments,
     validate_model,
@@ -81,11 +79,11 @@ class ReadTool(BaseTool):
     async def execute(self, call: ToolCall) -> ToolResult:
         require_bound_call(call, self._run_id, self.spec.name)
         arguments = validate_model(self.spec.name, _ReadArguments, call.arguments)
-        source = load_source(self._contexts, self._run_id)
-        actor = self._scopes.for_session(source.session.id)
+        scope = filesystem_scope(self._contexts, self._run_id)
+        actor = self._scopes.for_session(scope.session_id)
         path = arguments.file_path
         try:
-            target = self._filesystem.resolve(path, filesystem_scope(source))
+            target = self._filesystem.resolve(path, scope)
             path = target.display_path
             info = await filesystem_operation(
                 lambda cancelled: self._filesystem.stat(target, cancelled)

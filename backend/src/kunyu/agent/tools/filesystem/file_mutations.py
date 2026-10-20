@@ -1,8 +1,5 @@
 """Guarded workspace text mutations and canonical model/diff result separation."""
 
-from kunyu.agent.tools.outputs.filesystem import MUTATION
-from kunyu.agent.runtime.contracts.tools import BaseTool
-
 from collections.abc import Mapping
 
 from pydantic import Field, model_validator
@@ -12,19 +9,19 @@ from kunyu.agent.core.scope import AgentScopes
 from kunyu.agent.prompts.loader import tool_description
 from kunyu.agent.runtime.contracts.content import TextBlock
 from kunyu.agent.runtime.contracts.tools import (
+    BaseTool,
     ToolCall,
     ToolResult,
     ToolRiskLevel,
     ToolSpec,
 )
-from kunyu.agent.tools.filesystem.file_diff import compute_hunk_diffs
 from kunyu.agent.tools.filesystem.files_shared import (
     filesystem_scope,
     tool_filesystem_error,
 )
+from kunyu.agent.tools.outputs.filesystem import MUTATION
 from kunyu.agent.tools.shared import (
     ToolArguments,
-    load_source,
     require_bound_call,
     validate_arguments,
     validate_model,
@@ -90,11 +87,11 @@ class FileMutationTool(BaseTool):
     async def execute(self, call: ToolCall) -> ToolResult:
         require_bound_call(call, self._run_id, self.spec.name)
         arguments = validate_model(self.spec.name, self._arguments, call.arguments)
-        source = load_source(self._contexts, self._run_id)
-        actor = self._scopes.for_session(source.session.id)
+        scope = filesystem_scope(self._contexts, self._run_id)
+        actor = self._scopes.for_session(scope.session_id)
         path = arguments.file_path
         try:
-            target = self._filesystem.resolve(path, filesystem_scope(source))
+            target = self._filesystem.resolve(path, scope)
             path = target.display_path
             # Intent is captured before entering the worker; observed state belongs
             # to the live session and all notification dispatch stays on its loop.
@@ -115,16 +112,6 @@ class FileMutationTool(BaseTool):
             self._hooks.observe(
                 target, FsObservation("present", outcome.version), actor
             )
-            # Observe immediately after publication, before computing display metadata.
-            diffs = (
-                await filesystem_operation(
-                    lambda cancelled: compute_hunk_diffs(
-                        path, outcome.before, outcome.after, cancelled
-                    )
-                )
-                if outcome.before is not None
-                else [{"path": path, "old_text": None, "new_text": outcome.after}]
-            )
             if self.spec.name == "write":
                 verb = "Created" if outcome.operation == "create" else "Updated"
                 text = f"<path>{path}</path>\n<type>file</type>\n<content>\n{verb} file\n</content>"
@@ -136,7 +123,12 @@ class FileMutationTool(BaseTool):
                 )
             return ToolResult(
                 content=(TextBlock(text=text),),
-                result={"path": path, "operation": outcome.operation, "diffs": diffs},
+                result={
+                    "path": path,
+                    "operation": outcome.operation,
+                    "before": outcome.before,
+                    "after": outcome.after,
+                },
             )
         except FilesystemError as error:
             raise tool_filesystem_error(error, path) from error

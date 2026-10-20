@@ -11,8 +11,7 @@ const content = zhCN.conversation.tools.files;
 
 export function FileMutationResult({ value, text }: { readonly value: unknown; readonly text: string }) {
   const result = useMemo(() => parseFileMutationResult(value), [value]);
-  const hunks = useMemo(() => result.diffs.map(diffRows), [result]);
-  const rows = hunks.flat();
+  const rows = useMemo(() => diffRows(result), [result]);
   const additions = rows.filter((row) => row.kind === "addition").length;
   const deletions = rows.filter((row) => row.kind === "deletion").length;
   const name = result.path.split("/").at(-1)!;
@@ -31,6 +30,6 @@ export function FileMutationResult({ value, text }: { readonly value: unknown; r
         <CopyButton text={text} />
       </div>
     </div>
-    {hunks.length === 0 && <p className="m-0 px-4 pb-3 text-xs text-secondary-foreground">{content.unchanged}</p>}
+    {additions === 0 && deletions === 0 && <p className="m-0 px-4 pb-3 text-xs text-secondary-foreground">{content.unchanged}</p>}
   </div>;
 }

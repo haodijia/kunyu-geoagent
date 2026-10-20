@@ -1,4 +1,4 @@
-"""Explicit workspace and admitted-attachment mounts with bounded UTF-8 streaming."""
+"""Explicit workspace and chat-attachment mounts with bounded UTF-8 streaming."""
 
 import codecs
 import os
@@ -72,13 +72,20 @@ class MountedFilesystem:
                 "FS_INVALID_SCOPE", "The workspace filesystem scope is invalid."
             )
         if file_path.startswith("/attachments/"):
-            for ref in scope.attachments:
-                if file_path == attachment_path(ref):
-                    return FsTarget(file_path, scope, "attachment", (), ref)
-            raise FilesystemError(
-                "FS_NOT_ADMITTED",
-                "The attachment path was not admitted into this run's current history.",
-            )
+            if scope.session_id is None:
+                raise FilesystemError(
+                    "FS_OUT_OF_SCOPE", "Attachments require a chat scope."
+                )
+            identity = file_path.split("/", 3)[2]
+            try:
+                ref = self._attachments.resolve(scope.session_id, (identity,))[0]
+            except AttachmentError as error:
+                raise FilesystemError(error.code, str(error)) from error
+            if file_path != attachment_path(ref):
+                raise FilesystemError(
+                    "FS_INVALID_PATH", "Use the attachment's exact path."
+                )
+            return FsTarget(file_path, scope, "attachment", (), ref)
         path = posixpath.normpath(
             file_path if file_path.startswith("/") else f"/workspace/{file_path}"
         )
@@ -87,7 +94,7 @@ class MountedFilesystem:
         if not path.startswith("/workspace/"):
             raise FilesystemError(
                 "FS_OUT_OF_SCOPE",
-                "Paths must stay inside /workspace or reference an admitted /attachments path.",
+                "Paths must stay inside /workspace or reference a current-chat /attachments path.",
             )
         parts = tuple(path[len("/workspace/") :].split("/"))
         if parts[0].casefold() == SEARCH_DIRECTORY and not search_artifact_parts(
@@ -133,21 +140,14 @@ class MountedFilesystem:
         if cancelled.is_set():
             raise FilesystemError("FS_ABORTED", "read aborted")
         if target.kind == "attachment":
-            if (
-                target.attachment is None
-                or target.attachment not in target.scope.attachments
-            ):
+            ref = self._attachment(target)
+            try:
+                stored, data = self._attachments.read(target.scope.session_id, ref.id)
+            except AttachmentError as error:
+                raise FilesystemError(error.code, str(error)) from error
+            if stored != ref:
                 raise FilesystemError(
-                    "FS_INVALID_TARGET",
-                    "The attachment target has no admitted receipt.",
-                )
-            stored, data = self._attachments.read(
-                target.scope.session_id, target.attachment.id
-            )
-            if stored != target.attachment:
-                raise FilesystemError(
-                    "FS_RECEIPT_MISMATCH",
-                    "The attachment receipt differs from committed history.",
+                    "FS_RECEIPT_MISMATCH", "The stored attachment changed."
                 )
             for start in range(0, len(data), CHUNK_BYTES):
                 if cancelled.is_set():
@@ -204,25 +204,14 @@ class MountedFilesystem:
     def _attachment(self, target: FsTarget) -> Attachment:
         if (
             target.attachment is None
-            or target.attachment not in target.scope.attachments
+            or target.scope.session_id is None
             or target.parts
             or target.display_path != attachment_path(target.attachment)
         ):
             raise FilesystemError(
-                "FS_INVALID_TARGET", "The attachment target has no admitted receipt."
+                "FS_INVALID_TARGET", "The attachment target has no chat-owned receipt."
             )
-        try:
-            stored = self._attachments.resolve(
-                target.scope.session_id, (target.attachment.id,)
-            )[0]
-        except AttachmentError as error:
-            raise FilesystemError(error.code, str(error)) from error
-        if stored != target.attachment:
-            raise FilesystemError(
-                "FS_RECEIPT_MISMATCH",
-                "The attachment receipt differs from committed history.",
-            )
-        return stored
+        return target.attachment
 
     @contextmanager
     def _locked(self, target: FsTarget, cancelled: Event) -> Iterator[None]:

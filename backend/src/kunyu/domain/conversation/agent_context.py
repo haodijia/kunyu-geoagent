@@ -3,10 +3,12 @@ from typing import Protocol
 
 from pydantic import JsonValue
 
+from kunyu.agent.runtime.events.run import ModelSnapshotPayload
 from kunyu.agent.runtime.projection.run_state import ReducedRun
 from kunyu.agent.runtime.projection.session_state import ReducedSession
 from kunyu.domain.conversation.commands import SessionControls
 from kunyu.domain.conversation.sessions import Session
+from kunyu.domain.workspaces.filesystem import FilesystemScope
 from kunyu.domain.workspaces.workspace import Workspace
 
 
@@ -31,3 +33,7 @@ class RunContextSource:
 
 class RunContextRepository(Protocol):
     def get(self, run_id: str) -> RunContextSource | None: ...
+
+    def get_filesystem_scope(self, run_id: str) -> FilesystemScope | None: ...
+
+    def get_request_snapshot(self, run_id: str) -> ModelSnapshotPayload | None: ...
