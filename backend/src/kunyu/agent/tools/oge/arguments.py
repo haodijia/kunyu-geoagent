@@ -179,6 +179,3 @@ class FindRegionsArguments(ToolArguments):
         max_length=100,
         description="Exact name of an ancestor, to disambiguate names.",
     )
-    match_mode: Literal["exact", "contains"] = "contains"
-    offset: int = Field(default=0, ge=0)
-    limit: int = Field(default=10, ge=1, le=20)

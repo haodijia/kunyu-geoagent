@@ -145,10 +145,7 @@ class OgeService:
         self,
         query: str,
         parent_name: str | None,
-        match_mode: str,
-        offset: int,
-        limit: int,
-    ) -> dict[str, JsonValue]:
+    ) -> list[dict[str, JsonValue]]:
         roots = await self._regions()
         matches: list[dict[str, JsonValue]] = []
         wanted = query.casefold()
@@ -156,11 +153,7 @@ class OgeService:
 
         def visit(node: OgeRegionNode, ancestors: tuple[OgeRegionNode, ...]) -> None:
             names = (node.name.casefold(), node.nameEn.casefold())
-            match = (
-                wanted in names
-                if match_mode == "exact"
-                else any(wanted in name for name in names)
-            )
+            match = any(wanted in name for name in names)
             parent_matches = parent is None or any(
                 parent in (item.name.casefold(), item.nameEn.casefold())
                 for item in ancestors
@@ -180,14 +173,7 @@ class OgeService:
 
         for root in roots:
             visit(root, ())
-        end = offset + limit
-        return {
-            "query": query,
-            "total": len(matches),
-            "offset": offset,
-            "next_offset": end if end < len(matches) else None,
-            "regions": matches[offset:end],
-        }
+        return matches
 
     async def _regions(self) -> list[OgeRegionNode]:
         base_url = self._base_url()

@@ -111,13 +111,14 @@ IMAGE_PREVIEW = preview_contract("image_preview")
 
 
 def regions_display(result):
-    data = object_result(result)
-    names = "、".join(row["name"] for row in data["regions"])
+    if not isinstance(result.result, list):
+        raise TypeError("Region search requires a list result.")
+    names = "、".join(row["name"] for row in result.result)
     return TextDisplay(summary=label("regions"), text=names)
 
 
 def regions_compact(result):
-    return compact(label("regions"), object_result(result))
+    return compact(label("regions"), result.result)
 
 
 REGIONS = ToolOutputContract(agent_content, regions_display, regions_compact)
