@@ -15,28 +15,50 @@ from kunyu.agent.tools.outputs.shared import (
 )
 
 
-def operator_display(result):
+def operator_definitions_display(result):
     data = object_result(result)
+    failed = sum("error" in row for row in data["operators"])
     return TextDisplay(
-        summary=label("operator", name=data["name"]), text=data["description"]
+        summary=label(
+            "operator_definitions",
+            succeeded=len(data["operators"]) - failed,
+            failed=failed,
+        ),
+        text="\n".join(
+            row["name"]
+            + (
+                " · " + row["error"]["code"] + ": " + row["error"]["message"]
+                if "error" in row
+                else ""
+            )
+            for row in data["operators"]
+        ),
     )
 
 
-def operator_compact(result):
+def operator_definitions_compact(result):
     data = object_result(result)
     return compact(
-        operator_display(result).summary,
+        operator_definitions_display(result).summary,
         {
-            "name": data["name"],
-            "description": data["description"],
-            "args": data["args"],
-            "output": data["output"],
-            "sample_code_omitted": True,
+            "operators": [
+                row
+                if "error" in row
+                else {
+                    key: row[key]
+                    for key in ("name", "description", "args", "output")
+                    if key in row
+                }
+                | {"sample_code_omitted": True}
+                for row in data["operators"]
+            ],
         },
     )
 
 
-OPERATOR = ToolOutputContract(agent_content, operator_display, operator_compact)
+OPERATOR_DEFINITIONS = ToolOutputContract(
+    agent_content, operator_definitions_display, operator_definitions_compact
+)
 
 
 def operators_display(result):

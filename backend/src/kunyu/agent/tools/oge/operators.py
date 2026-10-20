@@ -1,8 +1,9 @@
 """Discover live operator metadata without registering hundreds of tools."""
 
 from collections.abc import Mapping
+from typing import Annotated
 
-from pydantic import Field
+from pydantic import Field, StringConstraints, field_validator
 
 from kunyu.agent.prompts.loader import tool_description
 from kunyu.agent.runtime.contracts.tools import (
@@ -13,7 +14,8 @@ from kunyu.agent.runtime.contracts.tools import (
     ToolRiskLevel,
     ToolSpec,
 )
-from kunyu.agent.tools.outputs.oge import OPERATOR, OPERATORS
+from kunyu.agent.tools.oge.operator_definitions import read_definitions
+from kunyu.agent.tools.outputs.oge import OPERATOR_DEFINITIONS, OPERATORS
 from kunyu.agent.tools.shared import (
     ToolArguments,
     load_source,
@@ -44,7 +46,20 @@ class SearchArguments(ToolArguments):
 
 
 class DefinitionArguments(ToolArguments):
-    name: str = Field(min_length=1, max_length=200)
+    names: list[
+        Annotated[
+            str, StringConstraints(strip_whitespace=True, min_length=1, max_length=200)
+        ]
+    ] = Field(
+        min_length=1, description="Unique operator names from oge_search_operators."
+    )
+
+    @field_validator("names")
+    @classmethod
+    def unique_names(cls, names: list[str]) -> list[str]:
+        if len(set(names)) != len(names):
+            raise ValueError("Operator names must be unique.")
+        return names
 
 
 class OperatorTool(BaseTool):
@@ -58,7 +73,7 @@ class OperatorTool(BaseTool):
     ) -> None:
         self.output_contract = {
             "oge_search_operators": OPERATORS,
-            "oge_get_operator_definition": OPERATOR,
+            "oge_get_operator_definition": OPERATOR_DEFINITIONS,
         }[name]
         self._run_id, self._contexts, self._gateway = run_id, contexts, gateway
         self._arguments = (
@@ -84,41 +99,10 @@ class OperatorTool(BaseTool):
         try:
             subject, base = await self._gateway.subject()
             if isinstance(args, DefinitionArguments):
-                value = await self._gateway.request(
-                    "GET",
-                    "/computation-api/process/info",
-                    subject,
-                    base,
-                    params={"processName": args.name},
+                definitions = await read_definitions(
+                    self._gateway, args.names, subject, base
                 )
-                if (
-                    not isinstance(value, dict)
-                    or value.get("name") != args.name
-                    or not isinstance(value.get("args"), list)
-                ):
-                    raise AnalysisError(
-                        "OGE_OPERATOR_NOT_FOUND",
-                        "No matching operator definition returned.",
-                    )
-                # Sample scripts are optional and can be large; schemas are never truncated.
-                definition = {
-                    key: value[key]
-                    for key in (
-                        "name",
-                        "alias",
-                        "description",
-                        "descriptionEn",
-                        "type",
-                        "args",
-                        "output",
-                    )
-                    if key in value
-                }
-                sample = value.get("sampleCode")
-                if isinstance(sample, str):
-                    definition["sampleCode"] = sample[:4000]
-                    definition["sample_code_truncated"] = len(sample) > 4000
-                return tool_result(definition)
+                return tool_result({"operators": definitions}, max_bytes=1024 * 1024)
             rows = []
             page = 1
             while True:
