@@ -1,7 +1,5 @@
 """Persist OGE PNG previews through the existing model-visible image receipt flow."""
 
-from kunyu.agent.tools.outputs.oge import IMAGE_PREVIEW
-
 from threading import Event
 from uuid import uuid4
 
@@ -10,6 +8,7 @@ from kunyu.agent.runtime.contracts.models import ModelAdapterError
 from kunyu.agent.runtime.contracts.tools import ToolCall, ToolExecutionError, ToolResult
 from kunyu.agent.tools.oge.arguments import ImageArguments
 from kunyu.agent.tools.oge.shared import OgeTool, oge_tool_error
+from kunyu.agent.tools.outputs.oge import IMAGE_PREVIEW
 from kunyu.agent.tools.shared import tool_result
 from kunyu.application.analysis.oge import OgeService
 from kunyu.application.conversation.attachment_preparation import normalize_image
@@ -75,13 +74,7 @@ class ImagePreviewTool(OgeTool[ImageArguments]):
             raise ToolExecutionError(str(error), code=error.code) from None
         except ModelAdapterError as error:
             raise ToolExecutionError(str(error), code=error.code.value) from None
-        metadata = {
-            "image_id": arguments.image_id,
-            "path": attachment_path(ref),
-            "preview_only": True,
-            "georeferenced": False,
-        }
-        text = tool_result(metadata)
+        text = tool_result({"file_path": attachment_path(ref)})
         return ToolResult(
             content=(*text.content, ImageInputBlock(attachment=ref)), result=text.result
         )

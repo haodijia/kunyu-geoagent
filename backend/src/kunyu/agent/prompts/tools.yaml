@@ -47,7 +47,7 @@
 "oge_get_image_detail": |-
   Read full metadata for one numeric imageId from oge_search_images. A nonexistent image is an explicit error even when the upstream business code is successful. The returned path is an internal OGE data path, not a download URL. Public endpoint; OGE login is not required.
 "oge_get_image_preview": |-
-  Fetch and return the PNG thumbnail for one OGE imageId as a durable, model-visible image. Requires the calling model to have image input enabled. The preview is not a full-resolution analysis product and has no georeferencing; do not treat its pixels as a map layer or invent a download URL. Public endpoint; OGE login is not required.
+  Fetch the PNG thumbnail for one OGE imageId. Returns the preview image itself and file_path for the saved local preview. Requires the calling model to have image input enabled. The preview is not a full-resolution analysis product and has no georeferencing; do not treat its pixels as a map layer or invent a download URL. This tool does not add map layers. Public endpoint; OGE login is not required.
 "oge_list_my_data": |-
   List the logged-in user's uploaded OGE data, with optional asset-name keywords and grid/vector/other type filtering. Returns up to 10 compact assets per page, explicit next_page, assetUuid and Personal:Asset references. Use oge_get_my_data_detail for full metadata. Login is managed in settings; missing or expired login is an explicit error. Do not request or pass passwords or tokens through tool arguments.
 "oge_get_my_data_detail": |-
