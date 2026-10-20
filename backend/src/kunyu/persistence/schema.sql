@@ -496,4 +496,4 @@ CREATE TABLE background_jobs (
 );
 CREATE INDEX ix_background_jobs_session_id ON background_jobs(session_id);
 
-PRAGMA user_version = 11;
+PRAGMA user_version = 12;

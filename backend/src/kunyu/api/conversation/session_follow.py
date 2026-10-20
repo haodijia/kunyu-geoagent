@@ -57,17 +57,21 @@ async def follow_session(
     # Share the Agent's scope carrier; a separate child scope cannot observe it.
     owner = agent.ctx.child(scoped=False)
     loop = asyncio.get_running_loop()
-    pending: asyncio.Queue[tuple[int, dict | None]] = asyncio.Queue(MAX_PENDING_FRAMES)
+    pending: asyncio.Queue[tuple[int, str, dict | None]] = asyncio.Queue(
+        MAX_PENDING_FRAMES
+    )
     overflow = asyncio.Event()
     closed = asyncio.Event()
 
-    def enqueue(cursor: int, frame: dict | None) -> None:
+    def enqueue(
+        cursor: int, frame: dict | None, event: str = "assistant.stream"
+    ) -> None:
         if closed.is_set():
             return
         if pending.full():
             overflow.set()
         else:
-            pending.put_nowait((cursor, frame))
+            pending.put_nowait((cursor, event, frame))
 
     def assistant(notification: AssistantStreamNotification) -> None:
         cursor = agent.notifications.durable_sequence
@@ -83,6 +87,16 @@ async def follow_session(
         owner, f"web-follow-{uuid4()}", assistant
     )
     owner.effect(owner.require(s.DATABASE).publications.subscribe(committed))
+    owner.effect(
+        owner.require(s.MAP_CAPTURES).subscribe(
+            agent.session_id,
+            lambda request_id: enqueue(
+                agent.notifications.durable_sequence,
+                {"request_id": request_id},
+                "map.capture",
+            ),
+        )
+    )
     try:
         # No await between subscribing, reading the journal and taking the prefix cut.
         events = service.list_events_after(agent.session_id, after_sequence)
@@ -105,7 +119,9 @@ async def follow_session(
             if await request.is_disconnected():
                 return
             try:
-                cursor, frame = await asyncio.wait_for(pending.get(), timeout=0.25)
+                cursor, event_name, frame = await asyncio.wait_for(
+                    pending.get(), timeout=0.25
+                )
             except TimeoutError:
                 continue
             # Flush only through the observed frame boundary, never a future settlement.
@@ -123,7 +139,9 @@ async def follow_session(
                     raise RuntimeError(
                         "Assistant frame references an unavailable durable boundary."
                     )
-            if frame is not None and frame["revision"] > revision_cut:
+            if frame is not None and event_name == "map.capture":
+                yield cursorless(event_name, frame)
+            elif frame is not None and frame["revision"] > revision_cut:
                 revision_cut = frame["revision"]
                 yield cursorless("assistant.stream", frame)
     except Exception:

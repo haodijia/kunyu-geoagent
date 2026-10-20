@@ -2,10 +2,13 @@
 
 from collections.abc import Mapping
 from typing import Annotated, Literal
+from uuid import uuid4
 
 from pydantic import Field, model_validator
 
 from kunyu.agent.prompts.loader import tool_description
+from kunyu.agent.runtime.contracts.input_content import ImageInputBlock
+from kunyu.agent.runtime.contracts.models import ModelAdapterError
 from kunyu.agent.runtime.contracts.tools import (
     BaseTool,
     ToolCall,
@@ -23,8 +26,22 @@ from kunyu.agent.tools.shared import (
     validate_arguments,
     validate_model,
 )
+from kunyu.application.analysis.map_capture import MapCaptureError, MapCaptureService
+from kunyu.application.conversation.attachment_preparation import normalize_image
 from kunyu.domain.conversation.agent_context import RunContextRepository
+from kunyu.domain.conversation.attachments import (
+    AttachmentError,
+    ImageAttachment,
+    PreparedAttachment,
+    ToolImageProducer,
+    attachment_path,
+)
 from kunyu.domain.geospatial.analysis import AnalysisError, LayerStyleWrite
+from kunyu.domain.models.model_images import ModelImageInput
+from kunyu.integrations.filesystem.io import check_cancelled
+from kunyu.integrations.filesystem.operation import filesystem_operation
+from kunyu.integrations.model.request_images import prepare_image
+from kunyu.persistence.conversation.attachments import SQLAlchemyAttachmentStore
 from kunyu.persistence.geospatial.maps import MapRepository
 
 
@@ -75,6 +92,8 @@ class MapTool(BaseTool):
         run_id: str,
         contexts: RunContextRepository,
         maps: MapRepository,
+        captures: MapCaptureService,
+        attachments: SQLAlchemyAttachmentStore,
         *,
         name: str,
     ) -> None:
@@ -84,6 +103,7 @@ class MapTool(BaseTool):
             "map_set_layer_style": STYLE,
         }[name]
         self._run_id, self._contexts, self._maps = run_id, contexts, maps
+        self._captures, self._attachments = captures, attachments
         self._arguments = (
             ContextArguments
             if name == "map_get_context"
@@ -100,6 +120,7 @@ class MapTool(BaseTool):
             else ToolRiskLevel.L1,
             execution="parallel" if name == "map_get_context" else "exclusive",
             presentation="search" if name == "map_get_context" else "write",
+            timeout_ms=30_000 if name == "map_get_context" else None,
         )
 
     def validate(self, arguments: object) -> Mapping[str, object]:
@@ -112,13 +133,29 @@ class MapTool(BaseTool):
         session_id = source.session.id
         try:
             if self.spec.name == "map_get_context":
+                snapshot = self._contexts.get_request_snapshot(self._run_id)
+                if snapshot is None:
+                    raise ToolExecutionError(
+                        "The calling model route has no committed request."
+                    )
+                image = (
+                    await self._screenshot(call, session_id, snapshot.image_input)
+                    if snapshot.image_input.enabled
+                    else None
+                )
                 value = {
-                    "viewport": source.run.map_snapshot["viewport"],
                     "layers": [
                         layer.model_dump(mode="json")
                         for layer in self._maps.layers(session_id)
                     ],
                 }
+                if image is not None:
+                    value["screenshot_path"] = attachment_path(image)
+                    result = tool_result(value)
+                    return ToolResult(
+                        content=(*result.content, ImageInputBlock(attachment=image)),
+                        result=result.result,
+                    )
             elif self.spec.name == "map_present":
                 presentation = self._maps.present(
                     session_id,
@@ -141,3 +178,34 @@ class MapTool(BaseTool):
         except AnalysisError as error:
             raise ToolExecutionError(str(error), code=error.code) from None
         return tool_result(value)
+
+    async def _screenshot(
+        self, call: ToolCall, session_id: str, policy: ModelImageInput
+    ) -> ImageAttachment:
+        try:
+            raw = await self._captures.capture(session_id, call.call_id)
+
+            def publish(cancelled):
+                check_cancelled(cancelled, "map screenshot")
+                ref, data = normalize_image(str(uuid4()), "map.png", "image/png", raw)
+                ref = ref.model_copy(
+                    update={
+                        "producer": ToolImageProducer(
+                            run_id=call.run_id, tool_call_id=call.call_id
+                        )
+                    }
+                )
+                prepare_image(ref, data, policy)
+                check_cancelled(cancelled, "publish map screenshot")
+                return self._attachments.save_batch(
+                    session_id, (PreparedAttachment(ref, data, raw, "image/png"),)
+                )[0]
+
+            return await filesystem_operation(publish)
+        except (MapCaptureError, AttachmentError, ModelAdapterError) as error:
+            raise ToolExecutionError(
+                str(error),
+                code=error.code.value
+                if isinstance(error, ModelAdapterError)
+                else error.code,
+            ) from error

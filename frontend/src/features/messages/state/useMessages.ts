@@ -31,10 +31,7 @@ import {
   mergeQuestions,
   questionQueryKeys,
 } from "@/features/questions/api";
-import {
-  createMapContext,
-  mapContextFromSnapshot,
-} from "@/features/sessions/map-context";
+import { createMapContext } from "@/features/sessions/map-context";
 import { modelConnectionsApi } from "@/features/settings/models/api";
 import { zhCN } from "@/locales/zh-CN";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -328,7 +325,6 @@ export function useMessages(sessionId: string, workspaceId: string) {
       restoreComposerDraft(
         sessionId,
         queued.content,
-        mapContextFromSnapshot(queued.map_context),
         {
           connectionId: model.connection_id,
           modelId: model.model_id,

@@ -74,6 +74,9 @@ export const maps = {
   },
   map: {
     label: "地图研判工作区",
+    captureNotOpen: "请先打开当前会话的地图，再请求地图截图。",
+    captureNotReady: "地图或图层尚未加载完成，请加载完成后重试截图。",
+    captureFailed: "地图截图生成失败。",
     cityLoading: "正在定位城市…",
     cityFailed: "城市读取失败",
     noCity: "暂无城市信息",

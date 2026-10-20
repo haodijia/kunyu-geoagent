@@ -1,5 +1,5 @@
 import { AlertCircle, LoaderCircle } from "lucide-react";
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 import "@/features/maps/map.css";
 import "maplibre-gl/dist/maplibre-gl.css";
@@ -18,6 +18,7 @@ import { useQuery } from "@tanstack/react-query";
 import { MapConversation } from "@/features/maps/conversation/MapConversation";
 import { MapLayers } from "@/features/maps/layers/MapLayers";
 import { useMapFocus } from "@/features/maps/runtime/useMapFocus";
+import { captureMapCanvas, MapCaptureError, registerMapCapture } from "@/features/maps/runtime/map-capture";
 
 const content = zhCN.map;
 
@@ -38,6 +39,14 @@ function MapCanvas() {
   useMapFocus(session.id, map);
   const layerQuery = useQuery({ queryKey: analysisKeys.layers(session.id), queryFn: () => analysisApi.layers(session.id) });
   const layers = layerQuery.data ?? [];
+  useEffect(() => registerMapCapture(session.id, async () => {
+    const instance = map.getMap();
+    if (instance === null || !map.ready || map.failed || layerQuery.isPending || layerQuery.isError
+      || layers.some(layer => layer.visible && instance.getLayer(layer.id) === undefined)) {
+      throw new MapCaptureError("MAP_NOT_READY", content.captureNotReady);
+    }
+    return captureMapCanvas(instance);
+  }), [session.id, map, layerQuery.isPending, layerQuery.isError, layers]);
   const [layerErrors, setLayerErrors] = useState<Readonly<Record<string, string>>>({});
   const layerError = useCallback((id: string, error: string | null) => {
     setLayerErrors(current => {

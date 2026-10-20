@@ -15,6 +15,7 @@ import {
   type TrajectoryEventProjection,
 } from "@/features/events/projection/events";
 import { zhCN } from "@/locales/zh-CN";
+import { respondToMapCapture } from "@/features/maps/runtime/map-capture";
 
 import {
   projectPlanEvents,
@@ -97,6 +98,13 @@ export function SessionEventProvider({
             },
           )) {
             if (controller.signal.aborted) return;
+            if (publication.type === "map_capture") {
+              void respondToMapCapture(sessionId, publication.requestId, controller.signal).catch(error => {
+                if (!controller.signal.aborted)
+                  console.error("[map] Screenshot response failed.", { sessionId, requestId: publication.requestId, error });
+              });
+              continue;
+            }
             if (publication.type === "assistant") {
               setActiveAssistant(
                 assistant.accept(publication.frame, lastSequenceRef.current),

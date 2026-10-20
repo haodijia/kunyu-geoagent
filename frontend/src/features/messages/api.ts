@@ -77,18 +77,7 @@ export function serializeMessageInput(input: Parameters<typeof appendUserMessage
       reasoning_effort: input.reasoningEffort
     },
     map_context: {
-      workspace_id: map.workspaceId,
-      viewport: map.viewport,
-      event_id: map.eventId,
-      selected_aoi_id: map.selectedAoiId,
-      selected_feature: map.selectedFeature === null ? null : {
-        feature_id: map.selectedFeature.featureId,
-        layer_id: map.selectedFeature.layerId
-      },
-      visible_layer_ids: map.visibleLayerIds,
-      active_result_layer_id: map.activeResultLayerId,
-      active_observation_id: map.activeObservationId,
-      comparison_observation_ids: map.comparisonObservationIds
+      workspace_id: map.workspaceId
     }
   };
 }

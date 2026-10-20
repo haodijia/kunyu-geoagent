@@ -25,6 +25,7 @@ export type SessionFollow =
       readonly assistant: AssistantBaseline;
     }
   | { readonly type: "event"; readonly event: SessionEvent }
+  | { readonly type: "map_capture"; readonly requestId: string }
   | { readonly type: "assistant"; readonly frame: AssistantFrame };
 
 export async function* streamSessionFollow(
@@ -72,6 +73,13 @@ export async function* streamSessionFollow(
     }
     if (!opened)
       throw new Error("Session follow omitted its opening snapshot.");
+    if (frame.event === "map.capture") {
+      const value = JSON.parse(frame.data) as unknown;
+      if (frame.id !== null || !isRecord(value) || typeof value.request_id !== "string" || value.request_id.length === 0)
+        throw new Error("Invalid map capture request.");
+      yield { type: "map_capture", requestId: value.request_id };
+      continue;
+    }
     if (frame.event === "assistant.stream") {
       if (frame.id !== null)
         throw new Error(

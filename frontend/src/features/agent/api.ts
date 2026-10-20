@@ -123,21 +123,6 @@ export interface StepModelSnapshot {
 
 export interface TurnMapContext {
   readonly workspace_id: string;
-  readonly viewport: {
-    readonly latitude: number;
-    readonly longitude: number;
-    readonly zoom: number;
-  };
-  readonly event_id: string | null;
-  readonly selected_aoi_id: string | null;
-  readonly selected_feature: {
-    readonly feature_id: string;
-    readonly layer_id: string;
-  } | null;
-  readonly visible_layer_ids: readonly string[];
-  readonly active_result_layer_id: string | null;
-  readonly active_observation_id: string | null;
-  readonly comparison_observation_ids: readonly string[];
 }
 
 export interface TurnBudget {

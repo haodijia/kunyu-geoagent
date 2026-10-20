@@ -76,6 +76,9 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         app.state.mcp_manager = agent_runtime.kernel.context.require(s.MCP)
         app.state.analysis_service = agent_runtime.kernel.context.require(s.ANALYSIS)
         app.state.map_repository = agent_runtime.kernel.context.require(s.MAPS)
+        app.state.map_capture_service = agent_runtime.kernel.context.require(
+            s.MAP_CAPTURES
+        )
         app.state.oge_service = agent_runtime.kernel.context.require(s.OGE)
         app.state.skill_service = SkillManagementService(
             agent_runtime.kernel.context,

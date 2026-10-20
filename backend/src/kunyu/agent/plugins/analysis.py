@@ -12,6 +12,7 @@ from kunyu.agent.tools.oge.operators import OperatorTool
 from kunyu.agent.tools.registry import ToolRegistration
 from kunyu.application.analysis.analysis import AnalysisService
 from kunyu.application.analysis.analysis_supervisor import AnalysisSupervisor
+from kunyu.application.analysis.map_capture import MapCaptureService
 from kunyu.integrations.geospatial.analysis_raster import AnalysisRaster
 from kunyu.integrations.oge.execution import ExecutionGateway
 from kunyu.persistence.geospatial.analysis import AnalysisRepository
@@ -25,11 +26,12 @@ class AnalysisPlugin:
         s.HTTP_CLIENT,
         s.TOOLS,
         s.CONTEXTS,
+        s.ATTACHMENTS,
         s.JOBS,
         s.SCOPES,
         s.OGE,
     )
-    provides = (s.ANALYSIS, s.MAPS)
+    provides = (s.ANALYSIS, s.MAPS, s.MAP_CAPTURES)
 
     async def apply(self, context: Context) -> None:
         database = context.require(s.DATABASE)
@@ -44,6 +46,8 @@ class AnalysisPlugin:
         maps = MapRepository(database, repository)
         context.provide(s.ANALYSIS, service)
         context.provide(s.MAPS, maps)
+        captures = MapCaptureService()
+        context.provide(s.MAP_CAPTURES, captures)
         supervisor = AnalysisSupervisor(service)
         supervisor.start()
         context.effect(supervisor.stop, before_children=True)
@@ -98,6 +102,13 @@ class AnalysisPlugin:
                 context,
                 name,
                 ToolRegistration(
-                    partial(MapTool, contexts=contexts, maps=maps, name=name)
+                    partial(
+                        MapTool,
+                        contexts=contexts,
+                        maps=maps,
+                        captures=captures,
+                        attachments=context.require(s.ATTACHMENTS),
+                        name=name,
+                    )
                 ),
             )

@@ -1,10 +1,11 @@
 """Report committed layer changes without claiming that a client rendered them."""
 
-from kunyu.agent.runtime.contracts.tool_output import TextDisplay
+from kunyu.agent.runtime.contracts.tool_output import ImagesDisplay, TextDisplay
 from kunyu.agent.runtime.contracts.tools import ToolOutputContract
 from kunyu.agent.tools.outputs.shared import (
     agent_content,
     compact,
+    images,
     label,
     object_result,
 )
@@ -23,6 +24,12 @@ PRESENT = ToolOutputContract(agent_content, present_display, present_compact)
 
 def context_display(result):
     data = object_result(result)
+    if refs := images(result):
+        return ImagesDisplay(
+            summary=label("map_context"),
+            description=label("map_layers", count=len(data["layers"])),
+            images=refs,
+        )
     return TextDisplay(
         summary=label("map_context"),
         text=label("map_layers", count=len(data["layers"])),
@@ -30,7 +37,13 @@ def context_display(result):
 
 
 def context_compact(result):
-    return compact(label("map_context"), object_result(result))
+    data = object_result(result)
+    if refs := images(result):
+        data = data | {
+            "images": [ref.model_dump(mode="json") for ref in refs],
+            "pixels_omitted": True,
+        }
+    return compact(label("map_context"), data)
 
 
 CONTEXT = ToolOutputContract(agent_content, context_display, context_compact)

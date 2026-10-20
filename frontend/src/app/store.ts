@@ -50,7 +50,7 @@ interface AppUiState {
   readonly initializeMapContext: (sessionId: string, workspaceId: string) => void;
   readonly setAnalysisMode: (sessionId: string, mode: AnalysisMode) => void;
   readonly setComposerDraft: (sessionId: string, draft: string) => void;
-  readonly restoreComposerDraft: (sessionId: string, draft: string, map: MapContext, model: SessionModelSelection, attachments: readonly Attachment[]) => void;
+  readonly restoreComposerDraft: (sessionId: string, draft: string, model: SessionModelSelection, attachments: readonly Attachment[]) => void;
   readonly setMapView: (
     sessionId: string,
     viewport: MapViewport,
@@ -134,7 +134,7 @@ export const useAppUiStore = create<AppUiState>((set) => ({
       },
       composerQueuedBySession: { ...state.composerQueuedBySession, [sessionId]: (draft.trim().length > 0 || (state.composerAttachmentsBySession[sessionId]?.length ?? 0) > 0) && state.composerQueuedBySession[sessionId] === true },
     })),
-  restoreComposerDraft: (sessionId, draft, map, model, attachments) => set((state) => {
+  restoreComposerDraft: (sessionId, draft, model, attachments) => set((state) => {
     const existing = state.composerDraftBySession[sessionId];
     if ((existing !== undefined && existing.trim().length > 0) || state.composerQuoteBySession[sessionId] != null || (state.composerAttachmentsBySession[sessionId]?.length ?? 0) > 0) {
       throw new Error("A queued draft cannot replace existing composer input.");
@@ -143,7 +143,6 @@ export const useAppUiStore = create<AppUiState>((set) => ({
       composerDraftBySession: { ...state.composerDraftBySession, [sessionId]: draft },
       composerQueuedBySession: { ...state.composerQueuedBySession, [sessionId]: true },
       composerAttachmentsBySession: { ...state.composerAttachmentsBySession, [sessionId]: attachments },
-      mapContextBySession: { ...state.mapContextBySession, [sessionId]: map },
       modelSelectionBySession: { ...state.modelSelectionBySession, [sessionId]: model },
     };
   }),

@@ -31,6 +31,7 @@ if TYPE_CHECKING:
     from kunyu.agent.skills.registry import SkillRegistry
     from kunyu.agent.tools.registry import ToolPolicyGate, ToolRegistryFactory
     from kunyu.application.analysis.analysis import AnalysisService
+    from kunyu.application.analysis.map_capture import MapCaptureService
     from kunyu.application.analysis.oge import OgeService
     from kunyu.application.execution.confirmations import ConfirmationService
     from kunyu.application.execution.questions import UserQuestionService
@@ -109,3 +110,4 @@ OGE: ServiceKey[OgeService] = ServiceKey("oge")
 
 ANALYSIS: ServiceKey[AnalysisService] = ServiceKey("analysis")
 MAPS: ServiceKey[MapRepository] = ServiceKey("maps")
+MAP_CAPTURES: ServiceKey[MapCaptureService] = ServiceKey("maps.captures")
