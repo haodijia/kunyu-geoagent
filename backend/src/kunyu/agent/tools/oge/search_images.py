@@ -1,10 +1,9 @@
 """Paginated imagery discovery with compact, typed image summaries."""
 
-from kunyu.agent.tools.outputs.oge import IMAGERY
-
 from kunyu.agent.runtime.contracts.tools import ToolCall, ToolResult
 from kunyu.agent.tools.oge.arguments import SearchImagesArguments
 from kunyu.agent.tools.oge.shared import OgeTool, oge_tool_error
+from kunyu.agent.tools.outputs.oge import IMAGERY
 from kunyu.agent.tools.shared import tool_result
 from kunyu.application.analysis.oge import OgeService
 from kunyu.domain.conversation.agent_context import RunContextRepository
@@ -29,14 +28,11 @@ class SearchImagesTool(OgeTool[SearchImagesArguments]):
             raise oge_tool_error(error) from None
         return tool_result(
             {
-                "candidate_set_id": f"candidates_{call.call_id}",
                 "page": page.currentPage,
-                "page_size": page.pageSize,
-                "total": page.total,
-                "pages": page.pages,
                 "next_page": page.currentPage + 1
                 if page.currentPage < page.pages
                 else None,
                 "images": [image.model_dump(mode="json") for image in page.records],
-            }
+            },
+            max_bytes=1024 * 1024,
         )

@@ -1,7 +1,7 @@
 """Map tools read and mutate only the calling session's typed map objects."""
 
 from collections.abc import Mapping
-from typing import Literal
+from typing import Annotated, Literal
 
 from pydantic import Field, model_validator
 
@@ -33,20 +33,31 @@ class ContextArguments(ToolArguments):
 
 
 class PresentArguments(ToolArguments):
-    target: Literal["candidates", "output"]
-    reference_id: str = Field(min_length=1, max_length=128)
+    target: Literal["images", "output"]
+    reference_id: str | None = Field(
+        default=None,
+        min_length=1,
+        max_length=128,
+        description="Analysis output ID. Only valid for target=output.",
+    )
+    image_ids: list[Annotated[int, Field(gt=0)]] | None = Field(
+        default=None,
+        min_length=1,
+        max_length=100,
+        description="Image IDs from search results to add as layers. Only valid for target=images.",
+    )
     open_map: bool = True
     focus: bool = True
-    image_id: int | None = Field(
-        default=None,
-        gt=0,
-        description="Record the user's explicit image choice from this candidate set. Only valid for target=candidates.",
-    )
 
     @model_validator(mode="after")
     def image_target(self):
-        if self.target == "output" and self.image_id is not None:
-            raise ValueError("Only candidates can carry an image selection.")
+        if self.target == "images":
+            if self.image_ids is None or self.reference_id is not None:
+                raise ValueError("Image presentation requires only image_ids.")
+            if len(set(self.image_ids)) != len(self.image_ids):
+                raise ValueError("Image IDs must be unique.")
+        elif self.reference_id is None or self.image_ids is not None:
+            raise ValueError("Output presentation requires only reference_id.")
         return self
 
 
@@ -116,7 +127,7 @@ class MapTool(BaseTool):
                     args.reference_id,
                     open_map=args.open_map,
                     focus=args.focus,
-                    image_id=args.image_id,
+                    image_ids=args.image_ids,
                 )
                 value = {
                     "presentation": presentation.model_dump(mode="json"),

@@ -127,8 +127,8 @@ REGIONS = ToolOutputContract(agent_content, regions_display, regions_compact)
 def imagery_display(result):
     data = object_result(result)
     return TextDisplay(
-        summary=label("imagery", total=data["total"]),
-        text=label("imagery", total=data["total"]),
+        summary=label("imagery", total=len(data["images"])),
+        text=label("imagery", total=len(data["images"])),
     )
 
 
@@ -136,7 +136,7 @@ def imagery_compact(result):
     data = object_result(result)
     return compact(
         imagery_display(result).summary,
-        {key: data[key] for key in ("candidate_set_id", "total", "page", "next_page")}
+        {key: data[key] for key in ("page", "next_page")}
         | {"image_ids": [row["imageId"] for row in data["images"]]},
     )
 

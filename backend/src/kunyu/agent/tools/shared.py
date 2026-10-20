@@ -67,10 +67,12 @@ def load_source(contexts: RunContextRepository, run_id: str) -> RunContextSource
     return source
 
 
-def tool_result(value: object) -> ToolResult:
+def tool_result(value: object, *, max_bytes: int = MAX_TOOL_RESULT_BYTES) -> ToolResult:
     encoded = encode_json(value)
-    if len(encoded) > MAX_TOOL_RESULT_BYTES:
-        raise ToolExecutionError("Tool result exceeds the 16 KiB result limit.")
+    if len(encoded) > max_bytes:
+        raise ToolExecutionError(
+            f"Tool result exceeds the {max_bytes} byte result limit."
+        )
     return ToolResult(
         content=(TextBlock(text=encoded.decode("utf-8")),),
         result=TypeAdapter(JsonValue).validate_python(value),

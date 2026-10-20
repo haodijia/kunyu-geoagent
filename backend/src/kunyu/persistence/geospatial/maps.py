@@ -8,7 +8,7 @@ from kunyu.domain.geospatial.analysis import (
     MapLayer,
     MapPresentation,
 )
-from kunyu.domain.geospatial.imagery import candidate_bounds
+from kunyu.domain.geospatial.imagery import image_bounds
 from kunyu.persistence.database import Database
 from kunyu.persistence.geospatial.analysis import AnalysisRepository
 from kunyu.persistence.geospatial.analysis_shared import publish, require_session
@@ -19,7 +19,6 @@ from kunyu.persistence.geospatial.map_layers import (
     normalize_positions,
     ordered_layers,
     require_layer,
-    retain_image_layer,
 )
 from kunyu.persistence.records.geospatial import MapLayerRecord
 
@@ -34,25 +33,25 @@ class MapRepository:
         session_id: str,
         request_id: str,
         target: str,
-        reference_id: str,
+        reference_id: str | None,
         *,
         open_map: bool,
         focus: bool,
-        image_id: int | None = None,
+        image_ids: list[int] | None = None,
     ) -> MapPresentation:
-        if target == "candidates":
-            candidates = self.imagery.get(session_id, reference_id)
-            if image_id is not None and not any(
-                image.imageId == image_id for image in candidates.images
-            ):
+        if target == "images":
+            if not image_ids or reference_id is not None:
                 raise AnalysisError(
-                    "INVALID_IMAGE", "The image is not part of this candidate set.", 422
+                    "INVALID_TARGET", "Image presentation requires only image_ids.", 422
                 )
-            bounds = candidate_bounds(candidates)
+            images = self.imagery.get(session_id, image_ids)
+            bounds = image_bounds(images)
         elif target == "output":
-            if image_id is not None:
+            if reference_id is None or image_ids is not None:
                 raise AnalysisError(
-                    "INVALID_TARGET", "Output presentation cannot select an image.", 422
+                    "INVALID_TARGET",
+                    "Output presentation requires only reference_id.",
+                    422,
                 )
             output = self.outputs.output(session_id, reference_id)
             bounds = output.bounds
@@ -63,14 +62,8 @@ class MapRepository:
         with self.database.sessions.begin() as tx:
             tx.execute(text("BEGIN IMMEDIATE"))
             require_session(tx, session_id, writable=True)
-            if target == "candidates":
-                layers = add_image_layers(tx, candidates)
-                if image_id is not None:
-                    selected = next(
-                        layer for layer in layers if layer.image["image_id"] == image_id
-                    )
-                    retain_image_layer(tx, selected)
-                    bounds = None if selected.bounds is None else tuple(selected.bounds)
+            if target == "images":
+                add_image_layers(tx, session_id, images)
             else:
                 add_output_layer(tx, session_id, output)
             publish(self.database, tx, session_id, "map/changed", request_id, 1)
@@ -78,7 +71,7 @@ class MapRepository:
             request_id=request_id,
             target=target,
             reference_id=reference_id,
-            image_id=image_id,
+            image_ids=image_ids,
             open_map=open_map,
             focus=focus,
             bounds=bounds,

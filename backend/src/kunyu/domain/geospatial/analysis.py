@@ -68,9 +68,9 @@ class AnalysisOutput(AnalysisValue):
 
 class MapPresentation(AnalysisValue):
     request_id: str
-    target: Literal["candidates", "output"]
-    reference_id: str
-    image_id: int | None = None
+    target: Literal["images", "output"]
+    reference_id: str | None
+    image_ids: list[int] | None
     open_map: bool
     focus: bool
     bounds: tuple[float, float, float, float] | None
@@ -82,7 +82,6 @@ class MapLayer(AnalysisValue):
     output_id: str | None
     image: LayerImage | None
     bounds: tuple[float, float, float, float] | None
-    temporary: bool
     title: str
     visible: bool
     opacity: float = Field(ge=0, le=1, allow_inf_nan=False)

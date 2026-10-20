@@ -44,7 +44,7 @@ API 沿用 Electron 的桌面会话鉴权。页面仅返回账号与有效期，
 | 名称 | 输入／结果 |
 | --- | --- |
 | `oge_find_regions` | 输入仅含地名 `query` 和可选上级名称 `parent_name`；返回列表，每项仅含 `code`、`level`、`name`、`name_en`、`path` |
-| `oge_search_images` | 时间范围、行政区／闭合多边形／矩形三选一、可选产品 ID 和云量；每页最多 10 景，返回 next_page |
+| `oge_search_images` | 时间范围、行政区／闭合多边形／矩形三选一、可选产品 ID 和云量、页码；每页固定请求 100 景，输出仅含 `page`、`next_page`、`images`，末页 `next_page=null` |
 | `oge_get_image_detail` | image_id；返回完整详情，data=null 明确报不存在 |
 | `oge_get_image_preview` | image_id；下载 PNG，通过已有附件机制持久保存并返回图片内容 |
 | `oge_list_my_data` | page、page_size、可选 keywords 和 data_type；每页最多 10 个资产，返回 next_page、assetUuid 和 Personal:Asset 引用 |

@@ -461,7 +461,6 @@ CREATE TABLE map_layers (
 	output_id VARCHAR(64),
 	image JSON,
 	bounds JSON,
-	temporary BOOLEAN NOT NULL,
 	title VARCHAR(200) NOT NULL,
 	visible BOOLEAN NOT NULL,
 	opacity FLOAT NOT NULL,
@@ -482,4 +481,4 @@ CREATE TABLE oge_account (
     CONSTRAINT ck_oge_account_singleton CHECK (id = 1)
 );
 
-PRAGMA user_version = 9;
+PRAGMA user_version = 10;

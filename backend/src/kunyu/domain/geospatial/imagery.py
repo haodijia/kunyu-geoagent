@@ -1,4 +1,4 @@
-"""Immutable imagery candidates reference committed search tool results."""
+"""Image metadata and geographic bounds shared by map layers."""
 
 import math
 
@@ -9,7 +9,6 @@ from kunyu.domain.geospatial.oge import OgeImageRecord
 
 class LayerImage(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
-    candidate_set_id: str = Field(min_length=1, max_length=128)
     image_id: int = Field(gt=0)
     product_name: str
     acquired_at: str
@@ -18,9 +17,8 @@ class LayerImage(BaseModel):
     footprint: list[list[float]] | None
 
 
-def layer_image(candidate_set_id: str, image: OgeImageRecord) -> LayerImage:
+def layer_image(image: OgeImageRecord) -> LayerImage:
     return LayerImage(
-        candidate_set_id=candidate_set_id,
         image_id=image.imageId,
         product_name=image.productName,
         acquired_at=image.phenomenonTime,
@@ -43,13 +41,6 @@ def ring_bounds(
     )
 
 
-class ImageCandidates(BaseModel):
-    model_config = ConfigDict(extra="forbid", frozen=True)
-    id: str
-    session_id: str
-    images: tuple[OgeImageRecord, ...]
-
-
 def image_ring(image: OgeImageRecord) -> list[list[float]] | None:
     coordinates = [
         (image.upperLeftLong, image.upperLeftLat),
@@ -70,12 +61,12 @@ def image_ring(image: OgeImageRecord) -> list[list[float]] | None:
     return [[x, y] for x, y in (*coordinates, coordinates[0])]
 
 
-def candidate_bounds(
-    candidates: ImageCandidates,
+def image_bounds(
+    images: tuple[OgeImageRecord, ...],
 ) -> tuple[float, float, float, float] | None:
     points = [
         point
-        for image in candidates.images
+        for image in images
         if (ring := image_ring(image)) is not None
         for point in ring
     ]

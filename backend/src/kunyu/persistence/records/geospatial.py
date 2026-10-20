@@ -105,7 +105,6 @@ class MapLayerRecord(Base):
     )
     image: Mapped[dict | None] = mapped_column(JSON(none_as_null=True), nullable=True)
     bounds: Mapped[list | None] = mapped_column(JSON(none_as_null=True), nullable=True)
-    temporary: Mapped[bool] = mapped_column(Boolean, nullable=False)
     title: Mapped[str] = mapped_column(String(200), nullable=False)
     visible: Mapped[bool] = mapped_column(Boolean, nullable=False)
     opacity: Mapped[float] = mapped_column(Float, nullable=False)

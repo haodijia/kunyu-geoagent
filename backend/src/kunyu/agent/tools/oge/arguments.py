@@ -95,7 +95,6 @@ class SearchImagesArguments(ToolArguments):
     )
     cloud: CloudRange | None = None
     page: int = Field(default=1, ge=1)
-    page_size: int = Field(default=10, ge=1, le=10)
 
     @model_validator(mode="after")
     def interval(self) -> Self:
@@ -110,7 +109,7 @@ class SearchImagesArguments(ToolArguments):
             "startTime": self.start_time,
             "endTime": self.end_time,
             "pageNum": str(self.page),
-            "pageSize": str(self.page_size),
+            "pageSize": "100",
             "useCloud": "true" if self.cloud is not None else "false",
         }
         if isinstance(self.region, AdministrativeRegion):

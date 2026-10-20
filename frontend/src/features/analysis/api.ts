@@ -48,7 +48,6 @@ export interface MapLayer {
   readonly session_id: string;
   readonly output_id: string | null;
   readonly image: {
-    readonly candidate_set_id: string;
     readonly image_id: number;
     readonly product_name: string;
     readonly acquired_at: string;
@@ -57,7 +56,6 @@ export interface MapLayer {
     readonly footprint: readonly (readonly [number, number])[] | null;
   } | null;
   readonly bounds: readonly [number, number, number, number] | null;
-  readonly temporary: boolean;
   readonly title: string;
   readonly visible: boolean;
   readonly opacity: number;

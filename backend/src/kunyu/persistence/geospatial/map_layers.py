@@ -6,7 +6,8 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from kunyu.domain.geospatial.analysis import AnalysisError, AnalysisOutput
-from kunyu.domain.geospatial.imagery import ImageCandidates, layer_image, ring_bounds
+from kunyu.domain.geospatial.imagery import layer_image, ring_bounds
+from kunyu.domain.geospatial.oge import OgeImageRecord
 from kunyu.persistence.records.geospatial import MapLayerRecord
 
 
@@ -51,7 +52,6 @@ def add_output_layer(
         output_id=output.id,
         image=None,
         bounds=list(output.bounds),
-        temporary=False,
         title=output.title,
         visible=True,
         opacity=0.85,
@@ -63,17 +63,16 @@ def add_output_layer(
     return row
 
 
-def add_image_layers(tx: Session, candidates: ImageCandidates) -> list[MapLayerRecord]:
-    layers = ordered_layers(tx, candidates.session_id)
-    added = []
-    for index, image in enumerate(candidates.images):
+def add_image_layers(
+    tx: Session, session_id: str, images: tuple[OgeImageRecord, ...]
+) -> None:
+    layers = ordered_layers(tx, session_id)
+    for image in images:
         existing = next(
             (
                 row
                 for row in layers
-                if row.image is not None
-                and row.image["candidate_set_id"] == candidates.id
-                and row.image["image_id"] == image.imageId
+                if row.image is not None and row.image["image_id"] == image.imageId
             ),
             None,
         )
@@ -81,18 +80,16 @@ def add_image_layers(tx: Session, candidates: ImageCandidates) -> list[MapLayerR
             if not existing.visible:
                 existing.visible = True
                 existing.revision += 1
-            added.append(existing)
             continue
-        source = layer_image(candidates.id, image)
+        source = layer_image(image)
         bounds = ring_bounds(source.footprint)
         row = MapLayerRecord(
             id=f"layer_{uuid4()}",
-            session_id=candidates.session_id,
+            session_id=session_id,
             output_id=None,
             image=source.model_dump(mode="json"),
             bounds=None if bounds is None else list(bounds),
-            temporary=True,
-            title=f"{index + 1} · {image.productName} · {image.phenomenonTime[:10]}",
+            title=f"{image.productName} · {image.phenomenonTime[:10]}",
             visible=True,
             opacity=1,
             position=len(layers),
@@ -100,25 +97,4 @@ def add_image_layers(tx: Session, candidates: ImageCandidates) -> list[MapLayerR
         )
         tx.add(row)
         layers.append(row)
-        added.append(row)
     tx.flush()
-    return added
-
-
-def retain_image_layer(tx: Session, row: MapLayerRecord) -> None:
-    if row.image is None:
-        raise AnalysisError(
-            "INVALID_LAYER", "The layer does not reference an image.", 422
-        )
-    for other in ordered_layers(tx, row.session_id):
-        if (
-            other.id != row.id
-            and other.temporary
-            and other.image is not None
-            and (other.image["candidate_set_id"] == row.image["candidate_set_id"])
-        ):
-            tx.delete(other)
-    if row.temporary:
-        row.temporary = False
-        row.revision += 1
-    normalize_positions(tx, row.session_id)
