@@ -75,12 +75,8 @@ class PresentArguments(ToolArguments):
         return self
 
 
-class StyleArguments(ToolArguments):
+class StyleArguments(LayerStyleWrite, ToolArguments):
     layer_id: str = Field(min_length=1, max_length=64)
-    expected_revision: int = Field(ge=1)
-    visible: bool
-    opacity: float = Field(ge=0, le=1, allow_inf_nan=False)
-    position: int = Field(ge=0, le=1000)
 
 
 class MapTool(BaseTool):
@@ -121,6 +117,10 @@ class MapTool(BaseTool):
         )
 
     def validate(self, arguments: object) -> Mapping[str, object]:
+        if self.spec.name == "map_set_layer_style":
+            return validate_model(
+                self.spec.name, self._arguments, arguments
+            ).model_dump(exclude_none=True)
         return validate_arguments(self.spec.name, self._arguments, arguments)
 
     async def execute(self, call: ToolCall) -> ToolResult:
@@ -168,7 +168,9 @@ class MapTool(BaseTool):
                 value = self._maps.style(
                     session_id,
                     args.layer_id,
-                    LayerStyleWrite(**args.model_dump(exclude={"layer_id"})),
+                    LayerStyleWrite(
+                        **args.model_dump(exclude={"layer_id"}, exclude_none=True)
+                    ),
                 ).model_dump(mode="json")
         except AnalysisError as error:
             raise ToolExecutionError(str(error), code=error.code) from None

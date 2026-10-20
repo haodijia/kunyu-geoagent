@@ -109,25 +109,24 @@ class MapRepository:
             tx.execute(text("BEGIN IMMEDIATE"))
             require_session(tx, session_id, writable=True)
             row = require_layer(tx, session_id, layer_id)
-            if row.revision != update.expected_revision:
-                raise AnalysisError(
-                    "MAP_CONFLICT",
-                    "Map layer changed; refresh before applying the style.",
-                )
-            ordered = ordered_layers(tx, session_id)
-            if update.position >= len(ordered):
-                raise AnalysisError(
-                    "INVALID_POSITION", "Layer position is outside the stack.", 422
-                )
-            ordered.remove(row)
-            ordered.insert(update.position, row)
-            for position, item in enumerate(ordered):
-                if item is not row and item.position != position:
-                    item.position = position
-                    item.revision += 1
-                if item is row:
-                    item.position = position
-            row.visible, row.opacity = update.visible, update.opacity
+            changes = update.model_dump(exclude_none=True)
+            if all(getattr(row, key) == value for key, value in changes.items()):
+                return MapLayer.model_validate(row)
+            if update.position is not None and update.position != row.position:
+                ordered = ordered_layers(tx, session_id)
+                if update.position >= len(ordered):
+                    raise AnalysisError(
+                        "INVALID_POSITION", "Layer position is outside the stack.", 422
+                    )
+                ordered.remove(row)
+                ordered.insert(update.position, row)
+                for position, item in enumerate(ordered):
+                    if item.position != position:
+                        item.position = position
+                        if item is not row:
+                            item.revision += 1
+            for key, value in changes.items():
+                setattr(row, key, value)
             row.revision += 1
             tx.flush()
             publish(
@@ -135,15 +134,11 @@ class MapRepository:
             )
             return MapLayer.model_validate(row)
 
-    def remove(self, session_id: str, layer_id: str, expected_revision: int) -> None:
+    def remove(self, session_id: str, layer_id: str) -> None:
         with self.database.sessions.begin() as tx:
             tx.execute(text("BEGIN IMMEDIATE"))
             require_session(tx, session_id, writable=True)
             row = require_layer(tx, session_id, layer_id)
-            if row.revision != expected_revision:
-                raise AnalysisError(
-                    "MAP_CONFLICT", "Map layer changed; refresh before removing it."
-                )
             revision = row.revision + 1
             tx.delete(row)
             tx.flush()

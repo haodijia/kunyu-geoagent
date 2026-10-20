@@ -116,7 +116,7 @@ def add_layer(session_id: str, body: OutputReference, repository: Maps):
     return repository.add(session_id, body.output_id)
 
 
-@router.put("/sessions/{session_id}/map/layers/{layer_id}", response_model=MapLayer)
+@router.patch("/sessions/{session_id}/map/layers/{layer_id}", response_model=MapLayer)
 def style_layer(
     session_id: str, layer_id: str, body: LayerStyleWrite, repository: Maps
 ):
@@ -124,8 +124,6 @@ def style_layer(
 
 
 @router.delete("/sessions/{session_id}/map/layers/{layer_id}", status_code=204)
-def remove_layer(
-    session_id: str, layer_id: str, expected_revision: int, repository: Maps
-):
-    repository.remove(session_id, layer_id, expected_revision)
+def remove_layer(session_id: str, layer_id: str, repository: Maps):
+    repository.remove(session_id, layer_id)
     return Response(status_code=204)

@@ -38,13 +38,7 @@ export function OutputCard({
     mutationFn: async (action: "map" | "download" | "preview") => {
       if (action === "map") {
         if (sessionId === null) throw new Error("Choose an active session before opening a result on the map.");
-        const layer = await analysisApi.addLayer(sessionId, output.id);
-        if (!layer.visible)
-          await analysisApi.style(sessionId, layer, {
-            visible: true,
-            opacity: layer.opacity,
-            position: layer.position,
-          });
+        await analysisApi.addLayer(sessionId, output.id);
         useAppUiStore.getState().focusMap(sessionId, output.bounds);
         await client.invalidateQueries({
           queryKey: analysisKeys.layers(sessionId),

@@ -43,11 +43,11 @@ export function AnalysisPanel({ sessionId, layers, error }: {
       if (action.kind === "remove") {
         await analysisApi.removeLayer(sessionId, layer);
       } else {
-        await analysisApi.style(sessionId, layer, {
-          visible: action.kind === "visibility" ? !layer.visible : layer.visible,
-          opacity: action.kind === "opacity" ? action.value : layer.opacity,
-          position: action.kind === "reorder" ? action.position : layer.position,
-        });
+        await analysisApi.style(sessionId, layer,
+          action.kind === "reorder" ? { position: action.position }
+          : action.kind === "opacity" ? { opacity: action.value }
+          : { visible: !layer.visible },
+        );
       }
     },
     onError: (reason) => console.error("[map] Updating a layer failed.", { sessionId, reason }),

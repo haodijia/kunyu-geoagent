@@ -38,9 +38,9 @@ export interface MapLayer {
   readonly revision: number;
 }
 export interface LayerStyle {
-  readonly visible: boolean;
-  readonly opacity: number;
-  readonly position: number;
+  readonly visible?: boolean;
+  readonly opacity?: number;
+  readonly position?: number;
 }
 export const analysisKeys = {
   outputs: (id: string) => ["analysis", "workspaces", id, "outputs"] as const,
@@ -63,13 +63,13 @@ export const analysisApi = {
     requestJson<MapLayer>(
       `${mapPath(id)}/layers/${encodeURIComponent(layer.id)}`,
       {
-        method: "PUT",
-        body: JSON.stringify({ expected_revision: layer.revision, ...style }),
+        method: "PATCH",
+        body: JSON.stringify(style),
       },
     ),
   removeLayer: (id: string, layer: MapLayer) =>
     requestJson<void>(
-      `${mapPath(id)}/layers/${encodeURIComponent(layer.id)}?expected_revision=${layer.revision}`,
+      `${mapPath(id)}/layers/${encodeURIComponent(layer.id)}`,
       { method: "DELETE" },
     ),
   preview: (id: string, outputId: string) =>

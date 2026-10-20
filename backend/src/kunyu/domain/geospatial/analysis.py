@@ -3,7 +3,15 @@
 from datetime import datetime
 from typing import Literal, Self
 
-from pydantic import BaseModel, ConfigDict, Field, JsonValue, model_validator
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    Field,
+    JsonValue,
+    field_validator,
+    model_validator,
+)
+from pydantic.json_schema import SkipJsonSchema
 
 from kunyu.domain.execution.jobs import JobStage
 from kunyu.domain.geospatial.imagery import LayerImage
@@ -88,7 +96,21 @@ class MapLayer(AnalysisValue):
 
 
 class LayerStyleWrite(AnalysisValue):
-    expected_revision: int = Field(ge=1)
-    visible: bool
-    opacity: float = Field(ge=0, le=1, allow_inf_nan=False)
-    position: int = Field(ge=0, le=1000)
+    visible: bool | SkipJsonSchema[None] = None
+    opacity: float | SkipJsonSchema[None] = Field(
+        default=None, ge=0, le=1, allow_inf_nan=False
+    )
+    position: int | SkipJsonSchema[None] = Field(default=None, ge=0, le=1000)
+
+    @field_validator("visible", "opacity", "position")
+    @classmethod
+    def non_null(cls, value):
+        if value is None:
+            raise ValueError("Omit unchanged style fields; values cannot be null.")
+        return value
+
+    @model_validator(mode="after")
+    def changes(self) -> Self:
+        if self.visible is None and self.opacity is None and self.position is None:
+            raise ValueError("Supply at least one style field.")
+        return self
