@@ -192,5 +192,3 @@ class AgentLoopPlugin:
             raise RuntimeError("The loop must be installed through a plugin owner.")
         detach = context.parent.effect(scheduler.shutdown, before_children=True)
         context.effect(detach)
-        await subagents.recover()
-        await scheduler.start()

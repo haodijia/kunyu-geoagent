@@ -86,6 +86,8 @@ async def prepare_skill_context(
     }
     available = {skill.name for skill in skills if skill.user_invocable}
     for message in messages:
+        if message.source != "user":
+            continue
         for match in SKILL_GESTURE.finditer(message.content):
             name = match[1]
             if name in invoked or name not in available:

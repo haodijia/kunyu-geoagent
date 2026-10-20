@@ -50,6 +50,7 @@ from kunyu.agent.runtime.events.session import (
     SessionCreatedEvent,
     SubagentCreatedEvent,
     SubagentSettledEvent,
+    SubagentStartedEvent,
     UserMessageAppendedEvent,
 )
 from kunyu.agent.runtime.events.tools import (
@@ -83,6 +84,7 @@ type EventDraft = Annotated[
     | PermissionChangedEvent
     | SubagentCreatedEvent
     | SubagentSettledEvent
+    | SubagentStartedEvent
     | FeedbackRecordedEvent
     | HistoryCompactedEvent
     | CompactionStartedEvent

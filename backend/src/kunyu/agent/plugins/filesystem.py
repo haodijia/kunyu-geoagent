@@ -1,12 +1,14 @@
 """Compose a filesystem provider separately from its model-facing tools."""
 
 from functools import partial
+from pathlib import Path
 
 from kunyu.agent.capabilities.filesystem import FilesystemHooks, ObservedStateGate
 from kunyu.agent.core import services as s
 from kunyu.agent.core.scope import Context
 from kunyu.agent.prompts.loader import prompt_text
 from kunyu.agent.runtime.contracts.context import PromptSection
+from kunyu.agent.skills.filesystem import FilesystemSkillProvider
 from kunyu.agent.tools.filesystem.file_mutations import FileMutationTool
 from kunyu.agent.tools.filesystem.files import ReadTool
 from kunyu.agent.tools.registry import ToolRegistration
@@ -20,7 +22,16 @@ class FilesystemPlugin:
 
     async def apply(self, context: Context) -> None:
         hooks = FilesystemHooks()
-        filesystem = MountedFilesystem(context.require(s.DATABASE).path.parent)
+        directory = context.require(s.DATABASE).path.parent
+        skills = FilesystemSkillProvider(
+            directory, Path(__file__).parents[1] / "skills" / "bundled"
+        )
+        filesystem = MountedFilesystem(
+            directory,
+            read_roots=lambda scope: tuple(
+                root.path for root in skills.roots(scope.workspace_id)
+            ),
+        )
         context.provide(s.FILESYSTEM_HOOKS, hooks)
         context.provide(s.FILESYSTEM, filesystem)
 

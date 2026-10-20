@@ -21,7 +21,7 @@ export function contextRecord(
 ): TrajectoryRecord {
   const first = events[0]!;
   if (first.eventType === "subagent/created") {
-    const ended = events.find(
+    const ended = events.findLast(
       (event) => event.eventType === "subagent/settled",
     );
     const description = stringValue(first.payload.description);
@@ -32,8 +32,14 @@ export function contextRecord(
       typeof first.payload.prompt !== "string"
     )
       throw new Error("Invalid delegation record.");
-    const status =
-      ended === undefined ? "pending" : stringValue(ended.payload.status);
+    const started = events.findLast(event => event.eventType === "subagent/started");
+    const completed = ended !== undefined && (
+      started === undefined || (
+        ended.sequence > started.sequence &&
+        ended.payload.child_run_id === started.payload.child_run_id
+      )
+    );
+    const status = completed ? stringValue(ended.payload.status) : "pending";
     if (status === null) throw new Error("Invalid delegation settlement.");
     return baseRecord(events, {
       turn: turnFor(first, context),
@@ -41,7 +47,7 @@ export function contextRecord(
       searchText: `${description} ${first.payload.prompt} ${safeString(ended?.payload.output ?? "")}`,
       status,
       startedAt: first.occurredAt,
-      completedAt: ended?.occurredAt ?? null,
+      completedAt: completed ? ended.occurredAt : null,
       isError: status === "failed",
       source: {
         kind: "subagent",
@@ -52,7 +58,7 @@ export function contextRecord(
         permission: first.payload.permission,
       },
       input: first.payload.prompt,
-      output: ended?.payload ?? null,
+      output: completed ? ended.payload : null,
     });
   }
   if (first.eventType === "compaction/start") {

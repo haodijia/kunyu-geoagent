@@ -10,7 +10,6 @@ from kunyu.agent.skills.filesystem import FilesystemSkillProvider
 from kunyu.agent.skills.registry import SkillRegistry
 from kunyu.agent.tools.context.skills import SkillTool
 from kunyu.agent.tools.registry import ToolRegistration
-from kunyu.settings import get_app_data_directory
 
 
 class SkillPlugin:
@@ -24,7 +23,7 @@ class SkillPlugin:
 
 class FilesystemSkillsPlugin:
     name = "skills-filesystem"
-    requires = (s.SKILLS,)
+    requires = (s.SKILLS, s.DATABASE)
     provides = ()
 
     async def apply(self, context: Context) -> None:
@@ -32,7 +31,8 @@ class FilesystemSkillsPlugin:
             context,
             "filesystem",
             FilesystemSkillProvider(
-                get_app_data_directory(), Path(__file__).parent / "bundled"
+                context.require(s.DATABASE).path.parent,
+                Path(__file__).parent / "bundled",
             ),
         )
 
@@ -61,25 +61,21 @@ class SkillToolsPlugin:
         self.catalog_description_max_length = catalog_description_max_length
 
     async def apply(self, context: Context) -> None:
-        registrations = {}
-        for name, resource in (("skill", False), ("skill_resource", True)):
-            registration = ToolRegistration(
-                partial(
-                    SkillTool,
-                    contexts=context.require(s.CONTEXTS),
-                    skills=context.require(s.SKILLS),
-                    scopes=context.require(s.SCOPES),
-                    resource=resource,
-                )
+        registration = ToolRegistration(
+            partial(
+                SkillTool,
+                contexts=context.require(s.CONTEXTS),
+                skills=context.require(s.SKILLS),
+                scopes=context.require(s.SCOPES),
             )
-            registrations[name] = registration
-            context.require(s.TOOLS).register(context, name, registration)
+        )
+        context.require(s.TOOLS).register(context, "skill", registration)
         context.require(s.CONTEXT_PREPARERS).register(
             context,
             "skills",
             partial(
                 prepare_skill_context,
-                registration=registrations["skill"],
+                registration=registration,
                 catalog_description_max_length=self.catalog_description_max_length,
             ),
         )

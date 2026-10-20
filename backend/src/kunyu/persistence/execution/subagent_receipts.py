@@ -52,16 +52,24 @@ def validate_subagent_receipts(transaction: Session, parent: ReducedSession) -> 
             raise ProjectionConflictError(
                 "Delegation differs from its child input receipt."
             )
+        if not any(
+            message.run_id == delegation.active_run_id
+            for message in child.user_messages
+        ) and not any(
+            item.turn is not None and item.turn.run_id == delegation.active_run_id
+            for item in child.next_turn
+        ):
+            raise ProjectionConflictError("Child activation has no input receipt.")
         settled = delegation.settled
         if settled is None:
             continue
         run = next(
-            (run for run in child.runs if run.run_id == created.child_run_id), None
+            (run for run in child.runs if run.run_id == settled.child_run_id), None
         )
         output = ""
         if run is None:
             discarded = any(
-                message.message_id == births[0]["message_id"] and message.discarded
+                message.run_id == settled.child_run_id and message.discarded
                 for message in child.user_messages
             )
             if not discarded or settled.status != "cancelled":

@@ -67,18 +67,20 @@ def io_error(error: OSError, path: str, verb: str) -> FilesystemError:
     return FilesystemError(code, f'cannot {verb} "{path}": {error.strerror}')
 
 
-def require_workspace_target(target: FsTarget) -> None:
+def require_resolved_target(target: FsTarget) -> None:
+    base = target.read_root if target.read_root is not None else "/workspace"
     if (
-        re.fullmatch(r"[A-Za-z0-9_-]{1,64}", target.scope.workspace_id) is None
+        not Path(base).is_absolute()
+        or re.fullmatch(r"[A-Za-z0-9_-]{1,64}", target.scope.workspace_id) is None
         or any(
             part in {"", ".", ".."} or "/" in part or "\x00" in part
             for part in target.parts
         )
         or target.display_path
-        != "/workspace" + ("/" + "/".join(target.parts) if target.parts else "")
+        != base + ("/" + "/".join(target.parts) if target.parts else "")
     ):
         raise FilesystemError(
-            "FS_INVALID_TARGET", "The workspace target is not a resolved file path."
+            "FS_INVALID_TARGET", "The filesystem target is not a resolved file path."
         )
     if os.name == "nt":
         from kunyu.integrations.filesystem.windows import validate_component
@@ -95,12 +97,16 @@ def _open_path(
     create: bool,
     cancelled: Event | None,
 ) -> Iterator[Directory]:
+    components = ("workspaces", target.scope.workspace_id, *parts)
+    if target.read_root is not None:
+        root = Path(target.read_root)
+        components = parts
     if os.name == "nt":
         from kunyu.integrations.filesystem.windows import open_directories
 
         with open_directories(
             root,
-            ("workspaces", target.scope.workspace_id, *parts),
+            components,
             create,
             cancelled,
         ) as directory:
@@ -110,11 +116,7 @@ def _open_path(
     try:
         descriptor = os.open(root, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
         descriptors.append(descriptor)
-        for name in (
-            "workspaces",
-            target.scope.workspace_id,
-            *parts,
-        ):
+        for name in components:
             if cancelled is not None:
                 check_cancelled(cancelled, "write" if create else "read")
             if create:
@@ -141,10 +143,11 @@ def open_parent(
     create: bool = False,
     cancelled: Event | None = None,
 ) -> Iterator[Directory]:
-    require_workspace_target(target)
+    require_resolved_target(target)
     if not target.parts:
         raise FilesystemError(
-            "FS_NOT_REGULAR_FILE", 'cannot read "/workspace": not a regular file'
+            "FS_NOT_REGULAR_FILE",
+            f'cannot read "{target.display_path}": not a regular file',
         )
     with _open_path(root, target, target.parts[:-1], create, cancelled) as descriptor:
         yield descriptor
@@ -154,11 +157,15 @@ def open_parent(
 def open_directory(
     root: Path, target: FsTarget, cancelled: Event
 ) -> Iterator[Directory]:
-    require_workspace_target(target)
+    require_resolved_target(target)
     try:
         # Provision only the managed root, never a missing user directory.
         with _open_path(
-            root, target, target.parts, not target.parts, cancelled
+            root,
+            target,
+            target.parts,
+            not target.parts and target.read_root is None,
+            cancelled,
         ) as descriptor:
             yield descriptor
     except FileNotFoundError as error:

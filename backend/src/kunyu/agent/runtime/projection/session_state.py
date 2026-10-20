@@ -31,7 +31,7 @@ class ReducedUserMessage:
     discarded: bool = False
     map_context: dict[str, object] = field(default_factory=dict)
     attachments: tuple[Attachment, ...] = ()
-    source: Literal["user", "tool-jobs"] = "user"
+    source: Literal["user", "tool-jobs", "tool-subagents"] = "user"
 
 
 @dataclass(frozen=True, slots=True)

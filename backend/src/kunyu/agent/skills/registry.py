@@ -1,4 +1,4 @@
-"""Scoped providers, runtime contributions and provider-owned resource loading."""
+"""Scoped providers, runtime contributions and instruction loading."""
 
 import asyncio
 import logging
@@ -14,7 +14,6 @@ from kunyu.agent.skills.definitions import (
     SkillRegistration,
     SkillSummary,
     UrlResourceBase,
-    validate_resource_path,
     validate_skill_name,
     validate_skill_text,
 )
@@ -28,9 +27,6 @@ class SkillProvider(Protocol):
     async def get(
         self, summary: SkillSummary, *, workspace_id: str
     ) -> SkillDefinition: ...
-    async def read_resource(
-        self, summary: SkillSummary, path: str, *, workspace_id: str
-    ) -> str: ...
 
 
 class SkillCatalogChangedError(RuntimeError):
@@ -172,7 +168,7 @@ class SkillRegistry:
             candidates: dict[str, _Candidate] = {}
             for entry in sorted(layer.values(), key=lambda value: not value.runtime):
                 summaries = await entry.call(
-                    lambda: entry.provider.list(workspace_id=workspace_id)
+                    lambda entry=entry: entry.provider.list(workspace_id=workspace_id)
                 )
                 for summary in summaries:
                     context.assert_active()
@@ -245,28 +241,6 @@ class SkillRegistry:
     ) -> SkillDefinition:
         candidate = await self._select(context, name, workspace_id, invocation)
         return await self._load(context, candidate, workspace_id)
-
-    async def read_resource(
-        self,
-        context: Context,
-        name: str,
-        path: str,
-        *,
-        workspace_id: str,
-        invocation: Literal["model", "user"],
-    ) -> tuple[SkillDefinition, str]:
-        validate_resource_path(path)
-        candidate = await self._select(context, name, workspace_id, invocation)
-        definition = await self._load(context, candidate, workspace_id)
-        content = await candidate.entry.call(
-            lambda: candidate.entry.provider.read_resource(
-                candidate.summary, path, workspace_id=workspace_id
-            )
-        )
-        context.assert_active()
-        self._require_catalog(context, candidate)
-        validate_skill_text(content)
-        return definition, content
 
     def _require_catalog(self, context: Context, candidate: _Candidate) -> None:
         if candidate.layers != self._entries.layers(context):

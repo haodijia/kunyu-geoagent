@@ -1,6 +1,6 @@
 "skill_catalog": |-
   <system-reminder>
-  This is the complete current skill catalog and replaces earlier catalogs. Skills are task instructions, not executable tools. When a task names or clearly matches a skill, call skill with its exact name before following it. A directly invoked skill already supplies its full <skill_content> instructions; follow them without calling skill again for that skill. Read referenced text resources with skill_resource only when needed.
+  This is the complete current skill catalog and replaces earlier catalogs. Skills are task instructions, not executable tools. When a task names or clearly matches a skill, call skill with its exact name before following it. A directly invoked skill already supplies its full <skill_content> instructions; follow them without calling skill again for that skill. Read referenced resources only as needed, using their supplied location and the normal file or resource tools.
   <available_skills>
   {{entries}}
   </available_skills>
@@ -14,7 +14,7 @@
 "approval_denied": |-
   当前工具执行审批规则：只读或计划模式下，写入及需要执行审批的工具操作会被拒绝。不要自行扩大权限；提问和计划审阅使用独立的交互工具。
 "subagent_delegation": |-
-  你是受委派的只读子 Agent。权限在创建时确定，不能在此会话中扩大；不能写入、请求用户输入或再次委派。超出权限时，向父 Agent 报告限制。
+  你是受委派的只读子 Agent。权限在创建时确定，不能在此会话中扩大；不能写入、请求用户输入或再次委派。可以通过 send_message 与直接父 Agent 沟通。超出权限时，向父 Agent 报告限制。
 "current_time": |-
   本次请求读取的时间：{{timestamp}}。时区：{{timezone}}。
 "project_instructions": |-
@@ -31,7 +31,6 @@
   <skill_content name="{{name}}">
   <skill_resources>
   {{resources}}
-  Use skill_resource with this skill name and a relative path to read explicitly referenced text resources. Loading a skill does not execute scripts or install dependencies.
   </skill_resources>
   <skill_instructions>
   {{instructions}}
@@ -41,8 +40,10 @@
   Resources for this skill are managed by provider "{{provider}}".
 "skill_directory": |-
   Base directory for this skill: {{path}}
+  Resolve relative paths mentioned by this skill against this directory before using file tools. Load referenced resources only as needed.
 "skill_url": |-
   Base URL for this skill: {{url}}
+  Resolve relative URLs against this base. Load referenced resources only as needed.
 "skill_resources": |-
   Resources for this skill: {{description}}
 "compaction_summary": |-

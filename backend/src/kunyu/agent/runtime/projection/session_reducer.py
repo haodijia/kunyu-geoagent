@@ -19,6 +19,7 @@ from kunyu.agent.runtime.events.session import (
     SessionCreatedEvent,
     SubagentCreatedEvent,
     SubagentSettledEvent,
+    SubagentStartedEvent,
     UserMessageAppendedEvent,
 )
 from kunyu.agent.runtime.events.store import AgentEvent, validate_event_draft
@@ -159,7 +160,9 @@ def reduce_session(events: Iterable[AgentEvent]) -> ReducedSession:
                 )
             continue
 
-        if isinstance(event, (SubagentCreatedEvent, SubagentSettledEvent)):
+        if isinstance(
+            event, (SubagentCreatedEvent, SubagentStartedEvent, SubagentSettledEvent)
+        ):
             try:
                 owner_events = run_events.get(event.payload.owner_run_id)
                 if not owner_events:

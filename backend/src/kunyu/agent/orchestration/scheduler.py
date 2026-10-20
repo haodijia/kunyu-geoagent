@@ -79,6 +79,7 @@ class RunScheduler:
         self._drain_task: asyncio.Task[None] | None = None
         self._next_queue_sequence = 1
         self._started = False
+        self._dispatch_ready = False
         self._closing = False
         self._closing_event = asyncio.Event()
         self._interactions = QueueInteractions(
@@ -138,6 +139,9 @@ class RunScheduler:
             await self._lifecycle.recover_startup()
             self._next_queue_sequence = self._repository.next_queue_sequence()
             self._started = True
+        await self._subagents.recover()
+        async with self._lock:
+            self._dispatch_ready = True
             self._wake_dispatcher()
 
     async def shutdown(self) -> None:
@@ -233,14 +237,15 @@ class RunScheduler:
 
     async def notify(
         self, request: RunAcceptanceRequest, relevant: Callable[[], bool]
-    ) -> None:
+    ) -> RunAcceptanceResult | None:
         """Deliver an internal notice at the same atomic admission boundary as input."""
         async with self._lock:
             if not relevant():
                 return
             self._require_accepting()
-            if self._acceptance.find_idempotent(request) is not None:
-                return
+            existing = self._acceptance.find_idempotent(request)
+            if existing is not None:
+                return existing
             active = next(
                 (
                     turn
@@ -250,11 +255,14 @@ class RunScheduler:
                 None,
             )
             if active is not None:
-                self._acceptance.steer(request, active.run.id)
+                return self._acceptance.steer(request, active.run.id)
             else:
                 self._require_queue_capacity()
-                self._acceptance.accept(request, self._allocate_queue_sequence())
+                result = self._acceptance.accept(
+                    request, self._allocate_queue_sequence()
+                )
                 self._wake_dispatcher()
+                return result
 
     async def resume(self, run_id: str) -> RunDetails:
         async with self._lock:
@@ -395,7 +403,7 @@ class RunScheduler:
         return sequence
 
     def _wake_dispatcher(self) -> None:
-        if self._closing:
+        if self._closing or not self._dispatch_ready:
             return
         if self._drain_task is None or self._drain_task.done():
             self._drain_task = asyncio.create_task(self._drain())

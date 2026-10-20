@@ -12,7 +12,6 @@ from kunyu.agent.skills.definitions import (
     DirectoryResourceBase,
     SkillDefinition,
     SkillSummary,
-    validate_resource_path,
     validate_skill_name,
 )
 
@@ -163,7 +162,7 @@ class FilesystemSkillProvider:
 
     async def get(self, summary: SkillSummary, *, workspace_id: str) -> SkillDefinition:
         if not isinstance(summary.locator, str):
-            raise ValueError("Filesystem skill locators must be paths.")
+            raise TypeError("Filesystem skill locators must be paths.")
         path = Path(summary.locator)
         roots = self.roots(workspace_id)
         if not any(
@@ -174,19 +173,3 @@ class FilesystemSkillProvider:
         return await asyncio.to_thread(
             lambda: parse_skill(read_text(path), path, summary.source, summary.rank)
         )
-
-    async def read_resource(
-        self, summary: SkillSummary, path: str, *, workspace_id: str
-    ) -> str:
-        validate_resource_path(path)
-        if not isinstance(summary.resource_base, DirectoryResourceBase):
-            raise ValueError("Filesystem skill resources require a directory base.")
-        # Validate the source and metadata before resolving provider-owned resources.
-        definition = await self.get(summary, workspace_id=workspace_id)
-        if definition.summary != summary:
-            raise ValueError("Skill metadata changed before reading resources.")
-        base = Path(summary.resource_base.path).resolve()
-        resource = (base / path).resolve()
-        if not resource.is_relative_to(base):
-            raise ValueError("Skill resources must stay inside the skill directory.")
-        return await asyncio.to_thread(read_text, resource)

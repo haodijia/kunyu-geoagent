@@ -46,11 +46,14 @@ class WorkspaceSearchStorage:
                 "FS_PERMISSION_DENIED", "Search artifacts are excluded from discovery."
             )
         scope = target.scope
-        dummy = FsTarget("/workspace/.search-root", scope, (".search-root",))
+        base = target.read_root if target.read_root is not None else "/workspace"
+        dummy = FsTarget(
+            base + "/.search-root", scope, (".search-root",), target.read_root
+        )
         # The managed directory is infrastructure, provisioned even for an empty workspace.
         with ExitStack() as handles:
             descriptor = handles.enter_context(
-                open_parent(self._root, dummy, create=True)
+                open_parent(self._root, dummy, create=target.read_root is None)
             )
             relative = "/".join(target.parts) if target.parts else "."
             if relative != ".":
@@ -71,7 +74,9 @@ class WorkspaceSearchStorage:
                         "Search targets must be regular files or directories; symbolic links are not followed.",
                     )
             yield (
-                self._root / "workspaces" / scope.workspace_id,
+                Path(target.read_root)
+                if target.read_root is not None
+                else self._root / "workspaces" / scope.workspace_id,
                 relative,
                 descriptor,
             )

@@ -42,14 +42,14 @@ class SQLAlchemyMessageRepository:
             for fact in facts:
                 if fact.event_type == "message.user.appended":
                     item = UserMessageAppendedPayload.model_validate(fact.payload)
-                    if item.source == "tool-jobs":
+                    if item.source != "user":
                         notices.add(item.message_id)
                 else:
                     splice = InboxSplicedPayload.model_validate(fact.payload)
                     notices.update(
                         item.message_id
                         for item in splice.messages
-                        if item.source == "tool-jobs"
+                        if item.source != "user"
                     )
             return [
                 _message_to_domain(record)

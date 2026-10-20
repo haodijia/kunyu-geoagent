@@ -6,7 +6,7 @@ import posixpath
 import re
 import stat
 from collections import deque
-from collections.abc import Generator, Iterator
+from collections.abc import Callable, Generator, Iterator
 from contextlib import contextmanager
 from pathlib import Path
 from threading import Event, Lock
@@ -41,8 +41,14 @@ DIFF_BASIS_MAX_BYTES = 10 * 1024 * 1024
 
 
 class MountedFilesystem:
-    def __init__(self, data_directory: Path) -> None:
+    def __init__(
+        self,
+        data_directory: Path,
+        *,
+        read_roots: Callable[[FilesystemScope], tuple[Path, ...]] = lambda _: (),
+    ) -> None:
         self._root = data_directory.resolve()
+        self._read_roots = read_roots
         self._locks_guard = Lock()
         self._locks: dict[tuple[str, str], deque[Event]] = {}
 
@@ -62,14 +68,26 @@ class MountedFilesystem:
                 "FS_INVALID_SCOPE", "The workspace filesystem scope is invalid."
             )
         path = posixpath.normpath(
-            file_path if file_path.startswith("/") else f"/workspace/{file_path}"
+            Path(file_path).as_posix()
+            if Path(file_path).is_absolute()
+            else f"/workspace/{file_path}"
         )
         if path == "/workspace":
             return FsTarget(path, scope, ())
         if not path.startswith("/workspace/"):
+            native = Path(path).resolve()
+            for root in self._read_roots(scope):
+                root = root.resolve()
+                if native.is_relative_to(root):
+                    return FsTarget(
+                        native.as_posix(),
+                        scope,
+                        native.relative_to(root).parts,
+                        root.as_posix(),
+                    )
             raise FilesystemError(
                 "FS_OUT_OF_SCOPE",
-                "Paths must stay inside /workspace.",
+                "Paths must stay inside /workspace or a configured read-only directory.",
             )
         parts = tuple(path[len("/workspace/") :].split("/"))
         if parts[:2] == (".cache", "search") and not search_artifact_parts(
@@ -328,7 +346,11 @@ class MountedFilesystem:
 
     @staticmethod
     def _require_writable(target: FsTarget) -> None:
-        if len(target.parts) < 2 or target.parts[0] != "files":
+        if (
+            target.read_root is not None
+            or len(target.parts) < 2
+            or target.parts[0] != "files"
+        ):
             raise FilesystemError(
                 "FS_PERMISSION_DENIED",
                 f'cannot modify "{target.display_path}": only /workspace/files is writable',

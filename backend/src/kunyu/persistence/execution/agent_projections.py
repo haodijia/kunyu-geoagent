@@ -214,7 +214,7 @@ class SQLAlchemyAgentProjectionService:
                     child_session_id=created.child_session_id,
                     parent_session_id=session_id,
                     parent_run_id=created.owner_run_id,
-                    child_run_id=created.child_run_id,
+                    child_run_id=child.active_run_id,
                     tool_call_id=created.tool_call_id,
                     created=created.model_dump(mode="json"),
                     settled=child.settled.model_dump(mode="json")

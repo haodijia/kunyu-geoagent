@@ -25,7 +25,7 @@ def require_parent_controls(session_id: str, request: Request) -> None:
         raise ApiError(
             409,
             "CHILD_READ_ONLY",
-            "Use the parent delegation to control this one-shot child.",
+            "Use the parent delegation to control this child agent.",
         )
 
 

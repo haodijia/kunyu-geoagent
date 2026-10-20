@@ -27,9 +27,8 @@ class SubagentsPlugin:
         context.effect(manager.close, before_children=True)
         for name in (
             "subagent",
-            "wait_subagents",
-            "cancel_subagent",
-            "subagent_result",
+            "send_message",
+            "interrupt_agent",
         ):
             context.require(s.TOOLS).register(
                 context,

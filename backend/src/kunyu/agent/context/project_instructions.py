@@ -37,6 +37,8 @@ def instruction_targets(
             if not isinstance(path, str):
                 raise TypeError("A completed file tool must own a text file_path.")
             target = filesystem.resolve(path, scope)
+            if target.read_root is not None:
+                continue
             for depth in range(1, len(target.parts)):
                 paths.add(
                     "/workspace/" + "/".join((*target.parts[:depth], "AGENTS.md"))

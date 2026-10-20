@@ -1,4 +1,4 @@
-"""Read and control one-shot children through their durable parent address."""
+"""Read and control child conversations through their durable parent address."""
 
 from datetime import datetime
 from typing import Annotated, Literal
@@ -62,9 +62,20 @@ class SubagentResponse(BaseModel):
 
 def response(child: ReducedSubagent, manager: SubagentManager) -> SubagentResponse:
     state = manager.repository.child_state(child.created.child_session_id)
-    run = next(
-        (run for run in state.runs if run.run_id == child.created.child_run_id), None
+    run = state.runs[-1] if state.runs else None
+    pending = bool(state.next_turn) and (
+        run is None or run.state.value in {"completed", "failed", "cancelled"}
     )
+    settled = (
+        child.settled
+        if child.settled is not None
+        and child.settled.child_run_id == child.active_run_id
+        and (run is None or run.state.value in {"completed", "failed", "cancelled"})
+        and not pending
+        else None
+    )
+    if settled is not None and run is not None and run.run_id != settled.child_run_id:
+        run = None
     active_tool = (
         None
         if run is None
@@ -85,19 +96,19 @@ def response(child: ReducedSubagent, manager: SubagentManager) -> SubagentRespon
         prompt=child.created.prompt,
         permission=child.created.permission,
         model_snapshot=child.created.model_snapshot,
-        status=child.settled.status
-        if child.settled is not None
+        status=settled.status
+        if settled is not None
         else "queued"
-        if run is None
+        if run is None or pending
         else run.state.value,
-        output=None if child.settled is None else child.settled.output,
-        reason=None if child.settled is None else child.settled.reason,
+        output=None if settled is None else settled.output,
+        reason=None if settled is None else settled.reason,
         active_tool=active_tool,
         step=None if run is None else run.step,
         created_at=child.created_at,
-        settled_at=child.settled_at,
+        settled_at=child.settled_at if settled is not None else None,
         created_sequence=child.created_sequence,
-        settled_sequence=child.settled_sequence,
+        settled_sequence=child.settled_sequence if settled is not None else None,
     )
 
 

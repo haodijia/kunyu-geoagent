@@ -23,6 +23,7 @@ class FsTarget:
     display_path: str
     scope: FilesystemScope
     parts: tuple[str, ...]
+    read_root: str | None = None
 
     @property
     def key(self) -> tuple[str, str]:

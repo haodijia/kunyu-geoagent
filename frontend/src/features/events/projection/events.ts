@@ -52,7 +52,7 @@ export function projectSessionEvent(
   if (event.event_type === "message.user.appended") {
     return projection(
       event,
-      event.payload.source === "tool-jobs" ? "context" : "user",
+      (event.payload.source === "tool-jobs" || event.payload.source === "tool-subagents") ? "context" : "user",
       requiredString(event, "message_id"),
     );
   }
@@ -64,6 +64,7 @@ export function projectSessionEvent(
   }
   if (
     event.event_type === "subagent/created" ||
+    event.event_type === "subagent/started" ||
     event.event_type === "subagent/settled"
   ) {
     return {

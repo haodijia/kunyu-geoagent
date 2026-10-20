@@ -27,7 +27,7 @@ class SessionCreatedPayload(EventPayload):
 
 class MessageInputPayload(EventPayload):
     content: str = Field(max_length=32_768)
-    source: Literal["user", "tool-jobs"] = "user"
+    source: Literal["user", "tool-jobs", "tool-subagents"] = "user"
     attachments: tuple[Attachment, ...] = Field(default=(), max_length=MAX_ATTACHMENTS)
 
     @model_validator(mode="after")
@@ -98,11 +98,18 @@ class SubagentCreatedPayload(EventPayload):
     model_snapshot: "ModelSnapshotPayload"
 
 
+class SubagentStartedPayload(EventPayload):
+    child_session_id: str = Field(min_length=1, max_length=64)
+    child_run_id: str = Field(min_length=1, max_length=64)
+    owner_run_id: str = Field(min_length=1, max_length=64)
+
+
 class SubagentSettledPayload(EventPayload):
+    child_run_id: str = Field(min_length=1, max_length=64)
     child_session_id: str = Field(min_length=1, max_length=64)
     owner_run_id: str = Field(min_length=1, max_length=64)
     status: Literal["completed", "failed", "cancelled", "interrupted"]
-    output: str = Field(max_length=32_768)
+    output: str
     reason: str | None
 
 
@@ -208,6 +215,11 @@ class PermissionChangedEvent(_SessionEventDraft):
 class SubagentCreatedEvent(_SessionEventDraft):
     event_type: Literal["subagent/created"]
     payload: SubagentCreatedPayload
+
+
+class SubagentStartedEvent(_SessionEventDraft):
+    event_type: Literal["subagent/started"]
+    payload: SubagentStartedPayload
 
 
 class SubagentSettledEvent(_SessionEventDraft):

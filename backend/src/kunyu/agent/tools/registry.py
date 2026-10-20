@@ -99,9 +99,7 @@ class ToolRegistryFactory:
                 or name
                 in {
                     "subagent",
-                    "wait_subagents",
-                    "cancel_subagent",
-                    "subagent_result",
+                    "interrupt_agent",
                     "exit_plan_mode",
                 }
             ):

@@ -30,7 +30,7 @@ export function applyMessageEvent(
   event: SessionEvent,
 ): MessageEventResult {
   if (event.event_type === "message.user.appended") {
-    if (event.payload.source === "tool-jobs") return unchanged(messages);
+    if ((event.payload.source === "tool-jobs" || event.payload.source === "tool-subagents")) return unchanged(messages);
     return applyUserAppended(messages, event);
   }
   if (event.event_type === "message.assistant.started") {

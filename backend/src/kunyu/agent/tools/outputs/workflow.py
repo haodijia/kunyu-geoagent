@@ -53,39 +53,26 @@ def plan_compact(result):
 PLAN = ToolOutputContract(agent_content, plan_display, plan_compact)
 
 
-def children_display(result):
-    data = object_result(result)
-    return TextDisplay(
-        summary=label("children"),
-        text="\n".join(
-            row["description"] + " · " + row["status"] for row in data["children"]
-        ),
-    )
-
-
 def delegate_display(result):
     return StatusDisplay(kind="subagent", summary=label("children"))
 
 
-def children_compact(result):
-    data = object_result(result)
-    return compact(label("children"), {"children": data["children"]})
+def delegate_compact(result):
+    return compact(label("children"), object_result(result))
 
 
-CHILDREN = ToolOutputContract(agent_content, children_display, children_compact)
-DELEGATE = ToolOutputContract(agent_content, delegate_display, children_compact)
+DELEGATE = ToolOutputContract(agent_content, delegate_display, delegate_compact)
 
 
-def report_display(result):
-    return TextDisplay(summary=label("report"), text=object_result(result)["output"])
+def control_display(result):
+    return TextDisplay(summary=label("agent_control"), text=text(result))
 
 
-def report_compact(result):
-    data = object_result(result)
-    return compact(label("report"), data)
+def control_compact(result):
+    return compact(label("agent_control"), object_result(result))
 
 
-REPORT = ToolOutputContract(agent_content, report_display, report_compact)
+AGENT_CONTROL = ToolOutputContract(agent_content, control_display, control_compact)
 
 
 def jobs_display(result):

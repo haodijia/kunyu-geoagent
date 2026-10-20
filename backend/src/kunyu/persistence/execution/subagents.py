@@ -1,6 +1,8 @@
 """Atomic child admission and queries over delegation journal projections."""
 
+from dataclasses import replace
 from datetime import UTC, datetime
+from threading import Event
 from uuid import uuid4
 
 from sqlalchemy import select, text
@@ -25,13 +27,19 @@ from kunyu.agent.runtime.events.store import EventBatch
 from kunyu.agent.runtime.projection.session_reducer import reduce_session
 from kunyu.agent.runtime.subagents import MAX_CHILDREN_PER_RUN, ReducedSubagent
 from kunyu.domain.conversation.agent_context import RunContextSource
+from kunyu.domain.workspaces.filesystem import FilesystemScope, FsTarget
+from kunyu.integrations.filesystem.io import atomic_write, open_parent, probe_at
 from kunyu.persistence.database import Database
 from kunyu.persistence.execution.agent_projections import (
     SQLAlchemyAgentProjectionService,
 )
 from kunyu.persistence.execution.run_records import event_to_domain
 from kunyu.persistence.records.conversation import SessionRecord
-from kunyu.persistence.records.execution import SessionEventRecord, SubagentRecord
+from kunyu.persistence.records.execution import (
+    RunRecord,
+    SessionEventRecord,
+    SubagentRecord,
+)
 from kunyu.persistence.time import as_utc
 
 
@@ -63,7 +71,11 @@ class SQLAlchemySubagentRepository:
     def for_run(self, run_id: str) -> tuple[str, ReducedSubagent] | None:
         with self.database.sessions() as transaction:
             row = transaction.scalar(
-                select(SubagentRecord).where(SubagentRecord.child_run_id == run_id)
+                select(SubagentRecord)
+                .join(
+                    RunRecord, RunRecord.session_id == SubagentRecord.child_session_id
+                )
+                .where(RunRecord.id == run_id)
             )
             return None if row is None else (row.parent_session_id, self._child(row))
 
@@ -190,16 +202,29 @@ class SQLAlchemySubagentRepository:
                 )
             )
 
-    def settle(self, child_id: str) -> ReducedSubagent:
+    def settle(self, child_id: str, run_id: str) -> ReducedSubagent:
         owned = self.get(child_id)
         if owned is None:
             raise ToolExecutionError("The subagent does not exist.")
         parent_id, child = owned
-        if child.settled is not None:
-            return child
+        with self.database.sessions() as tx:
+            previous = tx.scalar(
+                select(SessionEventRecord).where(
+                    SessionEventRecord.session_id == parent_id,
+                    SessionEventRecord.event_type == "subagent/settled",
+                    SessionEventRecord.payload["child_run_id"].as_string() == run_id,
+                )
+            )
+            if previous is not None:
+                return replace(
+                    child,
+                    settled=SubagentSettledPayload.model_validate(previous.payload),
+                    settled_at=as_utc(previous.occurred_at),
+                    settled_sequence=previous.sequence,
+                )
         state = self.child_state(child_id)
         run = next(
-            (run for run in state.runs if run.run_id == child.created.child_run_id),
+            (run for run in state.runs if run.run_id == run_id),
             None,
         )
         if run is None:
@@ -230,6 +255,7 @@ class SQLAlchemySubagentRepository:
             event_type="subagent/settled",
             payload=SubagentSettledPayload(
                 child_session_id=child_id,
+                child_run_id=run_id,
                 owner_run_id=child.created.owner_run_id,
                 status=status,
                 output=output,
@@ -242,12 +268,40 @@ class SQLAlchemySubagentRepository:
         )
         return self.get(child_id)[1]
 
+    def report(self, child: ReducedSubagent, workspace_id: str) -> str:
+        if child.settled is None:
+            raise ValueError("Only a settled child has a report.")
+        parts = (
+            ".cache",
+            "subagents",
+            child.created.child_session_id,
+            child.settled.child_run_id,
+            "report.md",
+        )
+        path = "/workspace/" + "/".join(parts)
+        target = FsTarget(path, FilesystemScope(workspace_id, None), parts)
+        with open_parent(
+            self.database.path.parent, target, create=True, cancelled=Event()
+        ) as parent:
+            if probe_at(parent, parts[-1]) is None:
+                atomic_write(
+                    parent,
+                    parts[-1],
+                    child.settled.output.encode("utf-8"),
+                    None,
+                    target,
+                    True,
+                    Event(),
+                )
+        return path
+
     @staticmethod
     def _child(row: SubagentRecord) -> ReducedSubagent:
         return ReducedSubagent(
             created=SubagentCreatedPayload.model_validate(row.created),
             created_at=as_utc(row.created_at),
             created_sequence=row.created_sequence,
+            active_run_id=row.child_run_id,
             settled=SubagentSettledPayload.model_validate(row.settled)
             if row.settled is not None
             else None,

@@ -59,7 +59,7 @@ class RunAcceptanceRequest:
     model_selection: ModelSelection
     map_context: dict[str, JsonValue]
     attachment_ids: tuple[str, ...] = ()
-    source: Literal["user", "tool-jobs"] = "user"
+    source: Literal["user", "tool-jobs", "tool-subagents"] = "user"
 
 
 @dataclass(frozen=True, slots=True)

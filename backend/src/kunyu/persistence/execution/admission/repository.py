@@ -12,6 +12,8 @@ from kunyu.agent.runtime.events.session import (
     QueuedTurnPayload,
     QueueReorderedEvent,
     QueueReorderedPayload,
+    SubagentStartedEvent,
+    SubagentStartedPayload,
 )
 from kunyu.agent.runtime.events.store import EventBatch
 from kunyu.agent.runtime.projection.session_reducer import reduce_session
@@ -124,7 +126,10 @@ class SQLAlchemyRunAcceptanceRepository:
                 return load_result(self._database, existing.message_id, existing.run_id)
 
             session_record = database_session.get(SessionRecord, request.session_id)
-            if database_session.get(SubagentRecord, request.session_id) is not None:
+            if (
+                database_session.get(SubagentRecord, request.session_id) is not None
+                and request.source != "tool-subagents"
+            ):
                 raise RunAcceptanceConflictError(
                     "Child inputs are admitted only by their parent delegation."
                 )
@@ -271,6 +276,27 @@ class SQLAlchemyRunAcceptanceRepository:
                     events=events,
                 ),
             )
+            child = database_session.get(SubagentRecord, request.session_id)
+            if child is not None:
+                self._projections.commit_in_transaction(
+                    database_session,
+                    EventBatch(
+                        session_id=child.parent_session_id,
+                        run_id=None,
+                        events=(
+                            SubagentStartedEvent(
+                                session_id=child.parent_session_id,
+                                event_type="subagent/started",
+                                payload=SubagentStartedPayload(
+                                    child_session_id=request.session_id,
+                                    child_run_id=run_id,
+                                    owner_run_id=child.parent_run_id,
+                                ),
+                                occurred_at=occurred_at,
+                            ),
+                        ),
+                    ),
+                )
             database_session.add(
                 MessageIdempotencyRecord(
                     session_id=request.session_id,
@@ -332,7 +358,10 @@ class SQLAlchemyRunAcceptanceRepository:
                 database_session.rollback()
                 return load_result(self._database, existing_message_id, existing_run_id)
             run = database_session.get(RunRecord, run_id)
-            if database_session.get(SubagentRecord, request.session_id) is not None:
+            if (
+                database_session.get(SubagentRecord, request.session_id) is not None
+                and request.source != "tool-subagents"
+            ):
                 raise RunAcceptanceConflictError(
                     "Delegated child inputs cannot be steered through user messages."
                 )

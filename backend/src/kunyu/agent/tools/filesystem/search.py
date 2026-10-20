@@ -2,6 +2,7 @@
 
 import logging
 import os
+import posixpath
 from collections.abc import Mapping
 from pathlib import Path
 
@@ -167,7 +168,7 @@ class SearchTool(BaseTool):
                 excerpt = (
                     output.stderr.decode("utf-8", errors="replace")
                     .strip()
-                    .replace(str(cwd), "/workspace")
+                    .replace(str(cwd), target.read_root or "/workspace")
                 )
                 if output.stderr_truncated:
                     excerpt += " [stderr truncated]"
@@ -187,13 +188,27 @@ class SearchTool(BaseTool):
                     code="SEARCH_RAW_OUTPUT_OVERFLOW",
                 )
             text = output.stdout.decode("utf-8")
+
+            def path_for_model(path: str) -> str:
+                relative = display_path(path)
+                return (
+                    posixpath.join(target.read_root, relative)
+                    if target.read_root is not None
+                    else relative
+                )
+
             locator = None
             if self.spec.name == "glob":
-                paths = [display_path(line) for line in text.splitlines() if line]
+                paths = [path_for_model(line) for line in text.splitlines() if line]
                 page = paths
                 rendered = "\n".join(paths) if paths else "No files found"
                 if len(paths) > MAX_PATHS:
-                    page, shown, total = sample_paths(paths, root)
+                    sample_root = (
+                        posixpath.join(target.read_root, root)
+                        if target.read_root is not None
+                        else root
+                    )
+                    page, shown, total = sample_paths(paths, sample_root)
                     locator = await filesystem_operation(
                         lambda cancelled: self._storage.save(
                             scope, "glob", "\n".join(paths), cancelled
@@ -231,6 +246,11 @@ class SearchTool(BaseTool):
                 }
             else:
                 matches = parse_matches(text)
+                if target.read_root is not None:
+                    matches = [
+                        (path_for_model(path), number, line)
+                        for path, number, line in matches
+                    ]
                 page_matches = matches[:MAX_MATCHES]
                 noun = "match" if len(matches) == 1 else "matches"
                 rendered = (

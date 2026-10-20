@@ -130,4 +130,14 @@ async def create_agent_runtime(
     ):
         kernel.register(plugin)
     await kernel.start()
+    try:
+        await kernel.context.require(s.SCHEDULER).start()
+    except BaseException as error:
+        try:
+            await kernel.stop()
+        except BaseException as cleanup_error:  # noqa: BLE001 -- preserve startup and rollback failures
+            raise BaseExceptionGroup(
+                "Agent runtime startup and rollback failed.", [error, cleanup_error]
+            ) from None
+        raise
     return AgentRuntimeBundle(kernel)

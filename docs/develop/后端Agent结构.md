@@ -131,7 +131,7 @@ DeepSeek 新连接默认 `deepseek_messages` 与 `https://api.deepseek.com/anthr
 3. 调用 `TOOLS.register(owner, name, ToolRegistration(builder, write_handler))`，贡献随 owner 释放。
 4. 在产品组合的 `plugins` 参数中启用插件；会话专属扩展通过 `install_plugin(agent.ctx, plugin)` 安装。
 
-默认启用 `MemoryToolsPlugin` 的 `memory_read`、`memory_write`，`SkillToolsPlugin` 的 `skill`、`skill_resource`，`TodoToolsPlugin` 的 `todo_write`，`FilesystemToolsPlugin` 的 `read`、`write`、`edit`，`UserQuestionsPlugin` 的 `ask_user_question`，`PlanModePlugin` 的 `exit_plan_mode`，以及 `AttachmentToolsPlugin` 的 `read_image`。模型提供者和循环提供者可分别通过 `model_plugin`、`loop_plugin` 显式替换。没有旧路径、静态插件包装或工具名分支兼容层。
+默认启用 `MemoryToolsPlugin` 的 `memory_read`、`memory_write`，`SkillToolsPlugin` 的 `skill`，`TodoToolsPlugin` 的 `todo_write`，`FilesystemToolsPlugin` 的 `read`、`write`、`edit`，`UserQuestionsPlugin` 的 `ask_user_question`，`PlanModePlugin` 的 `exit_plan_mode`，以及 `AttachmentToolsPlugin` 的 `read_image`。模型提供者和循环提供者可分别通过 `model_plugin`、`loop_plugin` 显式替换。没有旧路径、静态插件包装或工具名分支兼容层。
 
 L0 工具可直接执行；L1 工作区文件工具为独占调用，在 workspace-write 权限下直接执行，计划／read-only 模式拒绝。L2 工具必须声明 ToolApproval。transaction 模式注册同名 transaction 处理器，记忆写入仍将业务修改、确认、预算及工具结果同一事务提交，失败一起回滚；tool 模式须声明稳定的 binding，批准只持久化确认和工具续跑队列，实际异步执行由 Agent 运行器负责。外部服务结果和中断语义独立记录，不承诺远端事务回滚；完整业务作业监督仍需专门服务。
 
@@ -157,7 +157,7 @@ L0 工具可直接执行；L1 工作区文件工具为独占调用，在 workspa
 
 `/技能名` 扫描当前步骤已接纳的真实用户消息，使用空白边界，支持消息任意位置的多个名称；按首次出现顺序与用户权限加载，同一步重试、恢复及重复名称不重复加载。处理器追加的上下文消息不能授予用户调用权限。正文、来源、消息身份、Run 和 step 以 `producer=skill-invocation` 持久保存；所属步骤实际发送后进入后续历史。前端从步骤接纳及实际加载事件生成消息标记，标题栏汇总用户与模型加载的技能；指令预览使用历史快照，不随文件编辑重写。
 
-模型使用 `skill({name})` 加载正文，实际结果进入已有工具完成事件；`skill_resource({name,path})` 将相对路径交给获胜技能的 Provider，按需读取 UTF-8 资源。文件系统和运行时来源共用调用权限；用户专用技能的资源仅在当前 Run 显式调用后开放。资源不允许绝对路径、父目录穿越或越界符号链接，不执行脚本、不安装依赖。运行时贡献无需文件并可按会话注册，来源卸载取消未完成读取，当前可见注册变化时拒绝旧结果。详细使用、资源位置、格式、来源和接口见[Agent 技能](Agent技能.md#运行时技能与资源位置)。远程来源默认接入、文件 watcher、插件市场和脚本执行尚未实现。
+模型使用 `skill({name})` 加载正文和资源位置，实际结果进入已有工具完成事件；目录资源由 `read`／`read_image`／`glob`／`grep` 按真实路径访问。文件服务与技能发现共用配置的只读目录。运行时贡献可按会话注册；来源卸载取消未完成的指令读取，当前可见注册变化时拒绝旧结果。详细格式和资源位置见[Agent 技能](Agent技能.md#运行时技能与资源位置)。远程来源默认接入、文件 watcher、插件市场和脚本执行尚未实现。
 
 GeoSkill 的版本化地理场景逻辑放 `kunyu/scenes/`，场景数据放 `backend/scenarios/`。Tool 是执行能力，Skill 是任务指令和资源，GeoSkill 是业务场景契约。
 
@@ -447,7 +447,7 @@ Chat 保留 prompt_tokens_details 的缓存读取／写入，Responses 保留 in
 
 ## Skill 模型文本与原始快照
 
-SkillTool 的实际模型 TextBlock 直接调用 render_skill，显式调用注入使用同一函数，避免旧的JSON转义指令。结构化结果单独保存原始正文及资源身份；skill_resource 的模型文本也是读取到的原文。用户调用在 metadata.content 保存原始正文，界面直接使用该快照渲染Markdown；不再为展示从模型包裹提取内容或重读文件。旧记录的确切正文由0020一次性补充，原模型消息和工具事实保留。
+SkillTool 的实际模型 TextBlock 直接调用 render_skill，显式调用注入使用同一函数，避免旧的JSON转义指令。结构化结果单独保存原始正文及资源身份；参考文件通过通用文件工具读取。用户调用在 metadata.content 保存原始正文，界面直接使用该快照渲染Markdown；不再为展示从模型包裹提取内容或重读文件。旧记录的确切正文由0020一次性补充，原模型消息和工具事实保留。
 
 SkillSummary 增加 when_to_use，对应标准 frontmatter.whenToUse，进入管理／会话／命令查询；模型目录仍只投影名称和简介。简介按显式长度配置截断并标明省略，UTF-16预算不切开Unicode字符。当前用户输入／计划提醒／目录／指令的先后关系保持，未为此增加新的预处理阶段。三种实际HTTP协议、重试中的历史冻结、压缩续接、旧库迁移、Markdown快照及新建技能保存已核对。
 
@@ -533,20 +533,12 @@ HTTP 服务显式选择 headers 或 oauth 认证。OAuth 选项包含可选 clie
 
 ## 一层只读多 Agent 委派
 
-`SubagentsPlugin` 安装 `SUBAGENTS` 服务与 `subagent`、`wait_subagents`、`cancel_subagent`、`subagent_result` 工具。职责分为 `agent/orchestration/subagents.py` 的监督、`tools/workflow/subagents.py` 的模型接口、`persistence/execution/subagents.py` 的同事务受理与数据访问，以及已有的运行器。默认前台等待；后台启动必须显式指定，结束或停止父任务会清理未完成的孩子。每个父 Run 最多8项，子任务不再委派。
+`SubagentsPlugin` 安装 `SUBAGENTS` 服务与 `subagent`、`send_message`、`interrupt_agent`。委派立即返回 `agent_id`，运行时将完成结果送到父 Agent 的下一步输入；父 Agent 已空闲时启动后续轮次，结束当前父轮次不会取消子任务。后台作业仍由 Job 管理，子 Agent 不注册为 Job。
 
-创建在一个数据库事务里保存独立会话、只读权限、冻结模型队列与父创建记录；子模型不重新从当前设置计算配置。孩子不继承对话历史和附件，调用者必须在 prompt 提供相关上下文；它继承父作用域的插件贡献，由自己的会话保存工具观察、思考与请求事实。子目录仅允许 L0 非交互工具，不包含写入、计划退出、再次委派和子任务控制。模型写出的斜杠文本不触发人类专用 Skill。当前不提供不同子模型选择或可继续发送的子会话。
+创建在一个数据库事务中保存独立子会话、只读权限、冻结模型队列与父创建记录。子会话不继承父聊天历史和附件，prompt 应自包含。每个父 Run 最多创建 8 个孩子，主任务和子任务分别保留 4 个执行槽。子 Agent 只能使用 L0 非交互工具，不能写入、请求用户输入或再次委派；可以通过 send_message 与直接父 Agent 沟通。
 
-调度分别保留4个主任务和4个子任务执行槽，避免主任务等待占满公共槽。等待订阅实际提交通知，超时返回当前状态，不取消执行。完整报告按子日志核验并保存在父结算记录，普通返回注明2048 UTF-8字节摘要截取，subagent_result 按 Unicode 字符分页读取完整报告。
+send_message 输入 agent_id 和 message；运行中的对象在下一步收到消息，空闲对象在同一会话开始新一轮，返回 message_id 而不是回答。控制权限按直接父子会话关系校验，可跨父轮次继续已有孩子。interrupt_agent 立即返回 accepted，监督器持有并排空停止任务，随后仍可继续同一子会话。内部消息标记为 tool-subagents，不显示为用户气泡，也不能触发用户专用技能。
 
-父会话 journal 的 subagent/created 与 subagent/settled 重建查询投影，结果必须匹配子会话实际输入、模型、权限、停止状态与正文。记录归属同一工作区和父工具调用；同一孩子只结算一次。取消清理任务归监督器持有；执行、关闭和启动恢复均排空或取消未完成任务，崩溃快照恢复不重复调用供应商。已开始的外部工具继续遵守原不重放规则。
+父 journal 保存 subagent/created、subagent/started、subagent/settled。每次子激活以 child_run_id 单独结算，并按子日志验证输入、模型、权限、状态和完整输出；查询投影保存最新激活和结果。结果通过现有调度受理边界投递，持久化幂等键防止重复唤醒。长报告保存在 workspace 的 .cache/subagents/<child>/<run>/report.md，由通用 read 继续读取。
 
-普通会话列表隐藏孩子。它们不接受用户输入、命令、直接恢复或其他普通 Agent 控制；模型控制限制在同一父 Run。归档父会话先检查孩子是否停止，删除父归档同时删除子会话。`/sessions/{parent}/subagents` 提供列表，`/{child}` 提供详情和 `/{child}/cancel` 提供停止；均验证父地址归属。前端从委派工具卡片或父轨迹打开只读窗口，复用原消息、工具和轨迹组件，完整报告不会按模型摘要截取。
-
-## 开发数据库基线
-
-`persistence/schema.sql` 是唯一初始化SQL，包含本阶段20张表与完整约束。`schema.py` 在同一事务初始化，并使用 SQLite user_version=1 校验版本及结构；异常不改成清库。原 Alembic 迁移源码与依赖已经移除，旧开发库不兼容升级，也不会自动删除。保留旧库时使用新的 KUNYU_APP_DATA_DIR，重建需由开发者明确执行。打包包含SQL，安装后使用相同基线；ORM只描述访问结构，不参与初始化兜底。
-
-## OGE 数据工具
-
-`OgePlugin` 提供共享 OGE 服务，并注册 `oge_find_regions`、`oge_search_images`、`oge_get_image_detail`、`oge_get_image_preview` 四个并行 L0 工具，计划模式及只读子任务也可使用。账号登录由独立设置页管理，不向 Agent 注册登录工具或暴露凭据。HTTP 协议、账号与缓存、令牌存储分别位于 integrations/application/persistence；见 [OGE 平台接入](OGE平台接入.md)。
+子会话从普通列表隐藏，通过父委派访问；不能使用普通用户消息接口扩大权限。详情复用现有子对话、轨迹和结果组件，继续执行时显示新的状态，历史消息与报告保留。会话作用域释放及应用关闭会清理执行句柄；启动恢复不会重放模型请求，并保留可继续对话的子会话。
