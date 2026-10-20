@@ -309,8 +309,6 @@ export const conversation = {
         oge_search_operators: "检索算子",
         oge_get_operator_definition: "读取算子定义",
         oge_execute_code: "执行 OGE 代码",
-        oge_download_preview: "读取结果预览",
-        oge_download_result: "下载分析结果",
         map_get_context: "读取地图状态",
         map_present: "在地图展示",
         map_set_layer_style: "调整地图图层",

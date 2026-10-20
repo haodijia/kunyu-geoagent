@@ -96,8 +96,7 @@ OGE 工具按职责组织在 `agent/tools/oge/`。计算服务继承 `service.py
 | 工具 | 作用 | 首期边界 |
 | --- | --- | --- |
 | `oge_calculate_ndvi` | 计算服务默认输入的 NDVI，等待并准备成果 | 仅在任务成功且显示栅格、预览就绪后返回任务与成果引用；当前不支持指定影像 |
-| `oge_download_preview` | 取得任务成果预览 | 与现有卫星影像缩略图工具区分 |
-| `oge_download_result` | 获取原始文件到托管成果目录 | 返回成果引用和状态，不把二进制放进模型上下文 |
+| `read_image` | 按成果的 `preview_path` 查看 PNG 预览 | 复用通用文件工具；原始 TIFF 在任务完成前自动下载 |
 | `map_get_context` | 读取当前会话地图选择 | 只读取本会话、当前有效对象 |
 | `map_add_layer` | 将已有成果引用加入地图 | 不调用分析服务，不接受任意 JS |
 | `map_fit_bounds` | 定位指定图层或对象 | 使用已验证范围 |
@@ -266,7 +265,7 @@ NDVI 是连续数值结果，需要固定数值到颜色的映射与数值图例
 
 已完成 B、C 阶段中经过协议验证的链路：
 
-- 分析链路当前保留 3 个 OGE 工具：`oge_calculate_ndvi`（无参数）、`oge_download_preview`、`oge_download_result`。继续放在 `agent/tools/oge/`。
+- 成果在任务完成前自动下载原始 TIFF 并生成预览，返回 `file_path` 和 `preview_path`；Agent 通过通用 `read_image` 查看预览，用户通过成果页下载文件。
 - 新增 `agent/tools/maps/` 中的 4 个地图工具：`map_get_context`、`map_add_layer`、`map_fit_bounds`、`map_set_layer_style`。
 - NDVI 复用 L2 审批、持久工具收据和模型图片输入机制。一个工具调用只登记一个本地任务；接收远程 ID 后由后台监督器查询。停止 Agent、切换页面或重启不触发重新提交；发送后未保存确定响应的任务标记 `submission_unknown`。
 - `analysis_jobs`、`analysis_outputs`、`map_states`、`map_layers` 与会话关联。业务事件与同一 SQLite 事务提交，更新界面查询缓存；不把成果当作新的用户或助手消息注入模型。

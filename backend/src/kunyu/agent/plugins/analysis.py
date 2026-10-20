@@ -9,7 +9,6 @@ from kunyu.agent.orchestration.analysis_jobs import AnalysisJobs
 from kunyu.agent.tools.maps.tools import MapTool
 from kunyu.agent.tools.oge.execute_code import ExecuteCodeTool
 from kunyu.agent.tools.oge.operators import OperatorTool
-from kunyu.agent.tools.oge.results import ResultTool
 from kunyu.agent.tools.registry import ToolRegistration
 from kunyu.application.analysis.analysis import AnalysisService
 from kunyu.application.analysis.analysis_supervisor import AnalysisSupervisor
@@ -26,7 +25,6 @@ class AnalysisPlugin:
         s.HTTP_CLIENT,
         s.TOOLS,
         s.CONTEXTS,
-        s.ATTACHMENTS,
         s.JOBS,
         s.SCOPES,
         s.OGE,
@@ -87,20 +85,6 @@ class AnalysisPlugin:
                         OperatorTool,
                         contexts=contexts,
                         gateway=service.gateway,
-                        name=name,
-                    )
-                ),
-            )
-        for name in ("oge_download_preview", "oge_download_result"):
-            tools.register(
-                context,
-                name,
-                ToolRegistration(
-                    partial(
-                        ResultTool,
-                        contexts=contexts,
-                        service=service,
-                        attachments=context.require(s.ATTACHMENTS),
                         name=name,
                     )
                 ),

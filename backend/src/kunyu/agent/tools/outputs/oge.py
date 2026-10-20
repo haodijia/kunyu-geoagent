@@ -116,29 +116,28 @@ def analysis_compact(result):
 ANALYSIS = ToolOutputContract(agent_content, analysis_display, analysis_compact)
 
 
-def preview_contract(description_key):
-    def frontend(result):
-        return ImagesDisplay(
-            summary=label("preview"),
-            images=images(result),
-            description=label(description_key),
-        )
-
-    def shortened(result):
-        return compact(
-            label("preview"),
-            {
-                **object_result(result),
-                "images": [ref.model_dump(mode="json") for ref in images(result)],
-                "pixels_omitted": True,
-            },
-        )
-
-    return ToolOutputContract(agent_content, frontend, shortened)
+def image_preview_display(result):
+    return ImagesDisplay(
+        summary=label("preview"),
+        images=images(result),
+        description=label("image_preview"),
+    )
 
 
-PREVIEW = preview_contract("result_preview")
-IMAGE_PREVIEW = preview_contract("image_preview")
+def image_preview_compact(result):
+    return compact(
+        label("preview"),
+        {
+            **object_result(result),
+            "images": [ref.model_dump(mode="json") for ref in images(result)],
+            "pixels_omitted": True,
+        },
+    )
+
+
+IMAGE_PREVIEW = ToolOutputContract(
+    agent_content, image_preview_display, image_preview_compact
+)
 
 
 def regions_display(result):
@@ -235,14 +234,3 @@ def asset_compact(result):
 
 
 ASSET = ToolOutputContract(agent_content, asset_display, asset_compact)
-
-
-def download_display(result):
-    return TextDisplay(summary=label("download"), text=label("download"))
-
-
-def download_compact(result):
-    return compact(label("download"), object_result(result))
-
-
-DOWNLOAD = ToolOutputContract(agent_content, download_display, download_compact)

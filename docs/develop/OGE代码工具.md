@@ -12,7 +12,7 @@
 | 现有影像检索、详情、预览工具 | 获取输入数据和真实波段、分辨率等信息 |
 | `job_output` / `job_list` / `job_kill` | 复用通用 jobs，读取、限时等待及请求取消 |
 | `map_present` / 地图上下文、样式工具 | 显式展示候选、成果，读取或调整地图 |
-| 成果预览、下载工具 | 读取模型可见的 PNG 或返回源 GeoTIFF 下载引用 |
+| `read_image` | 按任务结果中的 `preview_path` 读取已准备好的成果预览 |
 
 不逐个注册算子。2026-10-20 实时目录为 618 条，工具每次查询真实平台，不固定数量；其中也有辅助函数，目录存在不等于全部经过执行验收。旧 `oge_calculate_ndvi` 和 GP 专用执行入口已删除，不保留运行回放分支。
 
@@ -55,7 +55,7 @@ result.export("analysis")
 6. `GET /asset/batch-result/catalog`：按 DAG ID、文件名及当前用户 UUID 匹配发布成果。计算成功但目录尚未发布时保持 collecting。
 7. `GET /asset/batch-result/downloadBatchResult?id=...&userUuid=...`：流式下载，2 GiB 上限，临时文件写完后原子发布。真实返回虽然标为 multipart/form-data，内容是 TIFF，因此校验 TIFF/BigTIFF 魔数并通过 rasterio 读取；不依赖错误的 Content-Type，不使用其不支持的 Range。
 
-此批任务流程不使用 `/styles/cog/{jobId}`：已验证这个入口对代码 DAG 成果返回 404。源 GeoTIFF 下载后，本地生成 PNG 预览和 Web Mercator 瓦片。
+此批任务流程不使用 `/styles/cog/{jobId}`：已验证这个入口对代码 DAG 成果返回 404。任务自动下载源 GeoTIFF，并在本地生成 PNG 预览后才完成，返回成果的 `file_path` 和 `preview_path`。Agent 用通用 `read_image` 读取预览；用户从成果页下载原始 TIFF。地图瓦片按需读取该 TIFF 渲染，不需要额外的成果预览或下载工具。
 
 网络中断、响应不确定或应用在提交中退出，保留 submission_unknown，不自动重发计算请求。已提交任务由监督器继续查询；恢复原账号后可继续读取。旧 GP 未完成任务不能由新协议继续执行，会明确标记服务已移除。
 
