@@ -6,21 +6,19 @@ from kunyu.domain.geospatial.analysis import (
     AnalysisError,
     LayerStyleWrite,
     MapLayer,
-    MapPresentation,
 )
-from kunyu.domain.geospatial.imagery import image_bounds
 from kunyu.persistence.database import Database
-from kunyu.persistence.geospatial.analysis import AnalysisRepository
+from kunyu.persistence.geospatial.analysis import AnalysisRepository, output_value
 from kunyu.persistence.geospatial.analysis_shared import publish, require_session
 from kunyu.persistence.geospatial.imagery import ImageryRepository
 from kunyu.persistence.geospatial.map_layers import (
     add_image_layers,
-    add_output_layer,
+    add_output_layers,
     normalize_positions,
     ordered_layers,
     require_layer,
 )
-from kunyu.persistence.records.geospatial import MapLayerRecord
+from kunyu.persistence.records.geospatial import AnalysisOutputRecord, MapLayerRecord
 
 
 class MapRepository:
@@ -32,50 +30,51 @@ class MapRepository:
         self,
         session_id: str,
         request_id: str,
-        target: str,
-        reference_id: str | None,
         *,
-        open_map: bool,
-        focus: bool,
         image_ids: list[int] | None = None,
-    ) -> MapPresentation:
-        if target == "images":
-            if not image_ids or reference_id is not None:
-                raise AnalysisError(
-                    "INVALID_TARGET", "Image presentation requires only image_ids.", 422
-                )
-            images = self.imagery.get(session_id, image_ids)
-            bounds = image_bounds(images)
-        elif target == "output":
-            if reference_id is None or image_ids is not None:
-                raise AnalysisError(
-                    "INVALID_TARGET",
-                    "Output presentation requires only reference_id.",
-                    422,
-                )
-            output = self.outputs.output(session_id, reference_id)
-            bounds = output.bounds
-        else:
+        output_ids: list[str] | None = None,
+    ) -> list[MapLayer]:
+        if (image_ids is None) == (output_ids is None):
             raise AnalysisError(
-                "INVALID_TARGET", "Unsupported map presentation target.", 422
+                "INVALID_TARGET", "Supply exactly one of image_ids or output_ids.", 422
             )
+        ids = image_ids if image_ids is not None else output_ids
+        if not ids or len(set(ids)) != len(ids):
+            raise AnalysisError(
+                "INVALID_TARGET", "Resource IDs must be nonempty and unique.", 422
+            )
+        images = None if image_ids is None else self.imagery.get(session_id, image_ids)
         with self.database.sessions.begin() as tx:
             tx.execute(text("BEGIN IMMEDIATE"))
-            require_session(tx, session_id, writable=True)
-            if target == "images":
-                add_image_layers(tx, session_id, images)
+            session = require_session(tx, session_id, writable=True)
+            if images is not None:
+                layers = add_image_layers(tx, session_id, images)
             else:
-                add_output_layer(tx, session_id, output)
+                outputs = {
+                    row.id: row
+                    for row in tx.scalars(
+                        select(AnalysisOutputRecord).where(
+                            AnalysisOutputRecord.workspace_id == session.workspace_id,
+                            AnalysisOutputRecord.id.in_(output_ids),
+                        )
+                    )
+                }
+                missing = [
+                    identity for identity in output_ids if identity not in outputs
+                ]
+                if missing:
+                    raise AnalysisError(
+                        "OUTPUTS_NOT_FOUND",
+                        f"Outputs were not found in this workspace: {missing}.",
+                        404,
+                    )
+                layers = add_output_layers(
+                    tx,
+                    session_id,
+                    tuple(output_value(outputs[identity]) for identity in output_ids),
+                )
             publish(self.database, tx, session_id, "map/changed", request_id, 1)
-        return MapPresentation(
-            request_id=request_id,
-            target=target,
-            reference_id=reference_id,
-            image_ids=image_ids,
-            open_map=open_map,
-            focus=focus,
-            bounds=bounds,
-        )
+            return [MapLayer.model_validate(row) for row in layers]
 
     def layers(self, session_id: str) -> list[MapLayer]:
         with self.database.sessions() as tx:
@@ -99,7 +98,7 @@ class MapRepository:
         with self.database.sessions.begin() as tx:
             tx.execute(text("BEGIN IMMEDIATE"))
             require_session(tx, session_id, writable=True)
-            row = add_output_layer(tx, session_id, output)
+            row = add_output_layers(tx, session_id, (output,))[0]
             publish(self.database, tx, session_id, "map/changed", row.id, row.revision)
             return MapLayer.model_validate(row)
 

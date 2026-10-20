@@ -1,7 +1,7 @@
 """Map tools read and mutate only the calling session's typed map objects."""
 
 from collections.abc import Mapping
-from typing import Annotated, Literal
+from typing import Annotated
 from uuid import uuid4
 
 from pydantic import Field, model_validator
@@ -50,31 +50,28 @@ class ContextArguments(ToolArguments):
 
 
 class PresentArguments(ToolArguments):
-    target: Literal["images", "output"]
-    reference_id: str | None = Field(
+    output_ids: list[Annotated[str, Field(min_length=1, max_length=64)]] | None = Field(
         default=None,
         min_length=1,
-        max_length=128,
-        description="Analysis output ID. Only valid for target=output.",
+        max_length=100,
+        description="Analysis output IDs to add as layers. Supply output_ids or image_ids, exclusively.",
     )
     image_ids: list[Annotated[int, Field(gt=0)]] | None = Field(
         default=None,
         min_length=1,
         max_length=100,
-        description="Image IDs from search results to add as layers. Only valid for target=images.",
+        description="Image IDs from search results to add as layers. Supply image_ids or output_ids, exclusively.",
     )
     open_map: bool = True
     focus: bool = True
 
     @model_validator(mode="after")
-    def image_target(self):
-        if self.target == "images":
-            if self.image_ids is None or self.reference_id is not None:
-                raise ValueError("Image presentation requires only image_ids.")
-            if len(set(self.image_ids)) != len(self.image_ids):
-                raise ValueError("Image IDs must be unique.")
-        elif self.reference_id is None or self.image_ids is not None:
-            raise ValueError("Output presentation requires only reference_id.")
+    def one_source(self):
+        if (self.image_ids is None) == (self.output_ids is None):
+            raise ValueError("Supply exactly one of image_ids or output_ids.")
+        ids = self.image_ids if self.image_ids is not None else self.output_ids
+        if len(set(ids)) != len(ids):
+            raise ValueError("Resource IDs must be unique.")
         return self
 
 
@@ -157,18 +154,16 @@ class MapTool(BaseTool):
                         result=result.result,
                     )
             elif self.spec.name == "map_present":
-                presentation = self._maps.present(
+                layers = self._maps.present(
                     session_id,
                     call.call_id,
-                    args.target,
-                    args.reference_id,
-                    open_map=args.open_map,
-                    focus=args.focus,
                     image_ids=args.image_ids,
+                    output_ids=args.output_ids,
                 )
-                value = {
-                    "presentation": presentation.model_dump(mode="json"),
-                }
+                return tool_result(
+                    {"layers": [layer.model_dump(mode="json") for layer in layers]},
+                    max_bytes=1024 * 1024,
+                )
             else:
                 value = self._maps.style(
                     session_id,

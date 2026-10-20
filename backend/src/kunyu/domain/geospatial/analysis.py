@@ -68,16 +68,6 @@ class AnalysisOutput(AnalysisValue):
     created_at: datetime
 
 
-class MapPresentation(AnalysisValue):
-    request_id: str
-    target: Literal["images", "output"]
-    reference_id: str | None
-    image_ids: list[int] | None
-    open_map: bool
-    focus: bool
-    bounds: tuple[float, float, float, float] | None
-
-
 class MapLayer(AnalysisValue):
     id: str
     session_id: str

@@ -12,7 +12,8 @@ from kunyu.agent.tools.outputs.shared import (
 
 
 def present_display(result):
-    return TextDisplay(summary=label("map_added"), text=label("map_added"))
+    summary = label("map_added", count=len(object_result(result)["layers"]))
+    return TextDisplay(summary=summary, text=summary)
 
 
 def present_compact(result):

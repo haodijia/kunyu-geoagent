@@ -59,22 +59,3 @@ def image_ring(image: OgeImageRecord) -> list[list[float]] | None:
     ):
         return None
     return [[x, y] for x, y in (*coordinates, coordinates[0])]
-
-
-def image_bounds(
-    images: tuple[OgeImageRecord, ...],
-) -> tuple[float, float, float, float] | None:
-    points = [
-        point
-        for image in images
-        if (ring := image_ring(image)) is not None
-        for point in ring
-    ]
-    if not points:
-        return None
-    return (
-        min(point[0] for point in points),
-        min(point[1] for point in points),
-        max(point[0] for point in points),
-        max(point[1] for point in points),
-    )

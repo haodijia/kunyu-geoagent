@@ -2,6 +2,7 @@ import { useAppUiStore } from "@/app/store";
 import { useSessionEvents } from "@/features/events/SessionEventContext";
 import { useSessionWorkspace } from "@/features/sessions/SessionWorkspaceContext";
 import { sessionMapPath } from "@/features/sessions/routes";
+import type { MapBounds } from "@/features/sessions/map-context";
 import { useEffect, useRef } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 
@@ -28,27 +29,36 @@ export function MapPresentationBridge() {
       if (
         typeof result !== "object" ||
         result === null ||
-        !("presentation" in result)
+        !("layers" in result) ||
+        !Array.isArray(result.layers) || result.layers.length === 0
       )
         throw new Error("Invalid map presentation result.");
-      const request = result.presentation;
+      const arguments_ = call.payload.arguments;
       if (
-        typeof request !== "object" ||
-        request === null ||
-        !("request_id" in request) ||
-        typeof request.request_id !== "string" ||
-        !("open_map" in request) ||
-        typeof request.open_map !== "boolean" ||
-        !("focus" in request) || typeof request.focus !== "boolean" ||
-        !("bounds" in request) || (request.bounds !== null && (!Array.isArray(request.bounds) || request.bounds.length !== 4 || !request.bounds.every(value => typeof value === "number" && Number.isFinite(value))))
+        typeof arguments_ !== "object" || arguments_ === null ||
+        !("open_map" in arguments_) || typeof arguments_.open_map !== "boolean" ||
+        !("focus" in arguments_) || typeof arguments_.focus !== "boolean"
       )
-        throw new Error("Invalid map presentation request.");
-      if (handled.current.has(request.request_id)) continue;
-      handled.current.add(request.request_id);
-      if (request.focus && request.bounds !== null)
-        useAppUiStore.getState().focusMap(session.id, [request.bounds[0], request.bounds[1], request.bounds[2], request.bounds[3]]);
+        throw new Error("Invalid map presentation arguments.");
+      let bounds: MapBounds | null = null;
+      for (const layer of result.layers) {
+        if (typeof layer !== "object" || layer === null || !("bounds" in layer))
+          throw new Error("Invalid presented layer.");
+        const extent = layer.bounds;
+        if (extent === null) continue;
+        if (!Array.isArray(extent) || extent.length !== 4 || !extent.every(value => typeof value === "number" && Number.isFinite(value)))
+          throw new Error("Invalid presented layer bounds.");
+        bounds = bounds === null ? [extent[0], extent[1], extent[2], extent[3]]
+          : [Math.min(bounds[0], extent[0]), Math.min(bounds[1], extent[1]), Math.max(bounds[2], extent[2]), Math.max(bounds[3], extent[3])];
+      }
+      const toolId = event.payload.tool_call_id;
+      if (typeof toolId !== "string") throw new Error("Invalid presentation tool identity.");
+      if (handled.current.has(toolId)) continue;
+      handled.current.add(toolId);
+      if (arguments_.focus && bounds !== null)
+        useAppUiStore.getState().focusMap(session.id, bounds);
       if (
-        request.open_map &&
+        arguments_.open_map &&
         location.pathname !== sessionMapPath(session.workspace_id, session.id)
       )
         void navigate(sessionMapPath(session.workspace_id, session.id));

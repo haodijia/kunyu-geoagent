@@ -36,50 +36,51 @@ def normalize_positions(tx: Session, session_id: str) -> None:
             row.revision += 1
 
 
-def add_output_layer(
-    tx: Session, session_id: str, output: AnalysisOutput
-) -> MapLayerRecord:
+def add_output_layers(
+    tx: Session, session_id: str, outputs: tuple[AnalysisOutput, ...]
+) -> list[MapLayerRecord]:
     layers = ordered_layers(tx, session_id)
-    existing = next((row for row in layers if row.output_id == output.id), None)
-    if existing is not None:
-        if not existing.visible:
-            existing.visible = True
-            existing.revision += 1
-        return existing
-    row = MapLayerRecord(
-        id=f"layer_{uuid4()}",
-        session_id=session_id,
-        output_id=output.id,
-        image=None,
-        bounds=list(output.bounds),
-        title=output.title,
-        visible=True,
-        opacity=0.85,
-        position=len(layers),
-        revision=1,
-    )
-    tx.add(row)
+    existing = {row.output_id: row for row in layers if row.output_id is not None}
+    presented = []
+    for output in outputs:
+        row = existing.get(output.id)
+        if row is None:
+            row = MapLayerRecord(
+                id=f"layer_{uuid4()}",
+                session_id=session_id,
+                output_id=output.id,
+                image=None,
+                bounds=list(output.bounds),
+                title=output.title,
+                visible=True,
+                opacity=0.85,
+                position=len(layers),
+                revision=1,
+            )
+            tx.add(row)
+            layers.append(row)
+            existing[output.id] = row
+        elif not row.visible:
+            row.visible = True
+            row.revision += 1
+        presented.append(row)
     tx.flush()
-    return row
+    return presented
 
 
 def add_image_layers(
     tx: Session, session_id: str, images: tuple[OgeImageRecord, ...]
-) -> None:
+) -> list[MapLayerRecord]:
     layers = ordered_layers(tx, session_id)
+    existing = {row.image["image_id"]: row for row in layers if row.image is not None}
+    presented = []
     for image in images:
-        existing = next(
-            (
-                row
-                for row in layers
-                if row.image is not None and row.image["image_id"] == image.imageId
-            ),
-            None,
-        )
-        if existing is not None:
-            if not existing.visible:
-                existing.visible = True
-                existing.revision += 1
+        row = existing.get(image.imageId)
+        if row is not None:
+            if not row.visible:
+                row.visible = True
+                row.revision += 1
+            presented.append(row)
             continue
         source = layer_image(image)
         bounds = ring_bounds(source.footprint)
@@ -97,4 +98,7 @@ def add_image_layers(
         )
         tx.add(row)
         layers.append(row)
+        existing[image.imageId] = row
+        presented.append(row)
     tx.flush()
+    return presented
