@@ -131,7 +131,7 @@ DeepSeek 新连接默认 `deepseek_messages` 与 `https://api.deepseek.com/anthr
 3. 调用 `TOOLS.register(owner, name, ToolRegistration(builder, write_handler))`，贡献随 owner 释放。
 4. 在产品组合的 `plugins` 参数中启用插件；会话专属扩展通过 `install_plugin(agent.ctx, plugin)` 安装。
 
-默认启用 `MemoryToolsPlugin` 的 `memory_read`、`memory_write`，`SkillToolsPlugin` 的 `skill`，`TodoToolsPlugin` 的 `todo_write`，`FilesystemToolsPlugin` 的 `read`、`write`、`edit`，`UserQuestionsPlugin` 的 `ask_user_question`，`PlanModePlugin` 的 `exit_plan_mode`，以及 `AttachmentToolsPlugin` 的 `read_image`。模型提供者和循环提供者可分别通过 `model_plugin`、`loop_plugin` 显式替换。没有旧路径、静态插件包装或工具名分支兼容层。
+默认启用 `MemoryToolsPlugin` 的 `memory_read`、`memory_write`，由 `SkillToolsPlugin` 按当前会话可用技能注册 `skill`，`TodoToolsPlugin` 的 `todo_write`，`FilesystemToolsPlugin` 的 `read`、`write`、`edit`，`UserQuestionsPlugin` 的 `ask_user_question`，`PlanModePlugin` 的 `exit_plan_mode`，以及 `AttachmentToolsPlugin` 的 `read_image`。模型提供者和循环提供者可分别通过 `model_plugin`、`loop_plugin` 显式替换。没有旧路径、静态插件包装或工具名分支兼容层。
 
 L0 工具可直接执行；L1 工作区文件工具为独占调用，在 workspace-write 权限下直接执行，计划／read-only 模式拒绝。L2 工具必须声明 ToolApproval。transaction 模式注册同名 transaction 处理器，记忆写入仍将业务修改、确认、预算及工具结果同一事务提交，失败一起回滚；tool 模式须声明稳定的 binding，批准只持久化确认和工具续跑队列，实际异步执行由 Agent 运行器负责。外部服务结果和中断语义独立记录，不承诺远端事务回滚；完整业务作业监督仍需专门服务。
 
@@ -157,7 +157,7 @@ L0 工具可直接执行；L1 工作区文件工具为独占调用，在 workspa
 
 `/技能名` 扫描当前步骤已接纳的真实用户消息，使用空白边界，支持消息任意位置的多个名称；按首次出现顺序与用户权限加载，同一步重试、恢复及重复名称不重复加载。处理器追加的上下文消息不能授予用户调用权限。正文、来源、消息身份、Run 和 step 以 `producer=skill-invocation` 持久保存；所属步骤实际发送后进入后续历史。前端从步骤接纳及实际加载事件生成消息标记，标题栏汇总用户与模型加载的技能；指令预览使用历史快照，不随文件编辑重写。
 
-模型使用 `skill({name})` 加载正文和资源位置，实际结果进入已有工具完成事件；目录资源由 `read`／`read_image`／`glob`／`grep` 按真实路径访问。文件服务与技能发现共用配置的只读目录。运行时贡献可按会话注册；来源卸载取消未完成的指令读取，当前可见注册变化时拒绝旧结果。详细格式和资源位置见[Agent 技能](Agent技能.md#运行时技能与资源位置)。远程来源默认接入、文件 watcher、插件市场和脚本执行尚未实现。
+每次模型步骤先发现当前作用域的技能目录；仅当存在模型可调用的技能时在该会话注册 `skill`，没有时释放注册。子会话可以隐藏父会话继承的技能工具，不改变父会话目录。目录和工具来自同一轮发现结果；首次空目录不注入说明，非空转空只发布一次明确的目录清除事实。模型使用 `skill({name})` 加载正文和资源位置，实际结果进入已有工具完成事件；目录资源由 `read`／`read_image`／`glob`／`grep` 按真实路径访问。文件服务与技能发现共用配置的只读目录。运行时贡献可按会话注册；来源卸载取消未完成的指令读取，当前可见注册变化时拒绝旧结果。详细格式和资源位置见[Agent 技能](Agent技能.md#运行时技能与资源位置)。远程来源默认接入、文件 watcher、插件市场和脚本执行尚未实现。
 
 GeoSkill 的版本化地理场景逻辑放 `kunyu/scenes/`，场景数据放 `backend/scenarios/`。Tool 是执行能力，Skill 是任务指令和资源，GeoSkill 是业务场景契约。
 
@@ -508,7 +508,7 @@ ToolActivity 负责分组，ToolCallRow 负责单条记录，ToolActivityParts �
 
 默认工具为 L2，每次调用经过已有审批及 Agent 队列；只读工具须由用户按精确上游名称声明，服务的 readOnlyHint 仅展示。审批绑定配置修订、目录修订和原始工具名称，目标在审批说明中展示。相同目录在重启后保留修订，未开始的审批可显式继续；已开始的调用仍由原有持久 started 事实防止重发。三种模型协议均保持原生思考／签名／加密回放和工具结果续接。
 
-共享资源工具为 list_mcp_resources、list_mcp_resource_templates、read_mcp_resource；资源页保留 SDK 游标，模型文本保留资源 URI 与实际文字。MCP 工具和资源图片经已有模型能力校验、规范化及附件批量存储后返回不可变收据；日志和结构化结果保存收据及来源 URI，不重复存储 base64。文本、资源链接、嵌入文本与结构化结果保留真实内容；不支持的音频或二进制内容明确失败。
+共享资源工具为 list_mcp_resources、read_mcp_resource；只有当前连接成功且支持资源的 MCP 服务存在时才注册，最后一个资源服务断开后同步撤下；外部工具同样归当前连接代际所有。资源页保留 SDK 游标，模型文本保留资源 URI 与实际文字。MCP 工具和资源图片经已有模型能力校验、规范化及附件批量存储后返回不可变收据；日志和结构化结果保存收据及来源 URI，不重复存储 base64。文本、资源链接、嵌入文本与结构化结果保留真实内容；不支持的音频或二进制内容明确失败。
 
 设置页复用 Mu 风格的 Settings Shell、简洁服务行与工具目录，支持添加／编辑、启停、重连、删除、只读声明及凭据替换。凭据与公开配置分离，读接口仅返回凭据名称；存储沿用当前开发阶段的私有 SQLite 数据层，不宣称已实现系统凭据库。配置更新与凭据更新要求精确修订，旧页面不会覆盖新配置；未完成运行时拒绝配置改动。0022 仅新增 MCP 配置表，不改写既有日志、运行或业务记录。
 

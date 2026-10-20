@@ -5,6 +5,10 @@
   {{entries}}
   </available_skills>
   </system-reminder>
+"skill_catalog_empty": |-
+  <system-reminder>
+  No skills are currently available for model invocation. This replaces earlier skill catalogs; do not call skill using earlier entries. A skill explicitly invoked by the user supplies its instructions directly.
+  </system-reminder>
 "permission_read_only": |-
   当前文件工具权限：read-only。当前会话只能读取，不能通过工具写入或修改文件。
 "permission_workspace_write": |-

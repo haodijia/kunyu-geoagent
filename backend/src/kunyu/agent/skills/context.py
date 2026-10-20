@@ -1,6 +1,7 @@
 """Publish catalog replacements and explicit user invocations as session facts."""
 
 import re
+from collections.abc import Callable
 from datetime import UTC, datetime
 
 from kunyu.agent.core import services as s
@@ -11,7 +12,6 @@ from kunyu.agent.runtime.events.session import (
 )
 from kunyu.agent.runtime.events.store import EventBatch
 from kunyu.agent.skills.render import catalog_entries, render_catalog, render_skill
-from kunyu.agent.tools.registry import ToolRegistration
 from kunyu.agent.tools.shared import load_source
 
 SKILL_GESTURE = re.compile(r"(?:^|\s)/([a-z0-9]+(?:-[a-z0-9]+)*)(?=\s|$)")
@@ -21,18 +21,18 @@ async def prepare_skill_context(
     run_id: str,
     scope: Context,
     *,
-    registration: ToolRegistration,
+    sync_tool: Callable[[Context, bool], bool],
     catalog_description_max_length: int,
 ) -> None:
     source = load_source(scope.require(s.CONTEXTS), run_id)
     registry = scope.require(s.SKILLS)
     skills = await registry.list(scope, workspace_id=source.workspace.id)
-    tool_visible = (
-        scope.require(s.TOOLS).registration_for_run("skill", run_id) is registration
-    )
+    model_skills = tuple(skill for skill in skills if skill.model_invocable)
+    owner = scope.require(s.SCOPES).for_session(source.session.id)
+    tool_visible = sync_tool(owner, bool(model_skills))
     entries = (
         catalog_entries(
-            tuple(skill for skill in skills if skill.model_invocable),
+            model_skills,
             catalog_description_max_length,
         )
         if tool_visible

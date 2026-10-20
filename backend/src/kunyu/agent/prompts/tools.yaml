@@ -26,10 +26,8 @@
   Load the complete instructions of an available skill by its exact catalog name before acting on a task that names or matches it.
 "list_mcp_resources": |-
   List resources on the named configured MCP server. Pass its returned cursor to continue.
-"list_mcp_resource_templates": |-
-  List parameterized resource URI templates on the named configured MCP server.
 "read_mcp_resource": |-
-  Read a listed resource URI or an expanded resource template from the named MCP server.
+  Read a resource URI supplied by the named connected MCP server.
 "ask_user_question": |-
   Ask the user a concise question when you need confirmation, a choice, or missing information before proceeding. Send one or more questions, each with a stable id echoed in the answer. Put a recommended option first and append (Recommended) to its label.
 "exit_plan_mode": |-

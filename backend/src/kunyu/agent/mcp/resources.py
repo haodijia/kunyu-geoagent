@@ -1,10 +1,8 @@
 """Harness-style named MCP resource tools, sharing the normal Agent tool loop."""
 
-from kunyu.agent.tools.outputs.mcp import MCP
-from kunyu.agent.runtime.contracts.tools import BaseTool
-
 import json
 from functools import partial
+from typing import Literal
 
 from pydantic import Field
 
@@ -12,12 +10,14 @@ from kunyu.agent.mcp.results import project_result
 from kunyu.agent.prompts.loader import tool_description
 from kunyu.agent.runtime.contracts.content import TextBlock
 from kunyu.agent.runtime.contracts.tools import (
+    BaseTool,
     ToolCall,
     ToolExecutionError,
     ToolResult,
     ToolRiskLevel,
     ToolSpec,
 )
+from kunyu.agent.tools.outputs.mcp import MCP
 from kunyu.agent.tools.registry import ToolRegistration
 from kunyu.agent.tools.shared import (
     ToolArguments,
@@ -40,7 +40,12 @@ class ResourceReadArguments(ToolArguments):
 class McpResourceTool(BaseTool):
     output_contract = MCP
 
-    def __init__(self, run_id: str, manager, operation: str) -> None:
+    def __init__(
+        self,
+        run_id: str,
+        manager,
+        operation: Literal["list_mcp_resources", "read_mcp_resource"],
+    ) -> None:
         self.run_id, self.manager, self.operation = run_id, manager, operation
         self.arguments = (
             ResourceReadArguments
@@ -77,17 +82,13 @@ class McpResourceTool(BaseTool):
                 )
             if self.operation == "read_mcp_resource":
                 result = await client.session.read_resource(call.arguments["uri"])
-            elif self.operation == "list_mcp_resources":
-                result = await client.list_resources(
-                    cursor=call.arguments["cursor"], cache_mode="refresh"
-                )
             else:
-                result = await client.list_resource_templates(
+                result = await client.list_resources(
                     cursor=call.arguments["cursor"], cache_mode="refresh"
                 )
         except ToolExecutionError:
             raise
-        except Exception as error:
+        except Exception as error:  # noqa: BLE001 -- sanitize arbitrary external MCP failures
             raise request_error(error) from None
         value = result.model_dump(mode="json", by_alias=True, exclude_none=True)
         if self.operation == "read_mcp_resource":
@@ -111,14 +112,21 @@ class McpResourceTool(BaseTool):
         )
 
 
-def register_resources(context, registry, manager) -> None:
-    for name in (
-        "list_mcp_resources",
-        "list_mcp_resource_templates",
-        "read_mcp_resource",
-    ):
-        registry.register(
-            context,
-            name,
-            ToolRegistration(partial(McpResourceTool, manager=manager, operation=name)),
-        )
+def register_resources(context, registry, manager):
+    disposers = []
+    try:
+        for name in ("list_mcp_resources", "read_mcp_resource"):
+            disposers.append(
+                registry.register(
+                    context,
+                    name,
+                    ToolRegistration(
+                        partial(McpResourceTool, manager=manager, operation=name)
+                    ),
+                )
+            )
+    except Exception:
+        for dispose in reversed(disposers):
+            dispose()
+        raise
+    return disposers

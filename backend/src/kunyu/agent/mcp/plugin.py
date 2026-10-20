@@ -26,6 +26,8 @@ class McpManager:
         )
         self.connections: dict[str, McpConnection] = {}
         self.disposers: dict[str, list] = {}
+        self.resource_servers: set[str] = set()
+        self._resource_disposers: list = []
         self.locks: dict[str, asyncio.Lock] = {}
         self.oauth = McpOAuthManager(self)
 
@@ -57,6 +59,12 @@ class McpManager:
             )
             if published != revision:
                 raise RuntimeError("MCP catalog revision changed during registration.")
+            if "resources" in catalog["capabilities"]:
+                if not self.resource_servers:
+                    self._resource_disposers = register_resources(
+                        self.context, self.tools, self
+                    )
+                self.resource_servers.add(connection.config.name)
         except Exception:
             for dispose in reversed(disposers):
                 dispose()
@@ -67,6 +75,11 @@ class McpManager:
     def retire(self, connection: McpConnection) -> None:
         for dispose in reversed(self.disposers.pop(connection.config.name, [])):
             dispose()
+        self.resource_servers.discard(connection.config.name)
+        if not self.resource_servers:
+            for dispose in reversed(self._resource_disposers):
+                dispose()
+            self._resource_disposers.clear()
 
     async def activate(self, name: str) -> None:
         old = self.connections.pop(name, None)
@@ -145,7 +158,6 @@ class McpPlugin:
         manager = McpManager(context)
         context.provide(s.MCP, manager)
         context.effect(manager.close, before_children=True)
-        register_resources(context, manager.tools, manager)
         context.require(s.PROMPTS).register(
             context,
             PromptSection(name="mcp-servers", order=80, render=manager.instructions),

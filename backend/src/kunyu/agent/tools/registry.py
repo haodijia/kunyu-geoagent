@@ -62,18 +62,31 @@ class ToolRegistryFactory:
     ) -> None:
         self._resolve_scope = resolve_scope
         self._database = database
-        self._entries: ScopedEntries[ToolRegistration] = ScopedEntries()
+        self._entries: ScopedEntries[ToolRegistration | None] = ScopedEntries()
 
     def register(
         self, owner: Context, name: str, registration: ToolRegistration
     ) -> Callable[[], None]:
         return self._entries.register(owner, name, registration)
 
+    def hide(self, owner: Context, name: str) -> Callable[[], None]:
+        """Hide an inherited tool for this scope without changing its owner."""
+        return self._entries.register(owner, name, None)
+
     def registration_for_run(self, name: str, run_id: str) -> ToolRegistration | None:
-        return self._entries.view(self._resolve_scope(run_id)).get(name)
+        return self.registration_for_scope(name, self._resolve_scope(run_id))
+
+    def registration_for_scope(
+        self, name: str, context: Context
+    ) -> ToolRegistration | None:
+        return self._entries.view(context).get(name)
 
     def for_run(self, run_id: str) -> ToolRegistry:
-        entries = self._entries.view(self._resolve_scope(run_id))
+        entries = {
+            name: entry
+            for name, entry in self._entries.view(self._resolve_scope(run_id)).items()
+            if entry is not None
+        }
         with self._database.sessions() as transaction:
             child = (
                 transaction.scalar(

@@ -43,6 +43,8 @@ def catalog_entries(
 
 
 def render_catalog(entries: list[dict[str, str]]) -> str:
+    if not entries:
+        return prompt_text("context.yaml", "skill_catalog_empty")
     lines = [
         f'<skill name="{escape(entry["name"], quote=True)}">'
         f"{escape(entry['description'])}</skill>"

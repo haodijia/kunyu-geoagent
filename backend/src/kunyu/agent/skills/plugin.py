@@ -1,5 +1,6 @@
 """Skill service, filesystem provider and consumer mount independently."""
 
+from collections.abc import Callable
 from functools import partial
 from pathlib import Path
 
@@ -69,13 +70,44 @@ class SkillToolsPlugin:
                 scopes=context.require(s.SCOPES),
             )
         )
-        context.require(s.TOOLS).register(context, "skill", registration)
+        tools = context.require(s.TOOLS)
+        mounted: dict[Context, tuple[bool, Callable[[], None]]] = {}
+
+        def sync_tool(owner: Context, available: bool) -> bool:
+            previous = mounted.get(owner)
+            if previous is not None and previous[0] != available:
+                previous[1]()
+            current = tools.registration_for_scope("skill", owner)
+            if owner not in mounted and (
+                (available and (current is None or current is registration))
+                or (not available and current is registration)
+            ):
+                unregister = (
+                    tools.register(owner, "skill", registration)
+                    if available
+                    else tools.hide(owner, "skill")
+                )
+
+                def remove() -> None:
+                    unregister()
+                    mounted.pop(owner, None)
+                    detach()
+
+                detach = owner.effect(remove)
+                mounted[owner] = (available, remove)
+            return tools.registration_for_scope("skill", owner) is registration
+
+        def close() -> None:
+            for _, remove in tuple(mounted.values()):
+                remove()
+
+        context.effect(close, before_children=True)
         context.require(s.CONTEXT_PREPARERS).register(
             context,
             "skills",
             partial(
                 prepare_skill_context,
-                registration=registration,
+                sync_tool=sync_tool,
                 catalog_description_max_length=self.catalog_description_max_length,
             ),
         )
