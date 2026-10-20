@@ -42,7 +42,7 @@ OPERATOR = ToolOutputContract(agent_content, operator_display, operator_compact)
 def operators_display(result):
     data = object_result(result)
     return TextDisplay(
-        summary=label("operators", total=data["total"]),
+        summary=label("operators", total=len(data["operators"])),
         text="\n".join(
             row["name"] + " · " + row["description"] for row in data["operators"]
         ),
@@ -53,11 +53,7 @@ def operators_compact(result):
     data = object_result(result)
     return compact(
         operators_display(result).summary,
-        {
-            "total": data["total"],
-            "offset": data["offset"],
-            "operators": [row["name"] for row in data["operators"]],
-        },
+        {"operators": [row["name"] for row in data["operators"]]},
     )
 
 

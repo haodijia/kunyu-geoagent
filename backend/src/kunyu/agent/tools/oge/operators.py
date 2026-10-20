@@ -1,20 +1,19 @@
 """Discover live operator metadata without registering hundreds of tools."""
 
-from kunyu.agent.runtime.contracts.tools import BaseTool
-from kunyu.agent.tools.outputs.oge import OPERATOR, OPERATORS
-
 from collections.abc import Mapping
 
 from pydantic import Field
 
 from kunyu.agent.prompts.loader import tool_description
 from kunyu.agent.runtime.contracts.tools import (
+    BaseTool,
     ToolCall,
     ToolExecutionError,
     ToolResult,
     ToolRiskLevel,
     ToolSpec,
 )
+from kunyu.agent.tools.outputs.oge import OPERATOR, OPERATORS
 from kunyu.agent.tools.shared import (
     ToolArguments,
     load_source,
@@ -30,9 +29,18 @@ from kunyu.integrations.oge.execution import ExecutionGateway
 
 
 class SearchArguments(ToolArguments):
-    query: str = Field(min_length=1, max_length=200)
-    offset: int = Field(default=0, ge=0)
-    limit: int = Field(default=10, ge=1, le=20)
+    query: str | None = Field(
+        default=None,
+        min_length=1,
+        max_length=200,
+        pattern=r"\S",
+        description="Keywords to match. Omit to list the complete operator catalog.",
+    )
+    limit: int | None = Field(
+        default=None,
+        ge=1,
+        description="Maximum matches to return. Omit to return all matches.",
+    )
 
 
 class DefinitionArguments(ToolArguments):
@@ -138,7 +146,8 @@ class OperatorTool(BaseTool):
                         "OGE_CATALOG_TOO_LARGE",
                         "Operator catalog exceeds 10,000 entries.",
                     )
-            words = args.query.casefold().split()
+            query = args.query.strip().casefold() if args.query is not None else ""
+            words = query.split()
             matches = [
                 row
                 for row in rows
@@ -160,23 +169,21 @@ class OperatorTool(BaseTool):
             ]
             matches.sort(
                 key=lambda row: (
-                    str(row.get("name", "")).casefold() != args.query.casefold(),
+                    str(row.get("name", "")).casefold() != query,
                     str(row.get("name", "")),
                 )
             )
             return tool_result(
                 {
-                    "catalog_total": len(rows),
-                    "total": len(matches),
-                    "offset": args.offset,
                     "operators": [
                         {
                             key: str(row.get(key) or "")[:240]
                             for key in ("name", "alias", "catalogName", "description")
                         }
-                        for row in matches[args.offset : args.offset + args.limit]
+                        for row in matches[: args.limit]
                     ],
-                }
+                },
+                max_bytes=1024 * 1024,
             )
         except (OgeError, AnalysisError) as error:
             raise ToolExecutionError(str(error), code=error.code) from None
