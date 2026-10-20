@@ -142,7 +142,6 @@ class AnalysisService:
                 job.workspace_id,
                 name,
                 cancelled,
-                job.parameters.get("display_range"),
             )
         )
         self.repository.publish_output(

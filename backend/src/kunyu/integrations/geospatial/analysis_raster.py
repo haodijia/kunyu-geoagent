@@ -62,9 +62,7 @@ class AnalysisRaster:
             )
         return path
 
-    def prepare(
-        self, workspace_id: str, name: str, cancelled: Event, display_range=None
-    ) -> dict:
+    def prepare(self, workspace_id: str, name: str, cancelled: Event) -> dict:
         directory = self.directory(workspace_id, name)
         check_cancelled(cancelled, "prepare analysis output")
         with rasterio.open(directory / "result.tif") as src:
@@ -99,22 +97,18 @@ class AnalysisRaster:
                     raise AnalysisError(
                         "EMPTY_RASTER", "The raster preview contains no finite values."
                     )
-                limits = (
-                    list(display_range)
-                    if display_range is not None
-                    else [
-                        float(np.percentile(valid, 2)),
-                        float(np.percentile(valid, 98)),
-                    ]
-                )
+                limits = [
+                    float(np.percentile(valid, 2)),
+                    float(np.percentile(valid, 98)),
+                ]
                 if limits[0] == limits[1]:
                     limits[1] = limits[0] + max(1, abs(limits[0]) * 0.01)
                 rgba = _scalar_rgba(data[0], *limits)
             else:
                 color_limits = (
                     [[0.0, 255.0]] * 3
-                    if set(src.dtypes) == {"uint8"} and display_range is None
-                    else rgb_ranges(data, display_range)
+                    if set(src.dtypes) == {"uint8"}
+                    else rgb_ranges(data)
                 )
                 rgba = rgb_rgba(
                     data, src.dataset_mask(out_shape=(512, 512)), color_limits

@@ -1,10 +1,8 @@
 """Approved service producers register one session-owned background job."""
 
-import json
-import math
 from collections.abc import Mapping
 
-from pydantic import Field, model_validator
+from pydantic import Field
 
 from kunyu.agent.core.scope import AgentScopes
 from kunyu.agent.orchestration.jobs import JobHandle, JobRegistry
@@ -28,9 +26,8 @@ from kunyu.agent.tools.shared import (
     validate_model,
 )
 from kunyu.application.analysis.analysis import AnalysisService
-from kunyu.application.analysis.oge import OgeService
 from kunyu.domain.conversation.agent_context import RunContextRepository
-from kunyu.domain.geospatial.analysis import AnalysisError, AnalysisJob
+from kunyu.domain.geospatial.analysis import AnalysisError
 from kunyu.domain.geospatial.oge import OgeError
 
 
@@ -39,30 +36,10 @@ class ExecuteCodeArguments(ToolArguments):
     code: str = Field(
         min_length=1,
         max_length=12000,
-        description="OGE Python SDK code; compose operators then export exactly one Coverage with result.export(name). selected_image is injected only from an explicit image_id.",
-    )
-    image_id: int | None = Field(
-        default=None,
-        gt=0,
-        description="Real OGE image ID from the user's explicit reference or verified metadata. Omit only when the script loads its own inputs.",
+        description="OGE Python SDK code that explicitly loads its inputs; compose operators then export exactly one Coverage with result.export(name).",
     )
     crs: str = Field(pattern=r"^EPSG:[0-9]{4,6}$")
     scale: float = Field(gt=0, le=100000, allow_inf_nan=False)
-    display_range: list[float] | None = Field(
-        default=None,
-        min_length=2,
-        max_length=2,
-        description="Optional numeric display minimum/maximum; does not modify raw raster values.",
-    )
-
-    @model_validator(mode="after")
-    def valid_range(self):
-        if self.display_range is not None and (
-            not all(math.isfinite(value) for value in self.display_range)
-            or self.display_range[0] >= self.display_range[1]
-        ):
-            raise ValueError("display_range requires finite minimum < maximum.")
-        return self
 
 
 class ExecuteCodeTool(BaseTool):
@@ -75,12 +52,10 @@ class ExecuteCodeTool(BaseTool):
         service: AnalysisService,
         jobs: JobRegistry,
         scopes: AgentScopes,
-        oge: OgeService,
         *,
         wait_timeout_seconds: int = 120,
     ) -> None:
         self._run_id, self._contexts, self._service = run_id, contexts, service
-        self._oge = oge
         self._arguments = ExecuteCodeArguments
         self._wait_timeout_seconds = wait_timeout_seconds
         self._jobs, self._scopes = jobs, scopes
@@ -100,52 +75,25 @@ class ExecuteCodeTool(BaseTool):
             ),
         )
 
-    async def _parameters(self, args: ExecuteCodeArguments) -> dict:
-        image_id = args.image_id
-        image = None
-        if image_id is not None:
-            detail = await self._oge.image_detail(image_id)
-            image = {
-                "coverageID": detail["imageIdentification"],
-                "productID": detail["productName"],
-            }
-        # Serialize data as a Python string literal; never execute model code locally.
-        prelude = (
-            "import json as _kunyu_json\nselected_image = _kunyu_json.loads("
-            + repr(json.dumps(image))
-            + ")\n"
-        )
-        return {
-            "title": args.title,
-            "script": prelude + args.code,
-            "image_id": image_id,
-            "selected_image": image,
-            "crs": args.crs,
-            "scale": args.scale,
-            "display_range": None
-            if args.display_range is None
-            else list(args.display_range),
-        }
-
     def validate(self, arguments: object) -> Mapping[str, object]:
         return validate_arguments(self.spec.name, self._arguments, arguments)
-
-    async def _submit(
-        self, call: ToolCall, session_id: str, arguments: ExecuteCodeArguments
-    ) -> AnalysisJob:
-        return await self._service.submit(
-            session_id,
-            call.run_id,
-            call.call_id,
-            await self._parameters(arguments),
-        )
 
     async def execute(self, call: ToolCall) -> ToolResult:
         require_bound_call(call, self._run_id, self.spec.name)
         arguments = validate_model(self.spec.name, self._arguments, call.arguments)
         source = load_source(self._contexts, self._run_id)
         try:
-            job = await self._submit(call, source.session.id, arguments)
+            job = await self._service.submit(
+                source.session.id,
+                call.run_id,
+                call.call_id,
+                {
+                    "title": arguments.title,
+                    "script": arguments.code,
+                    "crs": arguments.crs,
+                    "scale": arguments.scale,
+                },
+            )
         except (AnalysisError, OgeError) as error:
             raise ToolExecutionError(str(error), code=error.code) from None
 

@@ -22,13 +22,7 @@
 
 ## 输入与代码
 
-执行代码直接接收真实 OGE `image_id`，服务器通过影像详情接口解析 coverageID 和 productID，不要求影像先绑定当前会话的候选集。省略 image_id 时自动使用本轮输入时冻结的地图选景；两者都没有时 selected_image 为 null，脚本自行加载输入。候选集仍服务于地图展示和选景交互，不再作为执行代码的前置条件。
-
-代码运行在 OGE，服务器只将以下已解析的数据注入远端脚本；不在用户电脑执行模型生成的 Python：
-
-```python
-selected_image = {"coverageID": "实际 imageIdentification", "productID": "实际 productName"}
-```
+执行工具只接收 `title`、`code`、`crs`、`scale`。代码自行明确加载输入数据；使用 OGE 影像时，先查询详情，再将真实 `imageIdentification`、`productName` 写入 `getCoverage`。后端原样提交代码，不再查询或注入输入影像，也不添加代码前缀。地图浏览和高亮不改变计算输入。代码运行在 OGE，不在用户电脑执行模型生成的 Python。
 
 一个经过定义查询后的 Landsat NDVI 代码结构如下；其他产品必须使用实际波段名：
 
@@ -36,16 +30,18 @@ selected_image = {"coverageID": "实际 imageIdentification", "productID": "实�
 import oge
 oge.initialize()
 service = oge.Service()
+coverage_id = "替换为影像详情返回的 imageIdentification"
+product_id = "替换为影像详情返回的 productName"
 image = service.getCoverage(
-    coverageID=selected_image["coverageID"],
-    productID=selected_image["productID"],
+    coverageID=coverage_id,
+    productID=product_id,
 )
 image = service.getProcess("Coverage.toFloat").execute(image)
 result = service.getProcess("Coverage.NDVI").execute(image, "B4", "B5")
 result.export("analysis")
 ```
 
-工具参数还包括 `title`、输出 `crs`、`scale`，以及可选的 `display_range=[min,max]`。代码与参数经过现有 L2 审批。数据、脚本、编译 DAG ID、编译日志和远端 job ID 保存在 AnalysisJob 中。
+代码与 `title`、输出 `crs`、`scale` 经过现有 L2 审批；提交的脚本与审批代码一致。脚本、导出参数、编译 DAG ID、编译日志和远端 job ID 保存在 AnalysisJob 中。执行工具不接收显示范围；预览和地图瓦片自动拉伸，图层显示范围的手动设置留到地图工具单独处理。
 
 当前每次调用需要且仅支持一个批量 Coverage 导出，可以在导出前组合多个算子。不支持向量、多个导出、无导出的日志脚本；这些情况在提交批任务前明确报错。上图支持单波段实数栅格、三波段 uint8 / uint16 RGB；其他输出类型明确报错。
 
@@ -75,7 +71,7 @@ result.export("analysis")
 
 单波段使用固定色带和全图一致的显示值域：调用方可明确指定，未指定则取预览采样的 2% / 98% 分位数。这仅控制显示，不改动源像元；透明掩膜处理 NoData 和非有限值。下载源 GeoTIFF，保留 float32 等数值类型。UI 显示数值栅格说明、色带和值域，删除旧默认 NDVI / RGB 演示入口和固定产品限制。
 
-RGB 的预览与瓦片使用同一份逐波段显示范围。uint16 可指定统一 `display_range`，省略时按各波段预览采样的 2% / 98% 分位数拉伸；uint8 未指定范围时保持 0–255。显示范围写入成果元数据，源 GeoTIFF 不转为 uint8，下载保留原始像元类型和值。
+RGB 的预览与瓦片使用同一份逐波段显示范围。uint16 按各波段预览采样的 2% / 98% 分位数拉伸；uint8 保持 0–255。单波段数值成果也按预览采样的 2% / 98% 分位数自动拉伸。计算出的显示范围写入成果元数据，源 GeoTIFF 不转为 uint8，下载保留原始像元类型和值。
 
 ## 本次验证
 

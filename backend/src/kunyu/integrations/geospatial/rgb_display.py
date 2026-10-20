@@ -5,7 +5,7 @@ import numpy as np
 from kunyu.domain.geospatial.analysis import AnalysisError
 
 
-def rgb_ranges(data, display_range) -> list[list[float]]:
+def rgb_ranges(data) -> list[list[float]]:
     ranges = []
     for band in data:
         valid = band.compressed()
@@ -14,11 +14,7 @@ def rgb_ranges(data, display_range) -> list[list[float]]:
             raise AnalysisError(
                 "EMPTY_RASTER", "An RGB band has no finite display values."
             )
-        minimum, maximum = (
-            display_range
-            if display_range is not None
-            else np.percentile(valid, [2, 98]).tolist()
-        )
+        minimum, maximum = np.percentile(valid, [2, 98]).tolist()
         if minimum == maximum:
             maximum = minimum + max(1, abs(minimum) * 0.01)
         ranges.append([float(minimum), float(maximum)])

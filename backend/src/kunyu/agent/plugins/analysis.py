@@ -59,7 +59,6 @@ class AnalysisPlugin:
                     service=service,
                     jobs=context.require(s.JOBS),
                     scopes=context.require(s.SCOPES),
-                    oge=context.require(s.OGE),
                 )
             ),
         )
