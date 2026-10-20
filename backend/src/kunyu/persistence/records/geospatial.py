@@ -39,6 +39,9 @@ class AnalysisJobRecord(Base):
     mode: Mapped[str] = mapped_column(String(16), nullable=False)
     service: Mapped[str] = mapped_column(String(32), nullable=False)
     state: Mapped[str] = mapped_column(String(32), nullable=False)
+    stage: Mapped[str] = mapped_column(
+        String(32), nullable=False, server_default="prepare"
+    )
     query_state: Mapped[str] = mapped_column(String(32), nullable=False)
     remote_id: Mapped[str | None] = mapped_column(String(100))
     account_subject: Mapped[str | None] = mapped_column(String(200))

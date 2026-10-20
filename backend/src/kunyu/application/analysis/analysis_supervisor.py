@@ -58,7 +58,7 @@ class AnalysisSupervisor:
                         error_code=error.code,
                         error_message=str(error),
                     )
-                except httpx.HTTPError:
+                except httpx.HTTPError as error:
                     logger.warning(
                         "Analysis job %s lost its network connection.", job.id
                     )
@@ -66,7 +66,7 @@ class AnalysisSupervisor:
                         job.id,
                         query_state="disconnected",
                         error_code="OGE_NETWORK",
-                        error_message="The analysis status or raster could not be read.",
+                        error_message=f"{type(error).__name__}: {error}",
                         next_poll_at=time.time() + 30,
                     )
                 except Exception as error:

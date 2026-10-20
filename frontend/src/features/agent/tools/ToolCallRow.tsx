@@ -18,7 +18,7 @@ import {
 import { collectImageOffloads } from "@/features/attachments/image-offloads";
 import type { Confirmation } from "@/features/confirmations/api";
 import { useSessionEvents } from "@/features/events/SessionEventContext";
-import { toolJob } from "@/features/jobs/job-state";
+import { jobError, toolJob } from "@/features/jobs/job-state";
 import { SubagentCard } from "@/features/subagents/SubagentCard";
 import { zhCN } from "@/locales/zh-CN";
 import { Down, Right } from "@icon-park/react";
@@ -42,7 +42,7 @@ export function ToolCallRow({
     throw new Error("Completed tool has no declared result projections.");
   const display = tool.status === "completed" ? parseToolDisplay(tool.display) : null;
   const job = toolJob(tool.id, records);
-  const error = job?.status === "failed" ? job.detail : tool.error_summary;
+  const error = job?.status === "failed" ? jobError(job) : tool.error_summary;
   const hasDetails =
     Object.keys(tool.arguments).length > 0 ||
     (display !== null && display.kind !== "none") ||

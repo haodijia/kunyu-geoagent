@@ -20,7 +20,7 @@ export function ToolResultView({ display, sessionId, toolCallId, offloadedIds }:
     case "none": return null;
     case "code": return <ToolDetail label={display.summary}>{display.text}</ToolDetail>;
     case "text": return <p className="m-0 whitespace-pre-wrap text-xs leading-5 text-secondary-foreground [overflow-wrap:anywhere]">{display.text}</p>;
-    case "analysis": return <AnalysisResult jobId={display.job_id} sessionId={sessionId} />;
+    case "analysis": return <AnalysisResult jobId={display.job_id} />;
     case "read": return <ReadResult value={display.data} text={display.text} />;
     case "search": return <SearchResult value={display.data} text={display.text} />;
     case "file_change": return <FileMutationResult value={display.data} text={display.text} />;

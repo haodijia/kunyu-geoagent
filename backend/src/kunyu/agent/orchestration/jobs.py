@@ -1,98 +1,85 @@
-"""Session-owned background jobs, following harness jobs/jobs-local semantics."""
+"""Persistent job facts with scoped runtime handles, waits and completion delivery."""
 
 import asyncio
-import json
 import logging
 import math
 import time
+import traceback
 from collections.abc import Awaitable, Callable
-from dataclasses import dataclass, field
-from typing import Literal
+from dataclasses import dataclass
 from uuid import uuid4
 
 from pydantic import JsonValue
 
 from kunyu.agent.core.scope import Context
 from kunyu.agent.runtime.contracts.tools import ToolCall, ToolExecutionError
+from kunyu.domain.execution.jobs import (
+    TERMINAL_JOB_STATES,
+    JobError,
+    JobFailure,
+    JobNotFoundError,
+    JobSnapshot,
+)
+from kunyu.persistence.execution.jobs import SQLAlchemyJobStore
 
 logger = logging.getLogger(__name__)
-JobStatus = Literal["running", "stopping", "completed", "failed", "killed"]
-OUTPUT_LIMIT = 256_000
 
 
 @dataclass(slots=True)
 class Job:
     id: str
     owner: str
-    kind: str
-    label: str
     cancel: Callable[[], Awaitable[None]] | None
-    owner_run_id: str
-    tool_call_id: str
-    notice_id: str = field(default_factory=lambda: uuid4().hex)
-    status: JobStatus = "running"
-    detail: str | None = None
-    started_at: float = field(default_factory=time.time)
-    finished_at: float | None = None
-    result: JsonValue = None
-    result_delivered: bool = False
-    output: bytes = b""
-    offset: int = 0
-    cursor: int = 0
-    waiters: int = 0
+    resumable: bool
     suppress_notice: bool = False
-    settled: asyncio.Event = field(default_factory=asyncio.Event)
     task: asyncio.Task[None] | None = None
-
-    def snapshot(self) -> dict[str, JsonValue]:
-        return {
-            "id": self.id,
-            "kind": self.kind,
-            "label": self.label,
-            "owner_run_id": self.owner_run_id,
-            "tool_call_id": self.tool_call_id,
-            "status": self.status,
-            "detail": self.detail,
-            "started_at": self.started_at,
-            "finished_at": self.finished_at,
-        }
 
 
 class JobHandle:
-    def __init__(self, job: Job, changed: Callable[[Job], None]) -> None:
-        self._job = job
-        self._changed = changed
+    def __init__(self, registry: "JobRegistry", job: Job) -> None:
+        self._registry, self._job = registry, job
+
+    @property
+    def id(self) -> str:
+        return self._job.id
 
     def append(self, text: str) -> None:
-        if self._job.settled.is_set():
-            raise RuntimeError("Cannot append output after job settlement.")
-        output = self._job.output + text.encode("utf-8")
-        removed = max(0, len(output) - OUTPUT_LIMIT)
-        self._job.offset += removed
-        self._job.output = output[removed:]
+        self._registry.store.append(self.id, self._job.owner, text)
 
-    def progress(self, detail: str) -> None:
-        if self._job.settled.is_set():
+    def progress(self, stage: str, detail: str | None = None) -> None:
+        if detail is not None:
+            detail = detail.encode("utf-8")[:512].decode("utf-8", errors="ignore")
+        current = self._registry.require(self.id, self._job.owner)
+        if current.status in TERMINAL_JOB_STATES:
             raise RuntimeError("Cannot update a settled job.")
-        detail = detail[:512]
-        if self._job.detail != detail:
-            self._job.detail = detail
-            self._changed(self._job)
+        if (current.stage, current.detail) != (stage, detail):
+            self._registry.store.change(
+                self._job.owner,
+                current.model_copy(update={"stage": stage, "detail": detail}),
+            )
 
 
 class JobRegistry:
-    def __init__(self, changed: Callable[[Job], None]) -> None:
+    def __init__(self, store: SQLAlchemyJobStore) -> None:
+        self.store = store
         self._jobs: dict[str, Job] = {}
-        self._changed = changed
         self._owners: set[str] = set()
-        self._owner_closures: dict[str, asyncio.Task[None]] = {}
-        self._controller: Callable[[Job], Awaitable[None]] | None = None
+        self._signals: dict[str, asyncio.Event] = {}
+        self._waiters: dict[str, int] = {}
+        self._controller: Callable[[str, JobSnapshot], Awaitable[None]] | None = None
+        self._ready = asyncio.Event()
         self._closing = False
 
-    def attach_controller(self, deliver: Callable[[Job], Awaitable[None]]) -> None:
+    def attach_controller(
+        self, deliver: Callable[[str, JobSnapshot], Awaitable[None]]
+    ) -> None:
         if self._controller is not None:
             raise RuntimeError("A job controller is already attached.")
         self._controller = deliver
+        self._ready.set()
+
+    async def wait_ready(self) -> None:
+        await self._ready.wait()
 
     def start(
         self,
@@ -102,198 +89,209 @@ class JobRegistry:
         label: str,
         run: Callable[[JobHandle], Awaitable[JsonValue]],
         *,
-        job_id: str,
         call: ToolCall,
         cancel: Callable[[], Awaitable[None]] | None = None,
+        resumable: bool = False,
     ) -> str:
+        self._check_scope(scope)
+        job_id = f"job_{uuid4()}"
+        view = JobSnapshot(
+            id=job_id,
+            owner_run_id=call.run_id,
+            tool_call_id=call.call_id,
+            kind=kind,
+            label=label,
+            status="running",
+            stage="prepare",
+            detail=None,
+            error=None,
+            log_file_path=f"/workspace/.cache/jobs/{job_id}/output.log",
+            started_at=time.time(),
+            finished_at=None,
+        )
+        view, created = self.store.create(owner, view)
+        if created:
+            self._attach(owner, scope, view, run, cancel, resumable)
+        return view.id
+
+    def resume(
+        self,
+        owner: str,
+        scope: Context,
+        view: JobSnapshot,
+        run: Callable[[JobHandle], Awaitable[JsonValue]],
+        *,
+        cancel: Callable[[], Awaitable[None]] | None = None,
+    ) -> None:
+        self._check_scope(scope)
+        if view.status not in TERMINAL_JOB_STATES and view.id not in self._jobs:
+            self._attach(owner, scope, view, run, cancel, True)
+
+    def _check_scope(self, scope: Context) -> None:
         scope.assert_active()
         if self._closing or self._controller is None:
             raise ToolExecutionError("No active background job controller.")
-        previous_close = self._owner_closures.get(owner)
-        if previous_close is not None:
-            if not previous_close.done():
-                raise ToolExecutionError("The job owner is being disposed.")
-            previous_close.result()
-            del self._owner_closures[owner]
-        if not kind or not label or len(kind) > 64 or len(label) > 200:
-            raise ValueError("Background jobs require a kind and label.")
-        if not job_id or len(job_id) > 128:
-            raise ValueError("Background jobs require a stable job ID.")
-        if job_id in self._jobs:
-            previous = self.require(job_id, owner)
-            if (previous.owner_run_id, previous.tool_call_id) != (
-                call.run_id,
-                call.call_id,
-            ):
-                raise ToolExecutionError(
-                    "Background job identity belongs to another tool call."
-                )
-            return previous.id
+
+    def _attach(self, owner, scope, view, run, cancel, resumable) -> None:
         if owner not in self._owners:
             self._owners.add(owner)
             scope.effect(lambda: self.close_owner(owner), before_children=True)
-        job = Job(job_id, owner, kind, label, cancel, call.run_id, call.call_id)
-        self._changed(job)
+        job = Job(view.id, owner, cancel, resumable)
         self._jobs[job.id] = job
         job.task = asyncio.create_task(self._run(job, run), name=f"job:{job.id}")
-        job.task.add_done_callback(lambda task: self._finished(job, task))
-        return job.id
+        job.task.add_done_callback(self._finished)
 
-    def _finished(self, job: Job, task: asyncio.Task[None]) -> None:
-        if task.cancelled() and not job.settled.is_set():
-            job.status, job.finished_at = "killed", time.time()
-            job.settled.set()
-            self._changed(job)
-        elif not task.cancelled():
-            error = task.exception()
-            if error is not None:
-                logger.error("Job task %s ended unexpectedly.", job.id, exc_info=error)
+    @staticmethod
+    def _finished(task: asyncio.Task[None]) -> None:
+        if not task.cancelled() and (error := task.exception()) is not None:
+            logger.error("Background execution ended unexpectedly.", exc_info=error)
 
-    def require(self, job_id: str, owner: str) -> Job:
-        job = self._jobs.get(job_id)
-        if job is None or job.owner != owner:
-            raise ToolExecutionError(
-                "Background job not found in this session.", code="JOB_NOT_FOUND"
-            )
-        return job
+    def require(self, job_id: str, owner: str) -> JobSnapshot:
+        try:
+            return self.store.get(job_id, owner)
+        except JobNotFoundError as error:
+            raise ToolExecutionError(str(error), code="JOB_NOT_FOUND") from None
 
     def list(self, owner: str) -> list[dict[str, JsonValue]]:
-        return [job.snapshot() for job in self._jobs.values() if job.owner == owner]
+        return [view.model_dump(mode="json") for _, view in self.store.list(owner)]
 
-    async def wait(self, job_id: str, owner: str, seconds: float) -> Job:
+    async def wait(self, job_id: str, owner: str, seconds: float) -> JobSnapshot:
         if not math.isfinite(seconds) or seconds <= 0:
             raise ValueError("Job waits require a positive finite timeout.")
-        job = self.require(job_id, owner)
-        job.waiters += 1
+        current = self.require(job_id, owner)
+        if current.status in TERMINAL_JOB_STATES:
+            return current
+        signal = self._signals.setdefault(job_id, asyncio.Event())
+        self._waiters[job_id] = self._waiters.get(job_id, 0) + 1
         try:
             try:
                 async with asyncio.timeout(seconds):
-                    await job.settled.wait()
+                    await signal.wait()
             except TimeoutError:
-                pass  # A wait deadline leaves the job running.
+                pass  # The waiting deadline never ends the underlying execution.
         finally:
-            job.waiters -= 1
-        return job
+            self._waiters[job_id] -= 1
+        return self.require(job_id, owner)
 
-    async def wait_and_read(
-        self, job_id: str, owner: str, seconds: float
-    ) -> dict[str, JsonValue]:
-        try:
-            await self.wait(job_id, owner, seconds)
-        except asyncio.CancelledError:
-            logger.info(
-                "Stopped waiting for job %s; its owned execution continues.", job_id
-            )
-            raise
+    async def wait_and_read(self, job_id: str, owner: str, seconds: float) -> dict:
+        await self.wait(job_id, owner, seconds)
         return self.read(job_id, owner)
 
-    def read_at(self, job_id: str, owner: str, offset: int) -> dict[str, JsonValue]:
-        job = self.require(job_id, owner)
-        end = job.offset + len(job.output)
-        if offset < 0 or offset > end:
-            raise ToolExecutionError("Invalid background output offset.")
-        return {
-            "text": job.output[max(0, offset - job.offset) :].decode(
-                "utf-8", errors="ignore"
-            ),
-            "next_offset": end,
-            "lossy": offset < job.offset,
-            "job": job.snapshot(),
-        }
+    def read_at(self, job_id: str, owner: str, offset: int) -> dict:
+        try:
+            return self.store.read_at(job_id, owner, offset)
+        except JobNotFoundError as error:
+            raise ToolExecutionError(str(error), code="JOB_NOT_FOUND") from None
+        except ValueError as error:
+            raise ToolExecutionError(str(error)) from None
 
-    def read(self, job_id: str, owner: str) -> dict[str, JsonValue]:
-        job = self.require(job_id, owner)
-        value = self.read_at(job_id, owner, job.cursor)
-        job.cursor = job.offset + len(job.output)
-        if job.settled.is_set() and not job.result_delivered:
-            value["result"] = job.result
-            job.result_delivered = True
-        # Respect the existing 16 KiB model tool-result contract, including metadata.
-        text = value["text"]
-        value["text"] = ""
-        budget = max(0, 15_000 - len(json.dumps(value, ensure_ascii=False).encode()))
-        encoded = text.encode("utf-8")
-        if len(encoded) > budget:
-            value["text"] = (
-                encoded[-budget:].decode("utf-8", errors="ignore") if budget else ""
+    def read(self, job_id: str, owner: str) -> dict:
+        try:
+            return self.store.read(job_id, owner)
+        except JobNotFoundError as error:
+            raise ToolExecutionError(str(error), code="JOB_NOT_FOUND") from None
+
+    async def kill(self, job_id: str, owner: str) -> dict:
+        view = self.require(job_id, owner)
+        if view.status in TERMINAL_JOB_STATES:
+            return {"outcome": "already-finished", "job": view.model_dump(mode="json")}
+        job = self._jobs.get(job_id)
+        if job is None or job.task is None:
+            raise ToolExecutionError(
+                "The job exists but its execution handle is not attached.",
+                code="JOB_NOT_ATTACHED",
             )
-            value["lossy"] = True
-        else:
-            value["text"] = text
-        while (
-            len(json.dumps(value, ensure_ascii=False).encode()) > 15_000
-            and value["text"]
-        ):
-            value["text"] = value["text"][len(value["text"]) // 2 + 1 :]
-            value["lossy"] = True
-        return value
-
-    async def kill(self, job_id: str, owner: str) -> dict[str, JsonValue]:
-        job = self.require(job_id, owner)
-        if job.settled.is_set():
-            return {"outcome": "already-finished", "job": job.snapshot()}
-        # Producer cancellation must succeed before we claim cancellation was requested.
         if job.cancel is not None:
             await job.cancel()
-        if job.settled.is_set():
-            return {"outcome": "already-finished", "job": job.snapshot()}
         job.suppress_notice = True
-        job.status = "stopping"
-        self._changed(job)
-        if job.task is None:
-            raise RuntimeError("A registered job has no task.")
+        view = self.store.change(owner, view.model_copy(update={"status": "stopping"}))
         job.task.cancel()
-        return {"outcome": "cancellation-requested", "job": job.snapshot()}
+        return {
+            "outcome": "cancellation-requested",
+            "job": view.model_dump(mode="json"),
+        }
 
     async def _run(
         self, job: Job, run: Callable[[JobHandle], Awaitable[JsonValue]]
     ) -> None:
+        view = self.require(job.id, job.owner)
+        result: JsonValue = None
         try:
-            job.result = await run(JobHandle(job, self._changed))
-            if len(json.dumps(job.result, ensure_ascii=False).encode()) > 10_000:
-                raise ValueError(
-                    "Background result exceeds the model result limit; return a durable artifact reference."
-                )
-            job.status = "completed"
-            job.detail = None
+            result = await run(JobHandle(self, job))
+            view = self.require(job.id, job.owner).model_copy(
+                update={
+                    "status": "completed",
+                    "stage": "completed",
+                    "detail": None,
+                    "error": None,
+                }
+            )
         except asyncio.CancelledError:
-            job.status = "killed"
+            if job.resumable and job.suppress_notice:
+                return  # Only the local observer stops; durable remote work remains queryable.
+            view = self.require(job.id, job.owner).model_copy(
+                update={"status": "killed", "detail": None}
+            )
         except Exception as error:
             logger.exception("Background job %s failed.", job.id)
-            job.result = None
-            job.status, job.detail = "failed", str(error)[:512]
-        finally:
-            job.finished_at = time.time()
-            awaited = job.waiters > 0
-            job.settled.set()
-            self._changed(job)
-        if not awaited and not job.suppress_notice and not self._closing:
+            self.store.append(
+                job.id, job.owner, "\n" + "".join(traceback.format_exception(error))
+            )
+            current = self.require(job.id, job.owner)
+            failure = JobError.from_message(
+                code=error.code
+                if isinstance(error, JobFailure)
+                else "JOB_EXECUTION_FAILED",
+                message=str(error),
+            )
+            view = current.model_copy(
+                update={
+                    "status": "failed",
+                    "detail": None,
+                    "error": failure,
+                    "stage": error.stage
+                    if isinstance(error, JobFailure)
+                    else current.stage,
+                }
+            )
+        view = self.store.change(
+            job.owner,
+            view.model_copy(update={"finished_at": time.time()}),
+            result=result,
+        )
+        self._signals.setdefault(job.id, asyncio.Event()).set()
+        if (
+            not self._waiters.get(job.id, 0)
+            and not job.suppress_notice
+            and not self._closing
+        ):
             if self._controller is None:
                 raise RuntimeError("The job controller detached before settlement.")
             try:
-                await self._controller(job)
+                await self._controller(job.owner, view)
             except asyncio.CancelledError:
                 raise
             except Exception:
                 logger.exception("Could not deliver completion for job %s.", job.id)
 
     async def close_owner(self, owner: str) -> None:
-        task = self._owner_closures.get(owner)
-        if task is None:
-            task = asyncio.create_task(
-                self._close_owner(owner), name=f"close-jobs:{owner}"
+        jobs = [
+            job
+            for job in self._jobs.values()
+            if job.owner == owner
+            and (
+                self._closing
+                or not job.resumable
+                or job.task is None
+                or job.task.done()
             )
-            self._owner_closures[owner] = task
-        await asyncio.shield(task)
-
-    async def _close_owner(self, owner: str) -> None:
-        jobs = [job for job in self._jobs.values() if job.owner == owner]
+        ]
         for job in jobs:
             job.suppress_notice = True
             if job.task is not None and not job.task.done():
                 job.task.cancel()
         await asyncio.gather(
-            *(job.task for job in jobs if job.task is not None), return_exceptions=True
+            *(job.task for job in jobs if job.task is not None), return_exceptions=False
         )
         for job in jobs:
             del self._jobs[job.id]
@@ -301,5 +299,5 @@ class JobRegistry:
 
     async def close(self) -> None:
         self._closing = True
-        for owner in tuple(self._owners):
+        for owner in {job.owner for job in self._jobs.values()}:
             await self.close_owner(owner)

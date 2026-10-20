@@ -17,6 +17,7 @@ from kunyu.domain.conversation.attachments import (
     MAX_BATCH_BYTES,
     Attachment,
 )
+from kunyu.domain.execution.jobs import JobSnapshot
 
 
 class SessionCreatedPayload(EventPayload):
@@ -230,16 +231,8 @@ class BusinessObjectChangedEvent(_SessionEventDraft):
     payload: BusinessObjectPayload
 
 
-class JobChangedPayload(EventPayload):
-    id: str = Field(min_length=1, max_length=128)
-    owner_run_id: str
-    tool_call_id: str
-    kind: str
-    label: str
-    status: Literal["running", "stopping", "completed", "failed", "killed"]
-    detail: str | None
-    started_at: float
-    finished_at: float | None
+class JobChangedPayload(JobSnapshot, EventPayload):
+    pass
 
 
 class JobChangedEvent(_SessionEventDraft):

@@ -1,7 +1,6 @@
 """Workflow output policies preserve outcomes and continuation references."""
 
 from kunyu.agent.runtime.contracts.tool_output import (
-    AnalysisDisplay,
     DataDisplay,
     StatusDisplay,
     TextDisplay,
@@ -91,11 +90,24 @@ REPORT = ToolOutputContract(agent_content, report_display, report_compact)
 
 def jobs_display(result):
     if not isinstance(result.result, list):
-        raise ValueError("Job list requires a list result.")
+        raise TypeError("Job list requires a list result.")
     return TextDisplay(
         summary=label("jobs", count=len(result.result)),
         text="\n".join(
-            label("job", status=label("job_state_" + row["status"]))
+            row["label"]
+            + " · "
+            + label("job", status=label("job_state_" + row["status"]))
+            + (
+                " · "
+                + label(
+                    "job_error",
+                    stage=label("job_stage_" + row["stage"]),
+                    code=row["error"]["code"],
+                    message=row["error"]["message"],
+                )
+                if row["error"] is not None
+                else ""
+            )
             for row in result.result
         ),
     )
@@ -110,14 +122,17 @@ JOBS = ToolOutputContract(agent_content, jobs_display, jobs_compact)
 
 def job_display(result):
     data = object_result(result)
-    completed = data.get("result")
-    if isinstance(completed, dict) and "analysis_job_id" in completed:
-        return AnalysisDisplay(
-            summary=label("analysis"), job_id=completed["analysis_job_id"]
-        )
+    error = data["job"]["error"]
     return TextDisplay(
         summary=label("job", status=label("job_state_" + data["job"]["status"])),
-        text=label("job", status=label("job_state_" + data["job"]["status"])),
+        text=label(
+            "job_error",
+            stage=label("job_stage_" + data["job"]["stage"]),
+            code=error["code"],
+            message=error["message"],
+        )
+        if error is not None
+        else label("job", status=label("job_state_" + data["job"]["status"])),
     )
 
 

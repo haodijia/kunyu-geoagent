@@ -9,7 +9,6 @@ from pydantic import BaseModel, ConfigDict
 from kunyu.api.errors import ApiError
 from kunyu.application.analysis.analysis import AnalysisService
 from kunyu.domain.geospatial.analysis import (
-    AnalysisJob,
     AnalysisOutput,
     LayerStyleWrite,
     MapLayer,
@@ -57,16 +56,6 @@ async def layer_preview(
     output = repository.outputs.output(session_id, layer.output_id)
     _, path = repository.outputs.files(output.workspace_id, output.id)
     return FileResponse(service.raster.path(path), media_type="image/png")
-
-
-@router.get("/sessions/{session_id}/analysis/jobs", response_model=list[AnalysisJob])
-def jobs(session_id: str, service: Analysis):
-    return service.repository.jobs(session_id)
-
-
-@router.get("/sessions/{session_id}/analysis/jobs/{job_id}", response_model=AnalysisJob)
-def job(session_id: str, job_id: str, service: Analysis):
-    return service.repository.job(session_id, job_id)
 
 
 @router.get("/workspaces/{workspace_id}/results", response_model=list[AnalysisOutput])

@@ -140,7 +140,7 @@ class ExecutionGateway:
             if value["code"] not in {200, 20000}:
                 raise AnalysisError(
                     "OGE_REMOTE_ERROR",
-                    str(value.get("msg", "OGE request failed."))[:2000],
+                    str(value.get("msg", "OGE request failed.")),
                 )
             return value.get("data")
         return value
@@ -160,13 +160,13 @@ class ExecutionGateway:
         if not isinstance(value, dict) or not isinstance(value.get("dags"), dict):
             raise AnalysisError(
                 "OGE_COMPILE_FAILED",
-                str(value.get("log", "No DAG returned."))[:2000]
+                str(value.get("log", "No DAG returned."))
                 if isinstance(value, dict)
                 else "No DAG returned.",
             )
         log = str(value.get("log", ""))
         if "Traceback (most recent call last)" in log:
-            raise AnalysisError("OGE_COMPILE_FAILED", log[-2000:])
+            raise AnalysisError("OGE_COMPILE_FAILED", log)
         dags = value["dags"]
         if len(dags) != 1:
             raise AnalysisError(
@@ -188,7 +188,18 @@ class ExecutionGateway:
             raise AnalysisError(
                 "OGE_UNSUPPORTED_EXPORT", "Only batch Coverage exports are supported."
             )
-        return {"dag_id": dag_id, "log": str(value.get("log", ""))[:4000]}
+        return {"dag_id": dag_id, "log": log}
+
+    async def failure_detail(self, job_id: str, subject: str, base: str) -> str:
+        try:
+            value = await self.request(
+                "GET", f"/computation-api/process/result/{job_id}", subject, base
+            )
+        except (AnalysisError, OgeError) as error:
+            return f"{error.code}: {error}"
+        except httpx.HTTPError as error:
+            return f"Diagnostics request failed ({type(error).__name__}): {error}"
+        return json.dumps(value, ensure_ascii=False)
 
     async def submit(self, parameters: dict, subject: str, base: str) -> str:
         value = await self.request(
@@ -237,9 +248,7 @@ class ExecutionGateway:
                 "GET", f"/computation-api/process/result/{job_id}", subject, base
             )
         except AnalysisError as error:
-            if error.code == "OGE_REMOTE_ERROR" and str(error).startswith(
-                "result not ready"
-            ):
+            if error.code == "OGE_REMOTE_ERROR" and "result not ready" in str(error):
                 if "state=FAILED" in str(error):
                     raise AnalysisError("OGE_COMPUTATION_FAILED", str(error)) from error
                 return None

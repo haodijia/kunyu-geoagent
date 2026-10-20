@@ -69,7 +69,7 @@ class JobTool(BaseTool):
         args = validate_model(self.name, self.arguments, call.arguments)
         owner = load_source(self.contexts, self.run_id).session.id
         if self.name == "job_list":
-            return tool_result(self.jobs.list(owner))
+            return tool_result(self.jobs.list(owner), max_bytes=1024 * 1024)
         if self.name == "job_kill":
             return tool_result(await self.jobs.kill(args.job_id, owner))
         if args.wait:

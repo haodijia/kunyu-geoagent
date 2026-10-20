@@ -5,6 +5,7 @@ from typing import Literal, Self
 
 from pydantic import BaseModel, ConfigDict, Field, JsonValue, model_validator
 
+from kunyu.domain.execution.jobs import JobStage
 from kunyu.domain.geospatial.imagery import LayerImage
 
 EXECUTING_STATES = ("submitting", "queued", "running", "collecting")
@@ -38,6 +39,7 @@ class AnalysisJob(AnalysisValue):
         "submission_unknown",
     ]
     query_state: Literal["ready", "auth_required", "disconnected"]
+    stage: JobStage
     remote_id: str | None
     parameters: dict[str, JsonValue]
     revision: int

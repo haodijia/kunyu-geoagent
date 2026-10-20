@@ -410,6 +410,7 @@ CREATE TABLE analysis_jobs (
 	mode VARCHAR(16) NOT NULL,
 	service VARCHAR(32) NOT NULL,
 	state VARCHAR(32) NOT NULL,
+	stage VARCHAR(32) DEFAULT 'prepare' NOT NULL,
 	query_state VARCHAR(32) NOT NULL,
 	remote_id VARCHAR(100),
 	account_subject VARCHAR(200),
@@ -481,4 +482,18 @@ CREATE TABLE oge_account (
     CONSTRAINT ck_oge_account_singleton CHECK (id = 1)
 );
 
-PRAGMA user_version = 10;
+CREATE TABLE background_jobs (
+    id VARCHAR(128) NOT NULL PRIMARY KEY,
+    session_id VARCHAR(64) NOT NULL REFERENCES sessions(id) ON DELETE CASCADE,
+    workspace_id VARCHAR(64) NOT NULL REFERENCES workspaces(id),
+    tool_call_id VARCHAR(64) NOT NULL,
+    snapshot JSON NOT NULL,
+    result JSON,
+    model_cursor INTEGER NOT NULL,
+    result_delivered BOOLEAN NOT NULL,
+    CONSTRAINT uq_background_jobs_call UNIQUE (session_id, tool_call_id),
+    CONSTRAINT ck_background_jobs_cursor CHECK (model_cursor >= 0)
+);
+CREATE INDEX ix_background_jobs_session_id ON background_jobs(session_id);
+
+PRAGMA user_version = 11;

@@ -284,6 +284,10 @@ export const conversation = {
       },
       denied: "没有运行：你没有允许。",
       callAria: (name: string, status: string) => `${name} · ${status}`,
+      jobStages: {
+        prepare: "准备", authenticate: "认证", compile: "编译", submit: "提交",
+        execute: "远端执行", collect: "成果收集", render: "显示准备", completed: "已完成",
+      },
       names: {
         subagent: "委派子任务",
         wait_subagents: "等待子任务",

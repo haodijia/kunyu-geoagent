@@ -21,14 +21,14 @@ Agent 架构必须对齐本地 `deepseek-harness` 源码的服务、插件、作
 | `interaction/user-questions`、`interaction/tool-ask-user` | `runtime/contracts/questions.py`、`plugins/questions.py`、`application/execution/questions.py`、`tools/workflow/questions.py` | 日志持有问题与决定，独占工具等待释放执行槽，原子结算后继续当前工具批次 |
 | `plan/plan-mode`、`ui-plan` | `plugins/plan_mode.py`、`agent/capabilities/plan_mode.py`、`tools/workflow/plan_mode.py`、`application/execution/plans.py`、前端 `features/plans/` | 完整计划工具、人工审阅、静默退出选择和原调用文档 |
 | `core/tools` | `runtime/contracts/tools.py`、`runner_tools.py`、`tools/registry.py` | 工具注册与实现分开；模型 Schema 来自实际注册；有界并行/独占调度；风险策略与确认接缝 |
-| `jobs/jobs`、`jobs/jobs-local`、`jobs/tool-jobs` | `agent/orchestration/jobs.py`、`plugins/jobs.py`、`tools/workflow/jobs.py`，OGE 作为生产者接入 | 会话所属进程内任务、独立输出游标、限时等待、一次性结果、通用控制工具、完成下一步注入/空闲唤醒；子 Agent 仍保留专用监督 |
+| `jobs/jobs`、`jobs/jobs-local`、`jobs/tool-jobs` | `agent/orchestration/jobs.py`、`persistence/execution/jobs.py`、`plugins/jobs.py`、`tools/workflow/jobs.py`，OGE 作为生产者接入 | 会话所属持久任务、独立输出游标、限时等待、完整日志与结果文件、通用控制工具、完成下一步注入/空闲唤醒；子 Agent 仍保留专用监督 |
 | `packages/context` | `agent/context/history.py`、`persistence/conversation/agent_context.py` | 注入正文成为有顺序的持久会话内容，后续步骤及轮次按原位置重放 |
 | `skill/skill`、`skill/skill-filesystem`、`skill/tool-skill` | `skills/registry.py`、`filesystem.py`、`context.py`、`tools/context/skills.py` | 注册表、来源、调用工具分开；目录仅注入名称和简介；选择后加载正文；区分模型/用户调用权限；持久目录替换与显式用户调用 |
 | `packages/fs/fs`、`fs-local`、`fs-observation-policy`、`tool-fs` | `domain/workspaces/filesystem.py`、`integrations/filesystem/local.py`、`filesystem_io.py`、`agent/capabilities/filesystem.py`、`plugins/filesystem.py`、文件工具 | 文件系统与观察策略分开；路径作用域、版本守卫、原子发布、行窗口与应用结果 diff |
 
 这是 Python 的对应实现，没有引入 Cordis 的 TypeScript 运行时。已实现文本／思考／工具内容块、图片／文件输入、图文工具结果、SDK replay 与一层只读多 Agent 委派；子任务卡片、完整报告、对话、工具、轨迹与父地址取消已接入。surface 替换、PTC、profile 与插件市场不属于当前四项收尾范围，不能宣称参考项目所有能力等价。中断恢复仍采用本项目的显式恢复与持久确认契约。
 
-2026-10-16 已接入 harness 对应的通用 jobs 链路：生产工具主动登记，`job_output(wait=true)` 等待到期返回 running；未由等待调用交付的完成，在同一调度锁内复核后进入 busy owner 下一步或 idle owner 后续轮次。通知保留 source=tool-jobs，不混入用户消息展示；步骤准入不能篡改来源。OGE 复用已有持久 AnalysisJob 和 AnalysisSupervisor，前台默认等待 120 秒，之后返回同一后台身份，删除 15 分钟到期报 `ANALYSIS_WAIT_TIMEOUT` 的旧路径。进程内任务不冒充跨重启恢复；远端计算不支持取消时明确拒绝。2026-10-16 计算入口进一步改为 `oge_execute_code`，配合算子检索和定义工具，通过原生 JWT 编译、批任务与成果下载执行可组合的算子链。保留数值栅格，地图色带独立渲染；详见 [OGE代码工具](OGE代码工具.md)。下文早期记录中的作业监督描述保留其当时范围，当前实现和验收边界见 [地图会话交互设计](/Users/dijkstra/project/01-python/kunyu-geoagent/docs/develop/地图会话交互设计.md:1)。
+2026-10-16 已接入 harness 对应的通用 jobs 链路：生产工具主动登记，`job_output(wait=true)` 等待到期返回 running；未由等待调用交付的完成，在同一调度锁内复核后进入 busy owner 下一步或 idle owner 后续轮次。通知保留 source=tool-jobs，不混入用户消息展示；步骤准入不能篡改来源。OGE 复用已有持久 AnalysisJob 和 AnalysisSupervisor，前台默认等待 120 秒，之后返回同一后台身份，删除 15 分钟到期报 `ANALYSIS_WAIT_TIMEOUT` 的旧路径。2026-10-20 通用任务改为先登记再执行，状态、阶段、错误和读取游标持久保存，完整日志与结果放在工作区 `.cache/jobs/`；重启仅恢复 OGE 观察，不重新提交。远端计算不支持取消时明确拒绝。2026-10-16 计算入口进一步改为 `oge_execute_code`，配合算子检索和定义工具，通过原生 JWT 编译、批任务与成果下载执行可组合的算子链。保留数值栅格，地图色带独立渲染；详见 [OGE代码工具](OGE代码工具.md)。下文早期记录中的作业监督描述保留其当时范围，当前实现和验收边界见 [地图会话交互设计](/Users/dijkstra/project/01-python/kunyu-geoagent/docs/develop/地图会话交互设计.md:1)。
 
 ## 目录与运行链路
 

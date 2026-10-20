@@ -84,19 +84,32 @@ OPERATORS = ToolOutputContract(agent_content, operators_display, operators_compa
 
 def analysis_display(result):
     data = object_result(result)
+    if data["job"]["status"] == "failed":
+        error = data["job"]["error"]
+        return TextDisplay(
+            summary=label("analysis_state", status=label("job_state_failed")),
+            text=label(
+                "job_error",
+                stage=label("job_stage_" + data["job"]["stage"]),
+                code=error["code"],
+                message=error["message"],
+            ),
+        )
     return AnalysisDisplay(
         summary=label(
             "analysis_state", status=label("job_state_" + data["job"]["status"])
         ),
-        job_id=data["analysis_job_id"],
+        job_id=data["job"]["id"],
     )
 
 
 def analysis_compact(result):
     data = object_result(result)
-    facts = {"analysis_job_id": data["analysis_job_id"], "job": data["job"]}
+    facts = {"job": data["job"], "file_path": data["file_path"]}
     if isinstance(data.get("result"), dict):
         facts["result"] = data["result"]
+    if "result_file_path" in data:
+        facts["result_file_path"] = data["result_file_path"]
     return compact(analysis_display(result).summary, facts)
 
 

@@ -1,6 +1,8 @@
 import { Button } from "@/components/ui/button";
 import type { AnalysisOutput } from "@/features/analysis/api";
-import { useAnalysis } from "@/features/analysis/useAnalysis";
+import { useAnalysisOutputs } from "@/features/analysis/useAnalysis";
+import { useSessionEvents } from "@/features/events/SessionEventContext";
+import { jobById, jobError } from "@/features/jobs/job-state";
 import { useOutputImage } from "@/features/analysis/useOutputImage";
 import { ImageLightbox } from "@/features/attachments/ImageLightbox";
 import { useSessionWorkspace } from "@/features/sessions/SessionWorkspaceContext";
@@ -9,26 +11,28 @@ import { useState } from "react";
 
 const content = zhCN.analysis;
 
-export function AnalysisResult({ jobId, sessionId }: {
+export function AnalysisResult({ jobId }: {
   readonly jobId: string;
-  readonly sessionId: string;
 }) {
   const session = useSessionWorkspace();
-  const { jobs, outputs } = useAnalysis(sessionId, session.workspace_id);
-  if (jobs.isError || outputs.isError)
+  const { records } = useSessionEvents();
+  const outputs = useAnalysisOutputs(session.workspace_id);
+  if (outputs.isError)
     return <p role="alert" className="text-xs text-destructive">{content.loadFailed}</p>;
-  if (jobs.isPending || outputs.isPending)
+  if (outputs.isPending)
     return <p role="status" className="text-xs text-muted-foreground">{content.loading}</p>;
-  const job = jobs.data.find(item => item.id === jobId);
-  if (job === undefined)
-    return <p role="alert" className="text-xs text-destructive">{content.loadFailed}</p>;
-  const output = outputs.data.find(item => item.job_id === job.id);
+  const output = outputs.data.find(item => item.job_id === jobId);
   if (output !== undefined) return <AnalysisPreview key={output.id} output={output} />;
+  const job = jobById(jobId, records);
+  if (job === undefined)
+    return <p role="status" className="text-xs text-muted-foreground">{content.loading}</p>;
+  const status = job.status === "killed" ? "cancelled" : job.status === "stopping" ? "running" : job.status;
+  const error = jobError(job);
   return <div className="space-y-1 text-xs" role="status">
-    <p className="text-muted-foreground">{content.states[job.state]}</p>
-    {job.query_state !== "ready" && <p className="text-warning">{content.queryStates[job.query_state]}</p>}
-    {job.error_message !== null && <p role="alert" className="text-destructive">{job.error_message}</p>}
-    {job.state === "succeeded" && <p className="text-muted-foreground">{content.loading}</p>}
+    <p className="text-muted-foreground">{zhCN.conversation.tools.status[status]} · {zhCN.conversation.tools.jobStages[job.stage]}</p>
+    {job.detail !== null && <p className="text-warning">{job.detail}</p>}
+    {error !== null && <p role="alert" className="text-destructive">{error}</p>}
+    {job.status === "completed" && <p className="text-muted-foreground">{content.loading}</p>}
   </div>;
 }
 

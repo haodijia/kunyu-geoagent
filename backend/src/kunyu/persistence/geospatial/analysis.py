@@ -2,7 +2,6 @@
 
 import time
 from datetime import UTC, datetime
-from uuid import uuid4
 
 from pydantic import JsonValue
 from sqlalchemy import select, text
@@ -27,18 +26,6 @@ class AnalysisRepository:
     def __init__(self, database: Database) -> None:
         self.database = database
 
-    def jobs(self, session_id: str) -> list[AnalysisJob]:
-        with self.database.sessions() as tx:
-            require_session(tx, session_id)
-            return [
-                job_value(row)
-                for row in tx.scalars(
-                    select(AnalysisJobRecord)
-                    .where(AnalysisJobRecord.session_id == session_id)
-                    .order_by(AnalysisJobRecord.created_at.desc())
-                )
-            ]
-
     def job(self, session_id: str, job_id: str) -> AnalysisJob:
         with self.database.sessions() as tx:
             require_session(tx, session_id)
@@ -56,6 +43,8 @@ class AnalysisRepository:
         subject: str | None,
         base_url: str | None,
         parameters: dict[str, JsonValue],
+        *,
+        job_id: str,
     ) -> tuple[AnalysisJob, bool]:
         with self.database.sessions.begin() as tx:
             tx.execute(text("BEGIN IMMEDIATE"))
@@ -70,7 +59,7 @@ class AnalysisRepository:
                 return job_value(existing), False
             now = datetime.now(UTC)
             row = AnalysisJobRecord(
-                id=f"job_{uuid4()}",
+                id=job_id,
                 session_id=session_id,
                 workspace_id=session.workspace_id,
                 run_id=run_id,
@@ -78,6 +67,7 @@ class AnalysisRepository:
                 mode=mode,
                 service="execute_code",
                 state="submitting",
+                stage="prepare",
                 query_state="ready",
                 remote_id=None,
                 account_subject=subject,
@@ -101,17 +91,20 @@ class AnalysisRepository:
             row = tx.get(AnalysisJobRecord, job_id)
             if row is None:
                 raise AnalysisError("NOT_FOUND", "Analysis job was not found.", 404)
+            if not changes.keys() <= {
+                "state",
+                "stage",
+                "query_state",
+                "remote_id",
+                "error_code",
+                "error_message",
+                "next_poll_at",
+                "parameters",
+            }:
+                raise ValueError("Unsupported analysis job mutation.")
+            if all(getattr(row, key) == value for key, value in changes.items()):
+                return job_value(row)
             for key, value in changes.items():
-                if key not in {
-                    "state",
-                    "query_state",
-                    "remote_id",
-                    "error_code",
-                    "error_message",
-                    "next_poll_at",
-                    "parameters",
-                }:
-                    raise ValueError("Unsupported analysis job mutation.")
                 setattr(row, key, value)
             row.revision += 1
             row.updated_at = datetime.now(UTC)

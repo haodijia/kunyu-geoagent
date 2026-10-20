@@ -1,9 +1,11 @@
 """Register analysis orchestration and map tools without a second Agent loop."""
 
+import asyncio
 from functools import partial
 
 from kunyu.agent.core import services as s
 from kunyu.agent.core.scope import Context
+from kunyu.agent.orchestration.analysis_jobs import AnalysisJobs
 from kunyu.agent.tools.maps.tools import MapTool
 from kunyu.agent.tools.oge.execute_code import ExecuteCodeTool
 from kunyu.agent.tools.oge.operators import OperatorTool
@@ -47,6 +49,20 @@ class AnalysisPlugin:
         supervisor = AnalysisSupervisor(service)
         supervisor.start()
         context.effect(supervisor.stop, before_children=True)
+        producer = AnalysisJobs(
+            service, context.require(s.JOBS), context.require(s.SCOPES)
+        )
+        recovery = asyncio.create_task(producer.resume(), name="resume-analysis-jobs")
+
+        async def stop_recovery() -> None:
+            if not recovery.done():
+                recovery.cancel()
+            try:
+                await recovery
+            except asyncio.CancelledError:
+                pass
+
+        context.effect(stop_recovery, before_children=True)
         tools = context.require(s.TOOLS)
         contexts = context.require(s.CONTEXTS)
         tools.register(
@@ -57,8 +73,8 @@ class AnalysisPlugin:
                     ExecuteCodeTool,
                     contexts=contexts,
                     service=service,
+                    producer=producer,
                     jobs=context.require(s.JOBS),
-                    scopes=context.require(s.SCOPES),
                 )
             ),
         )

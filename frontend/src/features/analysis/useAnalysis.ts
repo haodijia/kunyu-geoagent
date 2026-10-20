@@ -11,10 +11,7 @@ export function useAnalysisInvalidation(sessionId: string, workspaceId: string) 
     const incoming = events.filter((event) => event.sequence > cursor.current);
     for (const event of incoming) {
       cursor.current = event.sequence;
-      if (event.event_type.startsWith("analysis/")) {
-        void client.invalidateQueries({
-          queryKey: analysisKeys.jobs(sessionId),
-        });
+      if (event.event_type === "analysis/output") {
         void client.invalidateQueries({
           queryKey: analysisKeys.outputs(workspaceId),
         });
@@ -28,20 +25,9 @@ export function useAnalysisInvalidation(sessionId: string, workspaceId: string) 
   }, [client, events, sessionId, workspaceId]);
 }
 
-export function useAnalysis(sessionId: string, workspaceId: string) {
-  const jobs = useQuery({
-    queryKey: analysisKeys.jobs(sessionId),
-    queryFn: () => analysisApi.jobs(sessionId),
-    refetchInterval: (query) =>
-      query.state.data?.some((job) =>
-        ["submitting", "queued", "running", "collecting"].includes(job.state),
-      )
-        ? 3000
-        : false,
-  });
-  const outputs = useQuery({
+export function useAnalysisOutputs(workspaceId: string) {
+  return useQuery({
     queryKey: analysisKeys.outputs(workspaceId),
     queryFn: () => analysisApi.outputs(workspaceId),
   });
-  return { jobs, outputs };
 }

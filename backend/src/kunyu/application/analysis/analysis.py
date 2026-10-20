@@ -9,6 +9,7 @@ from datetime import UTC, datetime
 import httpx
 from pydantic import JsonValue
 
+from kunyu.domain.execution.jobs import JobFailure
 from kunyu.domain.geospatial.analysis import (
     EXECUTING_STATES,
     AnalysisError,
@@ -44,18 +45,32 @@ class AnalysisService:
         run_id: str | None,
         call_id: str,
         parameters: dict[str, JsonValue],
+        *,
+        job_id: str,
+        progress: Callable[[str], None],
+        append_log: Callable[[str], None],
     ) -> AnalysisJob:
+        progress("authenticate")
         subject, base = await self.gateway.subject()
         parameters = {
             **parameters,
             "filename": f"kunyu-result-{datetime.now(UTC):%Y%m%d-%H%M%S-%f}",
         }
         job, created = self.repository.create(
-            session_id, run_id, call_id, "live", subject, base, parameters
+            session_id,
+            run_id,
+            call_id,
+            "live",
+            subject,
+            base,
+            parameters,
+            job_id=job_id,
         )
         if not created:
             return job
+        stage = "prepare"
         try:
+            progress(stage)
             name = await filesystem_operation(
                 lambda cancelled: self.raster.reserve(
                     job.workspace_id, str(parameters["title"])
@@ -64,43 +79,53 @@ class AnalysisService:
             parameters = {**parameters, "result_directory": name}
             job = self.repository.change(job.id, parameters=parameters)
             async with self.gateway.submissions:
+                stage = "compile"
+                self.repository.change(job.id, stage=stage)
+                progress(stage)
                 compiled = await self.gateway.compile(
                     str(parameters["script"]), str(parameters["title"]), subject, base
                 )
                 parameters = {**parameters, **compiled}
-                job = self.repository.change(job.id, parameters=parameters)
+                append_log(str(compiled["log"]))
+                stage = "submit"
+                job = self.repository.change(job.id, parameters=parameters, stage=stage)
+                progress(stage)
                 remote = await self.gateway.submit(parameters, subject, base)
         except (OgeError, AnalysisError) as error:
             logger.warning("OGE code submission refused (%s).", error.code)
             state = (
                 "submission_unknown"
-                if error.code in {"OGE_TIMEOUT", "OGE_NETWORK", "OGE_PROTOCOL_ERROR"}
+                if stage == "submit"
+                and error.code in {"OGE_TIMEOUT", "OGE_NETWORK", "OGE_PROTOCOL_ERROR"}
                 else "failed"
             )
             self.repository.change(
                 job.id, state=state, error_code=error.code, error_message=str(error)
             )
-            raise AnalysisError(
+            raise JobFailure(
                 error.code,
                 f"{error} Analysis job {job.id}: {state}; no automatic resubmission.",
+                stage,
             ) from error
         except (httpx.HTTPError, asyncio.CancelledError) as error:
             self.repository.change(
                 job.id,
-                state="submission_unknown",
-                error_code="SUBMISSION_UNKNOWN",
-                error_message="Submission ended without a saved response; it will not be repeated.",
+                state="submission_unknown" if stage == "submit" else "failed",
+                error_code="SUBMISSION_UNKNOWN" if stage == "submit" else "OGE_NETWORK",
+                error_message=f"{type(error).__name__}: {error}; no automatic resubmission.",
             )
             if isinstance(error, asyncio.CancelledError):
                 raise
-            raise AnalysisError(
-                "SUBMISSION_UNKNOWN",
-                f"Analysis job {job.id} has an uncertain submission response; do not repeat the calculation.",
+            raise JobFailure(
+                "SUBMISSION_UNKNOWN" if stage == "submit" else "OGE_NETWORK",
+                f"{type(error).__name__}: {error}. Analysis job {job.id}; no automatic resubmission.",
+                stage,
             ) from error
         job = self.repository.change(
             job.id,
             remote_id=remote,
             state="queued",
+            stage="execute",
             next_poll_at=time.time() + 1,
         )
         await self.notify()
@@ -116,10 +141,24 @@ class AnalysisService:
             )
         if job.remote_id is None or subject is None or base is None:
             raise AnalysisError("SUBMISSION_UNKNOWN", "Remote job identity is missing.")
-        state = await self.gateway.state(str(job.parameters["dag_id"]), subject, base)
+        try:
+            state = await self.gateway.state(
+                str(job.parameters["dag_id"]), subject, base
+            )
+        except AnalysisError as error:
+            if error.code != "OGE_COMPUTATION_FAILED":
+                raise
+            self.repository.change(job.id, stage="execute")
+            diagnostics = await self.gateway.failure_detail(
+                job.remote_id, subject, base
+            )
+            raise AnalysisError(
+                error.code, f"{error} Remote diagnostics: {diagnostics}"
+            ) from error
         self.repository.change(
             job.id,
             state="running" if state == "running" else "collecting",
+            stage="execute" if state == "running" else "collect",
             query_state="ready",
             error_code=None,
             error_message=None,
@@ -127,7 +166,13 @@ class AnalysisService:
         )
         if state == "running":
             return
-        result = await self.gateway.result(job.remote_id, subject, base)
+        await self.notify()
+        try:
+            result = await self.gateway.result(job.remote_id, subject, base)
+        except AnalysisError as error:
+            if error.code == "OGE_COMPUTATION_FAILED":
+                self.repository.change(job.id, stage="execute")
+            raise
         if result is None:
             return
         output_id = "out_" + job.id.removeprefix("job_")
@@ -137,6 +182,8 @@ class AnalysisService:
             job.parameters, subject, base, directory / "result.tif"
         ):
             return
+        self.repository.change(job.id, stage="render")
+        await self.notify()
         metadata = await filesystem_operation(
             lambda cancelled: self.raster.prepare(
                 job.workspace_id,
@@ -156,6 +203,7 @@ class AnalysisService:
         self.repository.change(
             job.id,
             state="succeeded",
+            stage="completed",
             query_state="ready",
             error_code=None,
             error_message=None,
@@ -182,9 +230,10 @@ class AnalysisService:
                             "INVALID_JOB_STATE",
                             f"Analysis job {job.id} cannot continue without recorded error details.",
                         )
-                    raise AnalysisError(
+                    raise JobFailure(
                         job.error_code,
                         f"Analysis job {job.id}: {job.error_message}",
+                        job.stage,
                     )
                 await self._changed.wait()
 

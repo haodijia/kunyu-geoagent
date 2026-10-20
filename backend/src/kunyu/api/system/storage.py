@@ -8,10 +8,9 @@ from sqlalchemy import select
 from kunyu.api.dependencies import get_database
 from kunyu.api.errors import ApiError
 from kunyu.domain.execution.runs import NONTERMINAL_RUN_STATE_VALUES
-from kunyu.domain.geospatial.analysis import EXECUTING_STATES
 from kunyu.persistence.database import Database
 from kunyu.persistence.records.execution import RunRecord
-from kunyu.persistence.records.geospatial import AnalysisJobRecord
+from kunyu.persistence.records.jobs import BackgroundJobRecord
 
 router = APIRouter(prefix="/api/v1/storage", tags=["storage"])
 
@@ -24,12 +23,16 @@ def migration_check(database: Annotated[Database, Depends(get_database)]):
             .where(RunRecord.state.in_(NONTERMINAL_RUN_STATE_VALUES))
             .limit(1)
         )
-        active_analysis = tx.scalar(
-            select(AnalysisJobRecord.id)
-            .where(AnalysisJobRecord.state.in_(EXECUTING_STATES))
+        active_job = tx.scalar(
+            select(BackgroundJobRecord.id)
+            .where(
+                BackgroundJobRecord.snapshot["status"]
+                .as_string()
+                .in_(("running", "stopping"))
+            )
             .limit(1)
         )
-        if active_run is not None or active_analysis is not None:
+        if active_run is not None or active_job is not None:
             raise ApiError(
                 409,
                 "ACTIVE_TASKS",
