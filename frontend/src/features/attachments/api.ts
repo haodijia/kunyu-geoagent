@@ -37,6 +37,10 @@ export function readAttachment(sessionId: string, id: string, signal?: AbortSign
   return requestBlob(`/api/v1/sessions/${encodeURIComponent(sessionId)}/attachments/${encodeURIComponent(id)}`, signal);
 }
 
+export function readAttachmentOriginal(sessionId: string, id: string): Promise<Blob> {
+  return requestBlob(`/api/v1/sessions/${encodeURIComponent(sessionId)}/attachments/${encodeURIComponent(id)}/original`);
+}
+
 export function parseAttachments(value: unknown): readonly Attachment[] {
   if (!Array.isArray(value) || value.length > 8 || !value.every(validAttachment) || new Set(value.map((ref) => ref.id)).size !== value.length) throw new Error("Invalid attachment receipts.");
   return value;

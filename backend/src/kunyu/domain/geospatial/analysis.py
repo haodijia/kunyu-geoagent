@@ -53,6 +53,8 @@ class AnalysisOutput(AnalysisValue):
     workspace_id: str
     session_id: str | None
     source_session_title: str
+    file_path: str
+    preview_path: str
     title: str
     mode: Literal["replay", "live"]
     kind: Literal["rgb_raster", "scalar_raster"]

@@ -171,6 +171,8 @@ class ExecuteCodeTool(BaseTool):
                 "output": {
                     "id": output.id,
                     "title": output.title,
+                    "file_path": output.file_path,
+                    "preview_path": output.preview_path,
                     "kind": output.kind,
                     "metadata": output.metadata,
                 },

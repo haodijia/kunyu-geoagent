@@ -7,7 +7,7 @@ from sqlalchemy import Engine, inspect
 
 from kunyu.persistence.records.base import Base
 
-SCHEMA_VERSION = 8
+SCHEMA_VERSION = 9
 SCHEMA_PATH = Path(__file__).with_name("schema.sql")
 
 
@@ -23,8 +23,8 @@ def initialize_database(engine: Engine) -> None:
         if tables:
             if version != SCHEMA_VERSION:
                 raise DatabaseSchemaError(
-                    "Unsupported development database schema. Preserve this database "
-                    "and use a new KUNYU_APP_DATA_DIR or explicitly recreate it."
+                    "Database schema differs from the current baseline. Preserve "
+                    "the database and upgrade it explicitly before opening it."
                 )
         else:
             if version != 0:

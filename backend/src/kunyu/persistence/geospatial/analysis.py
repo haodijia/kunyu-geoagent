@@ -280,6 +280,8 @@ def output_value(row: AnalysisOutputRecord) -> AnalysisOutput:
         workspace_id=row.workspace_id,
         session_id=row.session_id,
         source_session_title=row.source_session_title,
+        file_path="/workspace/" + row.cog_file.split("/", 1)[1],
+        preview_path="/workspace/" + row.preview_file.split("/", 1)[1],
         title=row.title,
         mode=row.mode,
         kind=row.kind,

@@ -77,7 +77,7 @@ export function OutputCard({
     if (sessionId === null) throw new Error("Choose an active session before referencing a result.");
     const store = useAppUiStore.getState();
     const previous = store.composerDraftBySession[sessionId];
-    const reference = referenceText(output.title, `analysis-output:${output.id}`);
+    const reference = referenceText(output.title, output.file_path.split("/").map(part => encodeURIComponent(part)).join("/"));
     store.setComposerDraft(
       sessionId,
       previous === undefined || previous.trim() === ""

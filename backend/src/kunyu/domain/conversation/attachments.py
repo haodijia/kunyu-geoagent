@@ -55,7 +55,26 @@ type Attachment = Annotated[
 
 
 def attachment_path(ref: Attachment) -> str:
-    return f"/attachments/{ref.id}/{ref.name}"
+    if isinstance(ref, ImageAttachment) and ref.producer is not None:
+        return image_cache_path(ref)
+    return f"/workspace/attachments/{ref.name}"
+
+
+def image_cache_path(ref: ImageAttachment) -> str:
+    extension = ".png" if ref.media_type == "image/png" else ".jpg"
+    return f"/workspace/.cache/images/{ref.id}{extension}"
+
+
+def attachment_source_path(ref: Attachment, media_type: str | None) -> str:
+    if isinstance(ref, ImageAttachment) and ref.producer is not None:
+        extension = {
+            "image/png": ".png",
+            "image/jpeg": ".jpg",
+            "image/webp": ".webp",
+            "image/gif": ".gif",
+        }[media_type]
+        return f"/workspace/.cache/sources/{ref.id}{extension}"
+    return f"/workspace/attachments/{ref.name}"
 
 
 class AttachmentError(RuntimeError):

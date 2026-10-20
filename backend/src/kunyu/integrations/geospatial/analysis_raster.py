@@ -16,6 +16,8 @@ from rasterio.warp import transform_bounds
 
 from kunyu.domain.geospatial.analysis import AnalysisError
 from kunyu.integrations.filesystem.io import check_cancelled
+from kunyu.integrations.filesystem.names import numbered_name, readable_name
+from kunyu.integrations.filesystem.workspaces import validate_filename
 from kunyu.integrations.geospatial.rgb_display import rgb_ranges, rgb_rgba
 
 
@@ -23,19 +25,34 @@ class AnalysisRaster:
     def __init__(self, data_directory: Path) -> None:
         self.root = data_directory / "workspaces"
 
-    def directory(self, workspace_id: str, output_id: str) -> Path:
-        if not output_id.startswith("out_") or any(
-            char not in "abcdefghijklmnopqrstuvwxyz0123456789_-" for char in output_id
-        ):
-            raise AnalysisError("INVALID_OUTPUT_ID", "Invalid output identity.")
+    def directory(self, workspace_id: str, name: str) -> Path:
         if not workspace_id.startswith("ws_") or any(
             char not in "abcdefghijklmnopqrstuvwxyz0123456789_-"
             for char in workspace_id
         ):
             raise AnalysisError("INVALID_WORKSPACE_ID", "Invalid workspace identity.")
-        path = self.root / workspace_id / "results" / output_id
-        path.mkdir(mode=0o700, parents=True, exist_ok=True)
-        return path
+        validate_filename(name)
+        return self.root / workspace_id / "results" / name
+
+    def reserve(self, workspace_id: str, title: str) -> str:
+        try:
+            name = readable_name(title)
+        except ValueError as error:
+            raise AnalysisError("INVALID_OUTPUT_NAME", str(error), 422) from error
+        index = 1
+        while True:
+            candidate = numbered_name(name, index)
+            directory = self.directory(workspace_id, candidate)
+            directory.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
+            try:
+                directory.mkdir(mode=0o700)
+                return candidate
+            except FileExistsError:
+                index += 1
+
+    def preview_path(self, workspace_id: str, name: str) -> Path:
+        self.directory(workspace_id, name)
+        return self.root / workspace_id / ".cache" / "results" / name / "preview.png"
 
     def path(self, relative: str) -> Path:
         path = (self.root / relative).resolve()
@@ -46,9 +63,9 @@ class AnalysisRaster:
         return path
 
     def prepare(
-        self, workspace_id: str, output_id: str, cancelled: Event, display_range=None
+        self, workspace_id: str, name: str, cancelled: Event, display_range=None
     ) -> dict:
-        directory = self.directory(workspace_id, output_id)
+        directory = self.directory(workspace_id, name)
         check_cancelled(cancelled, "prepare analysis output")
         with rasterio.open(directory / "result.tif") as src:
             scalar = src.count == 1 and np.issubdtype(
@@ -119,7 +136,9 @@ class AnalysisRaster:
                 "numeric_values_available": scalar,
             }
         check_cancelled(cancelled, "publish analysis preview")
-        Image.fromarray(rgba).save(directory / "preview.png")
+        preview = self.preview_path(workspace_id, name)
+        preview.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
+        Image.fromarray(rgba).save(preview)
         return metadata
 
     def tile(self, relative: str, z: int, x: int, y: int, metadata: dict) -> bytes:

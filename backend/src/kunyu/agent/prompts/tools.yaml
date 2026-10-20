@@ -3,9 +3,9 @@
 "memory_write": |-
   Propose a workspace preference or concern for exact user confirmation before it is saved.
 "read_image": |-
-  Read a PNG/JPEG/WebP/GIF file and return the image itself. Paths resolve relative to /workspace; Chat attachments use their exact /attachments path and remain readable after context compaction, including omitted images. Extension-less image paths are identified from their bytes. Large supported images are normalized before the next model request; use this directly instead of creating thumbnails just to inspect pixels. Requires the exact calling model to declare image input. Independent files may be read concurrently in small batches.
+  Read a PNG/JPEG/WebP/GIF file and return the image itself. Paths resolve relative to /workspace; Chat attachments use their exact /workspace/attachments path and remain readable after context compaction, including omitted images. Extension-less image paths are identified from their bytes. Large supported images are normalized before the next model request; use this directly instead of creating thumbnails just to inspect pixels. Requires the exact calling model to declare image input. Independent files may be read concurrently in small batches.
 "read": |-
-  Read a UTF-8 text file and return line-numbered content. Paths resolve relative to /workspace; Chat attachments use their exact /attachments path and remain readable after context compaction. Offset is the 1-based first line, default 1. Limit defaults to 2000 lines. Results cap each line to 2000 UTF-16 characters and selected text to 50 KiB; use the reported offset to continue. Binary files require a dedicated reader.
+  Read a UTF-8 text file and return line-numbered content. Paths resolve relative to /workspace; Chat attachments use their exact /workspace/attachments path and remain readable after context compaction. Offset is the 1-based first line, default 1. Limit defaults to 2000 lines. Results cap each line to 2000 UTF-16 characters and selected text to 50 KiB; use the reported offset to continue. Binary files require a dedicated reader.
 "write": |-
   Create or fully replace a UTF-8 text file.
 "edit": |-

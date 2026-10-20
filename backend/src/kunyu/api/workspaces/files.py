@@ -35,33 +35,6 @@ def get_file_service(
     return WorkspaceFileService(database)
 
 
-@router.get("", response_model=list[WorkspaceFileResponse])
-async def search_workspace_files(
-    workspace_id: str,
-    service: Annotated[WorkspaceFileService, Depends(get_file_service)],
-    query: Annotated[str, Query(max_length=255)] = "",
-    limit: Annotated[int, Query(ge=1, le=100)] = 50,
-) -> list[WorkspaceFileResponse]:
-    try:
-        files = await service.search(workspace_id, query, limit)
-    except WorkspaceNotFoundError as error:
-        raise ApiError(
-            404, "WORKSPACE_NOT_FOUND", "Workspace is unavailable."
-        ) from error
-    except FilesystemError as error:
-        logger.exception("Workspace file listing failed for %s", workspace_id)
-        raise ApiError(503, error.code, str(error)) from error
-    return [
-        WorkspaceFileResponse(
-            name=file.name,
-            file_path=file.file_path,
-            bytes=file.bytes,
-            kind=file.kind,
-        )
-        for file in files
-    ]
-
-
 @router.post("", response_model=WorkspaceFileResponse, status_code=201)
 async def upload_workspace_file(
     workspace_id: str,

@@ -3,7 +3,7 @@
 import mimetypes
 import os
 import stat
-from pathlib import Path, PurePosixPath
+from pathlib import Path
 from threading import Event
 from typing import Literal
 
@@ -21,6 +21,7 @@ from kunyu.integrations.filesystem.io import (
     open_parent,
     probe_at,
 )
+from kunyu.integrations.filesystem.names import numbered_name
 
 
 def validate_filename(name: str) -> None:
@@ -49,10 +50,15 @@ class ManagedWorkspaceFiles:
 
     def prepare(self, workspace_id: str) -> None:
         scope = FilesystemScope(workspace_id, None)
-        target = FsTarget("/workspace", scope, "workspace", (), None)
+        target = FsTarget("/workspace", scope, ())
         try:
             with open_directory(self.root, target, Event()):
-                pass
+                for folder in ("files", "attachments", "results", ".cache"):
+                    child = FsTarget(
+                        f"/workspace/{folder}/.init", scope, (folder, ".init")
+                    )
+                    with open_parent(self.root, child, create=True):
+                        pass
         except OSError as error:
             raise io_error(error, "/workspace", "create") from error
 
@@ -60,12 +66,12 @@ class ManagedWorkspaceFiles:
         self, workspace_id: str, query: str, limit: int, cancelled: Event
     ) -> list[WorkspaceFile]:
         scope = FilesystemScope(workspace_id, None)
-        pending = [()]
+        pending = [("files",)]
         result = []
         while pending:
             parts = pending.pop()
             path = "/workspace" + ("/" + "/".join(parts) if parts else "")
-            target = FsTarget(path, scope, "workspace", parts, None)
+            target = FsTarget(path, scope, parts)
             try:
                 with (
                     open_directory(self.root, target, cancelled) as directory,
@@ -73,8 +79,6 @@ class ManagedWorkspaceFiles:
                 ):
                     for entry in sorted(entries, key=lambda item: item.name):
                         check_cancelled(cancelled, "list")
-                        if entry.name.startswith(".kunyu-"):
-                            continue
                         info = entry.stat(follow_symlinks=False)
                         child = (*parts, entry.name)
                         if stat.S_ISDIR(info.st_mode):
@@ -110,12 +114,9 @@ class ManagedWorkspaceFiles:
         cancelled: Event,
     ) -> WorkspaceFile:
         validate_filename(name)
-        folder = "images" if kind == "image" else "data"
+        folder = "files"
         scope = FilesystemScope(workspace_id, None)
-        target = FsTarget(
-            f"/workspace/{folder}/{name}", scope, "workspace", (folder, name), None
-        )
-        original = PurePosixPath(name)
+        target = FsTarget(f"/workspace/{folder}/{name}", scope, (folder, name))
         try:
             with open_parent(
                 self.root, target, create=True, cancelled=cancelled
@@ -123,11 +124,7 @@ class ManagedWorkspaceFiles:
                 index = 1
                 while True:
                     check_cancelled(cancelled, "upload")
-                    candidate = (
-                        name
-                        if index == 1
-                        else f"{original.stem}-{index}{original.suffix}"
-                    )
+                    candidate = numbered_name(name, index)
                     validate_filename(candidate)
                     if probe_at(parent, candidate) is not None:
                         index += 1
@@ -135,9 +132,7 @@ class ManagedWorkspaceFiles:
                     chosen = FsTarget(
                         f"/workspace/{folder}/{candidate}",
                         scope,
-                        "workspace",
                         (folder, candidate),
-                        None,
                     )
                     try:
                         atomic_write(

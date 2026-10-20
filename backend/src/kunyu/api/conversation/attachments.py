@@ -92,3 +92,24 @@ def read_attachment(
             "X-Content-Type-Options": "nosniff",
         },
     )
+
+
+@router.get("/{attachment_id}/original")
+def original_attachment(
+    session_id: str, attachment_id: UUID, store: AttachmentStoreDependency
+) -> Response:
+    try:
+        ref, data, media_type = store.read_original(session_id, str(attachment_id))
+    except AttachmentError as error:
+        if error.status >= 500:
+            logger.exception("Original attachment delivery failed: %s", attachment_id)
+        raise ApiError(error.status, error.code, str(error)) from error
+    return Response(
+        data,
+        media_type=media_type or "application/octet-stream",
+        headers={
+            "Content-Disposition": f"attachment; filename*=UTF-8''{quote(ref.name, safe='')}",
+            "Cache-Control": "no-store",
+            "X-Content-Type-Options": "nosniff",
+        },
+    )

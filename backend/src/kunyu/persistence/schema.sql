@@ -242,7 +242,8 @@ CREATE TABLE session_attachments (
 	session_id VARCHAR(64) NOT NULL, 
 	receipt JSON NOT NULL, 
 	source_media_type VARCHAR(100), 
-	source_bytes INTEGER NOT NULL, 
+	source_bytes INTEGER NOT NULL,
+	source_name VARCHAR(255) NOT NULL,
 	created_at DATETIME NOT NULL, 
 	PRIMARY KEY (id), 
 	CONSTRAINT ck_session_attachments_source_bytes CHECK (source_bytes >= 0), 
@@ -481,4 +482,4 @@ CREATE TABLE oge_account (
     CONSTRAINT ck_oge_account_singleton CHECK (id = 1)
 );
 
-PRAGMA user_version = 8;
+PRAGMA user_version = 9;

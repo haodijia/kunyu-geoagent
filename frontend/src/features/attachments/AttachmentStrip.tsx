@@ -1,5 +1,5 @@
 import { Button } from "@/components/ui/button";
-import { readAttachment, type Attachment } from "@/features/attachments/api";
+import { readAttachment, readAttachmentOriginal, type Attachment } from "@/features/attachments/api";
 import { ImageLightbox } from "@/features/attachments/ImageLightbox";
 import { zhCN } from "@/locales/zh-CN";
 import {
@@ -69,8 +69,8 @@ function AttachmentCard({ sessionId, attachment: ref, disabled, onRemove, offloa
   async function download() {
     if (downloading) return; setDownloading(true);
     try {
-      const blob = await readAttachment(sessionId, ref.id); const objectUrl = URL.createObjectURL(blob);
-      const link = document.createElement("a"); link.href = objectUrl; link.download = ref.kind === "image" ? `${ref.name.replace(/\.[^.]*$/, "")}.${ref.media_type === "image/png" ? "png" : "jpg"}` : ref.name;
+      const blob = await readAttachmentOriginal(sessionId, ref.id); const objectUrl = URL.createObjectURL(blob);
+      const link = document.createElement("a"); link.href = objectUrl; link.download = ref.name;
       link.click(); setTimeout(() => URL.revokeObjectURL(objectUrl), 1000);
     } catch (error) { console.error("[attachments] Download failed.", { sessionId, attachmentId: ref.id, error }); toast.error(content.downloadFailed); }
     finally { setDownloading(false); }

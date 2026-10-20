@@ -10,11 +10,6 @@ export interface WorkspaceFile {
   readonly kind: "file" | "image";
 }
 
-export function searchWorkspaceFiles(workspaceId: string, query: string, signal: AbortSignal): Promise<WorkspaceFile[]> {
-  const params = new URLSearchParams({ query });
-  return requestJson(`/api/v1/workspaces/${encodeURIComponent(workspaceId)}/files?${params}`, { signal });
-}
-
 export async function uploadWorkspaceFile(workspaceId: string, file: File, signal: AbortSignal): Promise<WorkspaceFile> {
   if (file.size > maxWorkspaceFileBytes) throw new Error(zhCN.workspaceFiles.tooLarge);
   const kind = file.type.startsWith("image/") ? "image" : "file";
@@ -22,7 +17,7 @@ export async function uploadWorkspaceFile(workspaceId: string, file: File, signa
   const result = await requestJson<unknown>(`/api/v1/workspaces/${encodeURIComponent(workspaceId)}/files?${query}`, {
     method: "POST", headers: { "Content-Type": "application/octet-stream" }, body: file, signal,
   });
-  const folder = kind === "image" ? "images" : "data";
+  const folder = "files";
   if (typeof result !== "object" || result === null || !("kind" in result) || !("bytes" in result) || !("name" in result) || !("file_path" in result)
     || result.kind !== kind || result.bytes !== file.size || typeof result.name !== "string" || result.name.length === 0 || /[/\\\x00-\x1f\x7f]/.test(result.name)
     || result.file_path !== `/workspace/${folder}/${result.name}`) {

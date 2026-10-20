@@ -69,9 +69,7 @@ def io_error(error: OSError, path: str, verb: str) -> FilesystemError:
 
 def require_workspace_target(target: FsTarget) -> None:
     if (
-        target.kind != "workspace"
-        or target.attachment is not None
-        or re.fullmatch(r"[A-Za-z0-9_-]{1,64}", target.scope.workspace_id) is None
+        re.fullmatch(r"[A-Za-z0-9_-]{1,64}", target.scope.workspace_id) is None
         or any(
             part in {"", ".", ".."} or "/" in part or "\x00" in part
             for part in target.parts
@@ -102,7 +100,7 @@ def _open_path(
 
         with open_directories(
             root,
-            ("workspaces", target.scope.workspace_id, "files", *parts),
+            ("workspaces", target.scope.workspace_id, *parts),
             create,
             cancelled,
         ) as directory:
@@ -115,7 +113,6 @@ def _open_path(
         for name in (
             "workspaces",
             target.scope.workspace_id,
-            "files",
             *parts,
         ):
             if cancelled is not None:

@@ -20,17 +20,18 @@ from kunyu.integrations.filesystem.io import (
     probe_at,
 )
 
-SEARCH_DIRECTORY = ".kunyu-search"
+SEARCH_DIRECTORY = ".cache"
 
 
 def search_artifact_parts(parts: tuple[str, ...], scope: FilesystemScope) -> bool:
     return (
-        len(parts) == 4
+        len(parts) == 5
         and parts[0] == SEARCH_DIRECTORY
-        and parts[1] == scope.session_id
-        and re.fullmatch(r"[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}", parts[2])
+        and parts[1] == "search"
+        and parts[2] == scope.session_id
+        and re.fullmatch(r"[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}", parts[3])
         is not None
-        and parts[3] in {"glob-results.txt", "grep-results.txt"}
+        and parts[4] in {"glob-results.txt", "grep-results.txt"}
     )
 
 
@@ -40,18 +41,12 @@ class WorkspaceSearchStorage:
 
     @contextmanager
     def root(self, target: FsTarget):
-        if target.kind != "workspace":
-            raise FilesystemError(
-                "FS_OUT_OF_SCOPE", "Search paths must stay inside /workspace."
-            )
         if target.parts and target.parts[0].casefold() == SEARCH_DIRECTORY:
             raise FilesystemError(
                 "FS_PERMISSION_DENIED", "Search artifacts are excluded from discovery."
             )
         scope = target.scope
-        dummy = FsTarget(
-            "/workspace/.search-root", scope, "workspace", (".search-root",), None
-        )
+        dummy = FsTarget("/workspace/.search-root", scope, (".search-root",))
         # The managed directory is infrastructure, provisioned even for an empty workspace.
         with ExitStack() as handles:
             descriptor = handles.enter_context(
@@ -76,7 +71,7 @@ class WorkspaceSearchStorage:
                         "Search targets must be regular files or directories; symbolic links are not followed.",
                     )
             yield (
-                self._root / "workspaces" / scope.workspace_id / "files",
+                self._root / "workspaces" / scope.workspace_id,
                 relative,
                 descriptor,
             )
@@ -92,12 +87,13 @@ class WorkspaceSearchStorage:
             raise FilesystemError("FS_INVALID_SCOPE", "Invalid search artifact owner.")
         parts = (
             SEARCH_DIRECTORY,
+            "search",
             scope.session_id,
             str(uuid4()),
             f"{name}-results.txt",
         )
         path = "/workspace/" + "/".join(parts)
-        target = FsTarget(path, scope, "workspace", parts, None)
+        target = FsTarget(path, scope, parts)
         with open_parent(
             self._root, target, create=True, cancelled=cancelled
         ) as parent:

@@ -36,8 +36,6 @@ def instruction_targets(
             path = call.arguments["file_path"]
             if not isinstance(path, str):
                 raise TypeError("A completed file tool must own a text file_path.")
-            if path.startswith("/attachments/"):
-                continue
             target = filesystem.resolve(path, scope)
             for depth in range(1, len(target.parts)):
                 paths.add(

@@ -1,4 +1,4 @@
-/** Visible, durable mentions carry real tool-readable identities in message text. */
+/** Local mentions carry tool-readable paths; remote imagery carries its OGE image ID. */
 export interface WorkspaceReference {
   readonly target: string;
   readonly name: string;
@@ -35,7 +35,7 @@ export function insertReference(draft: string, start: number, end: number, item:
 export function referenceParts(text: string): readonly ({ readonly text: string; readonly target?: string })[] {
   const parts: { text: string; target?: string }[] = [];
   let offset = 0;
-  for (const match of text.matchAll(/@\[((?:\\.|[^\]\\\r\n])+)\]\(((?:analysis-output:|oge-image:|\/workspace\/)[^\s)]+)\)/g)) {
+  for (const match of text.matchAll(/@\[((?:\\.|[^\]\\\r\n])+)\]\(((?:oge-image:|\/workspace\/)[^\s)]+)\)/g)) {
     parts.push({ text: text.slice(offset, match.index) });
     parts.push({ text: `@${match[1]!.replace(/\\([\\\[\]])/g, "$1")}`, target: match[2] });
     offset = match.index + match[0].length;

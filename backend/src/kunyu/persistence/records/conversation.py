@@ -66,6 +66,7 @@ class SessionAttachmentRecord(Base):
         ForeignKey("sessions.id", ondelete="CASCADE"), nullable=False
     )
     receipt: Mapped[dict[str, Any]] = mapped_column(JSON, nullable=False)
+    source_name: Mapped[str] = mapped_column(String(255), nullable=False)
     source_media_type: Mapped[str | None] = mapped_column(String(100))
     source_bytes: Mapped[int] = mapped_column(Integer, nullable=False)
     created_at: Mapped[datetime] = mapped_column(

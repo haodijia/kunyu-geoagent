@@ -15,14 +15,12 @@ from kunyu.integrations.filesystem.local import MountedFilesystem
 
 class FilesystemPlugin:
     name = "workspace-filesystem"
-    requires = (s.DATABASE, s.ATTACHMENTS)
+    requires = (s.DATABASE,)
     provides = (s.FILESYSTEM, s.FILESYSTEM_HOOKS)
 
     async def apply(self, context: Context) -> None:
         hooks = FilesystemHooks()
-        filesystem = MountedFilesystem(
-            context.require(s.DATABASE).path.parent, context.require(s.ATTACHMENTS)
-        )
+        filesystem = MountedFilesystem(context.require(s.DATABASE).path.parent)
         context.provide(s.FILESYSTEM_HOOKS, hooks)
         context.provide(s.FILESYSTEM, filesystem)
 

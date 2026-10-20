@@ -116,13 +116,8 @@ class ReadImageTool(BaseTool):
         try:
             target = self._filesystem.resolve(path, scope)
             path = target.display_path
-            existing = (
-                target.attachment
-                if isinstance(target.attachment, ImageAttachment)
-                else None
-            )
             extension = PurePosixPath(path).suffix.lower()
-            if existing is None and extension and extension not in IMAGE_TYPES:
+            if extension and extension not in IMAGE_TYPES:
                 raise FilesystemError(
                     "FS_NOT_IMAGE",
                     "read_image accepts PNG/JPEG/WebP/GIF files, including extension-less images.",
@@ -188,39 +183,30 @@ class ReadImageTool(BaseTool):
                 "FS_STALE_VERSION", "The image changed while reading it."
             )
         raw = bytes(data)
-        if isinstance(target.attachment, ImageAttachment):
-            ref, normalized = target.attachment, raw
-        else:
-            media_type = IMAGE_TYPES.get(
-                PurePosixPath(target.display_path).suffix.lower()
+        media_type = IMAGE_TYPES.get(PurePosixPath(target.display_path).suffix.lower())
+        if media_type is None:
+            media_type = _sniff_type(raw)
+        if media_type is None:
+            raise FilesystemError(
+                "FS_NOT_IMAGE", "The bytes are not a supported PNG/JPEG/WebP/GIF image."
             )
-            if media_type is None:
-                media_type = _sniff_type(raw)
-            if media_type is None:
-                raise FilesystemError(
-                    "FS_NOT_IMAGE",
-                    "The bytes are not a supported PNG/JPEG/WebP/GIF image.",
+        ref, normalized = normalize_image(
+            str(uuid4()), PurePosixPath(target.display_path).name, media_type, raw
+        )
+        ref = ref.model_copy(
+            update={
+                "producer": ToolImageProducer(
+                    run_id=call.run_id, tool_call_id=call.call_id
                 )
-            ref, normalized = normalize_image(
-                str(uuid4()), PurePosixPath(target.display_path).name, media_type, raw
-            )
-            ref = ref.model_copy(
-                update={
-                    "producer": ToolImageProducer(
-                        run_id=call.run_id, tool_call_id=call.call_id
-                    )
-                }
-            )
+            }
+        )
         check_cancelled(cancelled, "read_image")
         prepare_image(ref, normalized, policy)
         check_cancelled(cancelled, "read_image")
-        if target.attachment is None or not isinstance(
-            target.attachment, ImageAttachment
-        ):
-            self._attachments.save_batch(
-                target.scope.session_id,
-                (PreparedAttachment(ref, normalized, raw, media_type),),
-            )
+        ref = self._attachments.save_batch(
+            target.scope.session_id,
+            (PreparedAttachment(ref, normalized, raw, media_type),),
+        )[0]
         check_cancelled(cancelled, "read_image")
         return ref
 

@@ -8,7 +8,7 @@
 "permission_read_only": |-
   当前文件工具权限：read-only。当前会话只能读取，不能通过工具写入或修改文件。
 "permission_workspace_write": |-
-  当前文件工具权限：workspace-write。当前请求提供的写入和编辑工具可操作 /workspace；/attachments 只读。
+  当前文件工具权限：workspace-write。当前请求提供的写入和编辑工具可操作 /workspace/files；/workspace/attachments、/workspace/results 和 .cache 只读。
 "approval_required": |-
   当前审批规则：需要确认的工具必须获得用户确认后才能执行；其他工具仍受当前权限约束。
 "approval_denied": |-

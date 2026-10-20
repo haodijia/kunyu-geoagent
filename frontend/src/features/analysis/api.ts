@@ -31,6 +31,8 @@ export interface AnalysisOutput {
   readonly job_id: string | null;
   readonly session_id: string | null;
   readonly source_session_title: string;
+  readonly file_path: string;
+  readonly preview_path: string;
   readonly title: string;
   readonly mode: "replay" | "live";
   readonly kind: "rgb_raster" | "scalar_raster";

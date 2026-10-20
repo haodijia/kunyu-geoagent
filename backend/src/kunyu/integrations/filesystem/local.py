@@ -11,11 +11,6 @@ from contextlib import contextmanager
 from pathlib import Path
 from threading import Event, Lock
 
-from kunyu.domain.conversation.attachments import (
-    Attachment,
-    AttachmentError,
-    attachment_path,
-)
 from kunyu.domain.workspaces.filesystem import (
     FilesystemError,
     FilesystemScope,
@@ -37,10 +32,8 @@ from kunyu.integrations.filesystem.io import (
     version_of,
 )
 from kunyu.integrations.filesystem.search_storage import (
-    SEARCH_DIRECTORY,
     search_artifact_parts,
 )
-from kunyu.persistence.conversation.attachments import SQLAlchemyAttachmentStore
 
 CHUNK_BYTES = 64 * 1024
 BINARY_SAMPLE_BYTES = 8192
@@ -48,11 +41,8 @@ DIFF_BASIS_MAX_BYTES = 10 * 1024 * 1024
 
 
 class MountedFilesystem:
-    def __init__(
-        self, data_directory: Path, attachments: SQLAlchemyAttachmentStore
-    ) -> None:
+    def __init__(self, data_directory: Path) -> None:
         self._root = data_directory.resolve()
-        self._attachments = attachments
         self._locks_guard = Lock()
         self._locks: dict[tuple[str, str], deque[Event]] = {}
 
@@ -71,40 +61,25 @@ class MountedFilesystem:
             raise FilesystemError(
                 "FS_INVALID_SCOPE", "The workspace filesystem scope is invalid."
             )
-        if file_path.startswith("/attachments/"):
-            if scope.session_id is None:
-                raise FilesystemError(
-                    "FS_OUT_OF_SCOPE", "Attachments require a chat scope."
-                )
-            identity = file_path.split("/", 3)[2]
-            try:
-                ref = self._attachments.resolve(scope.session_id, (identity,))[0]
-            except AttachmentError as error:
-                raise FilesystemError(error.code, str(error)) from error
-            if file_path != attachment_path(ref):
-                raise FilesystemError(
-                    "FS_INVALID_PATH", "Use the attachment's exact path."
-                )
-            return FsTarget(file_path, scope, "attachment", (), ref)
         path = posixpath.normpath(
             file_path if file_path.startswith("/") else f"/workspace/{file_path}"
         )
         if path == "/workspace":
-            return FsTarget(path, scope, "workspace", (), None)
+            return FsTarget(path, scope, ())
         if not path.startswith("/workspace/"):
             raise FilesystemError(
                 "FS_OUT_OF_SCOPE",
-                "Paths must stay inside /workspace or reference a current-chat /attachments path.",
+                "Paths must stay inside /workspace.",
             )
         parts = tuple(path[len("/workspace/") :].split("/"))
-        if parts[0].casefold() == SEARCH_DIRECTORY and not search_artifact_parts(
+        if parts[:2] == (".cache", "search") and not search_artifact_parts(
             parts, scope
         ):
             raise FilesystemError(
                 "FS_PERMISSION_DENIED",
                 "Search recovery artifacts belong to their originating session.",
             )
-        return FsTarget(path, scope, "workspace", parts, None)
+        return FsTarget(path, scope, parts)
 
     def stream_text(self, target: FsTarget, cancelled: Event) -> Generator[str]:
         decoder = codecs.getincrementaldecoder("utf-8-sig")(errors="strict")
@@ -126,8 +101,6 @@ class MountedFilesystem:
                 "FS_NOT_TEXT",
                 f'cannot read "{target.display_path}": invalid UTF-8 text',
             ) from error
-        except AttachmentError as error:
-            raise FilesystemError(error.code, str(error)) from error
         except OSError as error:
             raise FilesystemError(
                 io_error(error, target.display_path, "read").code,
@@ -139,25 +112,6 @@ class MountedFilesystem:
     def stream_bytes(self, target: FsTarget, cancelled: Event) -> Generator[bytes]:
         if cancelled.is_set():
             raise FilesystemError("FS_ABORTED", "read aborted")
-        if target.kind == "attachment":
-            ref = self._attachment(target)
-            try:
-                stored, data = self._attachments.read(target.scope.session_id, ref.id)
-            except AttachmentError as error:
-                raise FilesystemError(error.code, str(error)) from error
-            if stored != ref:
-                raise FilesystemError(
-                    "FS_RECEIPT_MISMATCH", "The stored attachment changed."
-                )
-            for start in range(0, len(data), CHUNK_BYTES):
-                if cancelled.is_set():
-                    raise FilesystemError("FS_ABORTED", "read aborted")
-                yield data[start : start + CHUNK_BYTES]
-            return
-        if target.kind != "workspace" or target.attachment is not None:
-            raise FilesystemError(
-                "FS_INVALID_TARGET", "The filesystem target is invalid."
-            )
         with open_file(self._root, target) as descriptor:
             while True:
                 if cancelled.is_set():
@@ -169,9 +123,6 @@ class MountedFilesystem:
 
     def stat(self, target: FsTarget, cancelled: Event) -> FsInfo | None:
         check_cancelled(cancelled, "stat")
-        if target.kind == "attachment":
-            ref = self._attachment(target)
-            return FsInfo(f"attachment:{ref.id}:{ref.bytes}", "file", ref.bytes)
         try:
             if not target.parts:
                 with open_directory(self._root, target, cancelled) as directory:
@@ -200,18 +151,6 @@ class MountedFilesystem:
 
     def read_text(self, target: FsTarget, cancelled: Event) -> str:
         return "".join(self.stream_text(target, cancelled))
-
-    def _attachment(self, target: FsTarget) -> Attachment:
-        if (
-            target.attachment is None
-            or target.scope.session_id is None
-            or target.parts
-            or target.display_path != attachment_path(target.attachment)
-        ):
-            raise FilesystemError(
-                "FS_INVALID_TARGET", "The attachment target has no chat-owned receipt."
-            )
-        return target.attachment
 
     @contextmanager
     def _locked(self, target: FsTarget, cancelled: Event) -> Iterator[None]:
@@ -389,16 +328,10 @@ class MountedFilesystem:
 
     @staticmethod
     def _require_writable(target: FsTarget) -> None:
-        if target.kind == "workspace" and not target.parts:
-            raise FilesystemError(
-                "FS_NOT_REGULAR_FILE", 'cannot modify "/workspace": not a regular file'
-            )
-        if target.kind != "workspace" or (
-            target.parts and target.parts[0].casefold() == SEARCH_DIRECTORY
-        ):
+        if len(target.parts) < 2 or target.parts[0] != "files":
             raise FilesystemError(
                 "FS_PERMISSION_DENIED",
-                f'cannot modify "{target.display_path}": this mount is read-only',
+                f'cannot modify "{target.display_path}": only /workspace/files is writable',
             )
 
     @staticmethod

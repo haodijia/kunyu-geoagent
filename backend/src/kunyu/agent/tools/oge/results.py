@@ -1,8 +1,5 @@
 """Durable model previews and source GeoTIFF download references."""
 
-from kunyu.agent.runtime.contracts.tools import BaseTool
-from kunyu.agent.tools.outputs.oge import DOWNLOAD, PREVIEW
-
 from collections.abc import Mapping
 from uuid import uuid4
 
@@ -12,12 +9,14 @@ from kunyu.agent.prompts.loader import tool_description
 from kunyu.agent.runtime.contracts.input_content import ImageInputBlock
 from kunyu.agent.runtime.contracts.models import ModelAdapterError
 from kunyu.agent.runtime.contracts.tools import (
+    BaseTool,
     ToolCall,
     ToolExecutionError,
     ToolResult,
     ToolRiskLevel,
     ToolSpec,
 )
+from kunyu.agent.tools.outputs.oge import DOWNLOAD, PREVIEW
 from kunyu.agent.tools.shared import (
     ToolArguments,
     load_source,
@@ -97,6 +96,7 @@ class ResultTool(BaseTool):
                     "analysis_output_id": output.id,
                     "kind": output.kind,
                     "available": True,
+                    "file_path": output.file_path,
                     "download_endpoint": f"/api/v1/workspaces/{output.workspace_id}/results/{output.id}/download",
                     "numeric_values_available": output.metadata.get(
                         "numeric_values_available", False
