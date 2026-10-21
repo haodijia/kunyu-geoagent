@@ -6,12 +6,14 @@ from functools import partial
 from kunyu.agent.core import services as s
 from kunyu.agent.core.scope import Context
 from kunyu.agent.orchestration.analysis_jobs import AnalysisJobs
+from kunyu.agent.tools.maps.assessment import AssessmentTool
 from kunyu.agent.tools.maps.tools import MapTool
 from kunyu.agent.tools.oge.execute_code import ExecuteCodeTool
 from kunyu.agent.tools.oge.operators import OperatorTool
 from kunyu.agent.tools.registry import ToolRegistration
 from kunyu.application.analysis.analysis import AnalysisService
 from kunyu.application.analysis.analysis_supervisor import AnalysisSupervisor
+from kunyu.application.analysis.assessments import AssessmentService
 from kunyu.application.analysis.map_capture import MapCaptureService
 from kunyu.integrations.geospatial.analysis_raster import AnalysisRaster
 from kunyu.integrations.oge.execution import ExecutionGateway
@@ -89,6 +91,25 @@ class AnalysisPlugin:
                         OperatorTool,
                         contexts=contexts,
                         gateway=service.gateway,
+                        name=name,
+                    )
+                ),
+            )
+        for name in (
+            "study_area_get",
+            "study_area_set",
+            "map_sample_raster",
+            "map_region_statistics",
+            "assessment_create",
+        ):
+            tools.register(
+                context,
+                name,
+                ToolRegistration(
+                    partial(
+                        AssessmentTool,
+                        contexts=contexts,
+                        service=AssessmentService(service),
                         name=name,
                     )
                 ),

@@ -43,6 +43,8 @@ export interface LayerStyle {
   readonly position?: number;
 }
 export const analysisKeys = {
+  output: (workspaceId: string, outputId: string) =>
+    ["analysis", "workspaces", workspaceId, "output", outputId] as const,
   outputs: (id: string) => ["analysis", "workspaces", id, "outputs"] as const,
   layers: (id: string) => ["analysis", id, "layers"] as const,
 };
@@ -51,6 +53,10 @@ export const workspaceResultsPath = (workspaceId: string) =>
 const mapPath = (id: string) =>
   `/api/v1/sessions/${encodeURIComponent(id)}/map`;
 export const analysisApi = {
+  output: (workspaceId: string, outputId: string) =>
+    requestJson<AnalysisOutput>(
+      `${workspaceResultsPath(workspaceId)}/${encodeURIComponent(outputId)}`,
+    ),
   outputs: (id: string) =>
     requestJson<AnalysisOutput[]>(workspaceResultsPath(id)),
   layers: (id: string) => requestJson<MapLayer[]>(`${mapPath(id)}/layers`),
@@ -68,10 +74,9 @@ export const analysisApi = {
       },
     ),
   removeLayer: (id: string, layer: MapLayer) =>
-    requestJson<void>(
-      `${mapPath(id)}/layers/${encodeURIComponent(layer.id)}`,
-      { method: "DELETE" },
-    ),
+    requestJson<void>(`${mapPath(id)}/layers/${encodeURIComponent(layer.id)}`, {
+      method: "DELETE",
+    }),
   preview: (id: string, outputId: string) =>
     requestBlob(
       `${workspaceResultsPath(id)}/${encodeURIComponent(outputId)}/preview`,
@@ -81,5 +86,8 @@ export const analysisApi = {
       `${workspaceResultsPath(id)}/${encodeURIComponent(outputId)}/download`,
     ),
   layerPreview: (sessionId: string, layerId: string, signal?: AbortSignal) =>
-    requestBlob(`${mapPath(sessionId)}/layers/${encodeURIComponent(layerId)}/preview`, signal),
+    requestBlob(
+      `${mapPath(sessionId)}/layers/${encodeURIComponent(layerId)}/preview`,
+      signal,
+    ),
 };

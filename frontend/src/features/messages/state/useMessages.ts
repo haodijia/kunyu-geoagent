@@ -57,9 +57,9 @@ export function useMessages(sessionId: string, workspaceId: string) {
   const queuedDraft = useAppUiStore(
     (state) => state.composerQueuedBySession[sessionId] === true,
   );
+  const initialMapContext = useMemo(() => createMapContext(workspaceId), [workspaceId]);
   const mapContext = useAppUiStore(
-    (state) =>
-      state.mapContextBySession[sessionId] ?? createMapContext(workspaceId),
+    (state) => state.mapContextBySession[sessionId] ?? initialMapContext,
   );
   const modelSelection = useAppUiStore(
     (state) => state.modelSelectionBySession[sessionId],

@@ -18,7 +18,13 @@ import { useQuery } from "@tanstack/react-query";
 import { MapConversation } from "@/features/maps/conversation/MapConversation";
 import { MapLayers } from "@/features/maps/layers/MapLayers";
 import { useMapFocus } from "@/features/maps/runtime/useMapFocus";
-import { captureMapCanvas, MapCaptureError, registerMapCapture } from "@/features/maps/runtime/map-capture";
+import {
+  MapCaptureError,
+  registerMapCapture,
+} from "@/features/maps/runtime/map-capture";
+import { MapAnalysisPanel } from "@/features/maps/analysis/MapAnalysisPanel";
+import type { ComparisonCapture } from "@/features/maps/analysis/MapComparison";
+import { captureComparedMap } from "@/features/maps/analysis/comparison-capture";
 
 const content = zhCN.map;
 
@@ -36,21 +42,45 @@ function MapCanvas() {
     session.id,
     session.workspace_id,
   );
+  const [analysisOpen, setAnalysisOpen] = useState(false);
+  const comparisonCapture = useRef<ComparisonCapture | null>(null);
   useMapFocus(session.id, map);
-  const layerQuery = useQuery({ queryKey: analysisKeys.layers(session.id), queryFn: () => analysisApi.layers(session.id) });
+  const layerQuery = useQuery({
+    queryKey: analysisKeys.layers(session.id),
+    queryFn: () => analysisApi.layers(session.id),
+  });
   const layers = layerQuery.data ?? [];
-  useEffect(() => registerMapCapture(session.id, async () => {
-    const instance = map.getMap();
-    if (instance === null || !map.ready || map.failed || layerQuery.isPending || layerQuery.isError
-      || layers.some(layer => layer.visible && instance.getLayer(layer.id) === undefined)) {
-      throw new MapCaptureError("MAP_NOT_READY", content.captureNotReady);
-    }
-    return captureMapCanvas(instance);
-  }), [session.id, map, layerQuery.isPending, layerQuery.isError, layers]);
-  const [layerErrors, setLayerErrors] = useState<Readonly<Record<string, string>>>({});
+  useEffect(
+    () =>
+      registerMapCapture(session.id, async () => {
+        const instance = map.getMap();
+        if (
+          instance === null ||
+          !map.ready ||
+          map.failed ||
+          layerQuery.isPending ||
+          layerQuery.isError ||
+          layers.some(
+            (layer) =>
+              layer.visible && instance.getLayer(layer.id) === undefined,
+          )
+        ) {
+          throw new MapCaptureError("MAP_NOT_READY", content.captureNotReady);
+        }
+        return captureComparedMap(instance, comparisonCapture.current);
+      }),
+    [session.id, map, layerQuery.isPending, layerQuery.isError, layers],
+  );
+  const [layerErrors, setLayerErrors] = useState<
+    Readonly<Record<string, string>>
+  >({});
   const layerError = useCallback((id: string, error: string | null) => {
-    setLayerErrors(current => {
-      if (current[id] === error || (current[id] === undefined && error === null)) return current;
+    setLayerErrors((current) => {
+      if (
+        current[id] === error ||
+        (current[id] === undefined && error === null)
+      )
+        return current;
       const next = { ...current };
       if (error === null) delete next[id];
       else next[id] = error;
@@ -64,9 +94,30 @@ function MapCanvas() {
       aria-label={content.label}
     >
       <div ref={targetRef} className="absolute inset-0" />
-      <MapToolbar map={map} />
-      <MapLayers map={map} workspaceId={session.workspace_id} layers={layers} onError={layerError} />
-      <AnalysisPanel sessionId={session.id} layers={layers} error={layerQuery.isError || Object.keys(layerErrors).length > 0} />
+      <MapToolbar
+        map={map}
+        analysisOpen={analysisOpen}
+        onAnalysis={() => setAnalysisOpen((value) => !value)}
+      />
+      <MapLayers
+        map={map}
+        workspaceId={session.workspace_id}
+        layers={layers}
+        onError={layerError}
+      />
+      <AnalysisPanel
+        sessionId={session.id}
+        layers={layers}
+        error={layerQuery.isError || Object.keys(layerErrors).length > 0}
+      />
+      <MapAnalysisPanel
+        map={map}
+        workspaceId={session.workspace_id}
+        layers={layers}
+        open={analysisOpen}
+        onClose={() => setAnalysisOpen(false)}
+        capture={comparisonCapture}
+      />
       <div className="pointer-events-none absolute right-4 bottom-[calc(var(--map-overlay-height,180px)+3rem)] z-10 max-w-80 [&>*]:pointer-events-auto">
         {map.failed ? (
           <div

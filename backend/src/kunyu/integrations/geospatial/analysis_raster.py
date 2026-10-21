@@ -1,5 +1,6 @@
 """Keep source raster values intact and render scalar/RGB map imagery."""
 
+import json
 import math
 from functools import lru_cache
 from io import BytesIO
@@ -18,6 +19,10 @@ from kunyu.domain.geospatial.analysis import AnalysisError
 from kunyu.integrations.filesystem.io import check_cancelled
 from kunyu.integrations.filesystem.names import numbered_name, readable_name
 from kunyu.integrations.filesystem.workspaces import validate_filename
+from kunyu.integrations.geospatial.classified_display import (
+    classified_rgba,
+    read_categories,
+)
 from kunyu.integrations.geospatial.rgb_display import rgb_ranges, rgb_rgba
 
 
@@ -66,6 +71,7 @@ class AnalysisRaster:
         directory = self.directory(workspace_id, name)
         check_cancelled(cancelled, "prepare analysis output")
         with rasterio.open(directory / "result.tif") as src:
+            categories = read_categories(src.tags())
             scalar = src.count == 1 and np.issubdtype(
                 np.dtype(src.dtypes[0]), np.integer
             )
@@ -90,7 +96,13 @@ class AnalysisRaster:
             )
             limits = None
             color_limits = None
-            if scalar:
+            if categories is not None:
+                if not scalar:
+                    raise AnalysisError(
+                        "INVALID_RASTER_CATEGORIES", "分类图例仅适用于单波段栅格。"
+                    )
+                rgba = classified_rgba(data[0], categories)
+            elif scalar:
                 valid = data[0].compressed()
                 valid = valid[np.isfinite(valid)]
                 if not len(valid):
@@ -103,6 +115,8 @@ class AnalysisRaster:
                 ]
                 if limits[0] == limits[1]:
                     limits[1] = limits[0] + max(1, abs(limits[0]) * 0.01)
+                if "KUNYU_DISPLAY_RANGE" in src.tags():
+                    limits = _display_ranges(src.tags()["KUNYU_DISPLAY_RANGE"], 1)[0]
                 rgba = _scalar_rgba(data[0], *limits)
             else:
                 color_limits = (
@@ -110,6 +124,8 @@ class AnalysisRaster:
                     if set(src.dtypes) == {"uint8"}
                     else rgb_ranges(data)
                 )
+                if "KUNYU_RGB_RANGES" in src.tags():
+                    color_limits = _display_ranges(src.tags()["KUNYU_RGB_RANGES"], 3)
                 rgba = rgb_rgba(
                     data, src.dataset_mask(out_shape=(512, 512)), color_limits
                 )
@@ -123,11 +139,16 @@ class AnalysisRaster:
                 "nodata": src.nodata
                 if src.nodata is not None and math.isfinite(src.nodata)
                 else None,
-                "display_kind": "scalar" if scalar else "rgb",
+                "display_kind": "classified"
+                if categories is not None
+                else "scalar"
+                if scalar
+                else "rgb",
                 "display_range": limits,
                 "display_ranges": color_limits,
-                "palette": "viridis" if scalar else None,
+                "palette": "viridis" if scalar and categories is None else None,
                 "numeric_values_available": scalar,
+                "categories": categories,
             }
         check_cancelled(cancelled, "publish analysis preview")
         preview = self.preview_path(workspace_id, name)
@@ -151,6 +172,12 @@ class AnalysisRaster:
             None
             if color_limits is None
             else tuple(tuple(band) for band in color_limits),
+            None
+            if metadata.get("categories") is None
+            else tuple(
+                (entry["value"], entry["label"], entry["color"])
+                for entry in metadata["categories"]
+            ),
         )
 
 
@@ -162,6 +189,7 @@ def _render_tile(
     y: int,
     limits: tuple | None,
     color_limits: tuple | None,
+    categories: tuple | None,
 ) -> bytes:
     size = 256
     unit = 20037508.342789244
@@ -185,7 +213,15 @@ def _render_tile(
             resampling=Resampling.nearest,
         ) as vrt,
     ):
-        if limits is None:
+        if categories is not None:
+            rgba = classified_rgba(
+                vrt.read(1, masked=True),
+                [
+                    {"value": value, "label": label, "color": color}
+                    for value, label, color in categories
+                ],
+            )
+        elif limits is None:
             rgba = rgb_rgba(
                 vrt.read(indexes=(1, 2, 3), masked=True),
                 vrt.read(vrt.count),
@@ -217,3 +253,24 @@ def _scalar_rgba(data, minimum: float, maximum: float):
         axis=-1,
     ).astype("uint8")
     return np.dstack((rgb, valid.astype("uint8") * 255))
+
+
+def _display_ranges(raw: str, count: int) -> list[list[float]]:
+    try:
+        values = json.loads(raw)
+        if not isinstance(values, list) or len(values) != count:
+            raise ValueError("Invalid range count")
+        for pair in values:
+            if (
+                not isinstance(pair, list)
+                or len(pair) != 2
+                or not all(
+                    type(value) in {float, int} and math.isfinite(value)
+                    for value in pair
+                )
+                or pair[0] >= pair[1]
+            ):
+                raise ValueError("Invalid display range")
+        return values
+    except (ValueError, TypeError) as error:
+        raise AnalysisError("INVALID_DISPLAY_RANGE", "栅格显示范围无效。") from error

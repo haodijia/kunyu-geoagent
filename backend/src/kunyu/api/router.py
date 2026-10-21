@@ -13,6 +13,7 @@ from kunyu.api.execution.plans import router as plans_router
 from kunyu.api.execution.questions import router as questions_router
 from kunyu.api.execution.subagents import router as subagents_router
 from kunyu.api.geospatial.analysis import router as analysis_router
+from kunyu.api.geospatial.assessments import router as assessments_router
 from kunyu.api.geospatial.map_capture import router as map_capture_router
 from kunyu.api.geospatial.map_locations import router as map_locations_router
 from kunyu.api.settings.mcp import router as mcp_router
@@ -31,6 +32,7 @@ router.include_router(storage_router)
 router.include_router(model_connections_router)
 router.include_router(oge_router)
 router.include_router(analysis_router)
+router.include_router(assessments_router)
 router.include_router(map_capture_router)
 router.include_router(map_locations_router)
 router.include_router(jobs_router)

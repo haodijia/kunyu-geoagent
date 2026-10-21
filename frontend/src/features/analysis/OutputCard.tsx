@@ -15,6 +15,8 @@ import { referenceText } from "@/features/workspaces/references";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Download, LocateFixed, MessageSquarePlus } from "lucide-react";
 import { useState } from "react";
+import { AssessmentFiles } from "@/features/assessments/AssessmentFiles";
+import { rasterCategories } from "@/features/assessments/api";
 import { useNavigate } from "react-router-dom";
 
 const content = zhCN.analysis;
@@ -34,10 +36,14 @@ export function OutputCard({
   const client = useQueryClient();
   const navigate = useNavigate();
   const [error, setError] = useState<string | null>(null);
+  const categories = rasterCategories(output.metadata);
   const mutation = useMutation({
     mutationFn: async (action: "map" | "download" | "preview") => {
       if (action === "map") {
-        if (sessionId === null) throw new Error("Choose an active session before opening a result on the map.");
+        if (sessionId === null)
+          throw new Error(
+            "Choose an active session before opening a result on the map.",
+          );
         await analysisApi.addLayer(sessionId, output.id);
         useAppUiStore.getState().focusMap(sessionId, output.bounds);
         await client.invalidateQueries({
@@ -53,7 +59,9 @@ export function OutputCard({
         const link = document.createElement("a");
         link.href = url;
         link.download =
-          action === "download" ? "analysis-result.tif" : "analysis-preview.png";
+          action === "download"
+            ? "analysis-result.tif"
+            : "analysis-preview.png";
         link.click();
         setTimeout(() => URL.revokeObjectURL(url), 1000);
       }
@@ -68,10 +76,17 @@ export function OutputCard({
     onMutate: () => setError(null),
   });
   function addToConversation() {
-    if (sessionId === null) throw new Error("Choose an active session before referencing a result.");
+    if (sessionId === null)
+      throw new Error("Choose an active session before referencing a result.");
     const store = useAppUiStore.getState();
     const previous = store.composerDraftBySession[sessionId];
-    const reference = referenceText(output.title, output.file_path.split("/").map(part => encodeURIComponent(part)).join("/"));
+    const reference = referenceText(
+      output.title,
+      output.file_path
+        .split("/")
+        .map((part) => encodeURIComponent(part))
+        .join("/"),
+    );
     store.setComposerDraft(
       sessionId,
       previous === undefined || previous.trim() === ""
@@ -81,10 +96,7 @@ export function OutputCard({
     void navigate(sessionAnalysisPath(workspaceId, sessionId, "conversation"));
   }
   return (
-    <section
-      className="space-y-2 py-2"
-      data-analysis-output={output.id}
-    >
+    <section className="space-y-2 py-2" data-analysis-output={output.id}>
       <div className="mb-2 flex items-center justify-between gap-2">
         <span className="text-sm font-medium">{output.title}</span>
       </div>
@@ -134,12 +146,37 @@ export function OutputCard({
         >
           {content.downloadPreview}
         </Button>
-        <Button variant="ghost" size="sm" disabled={sessionId === null} onClick={addToConversation}>
+        <Button
+          variant="ghost"
+          size="sm"
+          disabled={sessionId === null}
+          onClick={addToConversation}
+        >
           <MessageSquarePlus className="size-3.5" />
           {content.addToConversation}
         </Button>
       </div>
+      {categories.length > 0 && (
+        <div className="flex flex-wrap gap-x-3 gap-y-1 text-xs">
+          {categories.map((entry) => (
+            <span key={entry.value} className="flex items-center gap-1">
+              <span
+                className="size-2.5 rounded-sm"
+                style={{ backgroundColor: entry.color }}
+              />
+              {entry.label}
+            </span>
+          ))}
+        </div>
+      )}
+      {typeof output.source_metadata.assessment_id === "string" && (
+        <AssessmentFiles
+          workspaceId={workspaceId}
+          assessmentId={output.source_metadata.assessment_id}
+        />
+      )}
       {output.kind === "scalar_raster" &&
+        categories.length === 0 &&
         Array.isArray(output.metadata.display_range) && (
           <div
             className="my-2 text-[10px] text-muted-foreground"

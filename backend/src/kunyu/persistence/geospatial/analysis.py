@@ -1,10 +1,12 @@
 """Session job intents and workspace-owned outputs with source-session provenance."""
 
 import time
+from contextlib import nullcontext
 from datetime import UTC, datetime
 
 from pydantic import JsonValue
 from sqlalchemy import select, text
+from sqlalchemy.orm import Session
 
 from kunyu.domain.geospatial.analysis import (
     EXECUTING_STATES,
@@ -253,6 +255,62 @@ class AnalysisRepository:
             tx.add(row)
             tx.flush()
             publish(self.database, tx, job.session_id, "analysis/output", row.id, 1)
+            return output_value(row)
+
+    def publish_derived_output(
+        self,
+        workspace_id: str,
+        session_id: str | None,
+        output_id: str,
+        title: str,
+        metadata: dict,
+        source_metadata: dict,
+        name: str,
+        *,
+        transaction: Session | None = None,
+    ) -> AnalysisOutput:
+        with (
+            nullcontext(transaction)
+            if transaction is not None
+            else self.database.sessions.begin()
+        ) as tx:
+            if transaction is None:
+                tx.execute(text("BEGIN IMMEDIATE"))
+            require_workspace(tx, workspace_id)
+            existing = tx.get(AnalysisOutputRecord, output_id)
+            if existing is not None:
+                if existing.workspace_id != workspace_id:
+                    raise AnalysisError("OUTPUT_CONFLICT", "成果身份已存在。", 409)
+                return output_value(existing)
+            session = (
+                None
+                if session_id is None
+                else require_session(tx, session_id, writable=True)
+            )
+            if session is not None and session.workspace_id != workspace_id:
+                raise AnalysisError("NOT_FOUND", "会话与成果工作区不一致。", 404)
+            row = AnalysisOutputRecord(
+                id=output_id,
+                job_id=None,
+                session_id=session_id,
+                workspace_id=workspace_id,
+                source_session_title="工作区研判" if session is None else session.title,
+                title=title,
+                mode="live",
+                kind="scalar_raster" if metadata["bands"] == 1 else "rgb_raster",
+                raster_metadata=metadata,
+                source_metadata=source_metadata,
+                bounds=metadata["bounds"],
+                cog_file=f"{workspace_id}/results/{name}/result.tif",
+                preview_file=f"{workspace_id}/.cache/results/{name}/preview.png",
+                original_status=200,
+                revision=1,
+                created_at=datetime.now(UTC),
+            )
+            tx.add(row)
+            tx.flush()
+            if session_id is not None:
+                publish(self.database, tx, session_id, "analysis/output", row.id, 1)
             return output_value(row)
 
 
