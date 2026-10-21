@@ -133,6 +133,8 @@ class AnalysisRaster:
                 "width": src.width,
                 "height": src.height,
                 "bands": src.count,
+                "band_names": list(src.descriptions),
+                "units": list(src.units),
                 "dtypes": list(src.dtypes),
                 "crs": str(src.crs),
                 "bounds": bounds,

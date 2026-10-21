@@ -1,12 +1,12 @@
 import { GeoJSONSource, type Map, type MapMouseEvent } from "maplibre-gl";
 import type { Position } from "geojson";
 import { useEffect, useState } from "react";
-import type { StudyGeometry } from "@/features/assessments/api";
+import type { RegionGeometry } from "@/features/analysis/raster";
 
-export function useStudyDrawing(
+export function useMapDrawing(
   map: Map | null,
   ready: boolean,
-  onComplete: (geometry: StudyGeometry) => void,
+  onComplete: (geometry: RegionGeometry) => void,
 ) {
   const [mode, setMode] = useState<"rectangle" | "polygon" | null>(null);
   useEffect(() => {
@@ -16,7 +16,7 @@ export function useStudyDrawing(
     map.doubleClickZoom.disable();
     const oldCursor = map.getCanvas().style.cursor;
     map.getCanvas().style.cursor = "crosshair";
-    const source = "study-area-drawing";
+    const source = "map-selection-drawing";
     map.addSource(source, {
       type: "geojson",
       data: { type: "FeatureCollection", features: [] },
@@ -86,14 +86,14 @@ export function useStudyDrawing(
   return { mode, setMode };
 }
 
-export function useStudyOverlay(
+export function useSelectionOverlay(
   map: Map | null,
   ready: boolean,
-  geometry: StudyGeometry | null,
+  geometry: RegionGeometry | null,
 ) {
   useEffect(() => {
     if (map === null || !ready || geometry === null) return;
-    const id = "workspace-study-area";
+    const id = "map-selection";
     map.addSource(id, {
       type: "geojson",
       data: { type: "Feature", properties: {}, geometry },

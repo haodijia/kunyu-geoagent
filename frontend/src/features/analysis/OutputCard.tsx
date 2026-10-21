@@ -5,22 +5,18 @@ import {
   analysisKeys,
   type AnalysisOutput,
 } from "@/features/analysis/api";
+import { rasterCategories } from "@/features/analysis/raster";
+import { referenceOutput } from "@/features/analysis/result-reference";
 import { useOutputImage } from "@/features/analysis/useOutputImage";
-import {
-  sessionAnalysisPath,
-  sessionMapPath,
-} from "@/features/sessions/routes";
+import { ImageLightbox } from "@/features/attachments/ImageLightbox";
+import { sessionMapPath } from "@/features/sessions/routes";
 import { zhCN } from "@/locales/zh-CN";
-import { referenceText } from "@/features/workspaces/references";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Download, LocateFixed, MessageSquarePlus } from "lucide-react";
 import { useState } from "react";
-import { AssessmentFiles } from "@/features/assessments/AssessmentFiles";
-import { rasterCategories } from "@/features/assessments/api";
 import { useNavigate } from "react-router-dom";
 
 const content = zhCN.analysis;
-
 export function OutputCard({
   output,
   workspaceId,
@@ -29,21 +25,27 @@ export function OutputCard({
 }: {
   readonly output: AnalysisOutput;
   readonly workspaceId: string;
-  readonly compact?: boolean;
   readonly sessionId: string | null;
+  readonly compact?: boolean;
 }) {
   const image = useOutputImage(output.workspace_id, output.id);
   const client = useQueryClient();
   const navigate = useNavigate();
+  const [open, setOpen] = useState(false);
+  const [detailsOpen, setDetailsOpen] = useState(false);
+  const [sourceOpen, setSourceOpen] = useState(false);
+  const [decodeFailed, setDecodeFailed] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const categories = rasterCategories(output.metadata);
+  const description =
+    output.kind === "scalar_raster"
+      ? content.scalarDescription
+      : content.rgbDescription;
   const mutation = useMutation({
     mutationFn: async (action: "map" | "download" | "preview") => {
       if (action === "map") {
         if (sessionId === null)
-          throw new Error(
-            "Choose an active session before opening a result on the map.",
-          );
+          throw new Error("An active session is required.");
         await analysisApi.addLayer(sessionId, output.id);
         useAppUiStore.getState().focusMap(sessionId, output.bounds);
         await client.invalidateQueries({
@@ -58,67 +60,85 @@ export function OutputCard({
         const url = URL.createObjectURL(blob);
         const link = document.createElement("a");
         link.href = url;
-        link.download =
-          action === "download"
-            ? "analysis-result.tif"
-            : "analysis-preview.png";
+        link.download = `${output.title}.${action === "download" ? "tif" : "png"}`;
         link.click();
         setTimeout(() => URL.revokeObjectURL(url), 1000);
       }
     },
+    onMutate: () => setError(null),
     onError: (reason) => {
-      console.error("[analysis] Result action failed.", {
+      console.error("[analysis] Result action failed", {
         outputId: output.id,
         reason,
       });
-      setError(content.actionFailed);
+      setError(reason.message);
     },
-    onMutate: () => setError(null),
   });
-  function addToConversation() {
-    if (sessionId === null)
-      throw new Error("Choose an active session before referencing a result.");
-    const store = useAppUiStore.getState();
-    const previous = store.composerDraftBySession[sessionId];
-    const reference = referenceText(
-      output.title,
-      output.file_path
-        .split("/")
-        .map((part) => encodeURIComponent(part))
-        .join("/"),
-    );
-    store.setComposerDraft(
-      sessionId,
-      previous === undefined || previous.trim() === ""
-        ? reference
-        : `${previous}\n\n${reference}`,
-    );
-    void navigate(sessionAnalysisPath(workspaceId, sessionId, "conversation"));
+  function imageFailed() {
+    console.error("[analysis] Preview decoding failed", {
+      outputId: output.id,
+    });
+    setDecodeFailed(true);
+    setOpen(false);
   }
   return (
-    <section className="space-y-2 py-2" data-analysis-output={output.id}>
-      <div className="mb-2 flex items-center justify-between gap-2">
-        <span className="text-sm font-medium">{output.title}</span>
-      </div>
-      {image.url !== null ? (
-        <img
-          className={`w-full rounded-md bg-muted object-contain ${compact ? "max-h-64" : "max-h-96"}`}
-          src={image.url}
-          alt={content.previewAlt}
-        />
+    <section
+      className="min-w-0 space-y-2 py-2"
+      data-analysis-output={output.id}
+    >
+      <p className="text-sm font-medium">{output.title}</p>
+      {image.url !== null && !decodeFailed ? (
+        <button
+          type="button"
+          className="block w-full rounded-md bg-muted outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          onClick={() => setOpen(true)}
+          aria-label={zhCN.conversation.attachments.preview(output.title)}
+        >
+          <img
+            className={`w-full rounded-md object-contain ${compact ? "max-h-64" : "max-h-96"}`}
+            src={image.url}
+            alt={output.title}
+            onError={imageFailed}
+          />
+        </button>
       ) : (
-        <div
+        <p
           className="rounded bg-muted px-3 py-5 text-xs text-muted-foreground"
           role="status"
         >
-          {image.error ? content.previewFailed : content.loading}
-        </div>
+          {image.error || decodeFailed
+            ? content.previewFailed
+            : content.loading}
+        </p>
       )}
-      <p className="my-2 text-xs leading-5 text-muted-foreground">
-        {output.kind === "scalar_raster"
-          ? content.scalarDescription
-          : content.rgbDescription}
-      </p>
+      {categories.length > 0 ? (
+        <div className="flex flex-wrap gap-x-3 gap-y-1 text-xs">
+          {categories.map((entry) => (
+            <span key={entry.value} className="flex items-center gap-1">
+              <span
+                className="size-2.5 rounded-sm"
+                style={{ backgroundColor: entry.color }}
+              />
+              {entry.label}
+            </span>
+          ))}
+        </div>
+      ) : (
+        output.kind === "scalar_raster" &&
+        Array.isArray(output.metadata.display_range) && (
+          <div
+            className="text-[10px] text-muted-foreground"
+            aria-label={content.displayRange}
+          >
+            <div className="h-1.5 rounded-full bg-[linear-gradient(to_right,#440154,#3b528b,#21918c,#5ec962,#fde725)]" />
+            <div className="mt-1 flex justify-between">
+              {output.metadata.display_range.map((value, index) => (
+                <span key={index}>{Number(value).toPrecision(4)}</span>
+              ))}
+            </div>
+          </div>
+        )
+      )}
       <div className="flex flex-wrap gap-1">
         <Button
           variant="ghost"
@@ -141,60 +161,66 @@ export function OutputCard({
         <Button
           variant="ghost"
           size="sm"
-          disabled={mutation.isPending}
-          onClick={() => mutation.mutate("preview")}
-        >
-          {content.downloadPreview}
-        </Button>
-        <Button
-          variant="ghost"
-          size="sm"
           disabled={sessionId === null}
-          onClick={addToConversation}
+          onClick={() => {
+            if (sessionId !== null) referenceOutput(sessionId, output);
+          }}
         >
           <MessageSquarePlus className="size-3.5" />
-          {content.addToConversation}
+          {content.continueQuestion}
         </Button>
       </div>
-      {categories.length > 0 && (
-        <div className="flex flex-wrap gap-x-3 gap-y-1 text-xs">
-          {categories.map((entry) => (
-            <span key={entry.value} className="flex items-center gap-1">
-              <span
-                className="size-2.5 rounded-sm"
-                style={{ backgroundColor: entry.color }}
-              />
-              {entry.label}
-            </span>
-          ))}
-        </div>
-      )}
-      {typeof output.source_metadata.assessment_id === "string" && (
-        <AssessmentFiles
-          workspaceId={workspaceId}
-          assessmentId={output.source_metadata.assessment_id}
-        />
-      )}
-      {output.kind === "scalar_raster" &&
-        categories.length === 0 &&
-        Array.isArray(output.metadata.display_range) && (
-          <div
-            className="my-2 text-[10px] text-muted-foreground"
-            aria-label={content.displayRange}
-          >
-            <div className="h-1.5 rounded-full bg-[linear-gradient(to_right,#440154,#3b528b,#21918c,#5ec962,#fde725)]" />
-            <div className="mt-1 flex justify-between">
-              {output.metadata.display_range.map((value, index) => (
-                <span key={index}>{Number(value).toPrecision(4)}</span>
-              ))}
-            </div>
+      <details
+        className="text-xs text-muted-foreground"
+        onToggle={(event) => setDetailsOpen(event.currentTarget.open)}
+      >
+        <summary className="cursor-pointer py-1">
+          {content.resultDetails}
+        </summary>
+        {detailsOpen && (
+          <div className="space-y-2 pt-2">
+            <p className="leading-5">{description}</p>
+            <p>
+              {String(output.metadata.width)} × {String(output.metadata.height)}{" "}
+              · {String(output.metadata.crs)} ·{" "}
+              {output.metadata.bands as number} {content.bands}
+            </p>
+            <p>{output.file_path}</p>
+            <Button
+              variant="ghost"
+              size="sm"
+              disabled={mutation.isPending}
+              onClick={() => mutation.mutate("preview")}
+            >
+              {content.downloadPreview}
+            </Button>
+            <details
+              onToggle={(event) => setSourceOpen(event.currentTarget.open)}
+            >
+              <summary className="cursor-pointer">{content.provenance}</summary>
+              <pre className="max-h-64 overflow-auto whitespace-pre-wrap break-all rounded bg-muted p-2">
+                {sourceOpen
+                  ? JSON.stringify(output.source_metadata, null, 2)
+                  : ""}
+              </pre>
+            </details>
           </div>
         )}
-      {error !== null ? (
-        <p className="mt-2 text-xs text-destructive" role="alert">
+      </details>
+      {error !== null && (
+        <p role="alert" className="text-xs text-destructive">
           {error}
         </p>
-      ) : null}
+      )}
+      {open && image.url !== null && (
+        <ImageLightbox
+          src={image.url}
+          name={output.title}
+          description={description}
+          onClose={() => setOpen(false)}
+          onError={imageFailed}
+        />
+      )}
     </section>
   );
 }

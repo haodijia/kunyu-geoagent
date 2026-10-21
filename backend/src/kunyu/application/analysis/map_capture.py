@@ -1,9 +1,12 @@
 """Request an on-demand map image from the connected UI, without database state."""
 
 import asyncio
+import time
 from collections.abc import Callable
 from dataclasses import dataclass
 from itertools import count
+
+from kunyu.domain.geospatial.map_status import MapRenderStatus
 
 
 class MapCaptureError(RuntimeError):
@@ -24,6 +27,35 @@ class MapCaptureService:
         self._clients: dict[str, dict[int, Callable[[str], None]]] = {}
         self._pending: dict[str, _Capture] = {}
         self._identities = count()
+        self._statuses: dict[tuple[str, str], tuple[float, MapRenderStatus]] = {}
+
+    def report_status(
+        self, session_id: str, client_id: str, value: MapRenderStatus
+    ) -> None:
+        self._statuses = {
+            key: value
+            for key, value in self._statuses.items()
+            if time.monotonic() - value[0] < 30
+        }
+        key = (session_id, client_id)
+        if value.state == "closed":
+            self._statuses.pop(key, None)
+        else:
+            self._statuses[key] = (time.monotonic(), value)
+
+    def status(self, session_id: str) -> dict:
+        active = [
+            value
+            for (session, _), value in self._statuses.items()
+            if session == session_id and time.monotonic() - value[0] < 30
+        ]
+        if not active:
+            return {
+                "state": "unavailable",
+                "layers": [],
+                "error": "No recent rendering report from an open map.",
+            }
+        return max(active, key=lambda value: value[0])[1].model_dump(mode="json")
 
     def subscribe(
         self, session_id: str, notify: Callable[[str], None]

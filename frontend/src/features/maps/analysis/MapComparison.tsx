@@ -3,12 +3,13 @@ import { useEffect, useRef, useState, type RefObject } from "react";
 import { getRuntimeConnection } from "@/api/runtime";
 import type { MapLayer } from "@/features/analysis/api";
 import type { useSessionMap } from "@/features/maps/runtime/useSessionMap";
-import { assessmentCopy as copy } from "@/locales/zh-CN/assessments";
+import { interactionCopy as copy } from "@/locales/zh-CN/map-interactions";
 
 export interface ComparisonCapture {
   map: Map;
   ratio: number;
   ready: boolean;
+  error: string | null;
 }
 
 export function MapComparison({
@@ -64,7 +65,12 @@ export function MapComparison({
           : { url };
       },
     });
-    capture.current = { map: second, ratio: ratioRef.current, ready: false };
+    capture.current = {
+      map: second,
+      ratio: ratioRef.current,
+      ready: false,
+      error: null,
+    };
     for (const layer of layers)
       if (instance.getLayer(layer.id) !== undefined) {
         instance.setLayoutProperty(
@@ -92,7 +98,10 @@ export function MapComparison({
     const error = (event: ErrorEvent) => {
       failed = true;
       console.error("[map] Comparison failed", event.error);
-      if (capture.current !== null) capture.current.ready = false;
+      if (capture.current !== null) {
+        capture.current.ready = false;
+        capture.current.error = event.error.message;
+      }
       onError(event.error.message);
     };
     const idle = () => {

@@ -1,7 +1,6 @@
 """Register the complete ORM metadata; import record classes from their owner modules."""
 
 from kunyu.persistence.records import (
-    assessments,
     conversation,
     execution,
     geospatial,
@@ -13,7 +12,6 @@ from kunyu.persistence.records import (
 )
 
 __all__ = [
-    "assessments",
     "conversation",
     "execution",
     "geospatial",

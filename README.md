@@ -45,13 +45,13 @@ uv sync --project backend
 
 Electron 二进制默认从 npmmirror 下载，避免无法连接 GitHub 时安装失败；镜像地址配置在 `electron/.npmrc`。
 
-数据库统一由 `backend/src/kunyu/persistence/schema.sql` 初始化，版本保存在 SQLite `user_version`，不再运行 Alembic 迁移链。当前基线为版本 13，共 27 张表，新增工作区研究区及研判证据快照。现有版本 12 的开发库先备份并显式升级，再启动应用：
+数据库统一由 `backend/src/kunyu/persistence/schema.sql` 初始化，当前基线为版本 14，共 25 张表。版本 13 的开发库先备份并显式升级，再启动应用：
 
 ```bash
-uv run --project backend python scripts/upgrade_assessment_storage.py "/业务目录/kunyu.db"
+uv run --project backend python scripts/upgrade_result_flow_storage.py "/业务目录/kunyu.db"
 ```
 
-升级命令先保存私有数据库备份，再在事务中增加新表；失败回滚。其他旧版本需按对应存储整理流程显式升级，启动不会删除或重建已有数据。
+升级只移除已退役的固定研判存储；先生成权限 600 的完整备份，若存在正式研判记录则拒绝执行，其他业务数据保留。启动不会删除或重建已有数据库。
 
 旧版本 4 的本机开发数据在应用关闭后显式迁到独立业务目录：
 
@@ -98,7 +98,7 @@ OGE 分析使用三个通用工具：`oge_search_operators` 检索实际算子�
 
 - **地图研判** — 在全幅 GIS 工作区中查看图层、统计结果和空间对象，并将地图选择带回智能体上下文
 
-  当前地图使用 MapLibre GL JS，接入 OpenFreeMap 矢量底图和 Mapterhorn 真实地形，支持二维／三维、浅深色、影像与成果图层管理。地图右上角“分析与核查”支持显式研究区绘制／GeoJSON 导入、源像元查询、区域统计、同步卷帘和候选图斑核查；服务配置见[地图服务](docs/develop/地图服务.md)，业务实现及实际边界见[贵港水体变化与研判](docs/develop/贵港水体变化与研判.md)。
+  当前地图使用 MapLibre GL JS，接入 OpenFreeMap 矢量底图和 Mapterhorn 真实地形，支持二维／三维、浅深色、影像与成果图层管理。展开地图图层可继续提问、查询源像元、圈选／导入范围和开启卷帘；选择通过普通文件引用带回对话，地图相机不改变计算范围；服务配置见[地图服务](docs/develop/地图服务.md)，业务实现及实际边界见[贵港水体变化与研判](docs/develop/贵港水体变化与研判.md)。
 
   ![地图研判原型](docs/ui-mockups/session-map-v3.png)
 

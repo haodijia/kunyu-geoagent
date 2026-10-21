@@ -145,7 +145,20 @@ class MapTool(BaseTool):
                         layer.model_dump(mode="json")
                         for layer in self._maps.layers(session_id)
                     ],
+                    "rendering": self._captures.status(session_id),
                 }
+                current = {
+                    (layer["id"], layer["revision"]) for layer in value["layers"]
+                }
+                reported = {
+                    (layer["layer_id"], layer["revision"])
+                    for layer in value["rendering"]["layers"]
+                }
+                if value["rendering"]["state"] == "ready" and current != reported:
+                    value["rendering"]["state"] = "loading"
+                    value["rendering"]["error"] = (
+                        "The client has not confirmed the current layer revisions."
+                    )
                 if image is not None:
                     value["screenshot_path"] = attachment_path(image)
                     result = tool_result(value)

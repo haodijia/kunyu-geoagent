@@ -41,7 +41,9 @@ def sample_raster(path: Path, longitude: float, latitude: float) -> dict:
         }
 
 
-def region_statistics(path: Path, geometry: dict, metadata: dict) -> dict:
+def region_statistics(
+    path: Path, geometry: dict, metadata: dict, values: list[float] | None = None
+) -> dict:
     geometry = validated_geometry(geometry)
     with rasterio.open(path) as src:
         if src.count != 1:
@@ -71,7 +73,7 @@ def region_statistics(path: Path, geometry: dict, metadata: dict) -> dict:
         )
         data = src.read(1, window=window, masked=True).astype("float64")
         valid = selected & ~np.ma.getmaskarray(data) & np.isfinite(data.data)
-        values = data.data[valid]
+        observed = data.data[valid]
         result = {
             "region_area_m2": area_m2(geometry),
             "selected_pixel_count": int(selected.sum()),
@@ -80,13 +82,14 @@ def region_statistics(path: Path, geometry: dict, metadata: dict) -> dict:
             "maximum": None,
             "mean": None,
             "classes": [],
+            "value_areas": [],
             "coverage_note": "统计范围限于成果覆盖区域，按像元中心纳入；分类无效观测单列。",
         }
-        if len(values):
+        if len(observed):
             result.update(
-                minimum=float(values.min()),
-                maximum=float(values.max()),
-                mean=float(values.mean()),
+                minimum=float(observed.min()),
+                maximum=float(observed.max()),
+                mean=float(observed.mean()),
             )
         categories = metadata.get("categories")
         if categories is not None:
@@ -107,4 +110,26 @@ def region_statistics(path: Path, geometry: dict, metadata: dict) -> dict:
                 {**entry, "area_m2": totals[entry["value"]]} for entry in categories
             ]
             result.update(minimum=None, maximum=None, mean=None)
+        fragments = 0
+        for value in values or []:
+            selected_value = valid & (data.data == value)
+            measured = 0.0
+            for polygon, _ in shapes(
+                selected_value.astype("uint8"), mask=selected_value, transform=transform
+            ):
+                fragments += 1
+                if fragments > 50_000:
+                    raise AnalysisError(
+                        "TOO_MANY_PATCHES",
+                        "指定值的统计碎片超过五万个，请缩小范围。",
+                        422,
+                    )
+                measured += area_m2(transform_geom(src.crs, "EPSG:4326", polygon))
+            result["value_areas"].append(
+                {
+                    "value": value,
+                    "pixel_count": int(selected_value.sum()),
+                    "area_m2": measured,
+                }
+            )
         return result

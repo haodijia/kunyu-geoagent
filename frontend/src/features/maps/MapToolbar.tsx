@@ -1,22 +1,17 @@
-import { Compass, LocateFixed, Minus, Plus, ScanLine } from "lucide-react";
+import { Compass, LocateFixed, Minus, Plus } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Tooltip } from "@/components/ui/tooltip";
 import { MAP_DIMENSIONS } from "@/features/maps/runtime/config";
 import type { useSessionMap } from "@/features/maps/runtime/useSessionMap";
 import { zhCN } from "@/locales/zh-CN";
-import { assessmentCopy } from "@/locales/zh-CN/assessments";
 
 const content = zhCN.map;
 
 export function MapToolbar({
   map,
-  analysisOpen,
-  onAnalysis,
 }: {
   readonly map: ReturnType<typeof useSessionMap>;
-  readonly analysisOpen: boolean;
-  readonly onAnalysis: () => void;
 }) {
   const actions = [
     { label: content.zoomIn, Icon: Plus, onClick: map.zoomIn },
@@ -52,18 +47,6 @@ export function MapToolbar({
         ))}
       </div>
       <div className="flex flex-col gap-1 rounded-lg border border-border bg-background/95 p-1 shadow-sm backdrop-blur">
-        <Tooltip label={assessmentCopy.open} side="left">
-          <Button
-            variant={analysisOpen ? "secondary" : "ghost"}
-            size="icon"
-            className="size-8"
-            aria-label={assessmentCopy.open}
-            aria-pressed={analysisOpen}
-            onClick={onAnalysis}
-          >
-            <ScanLine className="size-4" />
-          </Button>
-        </Tooltip>
         {actions.map(({ label, Icon, onClick }) => (
           <Tooltip key={label} label={label} side="left">
             <Button

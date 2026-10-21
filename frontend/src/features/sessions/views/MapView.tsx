@@ -22,7 +22,12 @@ import {
   MapCaptureError,
   registerMapCapture,
 } from "@/features/maps/runtime/map-capture";
-import { MapAnalysisPanel } from "@/features/maps/analysis/MapAnalysisPanel";
+import {
+  MapInteractions,
+  type MapInteraction,
+} from "@/features/maps/analysis/MapInteractions";
+import { MapComparison } from "@/features/maps/analysis/MapComparison";
+import { useMapStatus } from "@/features/maps/analysis/useMapStatus";
 import type { ComparisonCapture } from "@/features/maps/analysis/MapComparison";
 import { captureComparedMap } from "@/features/maps/analysis/comparison-capture";
 
@@ -42,7 +47,9 @@ function MapCanvas() {
     session.id,
     session.workspace_id,
   );
-  const [analysisOpen, setAnalysisOpen] = useState(false);
+  const [interaction, setInteraction] = useState<MapInteraction | null>(null);
+  const [pair, setPair] = useState<readonly [string, string] | null>(null);
+  const [comparisonError, setComparisonError] = useState<string | null>(null);
   const comparisonCapture = useRef<ComparisonCapture | null>(null);
   useMapFocus(session.id, map);
   const layerQuery = useQuery({
@@ -50,6 +57,22 @@ function MapCanvas() {
     queryFn: () => analysisApi.layers(session.id),
   });
   const layers = layerQuery.data ?? [];
+  const outputs = useQuery({
+    queryKey: analysisKeys.outputs(session.workspace_id),
+    queryFn: () => analysisApi.outputs(session.workspace_id),
+  });
+  useEffect(() => {
+    if (
+      pair !== null &&
+      pair.some((id) => !layers.some((layer) => layer.id === id))
+    )
+      setPair(null);
+    if (
+      interaction !== null &&
+      !layers.some((layer) => layer.id === interaction.layerId)
+    )
+      setInteraction(null);
+  }, [layers, pair, interaction]);
   useEffect(
     () =>
       registerMapCapture(session.id, async () => {
@@ -88,17 +111,20 @@ function MapCanvas() {
     });
   }, []);
 
+  const rendering = useMapStatus(
+    session.id,
+    map,
+    layers,
+    layerErrors,
+    comparisonCapture,
+  );
   return (
     <div
       className="kunyu-map chat-surface-container relative h-full overflow-hidden bg-muted"
       aria-label={content.label}
     >
       <div ref={targetRef} className="absolute inset-0" />
-      <MapToolbar
-        map={map}
-        analysisOpen={analysisOpen}
-        onAnalysis={() => setAnalysisOpen((value) => !value)}
-      />
+      <MapToolbar map={map} />
       <MapLayers
         map={map}
         workspaceId={session.workspace_id}
@@ -108,16 +134,57 @@ function MapCanvas() {
       <AnalysisPanel
         sessionId={session.id}
         layers={layers}
-        error={layerQuery.isError || Object.keys(layerErrors).length > 0}
+        error={
+          layerQuery.isError ||
+          outputs.isError ||
+          Object.keys(layerErrors).length > 0
+        }
+        onInteract={setInteraction}
+        statuses={rendering.layers}
       />
-      <MapAnalysisPanel
-        map={map}
-        workspaceId={session.workspace_id}
-        layers={layers}
-        open={analysisOpen}
-        onClose={() => setAnalysisOpen(false)}
-        capture={comparisonCapture}
-      />
+      {pair !== null && (
+        <MapComparison
+          map={map}
+          layers={layers}
+          pair={pair}
+          capture={comparisonCapture}
+          onError={setComparisonError}
+        />
+      )}
+      {interaction !== null && (
+        <MapInteractions
+          value={interaction}
+          map={map}
+          workspaceId={session.workspace_id}
+          sessionId={session.id}
+          layers={layers}
+          outputs={outputs.data ?? []}
+          pair={pair}
+          onPair={(value) => {
+            setComparisonError(null);
+            setPair(value);
+          }}
+          onClose={() => setInteraction(null)}
+        />
+      )}
+      {comparisonError !== null && (
+        <div
+          role="alert"
+          className="absolute top-20 right-16 z-20 max-w-80 rounded-lg border border-border bg-background p-3 text-xs text-destructive"
+        >
+          {comparisonError}
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => {
+              setPair(null);
+              setComparisonError(null);
+            }}
+          >
+            {content.closeComparison}
+          </Button>
+        </div>
+      )}
       <div className="pointer-events-none absolute right-4 bottom-[calc(var(--map-overlay-height,180px)+3rem)] z-10 max-w-80 [&>*]:pointer-events-auto">
         {map.failed ? (
           <div

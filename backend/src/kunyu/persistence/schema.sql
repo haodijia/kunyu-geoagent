@@ -496,19 +496,4 @@ CREATE TABLE background_jobs (
 );
 CREATE INDEX ix_background_jobs_session_id ON background_jobs(session_id);
 
-CREATE TABLE study_areas (
-    workspace_id VARCHAR(64) NOT NULL PRIMARY KEY REFERENCES workspaces(id) ON DELETE CASCADE,
-    revision INTEGER NOT NULL,
-    value JSON NOT NULL
-);
-
-CREATE TABLE assessments (
-    id VARCHAR(64) NOT NULL PRIMARY KEY,
-    workspace_id VARCHAR(64) NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,
-    session_id VARCHAR(64) REFERENCES sessions(id) ON DELETE SET NULL,
-    value JSON NOT NULL,
-    created_at DATETIME NOT NULL
-);
-CREATE INDEX ix_assessments_workspace_created ON assessments(workspace_id, created_at);
-
-PRAGMA user_version = 13;
+PRAGMA user_version = 14;

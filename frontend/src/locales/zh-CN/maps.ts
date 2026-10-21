@@ -10,10 +10,18 @@ export const maps = {
     you: "你",
     runFailed: "Agent 运行失败，可展开完整对话查看原因。",
     thinking: "思考",
-
   },
   analysis: {
     title: "图层",
+    continueQuestion: "继续提问",
+    resultDetails: "查看详情",
+    bands: "波段",
+    queryPixel: "查询像元",
+    selectRegion: "圈选范围",
+    compare: "卷帘对比",
+    renderReady: "已加载",
+    renderLoading: "加载中",
+    renderFailed: "加载失败",
     referenceHint: "在输入框使用 @ 引用影像或工作区结果。",
     metres: "米",
     unknownCloud: "云量未知",
@@ -26,10 +34,14 @@ export const maps = {
     previewAlt: "分析结果预览",
     rgbDescription: "三波段 RGB 影像，地图拉伸仅用于显示；下载保留原始数值。",
     scalarDescription: "单波段数值栅格，地图颜色仅用于显示；下载保留原始数值。",
-    toolScalarDescription: "单波段数值栅格。预览颜色用于表达数值变化，原始结果保留像元数值。",
-    toolRgbDescription: "三波段 RGB 栅格。预览与地图拉伸仅用于显示，下载保留原始像元数值。",
-    toolRasterSize: (width: number, height: number) => `栅格尺寸：${width} × ${height} 像元`,
-    toolDisplayRange: (minimum: number, maximum: number) => `预览显示范围：${minimum} ～ ${maximum}`,
+    toolScalarDescription:
+      "单波段数值栅格。预览颜色用于表达数值变化，原始结果保留像元数值。",
+    toolRgbDescription:
+      "三波段 RGB 栅格。预览与地图拉伸仅用于显示，下载保留原始像元数值。",
+    toolRasterSize: (width: number, height: number) =>
+      `栅格尺寸：${width} × ${height} 像元`,
+    toolDisplayRange: (minimum: number, maximum: number) =>
+      `预览显示范围：${minimum} ～ ${maximum}`,
     displayRange: "显示值域",
     viewMap: "查看地图",
     downloadCog: "下载 GeoTIFF",
@@ -73,7 +85,8 @@ export const maps = {
     sourceSize: "源影像尺寸",
   },
   map: {
-    label: "地图研判工作区",
+    label: "地图工作区",
+    closeComparison: "结束卷帘",
     captureNotOpen: "请先打开当前会话的地图，再请求地图截图。",
     captureNotReady: "地图或图层尚未加载完成，请加载完成后重试截图。",
     captureFailed: "地图截图生成失败。",

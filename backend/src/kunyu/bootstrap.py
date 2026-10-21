@@ -8,7 +8,6 @@ from fastapi import FastAPI
 
 from kunyu.agent.bootstrap import create_agent_runtime
 from kunyu.agent.core import services as s
-from kunyu.application.analysis.assessments import AssessmentService
 from kunyu.application.models.catalog.service import ModelCatalogService
 from kunyu.application.models.connection_locks import ConnectionOperationLocks
 from kunyu.application.models.model_discovery_tasks import ModelDiscoveryTasks
@@ -76,8 +75,6 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         app.state.job_registry = agent_runtime.kernel.context.require(s.JOBS)
         app.state.mcp_manager = agent_runtime.kernel.context.require(s.MCP)
         app.state.analysis_service = agent_runtime.kernel.context.require(s.ANALYSIS)
-        app.state.assessment_service = AssessmentService(app.state.analysis_service)
-        app.state.assessment_service.repository.recover()
         app.state.map_repository = agent_runtime.kernel.context.require(s.MAPS)
         app.state.map_capture_service = agent_runtime.kernel.context.require(
             s.MAP_CAPTURES
