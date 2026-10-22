@@ -52,7 +52,7 @@ class OgeAssets:
                     "phenomenonTime": acquired_at,
                     "belongingArea": area,
                     "productLevel": "L2A",
-                    "productResolution": str(resolution),
+                    "productResolution": f"{resolution:g}",
                 },
                 timeout=httpx.Timeout(600, connect=15),
                 follow_redirects=False,
