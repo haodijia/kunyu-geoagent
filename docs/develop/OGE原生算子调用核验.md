@@ -130,3 +130,34 @@ result.export("kunyu-native-dag-20261016-042221")
 2. 独立调用的算子之间能传递成果，已通过逐像元数值对比验证。
 3. 平台能够执行多算子组成的单个 DAG，已验证任务成功及真实导出文件；可用路径为 executeCode 生成 DAG、addTaskRecord 提交批处理。
 4. 因此可以建设原生基础工具及组合流程工具，无需为每条流程预先发布 GP 服务；两种执行方式需要各自正确处理输入与成果协议。本轮只核验接口，没有切换应用代码。
+
+## 个人上传资产核验（2026-10-22）
+
+六份贵港裁剪影像已使用JWT原生接口`POST /computation-api/process`分别执行`Coverage.toFloat`，每份均完成真实计算、成果下载和源范围内全量像元核对。有效波段值共37,999,294个，最大绝对误差为0，源NoData仅接受0或NaN。六份新资产全部通过后，已逐一删除对应旧UUID，并重新查询确认新资产存在、旧资产不存在。本次为数据可用性验收，不是洪涝分类或精度评价。
+
+已验证的上传文件输入形式为：
+
+```json
+{
+  "name": "Coverage.toFloat",
+  "dockerImageSource": "DOCKER_HUB",
+  "args": {
+    "coverage": {
+      "type": "Coverage",
+      "value": ["Personal:MyData:myData/guigang_20260622_scl20m_yujiang_v1.tif"],
+      "pretreatment": false
+    },
+    "output": "guigang_20260622_scl20m_yujiang_v1-native-readcheck-20261022-102828.tif"
+  }
+}
+```
+
+首份成功任务为`job-42d379c8-6801-479d-9cbc-90e4f270b699`。状态与引擎结果分别从`GET /computation-api/process/{jobId}`、`GET /computation-api/process/result/{jobId}`读取；本次实际状态1为成功、2为失败。输出字段再次被平台追加`.tif`，以返回的实际名称为准。
+
+成果下载使用官网当前入口`GET /asset/algorithm-processing-result/download?id={数值记录ID}`，ID来自该任务状态记录；下载前再次核对recordId、结果文件名及uid。官网列表`POST /asset/algorithm-processing-result/search`可按pageNumber、pageSize、queryTaskName查询同一记录。本次旧的`/computation-api/process/result/download/{jobId}`返回404，`/computation-api/styles/cog/{jobId}`未返回可解码JSON，均未作为成功下载路径。
+
+导出按瓦片补齐至1024或2048像元，源数据为1000或2000像元。已核对CRS、网格原点、分辨率、波段数，逐窗口比较源范围内所有像元，补齐范围不算作研究区。不能直接以导出文件外接矩形计算研究区面积。
+
+本次`Personal:Asset:{UUID}`原生请求虽受理，但任务因缺少productName失败。`Service.getCoverageFromUpload`在目录可见，SDK和定义接口却报告算子已被删除；`Service.getCoverageCollection(customFiles=...)`可编译，但其批任务失败。这些记录不支持断言整个OGE不可用，也不支持声称SDK的个人资产单DAG读取已经成功。本次没有修改既有OGE工具接口。
+
+完整证据保存在本地`Downloads/kunyu-guigang-20261021/`的`native-mydata-read-jobs.json`、`replacement-assets-certified.json`和`old-assets-deletion.json`；新资产引用及回执已同步到现有贵港工作区`files/guigang/`。
