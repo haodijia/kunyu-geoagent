@@ -11,6 +11,7 @@ import {
   GripVertical,
   ImageOff,
   LocateFixed,
+  MessageSquarePlus,
   Trash2,
 } from "lucide-react";
 import { useEffect, useState } from "react";
@@ -23,15 +24,12 @@ export type LayerMutation =
 export type LayerAction =
   | LayerMutation
   | { readonly kind: "focus" }
-  | { readonly kind: "reference" }
-  | { readonly kind: "pixel" }
-  | { readonly kind: "region" }
-  | { readonly kind: "compare" };
+  | { readonly kind: "reference" };
 
 export function LayerRow({
   sessionId,
   layer,
-  expanded,
+  selected,
   disabled,
   onInspect,
   onAction,
@@ -39,7 +37,7 @@ export function LayerRow({
 }: {
   readonly sessionId: string;
   readonly layer: MapLayer;
-  readonly expanded: boolean;
+  readonly selected: boolean;
   readonly disabled: boolean;
   readonly onInspect: () => void;
   readonly onAction: (action: LayerAction) => void;
@@ -60,7 +58,7 @@ export function LayerRow({
         zIndex: sortable.isDragging ? 1 : undefined,
         position: "relative",
       }}
-      className={`space-y-2 rounded-lg border bg-background p-2 ${expanded ? "border-foreground/40" : "border-border"} ${sortable.isDragging ? "opacity-60" : ""}`}
+      className={`space-y-2 rounded-lg border bg-background p-2 ${selected ? "border-foreground/40" : "border-border"} ${sortable.isDragging ? "opacity-60" : ""}`}
     >
       <div className="flex items-center gap-2">
         <button
@@ -79,7 +77,7 @@ export function LayerRow({
           type="button"
           onClick={onInspect}
           aria-label={layer.title}
-          aria-expanded={expanded}
+          aria-pressed={selected}
           className="flex min-w-0 flex-1 items-center gap-2 rounded text-left outline-none focus-visible:ring-2 focus-visible:ring-ring"
         >
           <span className="flex size-12 shrink-0 items-center justify-center overflow-hidden rounded-md bg-muted">
@@ -153,49 +151,6 @@ export function LayerRow({
           )}
         </Button>
       </div>
-      {expanded && (
-        <div className="space-y-1 pl-6 text-[11px] text-muted-foreground">
-          {image.url !== null && (
-            <img
-              src={image.url}
-              alt={content.previewAlt}
-              className="max-h-48 w-full rounded object-contain"
-            />
-          )}
-          <div className="flex flex-wrap gap-1">
-            <Button
-              size="sm"
-              variant="ghost"
-              onClick={() => onAction({ kind: "reference" })}
-            >
-              {content.continueQuestion}
-            </Button>
-            <Button
-              size="sm"
-              variant="ghost"
-              disabled={layer.output_id === null}
-              onClick={() => onAction({ kind: "pixel" })}
-            >
-              {content.queryPixel}
-            </Button>
-            <Button
-              size="sm"
-              variant="ghost"
-              onClick={() => onAction({ kind: "region" })}
-            >
-              {content.selectRegion}
-            </Button>
-            <Button
-              size="sm"
-              variant="ghost"
-              disabled={!layer.visible}
-              onClick={() => onAction({ kind: "compare" })}
-            >
-              {content.compare}
-            </Button>
-          </div>
-        </div>
-      )}
       <div className="flex items-center gap-1 pl-6">
         <label className="flex min-w-0 flex-1 items-center gap-2 text-[11px] text-muted-foreground">
           <span className="sr-only">{content.opacity}</span>
@@ -233,6 +188,15 @@ export function LayerRow({
             {Math.round(opacity * 100)}%
           </span>
         </label>
+        <Button
+          size="icon"
+          className="size-6"
+          variant="ghost"
+          aria-label={content.continueQuestion}
+          onClick={() => onAction({ kind: "reference" })}
+        >
+          <MessageSquarePlus className="size-3.5" />
+        </Button>
         <Button
           size="icon"
           className="size-6"

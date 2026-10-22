@@ -30,6 +30,7 @@ import { MapComparison } from "@/features/maps/analysis/MapComparison";
 import { useMapStatus } from "@/features/maps/analysis/useMapStatus";
 import type { ComparisonCapture } from "@/features/maps/analysis/MapComparison";
 import { captureComparedMap } from "@/features/maps/analysis/comparison-capture";
+import { useAppUiStore } from "@/app/store";
 
 const content = zhCN.map;
 
@@ -48,7 +49,11 @@ function MapCanvas() {
     session.workspace_id,
   );
   const [interaction, setInteraction] = useState<MapInteraction | null>(null);
-  const [pair, setPair] = useState<readonly [string, string] | null>(null);
+  const pair = useAppUiStore(state => state.mapComparisonBySession[session.id] ?? null);
+  const selectedLayerId = useAppUiStore(state => state.mapExpandedLayerBySession[session.id]);
+  const setPair = useCallback((value: readonly [string, string] | null) => {
+    useAppUiStore.getState().setMapComparison(session.id, value);
+  }, [session.id]);
   const [comparisonError, setComparisonError] = useState<string | null>(null);
   const comparisonCapture = useRef<ComparisonCapture | null>(null);
   useMapFocus(session.id, map);
@@ -64,15 +69,44 @@ function MapCanvas() {
   useEffect(() => {
     if (
       pair !== null &&
-      pair.some((id) => !layers.some((layer) => layer.id === id))
+      !layerQuery.isPending &&
+      pair.some((id) => !layers.some((layer) => layer.id === id && layer.visible))
     )
       setPair(null);
     if (
       interaction !== null &&
-      !layers.some((layer) => layer.id === interaction.layerId)
+      !layerQuery.isPending &&
+      !layers.some((layer) => layer.id === interaction.layerId && layer.visible)
     )
       setInteraction(null);
-  }, [layers, pair, interaction]);
+  }, [layers, pair, interaction, setPair, layerQuery.isPending]);
+  useEffect(() => {
+    if (pair !== null && layers.some(layer => layer.id === pair[0]))
+      setInteraction({ layerId: pair[0], mode: "compare" });
+  }, [pair, layers]);
+  useEffect(() => {
+    if (interaction === null) return;
+    const cancel = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setInteraction(null);
+        setPair(null);
+      }
+    };
+    window.addEventListener("keydown", cancel);
+    return () => window.removeEventListener("keydown", cancel);
+  }, [interaction, setPair]);
+  const visibleLayers = layers.filter(layer => layer.visible && layer.bounds !== null).sort((a, b) => b.position - a.position);
+  function toggleInteraction(mode: MapInteraction["mode"]) {
+    setComparisonError(null);
+    setPair(null);
+    if (interaction?.mode === mode) {
+      setInteraction(null);
+      return;
+    }
+    const eligible = visibleLayers.filter(layer => mode !== "pixel" || layer.output_id !== null);
+    const layer = eligible.find(layer => layer.id === selectedLayerId) ?? eligible[0];
+    if (layer !== undefined) setInteraction({ layerId: layer.id, mode });
+  }
   useEffect(
     () =>
       registerMapCapture(session.id, async () => {
@@ -83,6 +117,7 @@ function MapCanvas() {
           map.failed ||
           layerQuery.isPending ||
           layerQuery.isError ||
+          (pair !== null && comparisonCapture.current === null) ||
           layers.some(
             (layer) =>
               layer.visible && instance.getLayer(layer.id) === undefined,
@@ -92,7 +127,7 @@ function MapCanvas() {
         }
         return captureComparedMap(instance, comparisonCapture.current);
       }),
-    [session.id, map, layerQuery.isPending, layerQuery.isError, layers],
+    [session.id, map, layerQuery.isPending, layerQuery.isError, layers, pair],
   );
   const [layerErrors, setLayerErrors] = useState<
     Readonly<Record<string, string>>
@@ -117,6 +152,7 @@ function MapCanvas() {
     layers,
     layerErrors,
     comparisonCapture,
+    pair !== null,
   );
   return (
     <div
@@ -124,7 +160,14 @@ function MapCanvas() {
       aria-label={content.label}
     >
       <div ref={targetRef} className="absolute inset-0" />
-      <MapToolbar map={map} />
+      <MapToolbar
+        map={map}
+        mode={interaction?.mode ?? null}
+        canQuery={visibleLayers.some(layer => layer.output_id !== null)}
+        canSelect={visibleLayers.length > 0}
+        canCompare={visibleLayers.length >= 2}
+        onInteract={toggleInteraction}
+      />
       <MapLayers
         map={map}
         workspaceId={session.workspace_id}
@@ -139,7 +182,6 @@ function MapCanvas() {
           outputs.isError ||
           Object.keys(layerErrors).length > 0
         }
-        onInteract={setInteraction}
         statuses={rendering.layers}
       />
       {pair !== null && (
@@ -164,7 +206,11 @@ function MapCanvas() {
             setComparisonError(null);
             setPair(value);
           }}
-          onClose={() => setInteraction(null)}
+          onChange={setInteraction}
+          onClose={() => {
+            setInteraction(null);
+            setPair(null);
+          }}
         />
       )}
       {comparisonError !== null && (

@@ -24,6 +24,21 @@ export function MapPresentationBridge() {
           record.eventType === "tool.requested" &&
           record.payload.tool_call_id === event.payload.tool_call_id,
       );
+      if (call?.payload.name === "map_compare") {
+        const result = event.payload.result;
+        if (typeof result !== "object" || result === null ||
+          !("layer_ids" in result) || !("open_map" in result) || typeof result.open_map !== "boolean" ||
+          (result.layer_ids !== null && (!Array.isArray(result.layer_ids) || result.layer_ids.length !== 2 || !result.layer_ids.every(id => typeof id === "string"))))
+          throw new Error("Invalid map comparison result.");
+        const toolId = event.payload.tool_call_id;
+        if (typeof toolId !== "string") throw new Error("Invalid comparison tool identity.");
+        if (handled.current.has(toolId)) continue;
+        handled.current.add(toolId);
+        useAppUiStore.getState().setMapComparison(session.id, result.layer_ids === null ? null : [result.layer_ids[0]!, result.layer_ids[1]!]);
+        if (result.open_map && location.pathname !== sessionMapPath(session.workspace_id, session.id))
+          void navigate(sessionMapPath(session.workspace_id, session.id));
+        continue;
+      }
       if (call?.payload.name !== "map_present") continue;
       const result = event.payload.result;
       if (

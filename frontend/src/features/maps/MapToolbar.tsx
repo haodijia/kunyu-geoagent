@@ -1,17 +1,29 @@
-import { Compass, LocateFixed, Minus, Plus } from "lucide-react";
+import { Columns2, Compass, LocateFixed, Minus, Plus, Scan, ScanEye } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Tooltip } from "@/components/ui/tooltip";
 import { MAP_DIMENSIONS } from "@/features/maps/runtime/config";
 import type { useSessionMap } from "@/features/maps/runtime/useSessionMap";
 import { zhCN } from "@/locales/zh-CN";
+import type { MapInteraction } from "@/features/maps/analysis/MapInteractions";
+import { interactionCopy } from "@/locales/zh-CN/map-interactions";
 
 const content = zhCN.map;
 
 export function MapToolbar({
   map,
+  mode,
+  canQuery,
+  canSelect,
+  canCompare,
+  onInteract,
 }: {
   readonly map: ReturnType<typeof useSessionMap>;
+  readonly mode: MapInteraction["mode"] | null;
+  readonly canQuery: boolean;
+  readonly canSelect: boolean;
+  readonly canCompare: boolean;
+  readonly onInteract: (mode: MapInteraction["mode"]) => void;
 }) {
   const actions = [
     { label: content.zoomIn, Icon: Plus, onClick: map.zoomIn },
@@ -44,6 +56,27 @@ export function MapToolbar({
               ? content.twoDimensional
               : content.threeDimensional}
           </Button>
+        ))}
+      </div>
+      <div className="flex flex-col gap-1 rounded-lg border border-border bg-background/95 p-1 shadow-sm backdrop-blur">
+        {([
+          { value: "pixel", Icon: ScanEye, enabled: canQuery },
+          { value: "region", Icon: Scan, enabled: canSelect },
+          { value: "compare", Icon: Columns2, enabled: canCompare },
+        ] as const).map(({ value, Icon, enabled }) => (
+          <Tooltip key={value} label={interactionCopy[value]} side="left">
+            <Button
+              variant={mode === value ? "default" : "ghost"}
+              size="icon"
+              className="size-8"
+              disabled={!map.ready || !enabled}
+              aria-label={interactionCopy[value]}
+              aria-pressed={mode === value}
+              onClick={() => onInteract(value)}
+            >
+              <Icon className="size-4" strokeWidth={1.8} aria-hidden="true" />
+            </Button>
+          </Tooltip>
         ))}
       </div>
       <div className="flex flex-col gap-1 rounded-lg border border-border bg-background/95 p-1 shadow-sm backdrop-blur">

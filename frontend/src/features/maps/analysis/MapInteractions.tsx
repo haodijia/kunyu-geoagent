@@ -20,6 +20,7 @@ export function MapInteractions({
   outputs,
   pair,
   onPair,
+  onChange,
   onClose,
 }: {
   readonly value: MapInteraction;
@@ -30,6 +31,7 @@ export function MapInteractions({
   readonly outputs: readonly AnalysisOutput[];
   readonly pair: readonly [string, string] | null;
   readonly onPair: (value: readonly [string, string] | null) => void;
+  readonly onChange: (value: MapInteraction) => void;
   readonly onClose: () => void;
 }) {
   const layer = layers.find((item) => item.id === value.layerId);
@@ -52,9 +54,25 @@ export function MapInteractions({
         </Button>
       </div>
       <div className="min-h-0 space-y-3 overflow-y-auto p-3">
-        <p className="break-words text-xs text-muted-foreground">
-          {layer.title}
-        </p>
+        <label className="block space-y-1 text-xs text-muted-foreground">
+          {value.mode === "compare" ? copy.left : copy.layer}
+          <select
+            aria-label={value.mode === "compare" ? copy.left : copy.layer}
+            className="h-8 w-full rounded-md border border-input bg-background px-2 text-xs text-foreground"
+            value={layer.id}
+            onChange={(event) => {
+              onPair(null);
+              onChange({ ...value, layerId: event.target.value });
+            }}
+          >
+            {layers
+              .filter((item) => item.visible && item.bounds !== null &&
+                (value.mode !== "pixel" || item.output_id !== null))
+              .map((item) => (
+                <option key={item.id} value={item.id}>{item.title}</option>
+              ))}
+          </select>
+        </label>
         {value.mode === "pixel" && (
           <PixelInteraction key={layer.id} {...props} />
         )}
@@ -86,16 +104,14 @@ function ComparisonControls({
   readonly onPair: (value: readonly [string, string] | null) => void;
 }) {
   const [right, setRight] = useState(pair?.[0] === layer.id ? pair[1] : "");
+  const selectedRight = pair?.[1] ?? right;
   return (
     <div className="space-y-2 text-xs">
-      <p>
-        {copy.left}: {layer.title}
-      </p>
       <label className="block space-y-1">
         {copy.right}
         <select
           className="h-8 w-full rounded-md border border-input bg-background px-2 text-xs"
-          value={right}
+          value={selectedRight}
           onChange={(event) => {
             onPair(null);
             setRight(event.target.value);
@@ -103,7 +119,7 @@ function ComparisonControls({
         >
           <option value="">{copy.select}</option>
           {layers
-            .filter((item) => item.id !== layer.id && item.visible)
+            .filter((item) => item.id !== layer.id && item.visible && item.bounds !== null)
             .map((item) => (
               <option key={item.id} value={item.id}>
                 {item.title}
@@ -114,11 +130,15 @@ function ComparisonControls({
       <Button
         size="sm"
         variant="outline"
-        disabled={pair === null && right === ""}
-        onClick={() => onPair(pair === null ? [layer.id, right] : null)}
+        disabled={pair === null && !layers.some(item => item.id === selectedRight && item.id !== layer.id && item.visible && item.bounds !== null)}
+        onClick={() => {
+          setRight(selectedRight);
+          onPair(pair === null ? [layer.id, selectedRight] : null);
+        }}
       >
         {pair === null ? copy.swipeStart : copy.swipeStop}
       </Button>
+      {pair !== null && <p className="text-muted-foreground">{copy.dragDivider}</p>}
     </div>
   );
 }

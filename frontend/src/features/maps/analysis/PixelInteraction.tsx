@@ -1,5 +1,6 @@
-import type { MapMouseEvent } from "maplibre-gl";
+import { Popup, type MapMouseEvent } from "maplibre-gl";
 import { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import { Button } from "@/components/ui/button";
 import type { AnalysisOutput, MapLayer } from "@/features/analysis/api";
 import { rasterApi, type RasterSample } from "@/features/analysis/raster";
@@ -26,7 +27,22 @@ export function PixelInteraction({
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [popupTarget] = useState(() => document.createElement("div"));
   const instance = map.getMap();
+  useEffect(() => {
+    if (instance === null || point === null) return;
+    const popup = new Popup({
+      closeButton: false,
+      closeOnClick: false,
+      maxWidth: "280px",
+    })
+      .setLngLat([...point])
+      .setDOMContent(popupTarget)
+      .addTo(instance);
+    return () => {
+      popup.remove();
+    };
+  }, [instance, point, popupTarget]);
   useEffect(() => {
     if (instance === null || !map.ready || layer.output_id === null) return;
     let pending: AbortController | null = null;
@@ -87,43 +103,52 @@ export function PixelInteraction({
     }
   }
   return (
-    <div className="space-y-2 text-xs">
+    <>
       <p className="text-muted-foreground">{copy.pixelHint}</p>
       {point !== null && (
-        <p>
-          {point[0].toFixed(6)}, {point[1].toFixed(6)}
-        </p>
+        createPortal(
+          <div className="space-y-2 p-1 text-xs text-foreground">
+            <p className="font-medium">{layer.title}</p>
+            <p>
+              {point[0].toFixed(6)}, {point[1].toFixed(6)}
+            </p>
+            {sample !== null && (
+              <div role="status">
+                {!sample.inside
+                  ? copy.outside
+                  : sample.values.map((value, index) => (
+                      <p key={index}>
+                        {sample.bands[index] ?? `Band ${index + 1}`}:{" "}
+                        {value === null ? copy.noData : value.toPrecision(6)}
+                      </p>
+                    ))}
+              </div>
+            )}
+            {sample === null && error === null && (
+              <p role="status">{copy.loading}</p>
+            )}
+            <Button
+              size="sm"
+              variant="outline"
+              disabled={sample === null || !sample.inside || saving || saved}
+              onClick={() => void reference()}
+            >
+              {copy.send}
+            </Button>
+            {saved && (
+              <p role="status" className="text-muted-foreground">
+                {copy.saved}
+              </p>
+            )}
+            {error !== null && (
+              <p role="alert" className="text-destructive">
+                {error}
+              </p>
+            )}
+          </div>,
+          popupTarget,
+        )
       )}
-      {sample !== null && (
-        <div role="status">
-          {!sample.inside
-            ? copy.outside
-            : sample.values.map((value, index) => (
-                <p key={index}>
-                  {sample.bands[index] ?? `Band ${index + 1}`}:{" "}
-                  {value === null ? copy.noData : value.toPrecision(6)}
-                </p>
-              ))}
-        </div>
-      )}
-      <Button
-        size="sm"
-        variant="outline"
-        disabled={sample === null || !sample.inside || saving || saved}
-        onClick={() => void reference()}
-      >
-        {copy.send}
-      </Button>
-      {saved && (
-        <p role="status" className="text-muted-foreground">
-          {copy.saved}
-        </p>
-      )}
-      {error !== null && (
-        <p role="alert" className="text-destructive">
-          {error}
-        </p>
-      )}
-    </div>
+    </>
   );
 }

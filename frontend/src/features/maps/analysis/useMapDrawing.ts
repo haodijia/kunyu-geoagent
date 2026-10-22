@@ -7,8 +7,9 @@ export function useMapDrawing(
   map: Map | null,
   ready: boolean,
   onComplete: (geometry: RegionGeometry) => void,
+  initialMode: "rectangle" | "polygon" | null = null,
 ) {
-  const [mode, setMode] = useState<"rectangle" | "polygon" | null>(null);
+  const [mode, setMode] = useState<"rectangle" | "polygon" | null>(initialMode);
   useEffect(() => {
     if (map === null || !ready || mode === null) return;
     let points: Position[] = [];

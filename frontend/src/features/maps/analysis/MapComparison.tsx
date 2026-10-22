@@ -4,6 +4,7 @@ import { getRuntimeConnection } from "@/api/runtime";
 import type { MapLayer } from "@/features/analysis/api";
 import type { useSessionMap } from "@/features/maps/runtime/useSessionMap";
 import { interactionCopy as copy } from "@/locales/zh-CN/map-interactions";
+import { GripVertical } from "lucide-react";
 
 export interface ComparisonCapture {
   map: Map;
@@ -27,14 +28,26 @@ export function MapComparison({
 }) {
   const target = useRef<HTMLDivElement>(null);
   const [ratio, setRatio] = useState(50);
+  const [layersReady, setLayersReady] = useState(false);
   const ratioRef = useRef(0.5);
   const instance = map.getMap();
   useEffect(() => {
-    if (!map.ready || instance === null || target.current === null) return;
-    if (pair.some((id) => instance.getLayer(id) === undefined)) {
-      onError(copy.failedRequest);
+    if (!map.ready || instance === null) {
+      setLayersReady(false);
       return;
     }
+    const check = () =>
+      setLayersReady(pair.every(id => instance.getLayer(id) !== undefined));
+    instance.on("styledata", check);
+    check();
+    return () => {
+      instance.off("styledata", check);
+    };
+  }, [instance, map.ready, pair, layers]);
+  useEffect(() => {
+    if (!map.ready || !layersReady || instance === null || target.current === null)
+      return;
+    if (pair.some(id => instance.getLayer(id) === undefined)) return;
     const style = structuredClone(instance.getStyle());
     for (const layer of style.layers) {
       if (!layers.some((item) => item.id === layer.id)) continue;
@@ -127,7 +140,7 @@ export function MapComparison({
           instance.setPaintProperty(layer.id, "raster-opacity", layer.opacity);
         }
     };
-  }, [instance, map.ready, pair, layers, capture, onError]);
+  }, [instance, map.ready, layersReady, pair, layers, capture, onError]);
   useEffect(() => {
     ratioRef.current = ratio / 100;
     if (capture.current !== null) capture.current.ratio = ratio / 100;
@@ -140,18 +153,54 @@ export function MapComparison({
         style={{ clipPath: `inset(0 0 0 ${ratio}%)` }}
       />
       <div
-        className="pointer-events-none absolute inset-y-0 z-[2] w-px bg-white shadow"
-        style={{ left: `${ratio}%` }}
-      />
-      <input
+        role="slider"
+        tabIndex={0}
         aria-label={copy.divider}
-        type="range"
-        min={0}
-        max={100}
-        value={ratio}
-        onChange={(event) => setRatio(Number(event.target.value))}
-        className="absolute bottom-[calc(var(--map-overlay-height,180px)+1rem)] left-1/4 z-10 w-1/2 accent-primary"
-      />
+        aria-orientation="horizontal"
+        aria-valuemin={0}
+        aria-valuemax={100}
+        aria-valuenow={ratio}
+        className="absolute inset-y-0 z-[3] w-6 -translate-x-1/2 cursor-ew-resize touch-none outline-none after:absolute after:inset-y-0 after:left-1/2 after:w-0.5 after:-translate-x-1/2 after:bg-white after:shadow focus-visible:after:bg-primary"
+        style={{ left: `${ratio}%` }}
+        onPointerDown={(event) => {
+          if (event.button !== 0) return;
+          event.preventDefault();
+          event.stopPropagation();
+          event.currentTarget.focus();
+          event.currentTarget.setPointerCapture(event.pointerId);
+        }}
+        onPointerMove={(event) => {
+          if (!event.currentTarget.hasPointerCapture(event.pointerId)) return;
+          event.stopPropagation();
+          const bounds = target.current?.getBoundingClientRect();
+          if (bounds !== undefined && bounds.width > 0)
+            setRatio(Math.min(100, Math.max(0,
+              (event.clientX - bounds.left) / bounds.width * 100,
+            )));
+        }}
+        onPointerUp={(event) => {
+          event.stopPropagation();
+          if (event.currentTarget.hasPointerCapture(event.pointerId))
+            event.currentTarget.releasePointerCapture(event.pointerId);
+        }}
+        onClick={(event) => event.stopPropagation()}
+        onKeyDown={(event) => {
+          const delta = event.shiftKey ? 10 : 1;
+          if (!["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) return;
+          event.preventDefault();
+          event.stopPropagation();
+          setRatio((current) => {
+            if (event.key === "Home") return 0;
+            if (event.key === "End") return 100;
+            const next = current + (event.key === "ArrowLeft" ? -delta : delta);
+            return Math.min(100, Math.max(0, next));
+          });
+        }}
+      >
+        <span className="absolute top-1/2 left-1/2 z-[1] flex h-12 w-7 -translate-1/2 items-center justify-center rounded-full border border-border bg-background text-foreground shadow-md">
+          <GripVertical className="size-4" aria-hidden="true" />
+        </span>
+      </div>
     </>
   );
 }

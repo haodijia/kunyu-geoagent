@@ -59,3 +59,20 @@ def style_compact(result):
 
 
 STYLE = ToolOutputContract(agent_content, style_display, style_compact)
+
+
+def comparison_display(result):
+    key = (
+        "map_comparison_stop"
+        if object_result(result)["layer_ids"] is None
+        else "map_comparison_start"
+    )
+    summary = label(key)
+    return TextDisplay(summary=summary, text=summary)
+
+
+def comparison_compact(result):
+    return compact(comparison_display(result).summary, object_result(result))
+
+
+COMPARISON = ToolOutputContract(agent_content, comparison_display, comparison_compact)

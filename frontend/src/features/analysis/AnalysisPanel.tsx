@@ -24,7 +24,6 @@ import {
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useSessionWorkspace } from "@/features/sessions/SessionWorkspaceContext";
 import { referenceLayer } from "@/features/analysis/result-reference";
-import type { MapInteraction } from "@/features/maps/analysis/MapInteractions";
 import type { LayerStatus } from "@/features/maps/analysis/useMapStatus";
 import { Layers, X } from "lucide-react";
 import { useState } from "react";
@@ -34,13 +33,11 @@ export function AnalysisPanel({
   sessionId,
   layers,
   error,
-  onInteract,
   statuses,
 }: {
   readonly sessionId: string;
   readonly layers: readonly MapLayer[];
   readonly error: boolean;
-  readonly onInteract: (value: MapInteraction) => void;
   readonly statuses: readonly LayerStatus[];
 }) {
   const [open, setOpen] = useState(true);
@@ -178,7 +175,7 @@ export function AnalysisPanel({
                   key={layer.id}
                   layer={layer}
                   status={statuses.find((value) => value.layer_id === layer.id)}
-                  expanded={layer.id === inspectedLayerId}
+                  selected={layer.id === inspectedLayerId}
                   disabled={mutation.isPending}
                   onInspect={() =>
                     useAppUiStore
@@ -206,13 +203,6 @@ export function AnalysisPanel({
                             : content.actionFailed,
                         );
                       }
-                    } else if (
-                      action.kind === "pixel" ||
-                      action.kind === "region" ||
-                      action.kind === "compare"
-                    ) {
-                      setOpen(false);
-                      onInteract({ layerId: layer.id, mode: action.kind });
                     } else mutation.mutate({ layer, action });
                   }}
                 />

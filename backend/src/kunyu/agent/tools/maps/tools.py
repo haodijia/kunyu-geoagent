@@ -17,7 +17,7 @@ from kunyu.agent.runtime.contracts.tools import (
     ToolRiskLevel,
     ToolSpec,
 )
-from kunyu.agent.tools.outputs.maps import CONTEXT, PRESENT, STYLE
+from kunyu.agent.tools.outputs.maps import COMPARISON, CONTEXT, PRESENT, STYLE
 from kunyu.agent.tools.shared import (
     ToolArguments,
     load_source,
@@ -79,6 +79,19 @@ class StyleArguments(LayerStyleWrite, ToolArguments):
     layer_id: str = Field(min_length=1, max_length=64)
 
 
+class ComparisonArguments(ToolArguments):
+    layer_ids: list[Annotated[str, Field(min_length=1, max_length=64)]] | None = Field(
+        min_length=2, max_length=2
+    )
+    open_map: bool = True
+
+    @model_validator(mode="after")
+    def distinct_layers(self):
+        if self.layer_ids is not None and self.layer_ids[0] == self.layer_ids[1]:
+            raise ValueError("Comparison requires two distinct layers.")
+        return self
+
+
 class MapTool(BaseTool):
     def __init__(
         self,
@@ -94,16 +107,16 @@ class MapTool(BaseTool):
             "map_get_context": CONTEXT,
             "map_present": PRESENT,
             "map_set_layer_style": STYLE,
+            "map_compare": COMPARISON,
         }[name]
         self._run_id, self._contexts, self._maps = run_id, contexts, maps
         self._captures, self._attachments = captures, attachments
-        self._arguments = (
-            ContextArguments
-            if name == "map_get_context"
-            else StyleArguments
-            if name == "map_set_layer_style"
-            else PresentArguments
-        )
+        self._arguments = {
+            "map_get_context": ContextArguments,
+            "map_set_layer_style": StyleArguments,
+            "map_present": PresentArguments,
+            "map_compare": ComparisonArguments,
+        }[name]
         self.spec = ToolSpec(
             name=name,
             description=tool_description(name),
@@ -177,6 +190,17 @@ class MapTool(BaseTool):
                     {"layers": [layer.model_dump(mode="json") for layer in layers]},
                     max_bytes=1024 * 1024,
                 )
+            elif self.spec.name == "map_compare":
+                layers = {layer.id: layer for layer in self._maps.layers(session_id)}
+                if args.layer_ids is not None:
+                    for layer_id in args.layer_ids:
+                        layer = layers.get(layer_id)
+                        if layer is None or not layer.visible or layer.bounds is None:
+                            raise ToolExecutionError(
+                                "Comparison requires two visible, spatially located layers from this session.",
+                                code="INVALID_COMPARISON_LAYERS",
+                            )
+                value = args.model_dump(mode="json")
             else:
                 value = self._maps.style(
                     session_id,

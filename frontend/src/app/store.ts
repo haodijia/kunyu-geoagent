@@ -38,6 +38,8 @@ interface AppUiState {
   readonly composerQueuedBySession: Readonly<Record<string, boolean>>;
   readonly mapContextBySession: Readonly<Record<string, MapContext>>;
   readonly mapExpandedLayerBySession: Readonly<Record<string, string | null>>;
+  readonly mapComparisonBySession: Readonly<Record<string, readonly [string, string] | null>>;
+  readonly setMapComparison: (sessionId: string, pair: readonly [string, string] | null) => void;
   readonly inspectMapLayer: (sessionId: string, layerId: string | null) => void;
   readonly mapFocusBySession: Readonly<Record<string, MapBounds>>;
   readonly focusMap: (sessionId: string, bounds: MapBounds) => void;
@@ -76,6 +78,8 @@ export const useAppUiStore = create<AppUiState>((set) => ({
   composerQueuedBySession: {},
   mapContextBySession: {},
   mapExpandedLayerBySession: {},
+  mapComparisonBySession: {},
+  setMapComparison: (sessionId, pair) => set(state => ({ mapComparisonBySession: { ...state.mapComparisonBySession, [sessionId]: pair } })),
   inspectMapLayer: (sessionId, layerId) => set(state => {
     const context = state.mapContextBySession[sessionId];
     if (context === undefined) throw new Error("Map context must be initialized before inspecting a layer.");

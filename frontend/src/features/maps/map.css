@@ -3,6 +3,18 @@
   inset: 0;
 }
 
+.kunyu-map .maplibregl-popup-content {
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--background);
+  color: var(--foreground);
+  font-family: inherit;
+}
+
+.kunyu-map .maplibregl-popup-anchor-bottom .maplibregl-popup-tip {
+  border-top-color: var(--background);
+}
+
 .map-composer-overlay {
   bottom: 16px;
   left: 50%;

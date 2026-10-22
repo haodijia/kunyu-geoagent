@@ -22,6 +22,7 @@ export function useMapStatus(
   layers: readonly MapLayer[],
   errors: Readonly<Record<string, string>>,
   comparison: RefObject<ComparisonCapture | null>,
+  comparisonRequested: boolean,
 ) {
   const [status, setStatus] = useState<RenderStatus>({
     state: "loading",
@@ -29,8 +30,8 @@ export function useMapStatus(
     error: null,
   });
   const refresh = useRef<(() => void) | null>(null);
-  const latest = useRef({ map, layers, errors });
-  latest.current = { map, layers, errors };
+  const latest = useRef({ map, layers, errors, comparisonRequested });
+  latest.current = { map, layers, errors, comparisonRequested };
   useEffect(() => {
     const instance = latest.current.map.getMap();
     if (instance === null) return;
@@ -72,6 +73,7 @@ export function useMapStatus(
         !instance.loaded() ||
         instance.isMoving() ||
         values.some((value) => value.state === "loading") ||
+        (current.comparisonRequested && comparison.current === null) ||
         (comparison.current !== null && !comparison.current.ready);
       const next: RenderStatus = {
         state: failed ? "failed" : loading ? "loading" : "ready",
@@ -139,6 +141,6 @@ export function useMapStatus(
   }, [sessionId, map.ready, comparison]);
   useEffect(() => {
     refresh.current?.();
-  }, [map.ready, map.failed, layers, errors]);
+  }, [map.ready, map.failed, layers, errors, comparisonRequested]);
   return status;
 }

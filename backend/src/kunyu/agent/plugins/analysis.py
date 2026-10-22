@@ -112,6 +112,7 @@ class AnalysisPlugin:
             "map_get_context",
             "map_present",
             "map_set_layer_style",
+            "map_compare",
         ):
             tools.register(
                 context,

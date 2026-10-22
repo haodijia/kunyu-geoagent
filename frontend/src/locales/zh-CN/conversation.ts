@@ -318,6 +318,7 @@ export const conversation = {
         map_sample_raster: "查询源栅格像元",
         map_region_statistics: "统计区域",
         map_present: "在地图展示",
+        map_compare: "地图卷帘对比",
         map_set_layer_style: "调整地图图层",
         job_output: "读取后台结果",
         job_list: "查看后台任务",

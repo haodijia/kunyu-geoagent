@@ -3,6 +3,7 @@ export const interactionCopy = {
   pixel: "像元查询",
   region: "圈选范围",
   compare: "卷帘对比",
+  layer: "目标图层",
   pixelHint: "点击地图查询所选成果的原始值。",
   outside: "该位置不在成果内。",
   noData: "无有效值",
@@ -31,5 +32,7 @@ export const interactionCopy = {
   swipeStart: "开启卷帘",
   swipeStop: "结束卷帘",
   divider: "调整卷帘分界",
+  dragDivider: "拖动地图中的分隔线或把手调整对比范围。",
+  loading: "正在查询像元…",
   failedRequest: "地图操作失败，请重试。",
 } as const;

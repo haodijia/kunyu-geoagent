@@ -61,7 +61,7 @@ export function RegionInteraction({
   const scalar =
     outputs.find((output) => output.id === layer.output_id)?.kind ===
     "scalar_raster";
-  const drawing = useMapDrawing(instance, map.ready, complete);
+  const drawing = useMapDrawing(instance, map.ready, complete, "rectangle");
   useSelectionOverlay(instance, map.ready, geometry);
   function startDrawing(mode: "rectangle" | "polygon") {
     setGeometry(null);
