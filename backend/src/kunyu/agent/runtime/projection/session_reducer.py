@@ -8,6 +8,7 @@ from typing import Literal
 from kunyu.agent.runtime.events.assistant import StepDecisionEvent
 from kunyu.agent.runtime.events.base import TERMINAL_RUN_STATES, RunState
 from kunyu.agent.runtime.events.context import CompactionStartedEvent
+from kunyu.agent.runtime.events.run import RunCreatedEvent
 from kunyu.agent.runtime.events.session import (
     BusinessObjectChangedEvent,
     InboxMessagePayload,
@@ -206,6 +207,14 @@ def reduce_session(events: Iterable[AgentEvent]) -> ReducedSession:
                 created_at=event.occurred_at,
                 created_sequence=envelope.sequence,
                 updated_sequence=envelope.sequence,
+            )
+
+        if isinstance(event, RunCreatedEvent):
+            message = user_messages.get(event.payload.user_message_id)
+            if message is None:
+                raise SessionReductionError("A run must identify an existing user message.")
+            user_messages[message.message_id] = replace(
+                message, map_context=dict(event.payload.map_snapshot)
             )
 
         if isinstance(event, InboxSplicedEvent) and event.payload.target == "next-turn":
@@ -514,6 +523,7 @@ def _splice_next_turn(
             session_id=event.session_id,
             run_id=None,
             content=item.content,
+            map_context=dict(item.map_context),
             source=item.source,
             attachments=item.attachments,
             created_at=event.occurred_at,

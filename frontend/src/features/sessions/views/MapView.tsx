@@ -31,6 +31,7 @@ import { useMapStatus } from "@/features/maps/analysis/useMapStatus";
 import type { ComparisonCapture } from "@/features/maps/analysis/MapComparison";
 import { captureComparedMap } from "@/features/maps/analysis/comparison-capture";
 import { useAppUiStore } from "@/app/store";
+import { useSelectionOverlay } from "@/features/maps/analysis/useMapDrawing";
 
 const content = zhCN.map;
 
@@ -51,6 +52,9 @@ function MapCanvas() {
   const [interaction, setInteraction] = useState<MapInteraction | null>(null);
   const pair = useAppUiStore(state => state.mapComparisonBySession[session.id] ?? null);
   const selectedLayerId = useAppUiStore(state => state.mapExpandedLayerBySession[session.id]);
+  const selection = useAppUiStore(state => state.mapContextBySession[session.id]?.selection);
+  useSelectionOverlay(map.getMap(), map.ready,
+    selection !== undefined && selection !== null && selection.geometry.type !== "Point" ? selection.geometry : null);
   const setPair = useCallback((value: readonly [string, string] | null) => {
     useAppUiStore.getState().setMapComparison(session.id, value);
   }, [session.id]);
@@ -70,15 +74,16 @@ function MapCanvas() {
     if (
       pair !== null &&
       !layerQuery.isPending &&
-      pair.some((id) => !layers.some((layer) => layer.id === id && layer.visible))
+      pair.some((id) => !layers.some((layer) => layer.id === id && layer.bounds !== null))
     )
       setPair(null);
     if (
       interaction !== null &&
+      interaction.layerId !== null &&
       !layerQuery.isPending &&
-      !layers.some((layer) => layer.id === interaction.layerId && layer.visible)
+      !layers.some((layer) => layer.id === interaction.layerId)
     )
-      setInteraction(null);
+      setInteraction({ ...interaction, layerId: null });
   }, [layers, pair, interaction, setPair, layerQuery.isPending]);
   useEffect(() => {
     if (pair !== null && layers.some(layer => layer.id === pair[0]))
@@ -95,7 +100,7 @@ function MapCanvas() {
     window.addEventListener("keydown", cancel);
     return () => window.removeEventListener("keydown", cancel);
   }, [interaction, setPair]);
-  const visibleLayers = layers.filter(layer => layer.visible && layer.bounds !== null).sort((a, b) => b.position - a.position);
+  const spatialLayers = layers.filter(layer => layer.bounds !== null).sort((a, b) => b.position - a.position);
   function toggleInteraction(mode: MapInteraction["mode"]) {
     setComparisonError(null);
     setPair(null);
@@ -103,9 +108,9 @@ function MapCanvas() {
       setInteraction(null);
       return;
     }
-    const eligible = visibleLayers.filter(layer => mode !== "pixel" || layer.output_id !== null);
+    const eligible = spatialLayers.filter(layer => mode !== "pixel" || layer.output_id !== null);
     const layer = eligible.find(layer => layer.id === selectedLayerId) ?? eligible[0];
-    if (layer !== undefined) setInteraction({ layerId: layer.id, mode });
+    setInteraction({ layerId: layer?.id ?? null, mode });
   }
   useEffect(
     () =>
@@ -152,7 +157,7 @@ function MapCanvas() {
     layers,
     layerErrors,
     comparisonCapture,
-    pair !== null,
+    pair,
   );
   return (
     <div
@@ -163,27 +168,65 @@ function MapCanvas() {
       <MapToolbar
         map={map}
         mode={interaction?.mode ?? null}
-        canQuery={visibleLayers.some(layer => layer.output_id !== null)}
-        canSelect={visibleLayers.length > 0}
-        canCompare={visibleLayers.length >= 2}
         onInteract={toggleInteraction}
       />
       <MapLayers
         map={map}
         workspaceId={session.workspace_id}
         layers={layers}
+        comparison={pair}
         onError={layerError}
       />
-      <AnalysisPanel
-        sessionId={session.id}
-        layers={layers}
-        error={
-          layerQuery.isError ||
-          outputs.isError ||
-          Object.keys(layerErrors).length > 0
-        }
-        statuses={rendering.layers}
-      />
+      <div className="pointer-events-none absolute top-4 left-4 z-20 flex max-h-[calc(100%-var(--map-overlay-height,180px)-2rem)] w-80 max-w-[calc(100%-8rem)] flex-col gap-2 overflow-y-auto [&>*]:pointer-events-auto">
+        <AnalysisPanel
+          sessionId={session.id}
+          layers={layers}
+          error={
+            layerQuery.isError ||
+            outputs.isError ||
+            Object.keys(layerErrors).length > 0
+          }
+          statuses={rendering.layers}
+        />
+        {interaction !== null && (
+          <MapInteractions
+            value={interaction}
+            map={map}
+            workspaceId={session.workspace_id}
+            sessionId={session.id}
+            layers={layers}
+            outputs={outputs.data ?? []}
+            pair={pair}
+            onPair={(value) => {
+              setComparisonError(null);
+              setPair(value);
+            }}
+            onChange={setInteraction}
+            onClose={() => {
+              setInteraction(null);
+              setPair(null);
+            }}
+          />
+        )}
+        {comparisonError !== null && (
+          <div
+            role="alert"
+            className="rounded-lg border border-border bg-background p-3 text-xs text-destructive"
+          >
+            {comparisonError}
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => {
+                setPair(null);
+                setComparisonError(null);
+              }}
+            >
+              {content.closeComparison}
+            </Button>
+          </div>
+        )}
+      </div>
       {pair !== null && (
         <MapComparison
           map={map}
@@ -192,44 +235,6 @@ function MapCanvas() {
           capture={comparisonCapture}
           onError={setComparisonError}
         />
-      )}
-      {interaction !== null && (
-        <MapInteractions
-          value={interaction}
-          map={map}
-          workspaceId={session.workspace_id}
-          sessionId={session.id}
-          layers={layers}
-          outputs={outputs.data ?? []}
-          pair={pair}
-          onPair={(value) => {
-            setComparisonError(null);
-            setPair(value);
-          }}
-          onChange={setInteraction}
-          onClose={() => {
-            setInteraction(null);
-            setPair(null);
-          }}
-        />
-      )}
-      {comparisonError !== null && (
-        <div
-          role="alert"
-          className="absolute top-20 right-16 z-20 max-w-80 rounded-lg border border-border bg-background p-3 text-xs text-destructive"
-        >
-          {comparisonError}
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => {
-              setPair(null);
-              setComparisonError(null);
-            }}
-          >
-            {content.closeComparison}
-          </Button>
-        </div>
       )}
       <div className="pointer-events-none absolute right-4 bottom-[calc(var(--map-overlay-height,180px)+3rem)] z-10 max-w-80 [&>*]:pointer-events-auto">
         {map.failed ? (

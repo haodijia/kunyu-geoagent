@@ -18,11 +18,13 @@ export function MapLayers({
   map,
   workspaceId,
   layers,
+  comparison,
   onError,
 }: {
   readonly map: SessionMap;
   readonly workspaceId: string;
   readonly layers: readonly MapLayer[];
+  readonly comparison: readonly [string, string] | null;
   readonly onError: (layerId: string, error: string | null) => void;
 }) {
   return layers.map((layer) => (
@@ -32,6 +34,7 @@ export function MapLayers({
       workspaceId={workspaceId}
       layer={layer}
       layers={layers}
+      renderable={layer.visible || comparison?.includes(layer.id) === true}
       onError={onError}
     />
   ));
@@ -42,19 +45,21 @@ function LayerSource({
   workspaceId,
   layer,
   layers,
+  renderable,
   onError,
 }: {
   readonly map: SessionMap;
   readonly workspaceId: string;
   readonly layer: MapLayer;
   readonly layers: readonly MapLayer[];
+  readonly renderable: boolean;
   readonly onError: (layerId: string, error: string | null) => void;
 }) {
   const instance = map.getMap();
   const preview = useLayerPreview(
     layer.session_id,
     layer.id,
-    layer.image !== null && layer.visible,
+    layer.image !== null && renderable,
   );
   const footprint = layer.image?.footprint;
   const output = useQuery({
@@ -66,7 +71,7 @@ function LayerSource({
     output.data?.metadata.display_kind === "classified" ? "nearest" : "linear";
   useEffect(() => {
     const error =
-      layer.visible &&
+      renderable &&
       (layer.bounds === null ||
         output.isError ||
         (layer.image !== null && preview.error));
@@ -74,7 +79,7 @@ function LayerSource({
     return () => onError(layer.id, null);
   }, [
     layer.id,
-    layer.visible,
+    renderable,
     layer.bounds,
     layer.image,
     preview.error,
@@ -85,7 +90,7 @@ function LayerSource({
     if (!map.ready || instance === null || layer.bounds === null) return;
     if (layer.image !== null) {
       if (
-        !layer.visible ||
+        !renderable ||
         preview.url === null ||
         footprint === null ||
         footprint === undefined
@@ -145,6 +150,7 @@ function LayerSource({
     layer.image,
     layer.bounds,
     layer.visible,
+    renderable,
     preview.url,
     footprint,
     workspaceId,

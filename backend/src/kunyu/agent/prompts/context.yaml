@@ -21,6 +21,11 @@
   你是受委派的只读子 Agent。权限在创建时确定，不能在此会话中扩大；不能写入、请求用户输入或再次委派。可以通过 send_message 与直接父 Agent 沟通。超出权限时，向父 Agent 报告限制。
 "current_time": |-
   本次请求读取的时间：{{timestamp}}。时区：{{timezone}}。
+"map_selection": |-
+  <map_selection>
+  以下是用户发送本问题时在地图中明确选择的 WGS84 几何范围或点位；它是本问题的输入数据。layer_id（如有）是来源图层，可用 map_get_context 核实对应成果或影像。直接使用 geometry，不需要创建或读取 GeoJSON 文件。它不是地图视口，也不代表其他问题的计算范围。
+  {{selection}}
+  </map_selection>
 "project_instructions": |-
   当前适用的项目指令。此完整快照替换此前的项目指令快照；子目录指令仅适用于对应目录。
 

@@ -1,3 +1,11 @@
+import type { Point } from "geojson";
+import type { RegionGeometry } from "@/features/analysis/raster";
+
+export interface MapSelection {
+  readonly geometry: Point | RegionGeometry;
+  readonly layer_id: string | null;
+}
+
 export interface MapViewport {
   readonly latitude: number;
   readonly longitude: number;
@@ -33,6 +41,7 @@ export const INITIAL_MAP_CAMERA: MapCamera = {
 };
 
 export interface MapContext {
+  readonly selection: MapSelection | null;
   readonly camera: MapCamera;
   readonly viewport: MapViewport;
   readonly workspaceId: string;
@@ -40,6 +49,7 @@ export interface MapContext {
 
 export function createMapContext(workspaceId: string): MapContext {
   return {
+    selection: null,
     camera: INITIAL_MAP_CAMERA,
     viewport: INITIAL_MAP_VIEWPORT,
     workspaceId

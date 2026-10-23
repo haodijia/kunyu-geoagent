@@ -332,6 +332,8 @@ export function useMessages(sessionId: string, workspaceId: string) {
         },
         queued.attachments,
       );
+      useAppUiStore.getState().initializeMapContext(sessionId, workspaceId);
+      useAppUiStore.getState().setMapSelection(sessionId, queued.map_context.selection);
     },
     changeModel: (value: string) => {
       if (requestFrozen) return;

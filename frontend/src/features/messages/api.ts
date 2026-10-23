@@ -77,7 +77,8 @@ export function serializeMessageInput(input: Parameters<typeof appendUserMessage
       reasoning_effort: input.reasoningEffort
     },
     map_context: {
-      workspace_id: map.workspaceId
+      workspace_id: map.workspaceId,
+      selection: map.selection,
     }
   };
 }

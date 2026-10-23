@@ -1,4 +1,4 @@
-import { Columns2, Compass, LocateFixed, Minus, Plus, Scan, ScanEye } from "lucide-react";
+import { Compass, LocateFixed, MapPin, Minus, Plus, SquareDashed, SquareSplitHorizontal } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Tooltip } from "@/components/ui/tooltip";
@@ -13,16 +13,10 @@ const content = zhCN.map;
 export function MapToolbar({
   map,
   mode,
-  canQuery,
-  canSelect,
-  canCompare,
   onInteract,
 }: {
   readonly map: ReturnType<typeof useSessionMap>;
   readonly mode: MapInteraction["mode"] | null;
-  readonly canQuery: boolean;
-  readonly canSelect: boolean;
-  readonly canCompare: boolean;
   readonly onInteract: (mode: MapInteraction["mode"]) => void;
 }) {
   const actions = [
@@ -60,16 +54,16 @@ export function MapToolbar({
       </div>
       <div className="flex flex-col gap-1 rounded-lg border border-border bg-background/95 p-1 shadow-sm backdrop-blur">
         {([
-          { value: "pixel", Icon: ScanEye, enabled: canQuery },
-          { value: "region", Icon: Scan, enabled: canSelect },
-          { value: "compare", Icon: Columns2, enabled: canCompare },
-        ] as const).map(({ value, Icon, enabled }) => (
+          { value: "pixel", Icon: MapPin },
+          { value: "region", Icon: SquareDashed },
+          { value: "compare", Icon: SquareSplitHorizontal },
+        ] as const).map(({ value, Icon }) => (
           <Tooltip key={value} label={interactionCopy[value]} side="left">
             <Button
               variant={mode === value ? "default" : "ghost"}
               size="icon"
               className="size-8"
-              disabled={!map.ready || !enabled}
+              disabled={!map.ready}
               aria-label={interactionCopy[value]}
               aria-pressed={mode === value}
               onClick={() => onInteract(value)}

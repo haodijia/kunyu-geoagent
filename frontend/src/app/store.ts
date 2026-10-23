@@ -17,6 +17,7 @@ import {
   type MapBounds,
   type MapCamera,
   type MapContext,
+  type MapSelection,
   type MapViewport,
 } from "@/features/sessions/map-context";
 
@@ -29,6 +30,7 @@ export interface SessionModelSelection {
 }
 
 interface AppUiState {
+  readonly setMapSelection: (sessionId: string, selection: MapSelection | null) => void;
   readonly analysisModeBySession: Readonly<Record<string, AnalysisMode>>;
   readonly composerAttachmentsBySession: Readonly<Record<string, readonly Attachment[]>>;
   readonly setComposerAttachments: (sessionId: string, attachments: readonly Attachment[]) => void;
@@ -77,6 +79,11 @@ export const useAppUiStore = create<AppUiState>((set) => ({
   setComposerAttachments: (sessionId, attachments) => set((state) => ({ composerAttachmentsBySession: { ...state.composerAttachmentsBySession, [sessionId]: attachments } })),
   composerQueuedBySession: {},
   mapContextBySession: {},
+  setMapSelection: (sessionId, selection) => set(state => {
+    const context = state.mapContextBySession[sessionId];
+    if (context === undefined) throw new Error("Map context must be initialized before selecting geometry.");
+    return { mapContextBySession: { ...state.mapContextBySession, [sessionId]: { ...context, selection } } };
+  }),
   mapExpandedLayerBySession: {},
   mapComparisonBySession: {},
   setMapComparison: (sessionId, pair) => set(state => ({ mapComparisonBySession: { ...state.mapComparisonBySession, [sessionId]: pair } })),

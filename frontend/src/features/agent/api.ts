@@ -1,4 +1,5 @@
 import { requestJson } from "@/api/client";
+import type { MapSelection } from "@/features/sessions/map-context";
 import type { ToolContentBlock } from "@/features/agent/tools/tool-content";
 import type { ToolCompaction, ToolDisplay } from "@/features/agent/tools/tool-output";
 import type { Attachment } from "@/features/attachments/api";
@@ -123,6 +124,7 @@ export interface StepModelSnapshot {
 
 export interface TurnMapContext {
   readonly workspace_id: string;
+  readonly selection: MapSelection | null;
 }
 
 export interface TurnBudget {

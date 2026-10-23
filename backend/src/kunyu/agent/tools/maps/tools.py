@@ -195,9 +195,9 @@ class MapTool(BaseTool):
                 if args.layer_ids is not None:
                     for layer_id in args.layer_ids:
                         layer = layers.get(layer_id)
-                        if layer is None or not layer.visible or layer.bounds is None:
+                        if layer is None or layer.bounds is None:
                             raise ToolExecutionError(
-                                "Comparison requires two visible, spatially located layers from this session.",
+                                "Comparison requires two spatially located layers from this session.",
                                 code="INVALID_COMPARISON_LAYERS",
                             )
                 value = args.model_dump(mode="json")

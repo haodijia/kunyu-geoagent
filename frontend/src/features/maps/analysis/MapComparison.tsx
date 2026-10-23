@@ -30,7 +30,13 @@ export function MapComparison({
   const [ratio, setRatio] = useState(50);
   const [layersReady, setLayersReady] = useState(false);
   const ratioRef = useRef(0.5);
+  const dragPointer = useRef<number | null>(null);
   const instance = map.getMap();
+  function moveDivider(clientX: number) {
+    const bounds = target.current?.getBoundingClientRect();
+    if (bounds === undefined || bounds.width === 0) return;
+    setRatio(Math.min(100, Math.max(0, (clientX - bounds.left) / bounds.width * 100)));
+  }
   useEffect(() => {
     if (!map.ready || instance === null) {
       setLayersReady(false);
@@ -167,22 +173,25 @@ export function MapComparison({
           event.preventDefault();
           event.stopPropagation();
           event.currentTarget.focus();
+          dragPointer.current = event.pointerId;
           event.currentTarget.setPointerCapture(event.pointerId);
+          moveDivider(event.clientX);
         }}
         onPointerMove={(event) => {
-          if (!event.currentTarget.hasPointerCapture(event.pointerId)) return;
+          if (dragPointer.current !== event.pointerId) return;
           event.stopPropagation();
-          const bounds = target.current?.getBoundingClientRect();
-          if (bounds !== undefined && bounds.width > 0)
-            setRatio(Math.min(100, Math.max(0,
-              (event.clientX - bounds.left) / bounds.width * 100,
-            )));
+          moveDivider(event.clientX);
         }}
         onPointerUp={(event) => {
           event.stopPropagation();
+          if (dragPointer.current !== event.pointerId) return;
+          moveDivider(event.clientX);
+          dragPointer.current = null;
           if (event.currentTarget.hasPointerCapture(event.pointerId))
             event.currentTarget.releasePointerCapture(event.pointerId);
         }}
+        onPointerCancel={() => { dragPointer.current = null; }}
+        onLostPointerCapture={() => { dragPointer.current = null; }}
         onClick={(event) => event.stopPropagation()}
         onKeyDown={(event) => {
           const delta = event.shiftKey ? 10 : 1;

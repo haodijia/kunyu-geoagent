@@ -100,7 +100,7 @@ export function AnalysisPanel({
   }
   return (
     <aside
-      className="absolute top-4 left-4 z-10 flex max-h-[calc(100%-var(--map-overlay-height,180px)-2rem)] w-80 max-w-[calc(100%-8rem)] flex-col rounded-xl border border-border bg-background/95 backdrop-blur"
+      className="flex min-h-0 shrink flex-col overflow-hidden rounded-xl border border-border bg-background/95 backdrop-blur"
       aria-label={content.title}
     >
       <div className="flex shrink-0 items-center justify-between px-3 py-2">

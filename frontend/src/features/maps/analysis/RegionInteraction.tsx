@@ -3,11 +3,8 @@ import { useMutation } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { rasterApi, type RegionGeometry } from "@/features/analysis/raster";
 import type { InteractionProps } from "@/features/maps/analysis/PixelInteraction";
-import { referenceSelection } from "@/features/maps/analysis/selection-reference";
-import {
-  useMapDrawing,
-  useSelectionOverlay,
-} from "@/features/maps/analysis/useMapDrawing";
+import { useMapDrawing } from "@/features/maps/analysis/useMapDrawing";
+import { useAppUiStore } from "@/app/store";
 import { interactionCopy as copy } from "@/locales/zh-CN/map-interactions";
 
 function importedGeometry(value: unknown): RegionGeometry {
@@ -25,7 +22,7 @@ function importedGeometry(value: unknown): RegionGeometry {
     "coordinates" in value &&
     Array.isArray(value.coordinates)
   )
-    return value as RegionGeometry;
+    return { type: value.type, coordinates: value.coordinates } as RegionGeometry;
   throw new Error(copy.invalidImport);
 }
 export function RegionInteraction({
@@ -35,14 +32,17 @@ export function RegionInteraction({
   outputs,
   map,
 }: InteractionProps) {
-  const [geometry, setGeometry] = useState<RegionGeometry | null>(null);
+  const selection = useAppUiStore(state => state.mapContextBySession[sessionId]?.selection);
+  const geometry = selection !== undefined && selection !== null && selection.geometry.type !== "Point"
+    ? selection.geometry : null;
   const [error, setError] = useState<string | null>(null);
-  const [saving, setSaving] = useState(false);
-  const [saved, setSaved] = useState(false);
   const fileInput = useRef<HTMLInputElement>(null);
   const stats = useMutation({
-    mutationFn: (value: RegionGeometry) =>
-      rasterApi.statistics(workspaceId, layer.output_id!, value),
+    mutationFn: (value: RegionGeometry) => {
+      if (layer?.output_id === null || layer?.output_id === undefined)
+        throw new Error(copy.noRaster);
+      return rasterApi.statistics(workspaceId, layer.output_id, value);
+    },
     onError: (reason) => {
       console.error("[map] Region statistics failed", reason);
       setError(reason.message);
@@ -50,46 +50,22 @@ export function RegionInteraction({
   });
   const complete = useCallback(
     (value: RegionGeometry) => {
-      setGeometry(value);
-      setSaved(false);
+      useAppUiStore.getState().setMapSelection(sessionId, { geometry: value, layer_id: layer?.id ?? null });
       setError(null);
       stats.reset();
     },
-    [stats.reset],
+    [stats.reset, sessionId, layer?.id],
   );
   const instance = map.getMap();
   const scalar =
-    outputs.find((output) => output.id === layer.output_id)?.kind ===
+    outputs.find((output) => output.id === layer?.output_id)?.kind ===
     "scalar_raster";
-  const drawing = useMapDrawing(instance, map.ready, complete, "rectangle");
-  useSelectionOverlay(instance, map.ready, geometry);
+  const drawing = useMapDrawing(instance, map.ready, complete, geometry === null ? "rectangle" : null);
   function startDrawing(mode: "rectangle" | "polygon") {
-    setGeometry(null);
-    setSaved(false);
+    useAppUiStore.getState().setMapSelection(sessionId, null);
     setError(null);
     stats.reset();
     drawing.setMode(mode);
-  }
-  async function reference() {
-    if (geometry === null) return;
-    setSaving(true);
-    setError(null);
-    try {
-      await referenceSelection(
-        workspaceId,
-        sessionId,
-        copy.area,
-        layer,
-        geometry,
-        outputs,
-      );
-      setSaved(true);
-    } catch (reason) {
-      console.error("[map] Referencing region failed", reason);
-      setError(reason instanceof Error ? reason.message : copy.failedRequest);
-    } finally {
-      setSaving(false);
-    }
   }
   return (
     <div className="space-y-2 text-xs">
@@ -173,18 +149,9 @@ export function RegionInteraction({
           )}
           <Button
             size="sm"
-            variant="outline"
-            disabled={saving || saved}
-            onClick={() => void reference()}
-          >
-            {copy.send}
-          </Button>
-          <Button
-            size="sm"
             variant="ghost"
             onClick={() => {
-              setGeometry(null);
-              setSaved(false);
+              useAppUiStore.getState().setMapSelection(sessionId, null);
               setError(null);
               stats.reset();
               drawing.setMode(null);
@@ -219,9 +186,9 @@ export function RegionInteraction({
           </p>
         </div>
       )}
-      {saved && (
+      {geometry !== null && (
         <p role="status" className="text-muted-foreground">
-          {copy.saved}
+          {copy.selectionAttached}
         </p>
       )}
       {error !== null && (

@@ -2,6 +2,7 @@ import json
 from dataclasses import dataclass
 
 from kunyu.agent.core.scope import Context
+from kunyu.agent.context.map_selection import selection_question
 from kunyu.agent.orchestration.inbox import SessionInbox
 from kunyu.agent.prompts.loader import read_prompt
 from kunyu.agent.runtime.contracts.content import ToolCallBlock, text_content
@@ -125,6 +126,10 @@ def build_model_history(source: RunContextSource) -> tuple[ModelMessage, ...]:
 
 def build_model_history_nodes(source: RunContextSource) -> tuple[ModelHistoryNode, ...]:
     validate_run_context_source(source, source.run.run_id)
+    map_contexts = {
+        message.message_id: message.map_context
+        for message in source.reduced_session.user_messages
+    }
     current_user_messages = tuple(
         message
         for message in source.reduced_session.user_messages
@@ -152,7 +157,10 @@ def build_model_history_nodes(source: RunContextSource) -> tuple[ModelHistoryNod
             messages=(
                 ModelMessage(
                     role=ModelRole.USER,
-                    content=user_content(message.content, message.attachments),
+                    content=user_content(
+                        selection_question(message.content, map_contexts[message.message_id]),
+                        message.attachments,
+                    ),
                     context_source=message.source if message.source != "user" else None,
                     input_source=InputMessageSource(
                         sequence=message.created_sequence, message_id=message.message_id
@@ -189,7 +197,10 @@ def build_model_history_nodes(source: RunContextSource) -> tuple[ModelHistoryNod
             messages=tuple(
                 ModelMessage(
                     ModelRole.USER,
-                    user_content(message.content, message.attachments),
+                    user_content(
+                        selection_question(message.content, map_contexts.get(message.message_id)),
+                        message.attachments,
+                    ),
                     context_source=message.source if message.source != "user" else None,
                     input_source=InputMessageSource(
                         sequence=decision.sequence, message_id=message.message_id
