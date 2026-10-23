@@ -1,9 +1,6 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
-import { MapPin, SquareDashed, X } from "lucide-react";
-import { Button } from "@/components/ui/button";
 import { useAppUiStore } from "@/app/store";
-import { interactionCopy } from "@/locales/zh-CN/map-interactions";
 
 import { agentQueryKeys, cancelAgent } from "@/features/agent/api";
 import { ConversationPlanBar } from "@/features/agent/plan/ConversationPlanBar";
@@ -147,20 +144,6 @@ export function SessionComposer() {
 
   return (
     <>
-    {mapContext.selection !== null && (
-      <div className="mb-2 flex items-center gap-2 self-start rounded-lg border border-border bg-background/95 px-3 py-1.5 text-xs" role="status">
-        {mapContext.selection.geometry.type === "Point" ? <MapPin className="size-3.5" /> : <SquareDashed className="size-3.5" />}
-        <span>{mapContext.selection.geometry.type === "Point" ? interactionCopy.point : interactionCopy.area} · {interactionCopy.includeQuestion}</span>
-        <Button
-          size="icon-sm"
-          variant="ghost"
-          aria-label={interactionCopy.clear}
-          onClick={() => useAppUiStore.getState().setMapSelection(session.id, null)}
-        >
-          <X className="size-3.5" />
-        </Button>
-      </div>
-    )}
     <QueuedMessages onDraftLockChange={setQueueEditing} />
     <ConversationPlanBar
       runId={activeTurn?.id ?? null}
@@ -172,6 +155,8 @@ export function SessionComposer() {
       contextUsage={contextUsage}
       attachmentState={attachmentState}
       mapViewport={mapContext.viewport}
+      mapSelection={mapContext.selection}
+      onMapSelectionClear={() => useAppUiStore.getState().setMapSelection(session.id, null)}
       draft={draft}
       quote={quote}
       onQuoteClear={() => changeQuote(null)}

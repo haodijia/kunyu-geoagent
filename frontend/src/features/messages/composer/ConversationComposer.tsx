@@ -39,15 +39,18 @@ import {
 } from "@/features/messages/composer/commands";
 import type { ContextUsage } from "@/features/messages/composer/context-usage";
 import type { ReplyQuote } from "@/features/messages/model/reply-quote";
-import type { MapViewport } from "@/features/sessions/map-context";
+import type { MapSelection, MapViewport } from "@/features/sessions/map-context";
 import { insertReference, mentionQuery, type WorkspaceReference } from "@/features/workspaces/references";
 import { zhCN } from "@/locales/zh-CN";
+import { interactionCopy } from "@/locales/zh-CN/map-interactions";
 
 const content = zhCN.conversation;
 const MAX_TEXTAREA_HEIGHT = 120;
 
 interface ConversationComposerProps {
   readonly mapViewport: MapViewport;
+  readonly mapSelection: MapSelection | null;
+  readonly onMapSelectionClear: () => void;
   readonly contextUsage: ContextUsage | null;
   readonly sessionId: string;
   readonly workspaceId: string;
@@ -87,6 +90,7 @@ interface ConversationComposerProps {
 }
 
 export function ConversationComposer({
+  mapSelection, onMapSelectionClear,
   mapViewport, contextUsage, sessionId, workspaceId, attachmentState, draft, quote, onQuoteClear, queuedDraft, error, draftFrozen, modelDisabled, modelGroups,
   pending, interactionLocked, running, stopPending, reasoningOptions, selectedModel,
   defaultReasoningEffort,
@@ -316,6 +320,17 @@ export function ConversationComposer({
           <div className="flex min-w-0 items-center gap-1">
             <Button type="button" size="icon" variant="ghost" className="size-7 rounded-full text-muted-foreground" disabled={inputLocked || attachmentState.pending || attachmentState.retryAvailable || attachmentState.attachments.length >= 8} aria-label={content.attachments.add} title={content.attachments.add} onClick={() => fileInputRef.current?.click()}><Paperclip className="size-3.5" /></Button>
             <MapLocationLabel viewport={mapViewport} />
+            {mapSelection !== null && (
+              <button
+                type="button"
+                className="composer-chip inline-flex shrink-0 items-center rounded px-1 py-1 text-[11px] text-muted-foreground outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
+                title={interactionCopy.clear}
+                aria-label={`${mapSelection.geometry.type === "Point" ? interactionCopy.selectedPoint : interactionCopy.selectedRegion}，${interactionCopy.clear}`}
+                onClick={onMapSelectionClear}
+              >
+                <span role="status">{mapSelection.geometry.type === "Point" ? interactionCopy.selectedPoint : interactionCopy.selectedRegion}</span>
+              </button>
+            )}
           </div>
           <div className="composer-actions flex min-w-0 items-center justify-end gap-1">
             <ComposerPlanChip locked={inputLocked} onExit={onExitPlan} />
