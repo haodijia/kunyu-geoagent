@@ -50,14 +50,22 @@ function MapCanvas() {
     session.workspace_id,
   );
   const [interaction, setInteraction] = useState<MapInteraction | null>(null);
-  const pair = useAppUiStore(state => state.mapComparisonBySession[session.id] ?? null);
-  const selectedLayerId = useAppUiStore(state => state.mapExpandedLayerBySession[session.id]);
-  const selection = useAppUiStore(state => state.mapContextBySession[session.id]?.selection);
-  useSelectionOverlay(map.getMap(), map.ready,
-    selection !== undefined && selection !== null && selection.geometry.type !== "Point" ? selection.geometry : null);
-  const setPair = useCallback((value: readonly [string, string] | null) => {
-    useAppUiStore.getState().setMapComparison(session.id, value);
-  }, [session.id]);
+  const pair = useAppUiStore(
+    (state) => state.mapComparisonBySession[session.id] ?? null,
+  );
+  const selectedLayerId = useAppUiStore(
+    (state) => state.mapExpandedLayerBySession[session.id],
+  );
+  const selection = useAppUiStore(
+    (state) => state.mapContextBySession[session.id]?.selection,
+  );
+  useSelectionOverlay(map.getMap(), map.ready, selection?.geometry ?? null);
+  const setPair = useCallback(
+    (value: readonly [string, string] | null) => {
+      useAppUiStore.getState().setMapComparison(session.id, value);
+    },
+    [session.id],
+  );
   const [comparisonError, setComparisonError] = useState<string | null>(null);
   const comparisonCapture = useRef<ComparisonCapture | null>(null);
   useMapFocus(session.id, map);
@@ -74,7 +82,10 @@ function MapCanvas() {
     if (
       pair !== null &&
       !layerQuery.isPending &&
-      pair.some((id) => !layers.some((layer) => layer.id === id && layer.bounds !== null))
+      pair.some(
+        (id) =>
+          !layers.some((layer) => layer.id === id && layer.bounds !== null),
+      )
     )
       setPair(null);
     if (
@@ -86,21 +97,38 @@ function MapCanvas() {
       setInteraction({ ...interaction, layerId: null });
   }, [layers, pair, interaction, setPair, layerQuery.isPending]);
   useEffect(() => {
-    if (pair !== null && layers.some(layer => layer.id === pair[0]))
+    if (pair !== null && layers.some((layer) => layer.id === pair[0]))
       setInteraction({ layerId: pair[0], mode: "compare" });
   }, [pair, layers]);
   useEffect(() => {
-    if (interaction === null) return;
     const cancel = (event: KeyboardEvent) => {
-      if (event.key === "Escape") {
+      if (
+        event.key === "Escape" &&
+        !(
+          event.target instanceof HTMLElement &&
+          event.target.closest("input, textarea, [contenteditable=true]")
+        )
+      ) {
+        useAppUiStore.getState().setMapSelection(session.id, null);
         setInteraction(null);
         setPair(null);
       }
     };
     window.addEventListener("keydown", cancel);
     return () => window.removeEventListener("keydown", cancel);
-  }, [interaction, setPair]);
-  const spatialLayers = layers.filter(layer => layer.bounds !== null).sort((a, b) => b.position - a.position);
+  }, [interaction, setPair, session.id]);
+  const spatialLayers = layers
+    .filter((layer) => layer.bounds !== null)
+    .sort((a, b) => b.position - a.position);
+  const selectedLayer = spatialLayers.find(
+    (layer) => layer.id === selectedLayerId && layer.visible,
+  );
+  const targetLayer =
+    selectedLayer ?? spatialLayers.find((layer) => layer.visible);
+  const activeInteraction: MapInteraction =
+    interaction === null
+      ? { mode: "pixel", layerId: targetLayer?.id ?? null }
+      : { ...interaction, layerId: targetLayer?.id ?? null };
   function toggleInteraction(mode: MapInteraction["mode"]) {
     setComparisonError(null);
     setPair(null);
@@ -108,8 +136,19 @@ function MapCanvas() {
       setInteraction(null);
       return;
     }
-    const eligible = spatialLayers.filter(layer => mode !== "pixel" || layer.output_id !== null);
-    const layer = eligible.find(layer => layer.id === selectedLayerId) ?? eligible[0];
+    if (mode === "compare") {
+      const visible = spatialLayers.filter((layer) => layer.visible);
+      if (visible.length >= 2) {
+        setPair([visible[1]!.id, visible[0]!.id]);
+        setInteraction({ layerId: visible[0]!.id, mode });
+        return;
+      }
+    }
+    const eligible = spatialLayers.filter(
+      (layer) => mode !== "pixel" || layer.output_id !== null,
+    );
+    const layer =
+      eligible.find((layer) => layer.id === selectedLayerId) ?? eligible[0];
     setInteraction({ layerId: layer?.id ?? null, mode });
   }
   useEffect(
@@ -159,6 +198,25 @@ function MapCanvas() {
     comparisonCapture,
     pair,
   );
+  const interactionContent = (
+    <MapInteractions
+      value={activeInteraction}
+      map={map}
+      workspaceId={session.workspace_id}
+      sessionId={session.id}
+      layers={layers}
+      outputs={outputs.data ?? []}
+      pair={pair}
+      onPair={(value) => {
+        setComparisonError(null);
+        setPair(value);
+      }}
+      onClose={() => {
+        setInteraction(null);
+        setPair(null);
+      }}
+    />
+  );
   return (
     <div
       className="kunyu-map chat-surface-container relative h-full overflow-hidden bg-muted"
@@ -167,8 +225,21 @@ function MapCanvas() {
       <div ref={targetRef} className="absolute inset-0" />
       <MapToolbar
         map={map}
-        mode={interaction?.mode ?? null}
+        mode={activeInteraction.mode}
         onInteract={toggleInteraction}
+        onFitLayers={() => {
+          const bounds = spatialLayers
+            .filter((layer) => layer.visible)
+            .map((layer) => layer.bounds!);
+          if (bounds.length > 0)
+            map.focusBounds([
+              Math.min(...bounds.map((b) => b[0])),
+              Math.min(...bounds.map((b) => b[1])),
+              Math.max(...bounds.map((b) => b[2])),
+              Math.max(...bounds.map((b) => b[3])),
+            ]);
+        }}
+        hasLayers={spatialLayers.some((layer) => layer.visible)}
       />
       <MapLayers
         map={map}
@@ -177,7 +248,7 @@ function MapCanvas() {
         comparison={pair}
         onError={layerError}
       />
-      <div className="pointer-events-none absolute top-4 left-4 z-20 flex max-h-[calc(100%-var(--map-overlay-height,180px)-2rem)] w-80 max-w-[calc(100%-8rem)] flex-col gap-2 overflow-y-auto [&>*]:pointer-events-auto">
+      <div className="map-analysis-dock pointer-events-none absolute top-4 left-4 z-20 flex w-64 max-w-[calc(100%-8rem)] flex-col gap-2 [&>*]:pointer-events-auto">
         <AnalysisPanel
           sessionId={session.id}
           layers={layers}
@@ -188,26 +259,7 @@ function MapCanvas() {
           }
           statuses={rendering.layers}
         />
-        {interaction !== null && (
-          <MapInteractions
-            value={interaction}
-            map={map}
-            workspaceId={session.workspace_id}
-            sessionId={session.id}
-            layers={layers}
-            outputs={outputs.data ?? []}
-            pair={pair}
-            onPair={(value) => {
-              setComparisonError(null);
-              setPair(value);
-            }}
-            onChange={setInteraction}
-            onClose={() => {
-              setInteraction(null);
-              setPair(null);
-            }}
-          />
-        )}
+        {interactionContent}
         {comparisonError !== null && (
           <div
             role="alert"

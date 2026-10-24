@@ -69,8 +69,13 @@ class AnalysisRaster:
 
     def prepare(self, workspace_id: str, name: str, cancelled: Event) -> dict:
         directory = self.directory(workspace_id, name)
+        return self.prepare_file(
+            directory / "result.tif", self.preview_path(workspace_id, name), cancelled
+        )
+
+    def prepare_file(self, path: Path, preview: Path, cancelled: Event) -> dict:
         check_cancelled(cancelled, "prepare analysis output")
-        with rasterio.open(directory / "result.tif") as src:
+        with rasterio.open(path) as src:
             categories = read_categories(src.tags())
             scalar = src.count == 1 and np.issubdtype(
                 np.dtype(src.dtypes[0]), np.integer
@@ -105,18 +110,19 @@ class AnalysisRaster:
             elif scalar:
                 valid = data[0].compressed()
                 valid = valid[np.isfinite(valid)]
-                if not len(valid):
+                if "KUNYU_DISPLAY_RANGE" in src.tags():
+                    limits = _display_ranges(src.tags()["KUNYU_DISPLAY_RANGE"], 1)[0]
+                elif not len(valid):
                     raise AnalysisError(
                         "EMPTY_RASTER", "The raster preview contains no finite values."
                     )
-                limits = [
-                    float(np.percentile(valid, 2)),
-                    float(np.percentile(valid, 98)),
-                ]
+                else:
+                    limits = [
+                        float(np.percentile(valid, 2)),
+                        float(np.percentile(valid, 98)),
+                    ]
                 if limits[0] == limits[1]:
                     limits[1] = limits[0] + max(1, abs(limits[0]) * 0.01)
-                if "KUNYU_DISPLAY_RANGE" in src.tags():
-                    limits = _display_ranges(src.tags()["KUNYU_DISPLAY_RANGE"], 1)[0]
                 rgba = _scalar_rgba(data[0], *limits)
             else:
                 color_limits = (
@@ -129,6 +135,13 @@ class AnalysisRaster:
                 rgba = rgb_rgba(
                     data, src.dataset_mask(out_shape=(512, 512)), color_limits
                 )
+            transparent = json.loads(src.tags().get("KUNYU_TRANSPARENT_VALUES", "[]"))
+            if not isinstance(transparent, list) or any(
+                type(v) is not int for v in transparent
+            ):
+                raise AnalysisError("INVALID_RASTER_STYLE", "透明类别配置无效。")
+            if categories is not None:
+                rgba[np.isin(data[0].data, transparent), 3] = 0
             metadata = {
                 "width": src.width,
                 "height": src.height,
@@ -151,9 +164,9 @@ class AnalysisRaster:
                 "palette": "viridis" if scalar and categories is None else None,
                 "numeric_values_available": scalar,
                 "categories": categories,
+                "transparent_values": transparent,
             }
         check_cancelled(cancelled, "publish analysis preview")
-        preview = self.preview_path(workspace_id, name)
         preview.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
         Image.fromarray(rgba).save(preview)
         return metadata
@@ -180,6 +193,7 @@ class AnalysisRaster:
                 (entry["value"], entry["label"], entry["color"])
                 for entry in metadata["categories"]
             ),
+            tuple(metadata.get("transparent_values", [])),
         )
 
 
@@ -192,6 +206,7 @@ def _render_tile(
     limits: tuple | None,
     color_limits: tuple | None,
     categories: tuple | None,
+    transparent: tuple,
 ) -> bytes:
     size = 256
     unit = 20037508.342789244
@@ -216,13 +231,15 @@ def _render_tile(
         ) as vrt,
     ):
         if categories is not None:
+            values = vrt.read(1, masked=True)
             rgba = classified_rgba(
-                vrt.read(1, masked=True),
+                values,
                 [
                     {"value": value, "label": label, "color": color}
                     for value, label, color in categories
                 ],
             )
+            rgba[np.isin(values.data, transparent), 3] = 0
         elif limits is None:
             rgba = rgb_rgba(
                 vrt.read(indexes=(1, 2, 3), masked=True),

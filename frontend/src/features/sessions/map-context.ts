@@ -29,15 +29,15 @@ export interface MapView {
 }
 
 export const INITIAL_MAP_VIEWPORT: MapViewport = {
-  latitude: 25.932,
-  longitude: 108.521,
-  zoom: 11
+  latitude: 30,
+  longitude: 105,
+  zoom: 3,
 };
 
 export const INITIAL_MAP_CAMERA: MapCamera = {
   dimension: "2d",
   bearing: 0,
-  pitch: 0
+  pitch: 0,
 };
 
 export interface MapContext {
@@ -52,6 +52,6 @@ export function createMapContext(workspaceId: string): MapContext {
     selection: null,
     camera: INITIAL_MAP_CAMERA,
     viewport: INITIAL_MAP_VIEWPORT,
-    workspaceId
+    workspaceId,
   };
 }

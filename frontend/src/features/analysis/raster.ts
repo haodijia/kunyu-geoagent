@@ -44,10 +44,16 @@ export const rasterApi = {
       `${root(workspace, output)}/sample?longitude=${longitude}&latitude=${latitude}`,
       { signal },
     ),
-  statistics: (workspace: string, output: string, geometry: RegionGeometry) =>
+  statistics: (
+    workspace: string,
+    output: string,
+    geometry: RegionGeometry,
+    signal?: AbortSignal,
+  ) =>
     requestJson<RegionStatistics>(`${root(workspace, output)}/statistics`, {
       method: "POST",
       body: JSON.stringify({ geometry }),
+      signal,
     }),
 };
 export function rasterCategories(

@@ -27,6 +27,11 @@ export function WorkspaceResults({
   readonly sessions: readonly SessionSummary[];
   readonly originSessionId: string | null;
 }) {
+  const visibleOutputs = outputs.filter(
+    (output) =>
+      output.metadata.bundle_id === undefined ||
+      output.metadata.bundle_id === output.id,
+  );
   const scroller = useRef<HTMLDivElement>(null);
   const [edges, setEdges] = useState({ left: false, right: false });
   useEffect(() => {
@@ -65,7 +70,7 @@ export function WorkspaceResults({
         <h2 className="text-base font-semibold">
           {content.results}
           <span className="ml-2 text-sm font-normal text-muted-foreground">
-            {outputs.length}
+            {visibleOutputs.length}
           </span>
         </h2>
         <div className="flex gap-1">
@@ -91,7 +96,7 @@ export function WorkspaceResults({
           </Button>
         </div>
       </div>
-      {outputs.length === 0 ? (
+      {visibleOutputs.length === 0 ? (
         <p className="rounded-xl border border-dashed border-border px-6 py-10 text-center text-sm text-muted-foreground">
           {content.emptyResults}
         </p>
@@ -110,12 +115,12 @@ export function WorkspaceResults({
           }}
           className="flex snap-x snap-mandatory items-stretch gap-6 overflow-x-auto pb-3 [scrollbar-width:thin]"
         >
-          {outputs.map((output, index) => (
+          {visibleOutputs.map((output, index) => (
             <article
               key={output.id}
               role="group"
               aria-roledescription={content.slide}
-              aria-label={`${index + 1} / ${outputs.length}`}
+              aria-label={`${index + 1} / ${visibleOutputs.length}`}
               className="min-w-0 basis-full shrink-0 snap-start rounded-xl border border-border px-4 py-3 md:basis-[calc((100%_-_24px)/2)]"
             >
               <ResultSource output={output} workspaceId={workspaceId} />

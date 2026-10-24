@@ -1,0 +1,18 @@
+export const productCopy = {
+  switchProduct: "切换本组成果",
+  bundle: "完整分析成果",
+  products: (count: number) => `${count} 个数值图层`,
+  reuse: "切换成果、点查与圈选复用本次计算",
+  downloadBundle: "下载完整数值包",
+  validPixels: "有数值像元",
+  gridArea: "网格面积",
+  area: "面积",
+  count: "像元数",
+  minimum: "最小值",
+  maximum: "最大值",
+  mean: "均值",
+  loading: "正在读取成果…",
+  failed: "读取成果失败",
+  groups: "成果主题",
+  select: "选择成果",
+};

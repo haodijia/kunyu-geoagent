@@ -293,17 +293,26 @@ class ExecutionGateway:
                 "OGE_RESULT_IDENTITY",
                 "OGE result ownership or identity does not match.",
             )
+        return await self.download_file(
+            "/asset/batch-result/downloadBatchResult",
+            {"id": matches[0]["id"], "userUuid": user_id},
+            subject,
+            base,
+            target,
+        )
+
+    async def download_file(
+        self, path: str, params: dict | None, subject: str, base: str, target: Path
+    ) -> bool:
         return await self.auth.run(
-            lambda account: self._download(
-                account, matches[0]["id"], user_id, subject, base, target
-            )
+            lambda account: self._download(account, path, params, subject, base, target)
         )
 
     async def _download(
         self,
         account: OgeAccount,
-        result_id: str,
-        user_id: str,
+        path: str,
+        params: dict | None,
         subject: str,
         base: str,
         target: Path,
@@ -313,8 +322,8 @@ class ExecutionGateway:
         try:
             async with self.http.stream(
                 "GET",
-                BASE_URL + "/asset/batch-result/downloadBatchResult",
-                params={"id": result_id, "userUuid": user_id},
+                BASE_URL + path,
+                params=params,
                 headers={
                     "Authorization": "Bearer " + account.tokens.token.get_secret_value()
                 },

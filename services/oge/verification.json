@@ -1,0 +1,63 @@
+{
+  "verified_at": "2026-10-24",
+  "execute_code_job": "job-4e644e97-c0ca-4f46-bb23-19fece7dd9d6",
+  "published_service_job": "job-53f16951-bbe2-4036-a86d-bb31831e443b",
+  "band_differences": {
+    "change_class": 0,
+    "quality_class": 0,
+    "before_water": 0,
+    "after_water": 0,
+    "common_valid_mask": 0,
+    "comparison_valid_mask": 0,
+    "uncertain_mask": 0,
+    "new_flood": 0,
+    "persistent_water": 0,
+    "receded_water": 0,
+    "before_ndwi": 0,
+    "after_ndwi": 0,
+    "ndwi_change": 0,
+    "before_mndwi": 0,
+    "after_mndwi": 0,
+    "mndwi_change": 0,
+    "flood_vote_count": 0,
+    "stable_flood": 0,
+    "sensitivity_class": 0,
+    "poi_id": 0,
+    "poi_status": 0
+  },
+  "products_verified": 21,
+  "agent_integration": {
+    "job_id": "job_52f4ad1e-086f-4f57-99c4-f0318ce545a6",
+    "remote_id": "job-f3e5b00b-1baf-4374-9b58-f60d0fe31820",
+    "product_count": 21,
+    "previews": 21,
+    "tiles": 21,
+    "downloads": [
+      "product",
+      "bundle"
+    ],
+    "map_present": true,
+    "run_state": "completed",
+    "remote_submissions": 1,
+    "region_statistics": "Initial full-window request rejected at four-million-cell limit; six partition requests completed without another OGE submission.",
+    "sampling": {
+      "point_class": 2,
+      "selected_pixels": 400,
+      "class_counts": {
+        "0.0": 46,
+        "1.0": 0,
+        "2.0": 220,
+        "3.0": 0,
+        "4.0": 0,
+        "5.0": 134
+      }
+    }
+  },
+  "source_classification_pixels": 4000000,
+  "source_classification_mismatches": 0,
+  "ui_checks_before_lock": [
+    "direct pixel click",
+    "rectangle drag and automatic statistics"
+  ],
+  "remaining_ui_check": "Final bundle layout and product switch screenshots require unlocked desktop."
+}

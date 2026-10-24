@@ -17,9 +17,12 @@ from kunyu.domain.geospatial.analysis import (
     AnalysisOutput,
 )
 from kunyu.domain.geospatial.oge import OgeError
+from kunyu.domain.geospatial.products import RasterProduct
 from kunyu.integrations.filesystem.operation import filesystem_operation
 from kunyu.integrations.geospatial.analysis_raster import AnalysisRaster
+from kunyu.integrations.geospatial.raster_products import prepare_products
 from kunyu.integrations.oge.execution import ExecutionGateway
+from kunyu.integrations.oge.published_service import PublishedServiceGateway
 from kunyu.persistence.geospatial.analysis import AnalysisRepository
 
 logger = logging.getLogger(__name__)
@@ -33,6 +36,7 @@ class AnalysisService:
         raster: AnalysisRaster,
     ) -> None:
         self.repository, self.gateway, self.raster = repository, gateway, raster
+        self.published = PublishedServiceGateway(gateway)
         self._changed = asyncio.Condition()
 
     @property
@@ -65,6 +69,9 @@ class AnalysisService:
             base,
             parameters,
             job_id=job_id,
+            service="published_service"
+            if "service_name" in parameters
+            else "execute_code",
         )
         if not created:
             return job
@@ -79,20 +86,32 @@ class AnalysisService:
             parameters = {**parameters, "result_directory": name}
             job = self.repository.change(job.id, parameters=parameters)
             async with self.gateway.submissions:
-                stage = "compile"
-                self.repository.change(job.id, stage=stage)
-                progress(stage)
-                compiled = await self.gateway.compile(
-                    str(parameters["script"]), str(parameters["title"]), subject, base
-                )
-                parameters = {**parameters, **compiled}
-                append_log(str(compiled["log"]))
+                if job.service == "execute_code":
+                    stage = "compile"
+                    self.repository.change(job.id, stage=stage)
+                    progress(stage)
+                    compiled = await self.gateway.compile(
+                        str(parameters["script"]),
+                        str(parameters["title"]),
+                        subject,
+                        base,
+                    )
+                    parameters = {**parameters, **compiled}
+                    append_log(str(compiled["log"]))
                 stage = "submit"
                 job = self.repository.change(job.id, parameters=parameters, stage=stage)
                 progress(stage)
-                remote = await self.gateway.submit(parameters, subject, base)
+                if job.service == "published_service":
+                    remote = await self.published.submit(
+                        str(parameters["service_name"]),
+                        parameters["arguments"],
+                        subject,
+                        base,
+                    )
+                else:
+                    remote = await self.gateway.submit(parameters, subject, base)
         except (OgeError, AnalysisError) as error:
-            logger.warning("OGE code submission refused (%s).", error.code)
+            logger.warning("OGE submission refused (%s).", error.code)
             state = (
                 "submission_unknown"
                 if stage == "submit"
@@ -134,27 +153,31 @@ class AnalysisService:
     async def advance(
         self, job: AnalysisJob, subject: str | None, base: str | None
     ) -> None:
-        if job.service != "execute_code":
+        if job.service not in ("execute_code", "published_service"):
             raise AnalysisError(
-                "OGE_SERVICE_REMOVED",
-                "The former NDVI GP execution service has been removed.",
+                "OGE_UNSUPPORTED_SERVICE", f"Unsupported service: {job.service}"
             )
         if job.remote_id is None or subject is None or base is None:
             raise AnalysisError("SUBMISSION_UNKNOWN", "Remote job identity is missing.")
-        try:
-            state = await self.gateway.state(
-                str(job.parameters["dag_id"]), subject, base
-            )
-        except AnalysisError as error:
-            if error.code != "OGE_COMPUTATION_FAILED":
-                raise
-            self.repository.change(job.id, stage="execute")
-            diagnostics = await self.gateway.failure_detail(
-                job.remote_id, subject, base
-            )
-            raise AnalysisError(
-                error.code, f"{error} Remote diagnostics: {diagnostics}"
-            ) from error
+        result = None
+        if job.service == "published_service":
+            result = await self.published.result(job.remote_id, subject, base)
+            state = "running" if result is None else "success"
+        else:
+            try:
+                state = await self.gateway.state(
+                    str(job.parameters["dag_id"]), subject, base
+                )
+            except AnalysisError as error:
+                if error.code != "OGE_COMPUTATION_FAILED":
+                    raise
+                self.repository.change(job.id, stage="execute")
+                diagnostics = await self.gateway.failure_detail(
+                    job.remote_id, subject, base
+                )
+                raise AnalysisError(
+                    error.code, f"{error} Remote diagnostics: {diagnostics}"
+                ) from error
         self.repository.change(
             job.id,
             state="running" if state == "running" else "collecting",
@@ -168,7 +191,8 @@ class AnalysisService:
             return
         await self.notify()
         try:
-            result = await self.gateway.result(job.remote_id, subject, base)
+            if job.service == "execute_code":
+                result = await self.gateway.result(job.remote_id, subject, base)
         except AnalysisError as error:
             if error.code == "OGE_COMPUTATION_FAILED":
                 self.repository.change(job.id, stage="execute")
@@ -178,28 +202,40 @@ class AnalysisService:
         output_id = "out_" + job.id.removeprefix("job_")
         name = str(job.parameters["result_directory"])
         directory = self.raster.directory(job.workspace_id, name)
-        if not (directory / "result.tif").is_file() and not await self.gateway.download(
-            job.parameters, subject, base, directory / "result.tif"
-        ):
-            return
+        target = directory / "result.tif"
+        if not target.is_file():
+            downloaded = (
+                await self.published.download(job.remote_id, subject, base, target)
+                if job.service == "published_service"
+                else await self.gateway.download(job.parameters, subject, base, target)
+            )
+            if not downloaded:
+                return
         self.repository.change(job.id, stage="render")
         await self.notify()
-        metadata = await filesystem_operation(
-            lambda cancelled: self.raster.prepare(
-                job.workspace_id,
-                name,
-                cancelled,
+        if job.parameters.get("products"):
+            definitions = [
+                RasterProduct.model_validate(p) for p in job.parameters["products"]
+            ]
+            products = await filesystem_operation(
+                lambda cancelled: prepare_products(
+                    self.raster, job.workspace_id, name, definitions, cancelled
+                )
             )
-        )
-        self.repository.publish_output(
-            job,
-            output_id,
-            metadata,
-            {"execution_result": result, "parameters": job.parameters},
-            f"{job.workspace_id}/results/{name}/result.tif",
-            f"{job.workspace_id}/.cache/results/{name}/preview.png",
-            200,
-        )
+            self.repository.publish_products(job, products, result)
+        else:
+            metadata = await filesystem_operation(
+                lambda cancelled: self.raster.prepare(job.workspace_id, name, cancelled)
+            )
+            self.repository.publish_output(
+                job,
+                output_id,
+                metadata,
+                {"execution_result": result, "parameters": job.parameters},
+                f"{job.workspace_id}/results/{name}/result.tif",
+                f"{job.workspace_id}/.cache/results/{name}/preview.png",
+                200,
+            )
         self.repository.change(
             job.id,
             state="succeeded",

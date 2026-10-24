@@ -313,6 +313,8 @@ export const conversation = {
         oge_search_operators: "检索算子",
         oge_get_operator_definition: "读取算子定义",
         oge_execute_code: "执行 OGE 代码",
+        oge_get_service_definition: "读取服务定义",
+        oge_execute_service: "调用 OGE 服务",
         map_get_context: "读取地图状态",
         result_get_info: "读取成果信息",
         map_sample_raster: "查询源栅格像元",

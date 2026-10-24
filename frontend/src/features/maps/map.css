@@ -3,6 +3,69 @@
   inset: 0;
 }
 
+.map-tool-hint {
+  position: absolute;
+  top: 16px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 21;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  max-width: calc(100% - 420px);
+  padding: 5px 10px;
+  border: 1px solid var(--border-light);
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--background) 94%, transparent);
+  color: var(--secondary-foreground);
+  font-size: 11px;
+  line-height: 20px;
+  box-shadow: 0 2px 8px #00000006;
+  backdrop-filter: blur(12px);
+  white-space: nowrap;
+}
+
+.map-tool-target {
+  max-width: 160px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  opacity: 0.6;
+}
+.map-tool-divider {
+  width: 1px;
+  height: 16px;
+  background: var(--border-light);
+}
+.map-analysis-dock {
+  bottom: calc(var(--map-overlay-height, 180px) + 40px);
+}
+.map-inspection {
+  position: relative;
+  flex-shrink: 0;
+  width: 100%;
+  max-height: 50%;
+  overflow-y: auto;
+  overflow-x: hidden;
+  border: 1px solid var(--border-light);
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--background) 96%, transparent);
+  box-shadow: 0 4px 20px #0000000a;
+  backdrop-filter: blur(12px);
+}
+
+@media (max-width: 1000px) {
+  .map-tool-hint {
+    top: 64px;
+    left: auto;
+    right: 64px;
+    transform: none;
+    max-width: calc(100% - 90px);
+  }
+  .map-tool-target {
+    display: none;
+  }
+}
+
 .map-composer-overlay {
   bottom: 16px;
   left: 50%;
@@ -67,7 +130,8 @@
 }
 
 .map-history-button,
-.map-conversation > :is([role="alert"], [role="status"], [data-message-scroll]) {
+.map-conversation
+  > :is([role="alert"], [role="status"], [data-message-scroll]) {
   pointer-events: auto;
 }
 
@@ -118,8 +182,13 @@
   overflow-wrap: anywhere;
 }
 
-.map-flow-bubble:not(:last-child) { opacity: 0.5; }
-.map-flow-bubble:focus-visible { outline: 2px solid var(--ring); outline-offset: 2px; }
+.map-flow-bubble:not(:last-child) {
+  opacity: 0.5;
+}
+.map-flow-bubble:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+}
 
 .kunyu-map .maplibregl-canvas:focus-visible {
   outline: 2px solid var(--ring);

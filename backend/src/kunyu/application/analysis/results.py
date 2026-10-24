@@ -22,7 +22,15 @@ class ResultService:
                         "origin": output.source_metadata.get("origin"),
                         "parameters": {
                             key: parameters[key]
-                            for key in ("script", "crs", "scale")
+                            for key in (
+                                "script",
+                                "crs",
+                                "scale",
+                                "service_name",
+                                "service_version",
+                                "arguments",
+                                "limitations",
+                            )
                             if key in parameters
                         },
                     },

@@ -1,8 +1,11 @@
+import { MapToolHint } from "@/features/maps/analysis/MapToolHint";
 import type { MapMouseEvent } from "maplibre-gl";
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { Crosshair, LoaderCircle, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import type { AnalysisOutput, MapLayer } from "@/features/analysis/api";
-import { rasterApi, type RasterSample } from "@/features/analysis/raster";
+import { rasterApi } from "@/features/analysis/raster";
 import { useAppUiStore } from "@/app/store";
 import type { useSessionMap } from "@/features/maps/runtime/useSessionMap";
 import { interactionCopy as copy } from "@/locales/zh-CN/map-interactions";
@@ -14,107 +17,161 @@ export interface InteractionProps {
   readonly outputs: readonly AnalysisOutput[];
   readonly map: ReturnType<typeof useSessionMap>;
 }
+
 export function PixelInteraction({
   workspaceId,
   sessionId,
   layer,
   map,
 }: InteractionProps) {
-  const [point, setPoint] = useState<readonly [number, number] | null>(null);
-  const [sample, setSample] = useState<RasterSample | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const [saved, setSaved] = useState(false);
+  const selection = useAppUiStore(
+    (state) => state.mapContextBySession[sessionId]?.selection,
+  );
+  const point =
+    selection?.geometry.type === "Point"
+      ? selection.geometry.coordinates
+      : null;
   const outputId = layer?.output_id ?? null;
+  const layerId = layer?.id ?? null;
   const instance = map.getMap();
+  const query = useQuery({
+    queryKey: ["map-pixel", workspaceId, outputId, point],
+    enabled: point !== null && outputId !== null,
+    retry: false,
+    queryFn: ({ signal }) => {
+      if (point === null || outputId === null) throw new Error(copy.noRaster);
+      return rasterApi.sample(
+        workspaceId,
+        outputId,
+        point[0]!,
+        point[1]!,
+        signal,
+      );
+    },
+  });
+  const sample = query.data ?? null;
+  const error = query.error?.message ?? null;
+  useEffect(() => {
+    if (query.isError) console.error("[map] Pixel query failed", query.error);
+  }, [query.isError, query.error]);
+  useEffect(() => {
+    if (selection?.geometry.type === "Point" && selection.layer_id !== layerId)
+      useAppUiStore
+        .getState()
+        .setMapSelection(sessionId, {
+          geometry: selection.geometry,
+          layer_id: layerId,
+        });
+  }, [selection, layerId, sessionId]);
   useEffect(() => {
     if (instance === null || !map.ready || outputId === null) return;
-    let pending: AbortController | null = null;
-    const cursor = instance.getCanvas().style.cursor;
-    instance.getCanvas().style.cursor = "crosshair";
     const click = (event: MapMouseEvent) => {
-      pending?.abort();
-      const controller = new AbortController();
-      pending = controller;
-      setPoint([event.lngLat.lng, event.lngLat.lat]);
-      setSample(null);
-      setSaved(false);
-      setError(null);
-      void rasterApi
-        .sample(
-          workspaceId,
-          outputId,
-          event.lngLat.lng,
-          event.lngLat.lat,
-          controller.signal,
-        )
-        .then((value) => {
-          if (!controller.signal.aborted) setSample(value);
-        })
-        .catch((reason) => {
-          if (!controller.signal.aborted) {
-            console.error("[map] Pixel query failed", reason);
-            setError(reason.message);
-          }
-        });
+      const coordinates: [number, number] = [
+        event.lngLat.wrap().lng,
+        event.lngLat.lat,
+      ];
+      useAppUiStore.getState().setMapSelection(sessionId, {
+        geometry: { type: "Point", coordinates },
+        layer_id: layerId,
+      });
     };
     instance.on("click", click);
     return () => {
-      pending?.abort();
       instance.off("click", click);
-      instance.getCanvas().style.cursor = cursor;
     };
-  }, [instance, map.ready, workspaceId, outputId]);
-  function reference() {
-    if (point === null) return;
-    useAppUiStore.getState().setMapSelection(sessionId, {
-      geometry: { type: "Point", coordinates: [...point] },
-      layer_id: layer?.id ?? null,
-    });
-    setSaved(true);
-  }
+  }, [instance, map.ready, outputId, sessionId, layerId]);
+
   return (
     <>
-      <p className="text-xs leading-5 text-muted-foreground">{copy.pixelHint}</p>
-      {point !== null && (
-        <div className="space-y-2 p-1 text-xs text-foreground">
-          <p className="font-medium">{layer?.title}</p>
-          <p>
-            {point[0].toFixed(6)}, {point[1].toFixed(6)}
-          </p>
-          {sample !== null && (
-            <div role="status">
-              {!sample.inside
-                ? copy.outside
-                : sample.values.map((value, index) => (
-                    <p key={index}>
-                      {sample.bands[index] ?? `Band ${index + 1}`}:{" "}
-                      {value === null ? copy.noData : value.toPrecision(6)}
-                    </p>
-                  ))}
-            </div>
-          )}
-          {sample === null && error === null && (
-            <p role="status">{copy.loading}</p>
-          )}
-          <Button
-            size="sm"
-            variant="outline"
-            disabled={sample === null || !sample.inside || saved}
-            onClick={reference}
-          >
-            {copy.send}
-          </Button>
-          {saved && (
-            <p role="status" className="text-muted-foreground">
-              {copy.selectionAttached}
+      <MapToolHint map={map}>
+        <Crosshair className="size-3.5 shrink-0" />
+        <span>{outputId === null ? copy.noRaster : copy.pixelHint}</span>
+        {layer !== null && (
+          <span className="map-tool-target" title={layer.title}>
+            {layer.title}
+          </span>
+        )}
+      </MapToolHint>
+      {point !== null && selection?.geometry.type === "Point" && (
+        <section className="map-inspection" aria-label={copy.pixel}>
+          <div className="flex items-center gap-2 border-b border-border/60 px-3 py-2">
+            <Crosshair className="size-3.5 text-muted-foreground" />
+            <span className="min-w-0 flex-1 truncate text-xs font-medium">
+              {layer?.title}
+            </span>
+            <Button
+              size="icon-sm"
+              variant="ghost"
+              aria-label={copy.clear}
+              onClick={() => {
+                useAppUiStore.getState().setMapSelection(sessionId, null);
+              }}
+            >
+              <X className="size-3.5" />
+            </Button>
+          </div>
+          <div className="space-y-2 p-3 text-xs">
+            <p className="font-mono text-[11px] tabular-nums text-muted-foreground">
+              {point[0]!.toFixed(5)}°, {point[1]!.toFixed(5)}°
             </p>
-          )}
-          {error !== null && (
-            <p role="alert" className="text-destructive">
-              {error}
+            {sample !== null && (
+              <div
+                className="max-h-40 space-y-1.5 overflow-y-auto"
+                role="status"
+              >
+                {!sample.inside ? (
+                  <p>{copy.outside}</p>
+                ) : (
+                  sample.values.map((value, index) => {
+                    const category = sample.categories?.find(
+                      (entry) => entry.value === value,
+                    );
+                    return (
+                      <div
+                        key={index}
+                        className="flex items-center justify-between gap-3"
+                      >
+                        <span className="truncate text-muted-foreground">
+                          {sample.bands[index] ?? copy.band(index + 1)}
+                        </span>
+                        <span className="flex shrink-0 items-center gap-1.5 font-medium tabular-nums">
+                          {category !== undefined && (
+                            <span
+                              className="size-2 rounded-full"
+                              style={{ background: category.color }}
+                            />
+                          )}
+                          {value === null
+                            ? copy.noData
+                            : (category?.label ??
+                              Number(value.toPrecision(6)).toString())}
+                        </span>
+                      </div>
+                    );
+                  })
+                )}
+              </div>
+            )}
+            {outputId === null && <p>{copy.noRaster}</p>}
+            {outputId !== null && sample === null && error === null && (
+              <p
+                role="status"
+                className="flex items-center gap-2 text-muted-foreground"
+              >
+                <LoaderCircle className="size-3 animate-spin" />
+                {copy.loading}
+              </p>
+            )}
+            {error !== null && (
+              <p role="alert" className="text-destructive">
+                {error}
+              </p>
+            )}
+            <p className="border-t border-border/60 pt-2 text-[11px] text-muted-foreground">
+              {copy.attachedHint}
             </p>
-          )}
-        </div>
+          </div>
+        </section>
       )}
     </>
   );

@@ -47,3 +47,5 @@ mcp: "外部工具结果"
 result_read: "已读取成果信息"
 raster_sample: "原始像元值：{{values}}"
 raster_statistics: "区域统计：{{count}} 个有效存储值像元"
+
+service_definition: "OGE 服务定义"

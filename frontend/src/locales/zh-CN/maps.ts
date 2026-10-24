@@ -98,7 +98,7 @@ export const maps = {
     zoomIn: "放大",
     zoomOut: "缩小",
     resetNorth: "指北",
-    resetView: "返回榕江",
+    resetView: "定位图层范围",
     loading: "正在加载地图…",
     loadFailed: "地图资源加载失败",
     loadFailedDescription: "请检查网络连接，或确认地图服务可用后重新加载。",

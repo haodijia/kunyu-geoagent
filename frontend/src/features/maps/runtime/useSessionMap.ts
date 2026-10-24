@@ -16,10 +16,7 @@ import {
   MAP_STYLES,
   MAP_TERRAIN,
 } from "@/features/maps/runtime/config";
-import {
-  INITIAL_MAP_VIEWPORT,
-  type MapDimension,
-} from "@/features/sessions/map-context";
+import { type MapDimension } from "@/features/sessions/map-context";
 import { zhCN } from "@/locales/zh-CN";
 
 import { getRuntimeConnection } from "@/api/runtime";
@@ -231,7 +228,8 @@ export function useSessionMap(
     });
     const resize = () => {
       const overlayHeight =
-        container.getBoundingClientRect().bottom - overlay.getBoundingClientRect().top;
+        container.getBoundingClientRect().bottom -
+        overlay.getBoundingClientRect().top;
       overlayHeightRef.current = overlayHeight;
       container.style.setProperty("--map-overlay-height", `${overlayHeight}px`);
       map.setPadding({ ...map.getPadding(), bottom: overlayHeight });
@@ -276,7 +274,9 @@ export function useSessionMap(
         left: Math.min(340, map.getContainer().clientWidth * 0.4),
       },
       maxZoom: 14,
-      duration: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? 0 : 700,
+      duration: window.matchMedia("(prefers-reduced-motion: reduce)").matches
+        ? 0
+        : 700,
     });
   }
 
@@ -289,16 +289,6 @@ export function useSessionMap(
     map.easeTo({ pitch: next === "3d" ? MAP_TERRAIN.pitch : 0, duration: 600 });
   }
 
-  function resetView() {
-    mapRef.current?.easeTo({
-      center: [INITIAL_MAP_VIEWPORT.longitude, INITIAL_MAP_VIEWPORT.latitude],
-      zoom: INITIAL_MAP_VIEWPORT.zoom,
-      bearing: 0,
-      pitch: dimensionRef.current === "3d" ? MAP_TERRAIN.pitch : 0,
-      duration: 600,
-    });
-  }
-
   return {
     getMap: () => mapRef.current,
     dimension,
@@ -307,7 +297,6 @@ export function useSessionMap(
     loading,
     failed,
     changeDimension,
-    resetView,
     resetNorth: () => mapRef.current?.easeTo({ bearing: 0, duration: 400 }),
     zoomIn: () => mapRef.current?.zoomIn(),
     zoomOut: () => mapRef.current?.zoomOut(),

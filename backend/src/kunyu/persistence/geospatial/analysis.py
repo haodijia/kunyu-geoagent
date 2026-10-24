@@ -1,12 +1,10 @@
 """Session job intents and workspace-owned outputs with source-session provenance."""
 
 import time
-from contextlib import nullcontext
 from datetime import UTC, datetime
 
 from pydantic import JsonValue
 from sqlalchemy import select, text
-from sqlalchemy.orm import Session
 
 from kunyu.domain.geospatial.analysis import (
     EXECUTING_STATES,
@@ -47,6 +45,7 @@ class AnalysisRepository:
         parameters: dict[str, JsonValue],
         *,
         job_id: str,
+        service: str = "execute_code",
     ) -> tuple[AnalysisJob, bool]:
         with self.database.sessions.begin() as tx:
             tx.execute(text("BEGIN IMMEDIATE"))
@@ -67,7 +66,7 @@ class AnalysisRepository:
                 run_id=run_id,
                 tool_call_id=tool_call_id,
                 mode=mode,
-                service="execute_code",
+                service=service,
                 state="submitting",
                 stage="prepare",
                 query_state="ready",
@@ -257,61 +256,70 @@ class AnalysisRepository:
             publish(self.database, tx, job.session_id, "analysis/output", row.id, 1)
             return output_value(row)
 
-    def publish_derived_output(
-        self,
-        workspace_id: str,
-        session_id: str | None,
-        output_id: str,
-        title: str,
-        metadata: dict,
-        source_metadata: dict,
-        name: str,
-        *,
-        transaction: Session | None = None,
+    def publish_products(
+        self, job: AnalysisJob, products: list[dict], result: dict
     ) -> AnalysisOutput:
-        with (
-            nullcontext(transaction)
-            if transaction is not None
-            else self.database.sessions.begin()
-        ) as tx:
-            if transaction is None:
-                tx.execute(text("BEGIN IMMEDIATE"))
-            require_workspace(tx, workspace_id)
-            existing = tx.get(AnalysisOutputRecord, output_id)
+        """Publish the primary and all sibling products in one transaction."""
+        root_id = "out_" + job.id.removeprefix("job_")
+        refs = [
+            {
+                "id": root_id if i == 0 else f"{root_id}_b{i + 1:02d}",
+                "name": p["name"],
+                "title": p["title"],
+                "group": p["metadata"]["group"],
+                "file_path": "/workspace/" + p["file"].split("/", 1)[1],
+                "summary": p["metadata"]["summary"],
+            }
+            for i, p in enumerate(products)
+        ]
+        with self.database.sessions.begin() as tx:
+            tx.execute(text("BEGIN IMMEDIATE"))
+            existing = tx.get(AnalysisOutputRecord, root_id)
             if existing is not None:
-                if existing.workspace_id != workspace_id:
-                    raise AnalysisError("OUTPUT_CONFLICT", "成果身份已存在。", 409)
                 return output_value(existing)
-            session = (
-                None
-                if session_id is None
-                else require_session(tx, session_id, writable=True)
-            )
-            if session is not None and session.workspace_id != workspace_id:
-                raise AnalysisError("NOT_FOUND", "会话与成果工作区不一致。", 404)
-            row = AnalysisOutputRecord(
-                id=output_id,
-                job_id=None,
-                session_id=session_id,
-                workspace_id=workspace_id,
-                source_session_title="工作区研判" if session is None else session.title,
-                title=title,
-                mode="live",
-                kind="scalar_raster" if metadata["bands"] == 1 else "rgb_raster",
-                raster_metadata=metadata,
-                source_metadata=source_metadata,
-                bounds=metadata["bounds"],
-                cog_file=f"{workspace_id}/results/{name}/result.tif",
-                preview_file=f"{workspace_id}/.cache/results/{name}/preview.png",
-                original_status=200,
-                revision=1,
-                created_at=datetime.now(UTC),
-            )
-            tx.add(row)
-            tx.flush()
-            if session_id is not None:
-                publish(self.database, tx, session_id, "analysis/output", row.id, 1)
-            return output_value(row)
+            session = require_session(tx, job.session_id)
+            now = datetime.now(UTC)
+            primary = None
+            for i, (product, ref) in enumerate(zip(products, refs, strict=True)):
+                metadata = {**product["metadata"], "bundle_id": root_id}
+                if i == 0:
+                    metadata["products"] = refs
+                row = AnalysisOutputRecord(
+                    id=ref["id"],
+                    job_id=job.id if i == 0 else None,
+                    session_id=job.session_id,
+                    workspace_id=job.workspace_id,
+                    source_session_title=session.title,
+                    title=product["title"],
+                    mode=job.mode,
+                    kind="scalar_raster",
+                    raster_metadata=metadata,
+                    source_metadata={
+                        "parameters": job.parameters,
+                        "execution_result": result,
+                        "origin": {
+                            "session_id": job.session_id,
+                            "job_id": job.id,
+                            "run_id": job.run_id,
+                            "tool_call_id": job.tool_call_id,
+                        },
+                        "bundle_file": f"{job.workspace_id}/results/{job.parameters['result_directory']}/result.tif",
+                    },
+                    bounds=metadata["bounds"],
+                    cog_file=product["file"],
+                    preview_file=product["preview"],
+                    original_status=200,
+                    revision=1,
+                    created_at=now,
+                )
+                tx.add(row)
+                if i == 0:
+                    primary = row
+                tx.flush()
+                publish(self.database, tx, job.session_id, "analysis/output", row.id, 1)
+            if primary is None:
+                raise AnalysisError("EMPTY_PRODUCTS", "服务没有声明成果。")
+            return output_value(primary)
 
 
 def job_value(row: AnalysisJobRecord) -> AnalysisJob:

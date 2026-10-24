@@ -1,3 +1,4 @@
+import { MapProductSelector } from "@/features/analysis/MapProductSelector";
 import { Button } from "@/components/ui/button";
 import { useAppUiStore } from "@/app/store";
 import {
@@ -127,7 +128,7 @@ export function AnalysisPanel({
         </Button>
       </div>
       {open && (
-        <div className="min-h-0 space-y-2 overflow-y-auto border-t border-border p-3">
+        <div className="min-h-0 space-y-1 overflow-y-auto border-t border-border/60 p-1.5">
           {(error ||
             mutation.isError ||
             referenceError !== null ||
@@ -174,6 +175,11 @@ export function AnalysisPanel({
                   sessionId={sessionId}
                   key={layer.id}
                   layer={layer}
+                  metadata={
+                    outputs.data?.find(
+                      (output) => output.id === layer.output_id,
+                    )?.metadata
+                  }
                   status={statuses.find((value) => value.layer_id === layer.id)}
                   selected={layer.id === inspectedLayerId}
                   disabled={mutation.isPending}
@@ -210,6 +216,17 @@ export function AnalysisPanel({
             </SortableContext>
           </DndContext>
         </div>
+      )}
+      {open && (
+        <MapProductSelector
+          sessionId={sessionId}
+          layer={
+            ordered.find(
+              (layer) => layer.id === inspectedLayerId && layer.visible,
+            ) ?? ordered.find((layer) => layer.visible)
+          }
+          outputs={outputs.data ?? []}
+        />
       )}
     </aside>
   );

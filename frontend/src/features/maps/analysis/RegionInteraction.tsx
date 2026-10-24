@@ -1,6 +1,9 @@
-import { useCallback, useRef, useState } from "react";
-import { useMutation } from "@tanstack/react-query";
+import { MapToolHint } from "@/features/maps/analysis/MapToolHint";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { LoaderCircle, Pentagon, SquareDashed, Upload, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Tooltip } from "@/components/ui/tooltip";
 import { rasterApi, type RegionGeometry } from "@/features/analysis/raster";
 import type { InteractionProps } from "@/features/maps/analysis/PixelInteraction";
 import { useMapDrawing } from "@/features/maps/analysis/useMapDrawing";
@@ -22,9 +25,13 @@ function importedGeometry(value: unknown): RegionGeometry {
     "coordinates" in value &&
     Array.isArray(value.coordinates)
   )
-    return { type: value.type, coordinates: value.coordinates } as RegionGeometry;
+    return {
+      type: value.type,
+      coordinates: value.coordinates,
+    } as RegionGeometry;
   throw new Error(copy.invalidImport);
 }
+
 export function RegionInteraction({
   workspaceId,
   sessionId,
@@ -32,170 +39,212 @@ export function RegionInteraction({
   outputs,
   map,
 }: InteractionProps) {
-  const selection = useAppUiStore(state => state.mapContextBySession[sessionId]?.selection);
-  const geometry = selection !== undefined && selection !== null && selection.geometry.type !== "Point"
-    ? selection.geometry : null;
+  const selection = useAppUiStore(
+    (state) => state.mapContextBySession[sessionId]?.selection,
+  );
+  const geometry =
+    selection != null && selection.geometry.type !== "Point"
+      ? selection.geometry
+      : null;
   const [error, setError] = useState<string | null>(null);
   const fileInput = useRef<HTMLInputElement>(null);
-  const stats = useMutation({
-    mutationFn: (value: RegionGeometry) => {
-      if (layer?.output_id === null || layer?.output_id === undefined)
-        throw new Error(copy.noRaster);
-      return rasterApi.statistics(workspaceId, layer.output_id, value);
-    },
-    onError: (reason) => {
-      console.error("[map] Region statistics failed", reason);
-      setError(reason.message);
-    },
-  });
+  const output = outputs.find((item) => item.id === layer?.output_id);
   const complete = useCallback(
     (value: RegionGeometry) => {
-      useAppUiStore.getState().setMapSelection(sessionId, { geometry: value, layer_id: layer?.id ?? null });
+      useAppUiStore
+        .getState()
+        .setMapSelection(sessionId, {
+          geometry: value,
+          layer_id: layer?.id ?? null,
+        });
       setError(null);
-      stats.reset();
     },
-    [stats.reset, sessionId, layer?.id],
+    [sessionId, layer?.id],
   );
-  const instance = map.getMap();
-  const scalar =
-    outputs.find((output) => output.id === layer?.output_id)?.kind ===
-    "scalar_raster";
-  const drawing = useMapDrawing(instance, map.ready, complete, geometry === null ? "rectangle" : null);
-  function startDrawing(mode: "rectangle" | "polygon") {
-    useAppUiStore.getState().setMapSelection(sessionId, null);
-    setError(null);
-    stats.reset();
-    drawing.setMode(mode);
-  }
+  const drawing = useMapDrawing(map.getMap(), map.ready, complete);
+  const stats = useQuery({
+    queryKey: ["map-region-statistics", workspaceId, output?.id, geometry],
+    enabled: geometry !== null && output?.kind === "scalar_raster",
+    retry: false,
+    queryFn: ({ signal }) => {
+      if (geometry === null || output === undefined)
+        throw new Error(copy.noRaster);
+      return rasterApi.statistics(workspaceId, output.id, geometry, signal);
+    },
+  });
+  useEffect(() => {
+    if (
+      geometry !== null &&
+      selection != null &&
+      selection.layer_id !== (layer?.id ?? null)
+    )
+      useAppUiStore
+        .getState()
+        .setMapSelection(sessionId, { geometry, layer_id: layer?.id ?? null });
+  }, [geometry, selection, sessionId, layer?.id]);
+  useEffect(() => {
+    if (stats.isError)
+      console.error("[map] Region statistics failed", stats.error);
+  }, [stats.isError, stats.error]);
   return (
-    <div className="space-y-2 text-xs">
-      <div className="flex flex-wrap gap-1">
-        <Button
-          size="sm"
-          variant="outline"
-          disabled={!map.ready}
-          onClick={() => startDrawing("rectangle")}
-        >
-          {copy.rectangle}
-        </Button>
-        <Button
-          size="sm"
-          variant="outline"
-          disabled={!map.ready}
-          onClick={() => startDrawing("polygon")}
-        >
-          {copy.polygon}
-        </Button>
-        <Button
-          size="sm"
-          variant="outline"
-          onClick={() => fileInput.current?.click()}
-        >
-          {copy.import}
-        </Button>
-      </div>
-      <input
-        type="file"
-        ref={fileInput}
-        className="hidden"
-        accept=".json,.geojson"
-        onChange={(event) => {
-          const file = event.target.files?.[0];
-          event.target.value = "";
-          if (file === undefined) return;
-          if (file.size > 2 * 1024 * 1024) {
-            setError(copy.invalidImport);
-            return;
-          }
-          void file
-            .text()
-            .then((text) => complete(importedGeometry(JSON.parse(text))))
-            .catch((reason) => {
-              console.error("[map] Region import failed", reason);
-              setError(copy.invalidImport);
-            });
-        }}
-      />
-      {drawing.mode !== null ? (
-        <p role="status">
+    <>
+      <MapToolHint map={map}>
+        {(
+          [
+            { mode: "rectangle", Icon: SquareDashed, title: copy.rectangle },
+            { mode: "polygon", Icon: Pentagon, title: copy.polygon },
+          ] as const
+        ).map(({ mode, Icon, title }) => (
+          <Tooltip key={mode} label={title}>
+            <Button
+              variant={drawing.mode === mode ? "secondary" : "ghost"}
+              size="icon-sm"
+              aria-label={title}
+              aria-pressed={drawing.mode === mode}
+              onClick={() => drawing.setMode(mode)}
+            >
+              <Icon className="size-3.5" />
+            </Button>
+          </Tooltip>
+        ))}
+        <span className="map-tool-divider" />
+        <span role="status">
           {drawing.mode === "rectangle" ? copy.drawRectangle : copy.drawPolygon}
+        </span>
+        <Tooltip label={copy.import}>
           <Button
             variant="ghost"
-            size="sm"
-            onClick={() => drawing.setMode(null)}
+            size="icon-sm"
+            aria-label={copy.import}
+            onClick={() => fileInput.current?.click()}
           >
-            {copy.cancel}
+            <Upload className="size-3.5" />
           </Button>
-        </p>
-      ) : (
-        geometry === null && (
-          <p className="leading-5 text-muted-foreground">{copy.noRegion}</p>
-        )
-      )}
-      {geometry !== null && (
-        <div className="flex flex-wrap gap-1">
-          {scalar && (
+        </Tooltip>
+        <input
+          type="file"
+          ref={fileInput}
+          className="hidden"
+          accept=".json,.geojson"
+          onChange={(event) => {
+            const file = event.target.files?.[0];
+            event.target.value = "";
+            if (file === undefined) return;
+            if (file.size > 2 * 1024 * 1024) {
+              setError(copy.invalidImport);
+              return;
+            }
+            void file
+              .text()
+              .then((text) => complete(importedGeometry(JSON.parse(text))))
+              .catch((reason: unknown) => {
+                console.error("[map] Region import failed", reason);
+                setError(copy.invalidImport);
+              });
+          }}
+        />
+      </MapToolHint>
+      {(geometry !== null || error !== null) && (
+        <section className="map-inspection" aria-label={copy.region}>
+          <div className="flex items-center gap-2 border-b border-border/60 px-3 py-2">
+            <SquareDashed className="size-3.5 text-muted-foreground" />
+            <span className="flex-1 text-xs font-medium">
+              {copy.selectedRegion}
+            </span>
             <Button
-              size="sm"
-              variant="outline"
-              disabled={stats.isPending}
+              variant="ghost"
+              size="icon-sm"
+              aria-label={copy.clear}
               onClick={() => {
+                useAppUiStore.getState().setMapSelection(sessionId, null);
                 setError(null);
-                stats.mutate(geometry);
               }}
             >
-              {copy.statistics}
+              <X className="size-3.5" />
             </Button>
-          )}
-          <Button
-            size="sm"
-            variant="ghost"
-            onClick={() => {
-              useAppUiStore.getState().setMapSelection(sessionId, null);
-              setError(null);
-              stats.reset();
-              drawing.setMode(null);
-            }}
-          >
-            {copy.clear}
-          </Button>
-        </div>
-      )}
-      {stats.data !== undefined && (
-        <div className="space-y-1 rounded bg-muted p-2" role="status">
-          <p>
-            {copy.selectedPixels}: {stats.data.selected_pixel_count}
-          </p>
-          <p>
-            {copy.validPixels}: {stats.data.valid_pixel_count}
-          </p>
-          {stats.data.classes.map((value) => (
-            <p key={value.value}>
-              {value.label}: {(value.area_m2 / 1e6).toFixed(4)} km²
+          </div>
+          <div className="space-y-2 p-3 text-xs">
+            {layer !== null && (
+              <p
+                className="truncate text-[11px] text-muted-foreground"
+                title={layer.title}
+              >
+                {layer.title}
+              </p>
+            )}
+            {stats.isFetching && (
+              <p
+                className="flex items-center gap-2 text-muted-foreground"
+                role="status"
+              >
+                <LoaderCircle className="size-3 animate-spin" />
+                {copy.calculating}
+              </p>
+            )}
+            {stats.data !== undefined && (
+              <div className="max-h-44 space-y-2 overflow-y-auto" role="status">
+                <p className="text-xl font-medium tracking-tight tabular-nums">
+                  {(stats.data.region_area_m2 / 1e6).toFixed(3)}{" "}
+                  <span className="text-xs font-normal text-muted-foreground">
+                    km²
+                  </span>
+                </p>
+                {stats.data.classes.map((value) => (
+                  <div
+                    key={value.value}
+                    className="flex items-center justify-between gap-3"
+                  >
+                    <span className="flex items-center gap-1.5">
+                      <span
+                        className="size-2 rounded-full"
+                        style={{ background: value.color }}
+                      />
+                      {value.label}
+                    </span>
+                    <span className="tabular-nums">
+                      {(value.area_m2 / 1e6).toFixed(3)} km²
+                    </span>
+                  </div>
+                ))}
+                {stats.data.mean !== null &&
+                  stats.data.classes.length === 0 && (
+                    <div className="grid grid-cols-3 gap-2">
+                      {[
+                        [copy.min, stats.data.minimum],
+                        [copy.max, stats.data.maximum],
+                        [copy.mean, stats.data.mean],
+                      ].map(([label, value]) => (
+                        <div key={label}>
+                          <p className="text-[10px] text-muted-foreground">
+                            {label}
+                          </p>
+                          <p className="mt-1 tabular-nums">
+                            {typeof value === "number"
+                              ? Number(value.toPrecision(5))
+                              : copy.noData}
+                          </p>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                <p className="text-[11px] text-muted-foreground">
+                  {copy.validPixels}{" "}
+                  {stats.data.valid_pixel_count.toLocaleString()} /{" "}
+                  {stats.data.selected_pixel_count.toLocaleString()}
+                </p>
+              </div>
+            )}
+            {(error !== null || stats.isError) && (
+              <p role="alert" className="text-destructive">
+                {error ?? stats.error?.message}
+              </p>
+            )}
+            <p className="border-t border-border/60 pt-2 text-[11px] text-muted-foreground">
+              {copy.attachedHint}
             </p>
-          ))}
-          {stats.data.mean !== null && (
-            <p>
-              {copy.min}: {stats.data.minimum?.toPrecision(5)} · {copy.max}:{" "}
-              {stats.data.maximum?.toPrecision(5)} · {copy.mean}:{" "}
-              {stats.data.mean.toPrecision(5)}
-            </p>
-          )}
-          <p className="leading-5 text-muted-foreground">
-            {stats.data.coverage_note}
-          </p>
-        </div>
+          </div>
+        </section>
       )}
-      {geometry !== null && (
-        <p role="status" className="text-muted-foreground">
-          {copy.selectionAttached}
-        </p>
-      )}
-      {error !== null && (
-        <p role="alert" className="text-destructive">
-          {error}
-        </p>
-      )}
-    </div>
+    </>
   );
 }

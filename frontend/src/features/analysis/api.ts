@@ -85,6 +85,10 @@ export const analysisApi = {
     requestBlob(
       `${workspaceResultsPath(id)}/${encodeURIComponent(outputId)}/download`,
     ),
+  downloadBundle: (id: string, outputId: string) =>
+    requestBlob(
+      `${workspaceResultsPath(id)}/${encodeURIComponent(outputId)}/bundle`,
+    ),
   layerPreview: (sessionId: string, layerId: string, signal?: AbortSignal) =>
     requestBlob(
       `${mapPath(sessionId)}/layers/${encodeURIComponent(layerId)}/preview`,

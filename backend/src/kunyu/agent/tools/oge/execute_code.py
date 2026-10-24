@@ -2,7 +2,7 @@
 
 from collections.abc import Mapping
 
-from pydantic import Field
+from pydantic import Field, field_validator
 
 from kunyu.agent.orchestration.analysis_jobs import AnalysisJobs
 from kunyu.agent.orchestration.jobs import JobRegistry
@@ -26,6 +26,7 @@ from kunyu.agent.tools.shared import (
 )
 from kunyu.application.analysis.analysis import AnalysisService
 from kunyu.domain.conversation.agent_context import RunContextRepository
+from kunyu.domain.geospatial.products import RasterProduct
 
 
 class ExecuteCodeArguments(ToolArguments):
@@ -37,6 +38,19 @@ class ExecuteCodeArguments(ToolArguments):
     )
     crs: str = Field(pattern=r"^EPSG:[0-9]{4,6}$")
     scale: float = Field(gt=0, le=100000, allow_inf_nan=False)
+    products: list[RasterProduct] | None = Field(
+        default=None,
+        min_length=1,
+        max_length=32,
+        description="For a named multiband numeric export, declare every band in exact order with its meaning and style. Omit for a single numeric band or RGB export.",
+    )
+
+    @field_validator("products")
+    @classmethod
+    def unique_products(cls, value: list[RasterProduct] | None):
+        if value is not None and len({product.name for product in value}) != len(value):
+            raise ValueError("Product names must be unique.")
+        return value
 
 
 class ExecuteCodeTool(BaseTool):
@@ -87,6 +101,15 @@ class ExecuteCodeTool(BaseTool):
                 "script": arguments.code,
                 "crs": arguments.crs,
                 "scale": arguments.scale,
+                **(
+                    {
+                        "products": [
+                            p.model_dump(mode="json") for p in arguments.products
+                        ]
+                    }
+                    if arguments.products is not None
+                    else {}
+                ),
             },
         )
         return tool_result(

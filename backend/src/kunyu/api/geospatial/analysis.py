@@ -106,6 +106,19 @@ def tile(workspace_id: str, output_id: str, z: int, x: int, y: int, service: Ana
     )
 
 
+@router.get("/workspaces/{workspace_id}/results/{output_id}/bundle")
+def download_bundle(workspace_id: str, output_id: str, service: Analysis):
+    output = service.repository.workspace_output(workspace_id, output_id)
+    path = output.source_metadata.get("bundle_file")
+    if not isinstance(path, str):
+        raise ApiError(404, "BUNDLE_NOT_FOUND", "该成果没有完整数值包。")
+    return FileResponse(
+        service.raster.path(path),
+        media_type="image/tiff",
+        filename="analysis-bundle.tif",
+    )
+
+
 @router.get("/sessions/{session_id}/map/layers", response_model=list[MapLayer])
 def layers(session_id: str, repository: Maps):
     return repository.layers(session_id)

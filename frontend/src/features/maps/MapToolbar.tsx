@@ -1,4 +1,12 @@
-import { Compass, LocateFixed, MapPin, Minus, Plus, SquareDashed, SquareSplitHorizontal } from "lucide-react";
+import {
+  Compass,
+  LocateFixed,
+  MousePointer2,
+  Minus,
+  Plus,
+  SquareDashed,
+  SquareSplitHorizontal,
+} from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Tooltip } from "@/components/ui/tooltip";
@@ -14,16 +22,25 @@ export function MapToolbar({
   map,
   mode,
   onInteract,
+  onFitLayers,
+  hasLayers,
 }: {
   readonly map: ReturnType<typeof useSessionMap>;
   readonly mode: MapInteraction["mode"] | null;
   readonly onInteract: (mode: MapInteraction["mode"]) => void;
+  readonly onFitLayers: () => void;
+  readonly hasLayers: boolean;
 }) {
   const actions = [
     { label: content.zoomIn, Icon: Plus, onClick: map.zoomIn },
     { label: content.zoomOut, Icon: Minus, onClick: map.zoomOut },
     { label: content.resetNorth, Icon: Compass, onClick: map.resetNorth },
-    { label: content.resetView, Icon: LocateFixed, onClick: map.resetView },
+    {
+      label: content.resetView,
+      Icon: LocateFixed,
+      onClick: onFitLayers,
+      disabled: !hasLayers,
+    },
   ];
 
   return (
@@ -53,11 +70,13 @@ export function MapToolbar({
         ))}
       </div>
       <div className="flex flex-col gap-1 rounded-lg border border-border bg-background/95 p-1 shadow-sm backdrop-blur">
-        {([
-          { value: "pixel", Icon: MapPin },
-          { value: "region", Icon: SquareDashed },
-          { value: "compare", Icon: SquareSplitHorizontal },
-        ] as const).map(({ value, Icon }) => (
+        {(
+          [
+            { value: "pixel", Icon: MousePointer2 },
+            { value: "region", Icon: SquareDashed },
+            { value: "compare", Icon: SquareSplitHorizontal },
+          ] as const
+        ).map(({ value, Icon }) => (
           <Tooltip key={value} label={interactionCopy[value]} side="left">
             <Button
               variant={mode === value ? "default" : "ghost"}
@@ -74,13 +93,13 @@ export function MapToolbar({
         ))}
       </div>
       <div className="flex flex-col gap-1 rounded-lg border border-border bg-background/95 p-1 shadow-sm backdrop-blur">
-        {actions.map(({ label, Icon, onClick }) => (
+        {actions.map(({ label, Icon, onClick, disabled }) => (
           <Tooltip key={label} label={label} side="left">
             <Button
               variant="ghost"
               size="icon"
               className="size-8"
-              disabled={!map.ready}
+              disabled={!map.ready || disabled}
               aria-label={label}
               onClick={onClick}
             >

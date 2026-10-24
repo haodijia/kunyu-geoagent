@@ -10,6 +10,7 @@ from kunyu.agent.tools.maps.results import ResultTool
 from kunyu.agent.tools.maps.tools import MapTool
 from kunyu.agent.tools.oge.execute_code import ExecuteCodeTool
 from kunyu.agent.tools.oge.operators import OperatorTool
+from kunyu.agent.tools.oge.services import PublishedServiceTool
 from kunyu.agent.tools.registry import ToolRegistration
 from kunyu.application.analysis.analysis import AnalysisService
 from kunyu.application.analysis.analysis_supervisor import AnalysisSupervisor
@@ -82,6 +83,21 @@ class AnalysisPlugin:
                 )
             ),
         )
+        for name in ("oge_get_service_definition", "oge_execute_service"):
+            tools.register(
+                context,
+                name,
+                ToolRegistration(
+                    partial(
+                        PublishedServiceTool,
+                        contexts=contexts,
+                        service=service,
+                        producer=producer,
+                        jobs=context.require(s.JOBS),
+                        name=name,
+                    )
+                ),
+            )
         for name in ("oge_search_operators", "oge_get_operator_definition"):
             tools.register(
                 context,

@@ -65,6 +65,8 @@ class AnalysisJobs:
         )
         return {
             "analysis_output_id": output.id,
+            "products": output.metadata.get("products", []),
+            "limitations": job.parameters.get("limitations", []),
             "output": {
                 "id": output.id,
                 "title": output.title,
