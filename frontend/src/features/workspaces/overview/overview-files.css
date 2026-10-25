@@ -1,0 +1,125 @@
+.overview-file-breadcrumb {
+  display: flex;
+  gap: 3px;
+  align-items: center;
+  overflow-x: auto;
+  flex-shrink: 0;
+  padding: 2px 18px 10px;
+  font-size: 10px;
+  color: var(--muted-foreground);
+  scrollbar-width: none;
+}
+.overview-file-breadcrumb span {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  min-width: 0;
+  flex-shrink: 0;
+}
+.overview-file-breadcrumb button {
+  max-width: 160px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  padding: 3px;
+  border-radius: 3px;
+}
+.overview-file-breadcrumb button:hover {
+  color: var(--foreground);
+  background: var(--muted);
+}
+.overview-file-list {
+  min-height: 0;
+  flex: 1;
+  overflow: auto;
+  padding: 0 12px 8px;
+  scrollbar-width: thin;
+}
+.overview-file-row {
+  display: flex;
+  align-items: center;
+  border-radius: 9px;
+  border: 1px solid transparent;
+  margin-bottom: 3px;
+}
+.overview-file-row:hover {
+  background: color-mix(in srgb, var(--muted) 65%, transparent);
+}
+.overview-file-row.is-selected {
+  background: var(--overview-accent-soft);
+  border-color: color-mix(in srgb, var(--overview-accent) 20%, transparent);
+}
+.overview-file-open {
+  display: flex;
+  gap: 11px;
+  align-items: center;
+  padding: 10px 9px;
+  width: 100%;
+  text-align: left;
+  min-width: 0;
+}
+.overview-file-open strong {
+  display: block;
+  font-size: 12px;
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.overview-file-open span span {
+  display: block;
+  font-size: 10px;
+  margin-top: 3px;
+  color: var(--muted-foreground);
+}
+.overview-file-open time {
+  color: var(--muted-foreground);
+  font-size: 10px;
+  flex-shrink: 0;
+}
+.overview-file-icon {
+  display: grid;
+  place-items: center;
+  width: 33px;
+  height: 36px;
+  flex-shrink: 0;
+  border-radius: 8px;
+  background: var(--muted);
+  color: var(--muted-foreground);
+}
+.overview-file-icon svg {
+  width: 17px;
+  height: 17px;
+  stroke-width: 1.5;
+}
+.overview-file-icon.is-folder {
+  background: #cba85c12;
+  color: #b89857;
+}
+.overview-file-icon.folder-results {
+  background: var(--overview-accent-soft);
+  color: var(--overview-accent);
+}
+.overview-file-icon.folder-attachments {
+  background: #60998e12;
+  color: #60998e;
+}
+.overview-file-footer {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 20px;
+  font-size: 9px;
+  color: var(--muted-foreground);
+  border-top: 1px solid color-mix(in srgb, var(--border) 55%, transparent);
+}
+.overview-file-row:not(:has(.is-folder)) .overview-file-open {
+  padding-block: 7px;
+}
+.overview-file-row:not(:has(.is-folder)) .overview-file-icon {
+  width: 28px;
+  height: 32px;
+}
+.overview-file-open time {
+  line-height: 1.4;
+}

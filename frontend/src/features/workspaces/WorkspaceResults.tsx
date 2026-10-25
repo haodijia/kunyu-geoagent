@@ -1,200 +1,261 @@
-import { useQuery } from "@tanstack/react-query";
-import { ChevronLeft, ChevronRight } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
-import { Link } from "react-router-dom";
-
+import {
+  ChevronLeft,
+  ChevronRight,
+  Expand,
+  FileSearch,
+  Layers,
+  Trash2,
+} from "lucide-react";
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import type { AnalysisOutput } from "@/features/analysis/api";
 import { OutputCard } from "@/features/analysis/OutputCard";
-import {
-  getSession,
-  sessionQueryKeys,
-  type SessionSummary,
-} from "@/features/sessions/api";
-import { sessionAnalysisPath } from "@/features/sessions/routes";
-import { zhCN } from "@/locales/zh-CN";
-
-const content = zhCN.overview;
+import { productReferences } from "@/features/analysis/product-metadata";
+import { useOutputImage } from "@/features/analysis/useOutputImage";
+import type { SessionSummary } from "@/features/sessions/api";
+import { OverviewDialog } from "@/features/workspaces/overview/OverviewDialog";
+import { DeleteResultDialog } from "@/features/workspaces/overview/DeleteResultDialog";
+import { overviewCopy as copy } from "@/locales/zh-CN/workspace-overview";
 
 export function WorkspaceResults({
   outputs,
   workspaceId,
   sessions,
   originSessionId,
+  selectedId,
+  onSelect,
+  onLocate,
 }: {
   readonly outputs: readonly AnalysisOutput[];
   readonly workspaceId: string;
   readonly sessions: readonly SessionSummary[];
   readonly originSessionId: string | null;
+  readonly selectedId: string | null;
+  readonly onSelect: (id: string) => void;
+  readonly onLocate: (path: string) => void;
 }) {
-  const visibleOutputs = outputs.filter(
+  const visible = outputs.filter(
     (output) =>
       output.metadata.bundle_id === undefined ||
       output.metadata.bundle_id === output.id,
   );
-  const scroller = useRef<HTMLDivElement>(null);
-  const [edges, setEdges] = useState({ left: false, right: false });
-  useEffect(() => {
-    const element = scroller.current;
-    if (element === null) return;
-    const update = () =>
-      setEdges({
-        left: element.scrollLeft > 1,
-        right:
-          element.scrollWidth - element.clientWidth - element.scrollLeft > 1,
-      });
-    update();
-    const observer = new ResizeObserver(update);
-    observer.observe(element);
-    element.addEventListener("scroll", update, { passive: true });
-    return () => {
-      observer.disconnect();
-      element.removeEventListener("scroll", update);
-    };
-  }, [outputs]);
-
-  function move(direction: number) {
-    const element = scroller.current;
-    if (element === null) return;
-    const slide = element.firstElementChild;
-    if (slide !== null)
-      element.scrollBy({
-        left: direction * (slide.getBoundingClientRect().width + 24),
-        behavior: "smooth",
-      });
-  }
-
+  const selected = outputs.find((output) => output.id === selectedId);
+  const rootId =
+    typeof selected?.metadata.bundle_id === "string"
+      ? selected.metadata.bundle_id
+      : selectedId;
+  const index = Math.max(
+    0,
+    visible.findIndex((output) => output.id === rootId),
+  );
+  const output = visible[index];
+  const [detailId, setDetailId] = useState<string | null>(null);
+  const [removal, setRemoval] = useState<AnalysisOutput | null>(null);
+  const detail = outputs.find((item) => item.id === detailId);
+  const move = (direction: number) => {
+    const next = visible[(index + direction + visible.length) % visible.length];
+    if (next !== undefined) onSelect(next.id);
+  };
   return (
-    <>
-      <div className="mb-4 flex items-center justify-between gap-3">
-        <h2 className="text-base font-semibold">
-          {content.results}
-          <span className="ml-2 text-sm font-normal text-muted-foreground">
-            {visibleOutputs.length}
+    <section
+      className="overview-panel overview-results"
+      aria-label={copy.results}
+    >
+      <header className="overview-panel-heading">
+        <span className="overview-icon">
+          <Layers />
+        </span>
+        <div>
+          <h2>{copy.results}</h2>
+          <p>{copy.resultHint}</p>
+        </div>
+        <span className="overview-caption ml-auto">
+          {copy.resultCount(visible.length)}
+        </span>
+      </header>
+      {output === undefined ? (
+        <div className="overview-empty">
+          <span className="overview-empty-mark">
+            <Layers strokeWidth={1.25} />
           </span>
-        </h2>
-        <div className="flex gap-1">
-          <Button
-            type="button"
-            variant="outline"
-            size="icon-sm"
-            disabled={!edges.left}
-            aria-label={content.previousResult}
-            onClick={() => move(-1)}
-          >
-            <ChevronLeft className="size-4" />
-          </Button>
-          <Button
-            type="button"
-            variant="outline"
-            size="icon-sm"
-            disabled={!edges.right}
-            aria-label={content.nextResult}
-            onClick={() => move(1)}
-          >
-            <ChevronRight className="size-4" />
-          </Button>
+          <h3>{copy.emptyResults}</h3>
+          <p>{copy.emptyResultsHint}</p>
         </div>
-      </div>
-      {visibleOutputs.length === 0 ? (
-        <p className="rounded-xl border border-dashed border-border px-6 py-10 text-center text-sm text-muted-foreground">
-          {content.emptyResults}
-        </p>
       ) : (
-        <div
-          ref={scroller}
-          role="region"
-          aria-label={content.results}
-          aria-roledescription={content.carousel}
-          tabIndex={0}
-          onKeyDown={(event) => {
-            if (event.target !== event.currentTarget) return;
-            if (event.key !== "ArrowLeft" && event.key !== "ArrowRight") return;
-            event.preventDefault();
-            move(event.key === "ArrowLeft" ? -1 : 1);
-          }}
-          className="flex snap-x snap-mandatory items-stretch gap-6 overflow-x-auto pb-3 [scrollbar-width:thin]"
-        >
-          {visibleOutputs.map((output, index) => (
-            <article
-              key={output.id}
-              role="group"
-              aria-roledescription={content.slide}
-              aria-label={`${index + 1} / ${visibleOutputs.length}`}
-              className="min-w-0 basis-full shrink-0 snap-start rounded-xl border border-border px-4 py-3 md:basis-[calc((100%_-_24px)/2)]"
-            >
-              <ResultSource output={output} workspaceId={workspaceId} />
-              <OutputCard
-                output={output}
-                workspaceId={workspaceId}
-                compact
-                sessionId={
-                  originSessionId ??
-                  (sessions.some((session) => session.id === output.session_id)
-                    ? output.session_id
-                    : null)
-                }
+        <>
+          <div
+            className="overview-gallery"
+            role="region"
+            aria-roledescription="carousel"
+            aria-label={copy.results}
+            tabIndex={0}
+            onKeyDown={(event) => {
+              if (
+                event.target !== event.currentTarget ||
+                !["ArrowLeft", "ArrowRight"].includes(event.key)
+              )
+                return;
+              event.preventDefault();
+              move(event.key === "ArrowLeft" ? -1 : 1);
+            }}
+          >
+            {visible.length > 1 && (
+              <GalleryImage
+                output={visible[(index - 1 + visible.length) % visible.length]!}
+                position="previous"
+                onClick={() => move(-1)}
               />
-              <time
-                dateTime={output.created_at}
-                className="text-xs text-muted-foreground"
-              >
-                {new Date(output.created_at).toLocaleString("zh-CN")}
-              </time>
-            </article>
-          ))}
-        </div>
+            )}
+            <GalleryImage
+              key={output.id}
+              output={output}
+              position="current"
+              onClick={() => setDetailId(output.id)}
+            />
+            {visible.length > 1 && (
+              <GalleryImage
+                output={visible[(index + 1) % visible.length]!}
+                position="next"
+                onClick={() => move(1)}
+              />
+            )}
+            <span className="overview-gallery-counter">
+              {String(index + 1).padStart(2, "0")}{" "}
+              <span>/ {String(visible.length).padStart(2, "0")}</span>
+            </span>
+          </div>
+          <div className="overview-result-caption">
+            <div className="min-w-0 flex-1">
+              <h3 title={output.title}>{output.title}</h3>
+              <p>
+                {new Date(output.created_at).toLocaleDateString("zh-CN")}
+                <span>·</span>
+                {productReferences(output.metadata).length > 0
+                  ? copy.productCount(productReferences(output.metadata).length)
+                  : output.kind === "rgb_raster"
+                    ? "RGB"
+                    : "GeoTIFF"}
+              </p>
+            </div>
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              title={copy.locate}
+              aria-label={copy.locate}
+              onClick={() => onLocate(output.file_path)}
+            >
+              <FileSearch className="size-4" />
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              title={copy.deleteResult}
+              aria-label={copy.deleteResult}
+              onClick={() => setRemoval(output)}
+            >
+              <Trash2 className="size-3.5" />
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setDetailId(output.id)}
+            >
+              <Expand className="size-3.5" />
+              {copy.details}
+            </Button>
+          </div>
+          <footer className="overview-gallery-nav">
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              aria-label={copy.previous}
+              disabled={visible.length < 2}
+              onClick={() => move(-1)}
+            >
+              <ChevronLeft className="size-4" />
+            </Button>
+            <div className="overview-gallery-dots">
+              {visible.map((item, number) => (
+                <button
+                  key={item.id}
+                  aria-label={copy.resultPosition(number + 1, visible.length)}
+                  aria-current={index === number ? "true" : undefined}
+                  onClick={() => onSelect(item.id)}
+                />
+              ))}
+            </div>
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              aria-label={copy.next}
+              disabled={visible.length < 2}
+              onClick={() => move(1)}
+            >
+              <ChevronRight className="size-4" />
+            </Button>
+          </footer>
+        </>
       )}
-    </>
+      {detail !== undefined && (
+        <OverviewDialog title={copy.details} onClose={() => setDetailId(null)}>
+          <div className="p-5">
+            <OutputCard
+              output={detail}
+              workspaceId={workspaceId}
+              sessionId={
+                originSessionId ??
+                (sessions.some((session) => session.id === detail.session_id)
+                  ? detail.session_id
+                  : null)
+              }
+            />
+          </div>
+        </OverviewDialog>
+      )}
+      {removal !== null && (
+        <DeleteResultDialog output={removal} onClose={() => setRemoval(null)} />
+      )}
+    </section>
   );
 }
-
-function ResultSource({
+function GalleryImage({
   output,
-  workspaceId,
+  position,
+  onClick,
 }: {
   readonly output: AnalysisOutput;
-  readonly workspaceId: string;
+  readonly position: "previous" | "current" | "next";
+  readonly onClick: () => void;
 }) {
-  const session = useQuery({
-    queryKey: sessionQueryKeys.detail(output.session_id ?? ""),
-    queryFn: () => getSession(output.session_id!),
-    enabled: output.session_id !== null,
-  });
-  if (output.session_id === null)
-    return (
-      <p className="text-xs text-muted-foreground">
-        {content.sourceSession} · {output.source_session_title} ·{" "}
-        {content.deletedSession}
-      </p>
-    );
-  if (session.isPending)
-    return (
-      <p role="status" className="text-xs text-muted-foreground">
-        {content.loadingSource}
-      </p>
-    );
-  if (session.isError)
-    return (
-      <p role="alert" className="text-xs text-destructive">
-        {content.sourceFailed}
-      </p>
-    );
+  const image = useOutputImage(output.workspace_id, output.id);
+  const [failed, setFailed] = useState(false);
   return (
-    <p className="text-xs text-muted-foreground">
-      {content.sourceSession} ·{" "}
-      {session.data.archived ? (
-        <span>
-          {session.data.title} · {content.archivedSession}
-        </span>
+    <button
+      type="button"
+      className={`overview-gallery-image overview-gallery-${position}`}
+      onClick={onClick}
+      aria-label={
+        position === "current"
+          ? `${copy.details} · ${output.title}`
+          : position === "previous"
+            ? copy.previous
+            : copy.next
+      }
+    >
+      {image.url !== null && !failed ? (
+        <img
+          src={image.url}
+          alt={output.title}
+          onError={() => {
+            console.error("[overview] Preview failed", output.id);
+            setFailed(true);
+          }}
+        />
       ) : (
-        <Link
-          className="hover:text-foreground hover:underline"
-          to={sessionAnalysisPath(workspaceId, session.data.id, "conversation")}
-        >
-          {session.data.title}
-        </Link>
+        <span className="overview-caption">
+          {image.error || failed ? "预览不可用" : copy.loading}
+        </span>
       )}
-    </p>
+    </button>
   );
 }

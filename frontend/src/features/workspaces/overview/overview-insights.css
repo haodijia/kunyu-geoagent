@@ -1,0 +1,236 @@
+.overview-metrics-body {
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  padding: 0 20px 17px;
+  scrollbar-width: thin;
+}
+.overview-kpis {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  flex-shrink: 0;
+  padding-top: 2px;
+}
+.overview-kpi {
+  padding: 0 14px;
+  border-right: 1px solid var(--border);
+}
+.overview-kpi:first-child {
+  padding-left: 0;
+}
+.overview-kpi:last-child {
+  border: 0;
+  padding-right: 0;
+}
+.overview-kpi > div {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 10px;
+  color: var(--muted-foreground);
+}
+.overview-kpi svg {
+  width: 12px;
+  height: 12px;
+  opacity: 0.6;
+}
+.overview-kpi strong {
+  display: block;
+  font-size: 25px;
+  line-height: 1.4;
+  letter-spacing: -0.04em;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+}
+.overview-activity {
+  display: grid;
+  grid-template-columns: minmax(0, 1.6fr) minmax(100px, 1fr);
+  gap: 22px;
+  flex: 1;
+  min-height: 95px;
+}
+.overview-chart {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+.overview-chart-heading {
+  display: flex;
+  justify-content: space-between;
+  font-size: 9px;
+  color: var(--muted-foreground);
+}
+.overview-chart-heading span:last-child {
+  opacity: 0.55;
+  font-size: 8px;
+}
+.overview-bars {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  gap: 10px;
+  padding-top: 4px;
+}
+.overview-bar-column {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  min-width: 0;
+  gap: 4px;
+  font-size: 8px;
+  color: var(--muted-foreground);
+}
+.overview-bar-value {
+  font-size: 8px;
+  height: 10px;
+}
+.overview-bar-track {
+  display: flex;
+  align-items: flex-end;
+  width: min(100%, 20px);
+  flex: 1;
+  min-height: 12px;
+  border-bottom: 2px solid var(--border);
+}
+.overview-bar-track > div {
+  width: 100%;
+  background: linear-gradient(
+    to top,
+    color-mix(in srgb, var(--overview-accent) 60%, var(--background)),
+    var(--overview-accent)
+  );
+  border-radius: 3px 3px 0 0;
+}
+.overview-status-line {
+  height: 4px;
+  background: var(--muted);
+  overflow: hidden;
+  display: flex;
+  border-radius: 4px;
+  gap: 2px;
+  margin: 8px 0 7px;
+}
+.overview-status-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  font-size: 9px;
+  padding: 2px 0;
+  color: var(--muted-foreground);
+}
+.overview-status-row > span {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+.overview-status-row i {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+}
+.overview-status-row strong {
+  font-weight: 500;
+  color: var(--foreground);
+  font-variant-numeric: tabular-nums;
+}
+.overview-segment {
+  display: flex;
+  gap: 3px;
+  padding: 3px;
+  border-radius: 7px;
+  background: var(--muted);
+}
+.overview-segment button {
+  display: flex;
+  gap: 5px;
+  align-items: center;
+  padding: 4px 7px;
+  border-radius: 5px;
+  color: var(--muted-foreground);
+  font-size: 10px;
+  white-space: nowrap;
+}
+.overview-segment button[aria-pressed="true"] {
+  background: var(--background);
+  color: var(--foreground);
+  box-shadow: 0 1px 3px #00000008;
+}
+.overview-segment button span {
+  opacity: 0.5;
+  font-size: 9px;
+}
+.overview-knowledge-content {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: auto;
+  scrollbar-width: thin;
+}
+.overview-memory-list {
+  padding: 0 20px 12px;
+}
+.overview-memory {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 12px 0;
+  border-bottom: 1px solid color-mix(in srgb, var(--border) 55%, transparent);
+}
+.overview-memory:last-child {
+  border: 0;
+}
+.overview-memory-number {
+  color: var(--overview-accent);
+  font-size: 9px;
+  margin-top: 3px;
+  font-variant-numeric: tabular-nums;
+}
+.overview-memory p {
+  white-space: pre-wrap;
+  font-size: 11px;
+  line-height: 1.7;
+}
+.overview-memory time {
+  display: block;
+  font-size: 9px;
+  color: var(--muted-foreground);
+  margin-top: 5px;
+}
+.overview-instructions {
+  padding: 4px 20px 16px;
+}
+.overview-instructions pre {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  font-size: 11px;
+  line-height: 1.8;
+  margin: 10px 0;
+}
+
+.overview-knowledge-editor {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  flex-direction: column;
+  gap: 8px;
+  padding: 0 20px 14px;
+  overflow: auto;
+}
+.overview-knowledge-editor textarea {
+  background: color-mix(in srgb, var(--muted) 25%, var(--background));
+}
+.overview-memory p {
+  overflow-wrap: anywhere;
+}
+
+.overview-chart-heading,
+.overview-bar-column,
+.overview-status-row {
+  line-height: 1.4;
+}

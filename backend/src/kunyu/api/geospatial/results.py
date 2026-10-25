@@ -1,12 +1,18 @@
 """Read original cells and regional statistics of workspace-owned results."""
 
+import logging
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, Query, Request
 from pydantic import BaseModel, ConfigDict, Field, JsonValue
 
+from kunyu.api.dependencies import get_database
+from kunyu.api.errors import ApiError
+from kunyu.application.analysis.removal import ResultRemovalService
 from kunyu.application.analysis.results import ResultService
+from kunyu.application.workspaces.service import WorkspaceNotFoundError
 from kunyu.integrations.filesystem.operation import filesystem_operation
+from kunyu.persistence.database import Database
 
 router = APIRouter(
     prefix="/api/v1/workspaces/{workspace_id}/results", tags=["analysis"]
@@ -18,6 +24,23 @@ def result_service(request: Request) -> ResultService:
 
 
 Service = Annotated[ResultService, Depends(result_service)]
+
+
+@router.delete("/{output_id}")
+def remove_result(
+    workspace_id: str,
+    output_id: str,
+    database: Annotated[Database, Depends(get_database)],
+):
+    try:
+        return ResultRemovalService(database).remove(workspace_id, output_id)
+    except WorkspaceNotFoundError as error:
+        raise ApiError(404, "WORKSPACE_NOT_FOUND", str(error)) from error
+    except OSError as error:
+        logging.getLogger(__name__).exception("Result file removal failed")
+        raise ApiError(
+            503, "RESULT_REMOVAL_FAILED", "Could not remove result files."
+        ) from error
 
 
 class RegionRequest(BaseModel):

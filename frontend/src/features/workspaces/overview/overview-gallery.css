@@ -1,0 +1,124 @@
+.overview-gallery {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+  margin: 0 20px;
+  border-radius: 10px;
+  background: radial-gradient(
+    ellipse at center,
+    var(--overview-accent-soft),
+    color-mix(in srgb, var(--muted) 35%, var(--background))
+  );
+  isolation: isolate;
+}
+.overview-gallery-image {
+  position: absolute;
+  top: 10%;
+  bottom: 10%;
+  width: 61%;
+  left: 19.5%;
+  display: grid;
+  place-items: center;
+  border: 5px solid var(--background);
+  border-radius: 10px;
+  overflow: hidden;
+  background: var(--background);
+  box-shadow: 0 8px 24px #17132912;
+  transition:
+    transform 0.25s ease,
+    opacity 0.25s ease;
+}
+.overview-gallery-image img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  background: color-mix(in srgb, var(--muted) 45%, var(--background));
+}
+.overview-gallery-current {
+  z-index: 3;
+}
+.overview-gallery-current:hover {
+  transform: translateY(-2px);
+}
+.overview-gallery-previous {
+  transform: translateX(-48%) scale(0.8) rotate(-6deg);
+  opacity: 0.42;
+  z-index: 1;
+}
+.overview-gallery-next {
+  transform: translateX(48%) scale(0.8) rotate(6deg);
+  opacity: 0.42;
+  z-index: 1;
+}
+.overview-gallery-previous:hover,
+.overview-gallery-next:hover {
+  opacity: 0.75;
+}
+.overview-gallery-counter {
+  position: absolute;
+  bottom: 10px;
+  right: 12px;
+  z-index: 4;
+  font-size: 10px;
+  font-variant-numeric: tabular-nums;
+  padding: 3px 7px;
+  border-radius: 5px;
+  background: color-mix(in srgb, var(--background) 85%, transparent);
+  color: var(--foreground);
+}
+.overview-gallery-counter span {
+  color: var(--muted-foreground);
+}
+.overview-result-caption {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  padding: 12px 20px 2px;
+  flex-shrink: 0;
+}
+.overview-result-caption h3 {
+  font-size: 12px;
+  font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.overview-result-caption p {
+  font-size: 10px;
+  color: var(--muted-foreground);
+  margin-top: 4px;
+  display: flex;
+  gap: 7px;
+}
+.overview-gallery-nav {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  padding: 3px 15px 8px;
+  flex-shrink: 0;
+}
+.overview-gallery-dots {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  max-width: 65%;
+  overflow-x: auto;
+  scrollbar-width: thin;
+}
+.overview-gallery-dots button {
+  width: 6px;
+  height: 6px;
+  flex-shrink: 0;
+  border-radius: 99px;
+  background: var(--border);
+  transition:
+    width 0.2s,
+    background 0.2s;
+  margin-block: 6px;
+}
+.overview-gallery-dots button[aria-current] {
+  width: 20px;
+  background: var(--overview-accent);
+}

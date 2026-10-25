@@ -24,6 +24,8 @@ from kunyu.api.settings.skills import router as skills_router
 from kunyu.api.system.routes import router as system_router
 from kunyu.api.system.storage import router as storage_router
 from kunyu.api.workspaces.files import router as workspace_files_router
+from kunyu.api.workspaces.knowledge import router as workspace_knowledge_router
+from kunyu.api.workspaces.overview import router as workspace_overview_router
 from kunyu.api.workspaces.references import router as workspace_references_router
 from kunyu.api.workspaces.routes import router as workspaces_router
 
@@ -48,6 +50,8 @@ router.include_router(skills_router)
 router.include_router(subagents_router)
 router.include_router(workspaces_router)
 router.include_router(workspace_files_router)
+router.include_router(workspace_overview_router)
+router.include_router(workspace_knowledge_router)
 router.include_router(workspace_references_router)
 router.include_router(sessions_router)
 router.include_router(messages_router)
