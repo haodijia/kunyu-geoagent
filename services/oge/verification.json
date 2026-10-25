@@ -59,5 +59,18 @@
     "direct pixel click",
     "rectangle drag and automatic statistics"
   ],
-  "remaining_ui_check": "Final bundle layout and product switch screenshots require unlocked desktop."
+  "ui_followup": {
+    "date": "2026-10-25",
+    "product_switch": {
+      "from": "change_class",
+      "to": "quality_class",
+      "point": [109.65659, 23.10082],
+      "from_label": "指数分歧",
+      "to_label": "双方有效",
+      "selection_attached_to_composer": true,
+      "inspection_and_layers_do_not_overlap": true
+    },
+    "automation_blocker": "Native coordinate click and drag return noWindowsAvailable; reconnecting the app and resetting the automation session did not restore reliable interaction."
+  },
+  "remaining_ui_check": "Final bundle card layout, region statistics after product switching, and swipe comparison require an operable foreground desktop."
 }
