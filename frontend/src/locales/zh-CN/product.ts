@@ -52,12 +52,4 @@ export const productCopy = {
   ],
   taskDraft: (prompt: string, region: string, period: string) =>
     `${prompt}\n\n研究区域：${region}\n时间范围：${period}\n请先确认数据与范围，缺少的信息请向我询问。`,
-  summary: "成果摘要",
-  generated: "生成时间",
-  sourceSession: "来源任务",
-  bounds: "覆盖范围（经纬度）",
-  evidence: "查看来源记录",
-  reportDraft: "整理研判报告",
-  reportPrompt:
-    "请基于以下成果整理一份研判报告，引用实际数据与来源，注明研究范围、影像日期、方法、指标和局限。将每条成果依据写成 Markdown 链接，链接目标使用对应成果的 /workspace/results/... 文件路径，便于在对话中打开地图。将报告保存到工作区文件中，并在对话中给出带成果链接的摘要。",
 } as const;

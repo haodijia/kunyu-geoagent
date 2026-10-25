@@ -1,4 +1,3 @@
-import { ResultSummary } from "./ResultSummary";
 import { useState } from "react";
 import type { AnalysisOutput } from "./api";
 import { RasterOutputCard } from "./RasterOutputCard";
@@ -34,9 +33,6 @@ function RasterViewer(props: OutputProps) {
           )}
         </span>
       </div>
-      {!props.compact && (
-        <ResultSummary output={props.output} sessionId={props.sessionId} />
-      )}
       <RasterViewPicker
         views={props.output.metadata.views}
         selected={selected}
