@@ -35,7 +35,12 @@ export function MapComparison({
   function moveDivider(clientX: number) {
     const bounds = target.current?.getBoundingClientRect();
     if (bounds === undefined || bounds.width === 0) return;
-    setRatio(Math.min(100, Math.max(0, (clientX - bounds.left) / bounds.width * 100)));
+    setRatio(
+      Math.min(
+        100,
+        Math.max(0, ((clientX - bounds.left) / bounds.width) * 100),
+      ),
+    );
   }
   useEffect(() => {
     if (!map.ready || instance === null) {
@@ -43,7 +48,7 @@ export function MapComparison({
       return;
     }
     const check = () =>
-      setLayersReady(pair.every(id => instance.getLayer(id) !== undefined));
+      setLayersReady(pair.every((id) => instance.getLayer(id) !== undefined));
     instance.on("styledata", check);
     check();
     return () => {
@@ -51,9 +56,14 @@ export function MapComparison({
     };
   }, [instance, map.ready, pair, layers]);
   useEffect(() => {
-    if (!map.ready || !layersReady || instance === null || target.current === null)
+    if (
+      !map.ready ||
+      !layersReady ||
+      instance === null ||
+      target.current === null
+    )
       return;
-    if (pair.some(id => instance.getLayer(id) === undefined)) return;
+    if (pair.some((id) => instance.getLayer(id) === undefined)) return;
     const style = structuredClone(instance.getStyle());
     for (const layer of style.layers) {
       if (!layers.some((item) => item.id === layer.id)) continue;
@@ -158,6 +168,26 @@ export function MapComparison({
         className="pointer-events-none absolute inset-0 z-[1]"
         style={{ clipPath: `inset(0 0 0 ${ratio}%)` }}
       />
+      <div className="pointer-events-none absolute inset-x-4 bottom-[calc(var(--map-overlay-height,180px)+3rem)] z-[4] flex justify-between gap-12 text-xs">
+        {pair.map((id, index) => {
+          const layer = layers.find((item) => item.id === id);
+          return (
+            <div
+              key={id}
+              className="max-w-[32%] rounded-lg border border-border bg-background/95 px-3 py-2 shadow-sm"
+            >
+              <p className="truncate font-medium">
+                {index === 0 ? copy.left : copy.right} · {layer?.title}
+              </p>
+              {layer?.image && (
+                <p className="mt-1 text-muted-foreground">
+                  {layer.image.product_name} · {layer.image.acquired_at}
+                </p>
+              )}
+            </div>
+          );
+        })}
+      </div>
       <div
         role="slider"
         tabIndex={0}
@@ -190,12 +220,17 @@ export function MapComparison({
           if (event.currentTarget.hasPointerCapture(event.pointerId))
             event.currentTarget.releasePointerCapture(event.pointerId);
         }}
-        onPointerCancel={() => { dragPointer.current = null; }}
-        onLostPointerCapture={() => { dragPointer.current = null; }}
+        onPointerCancel={() => {
+          dragPointer.current = null;
+        }}
+        onLostPointerCapture={() => {
+          dragPointer.current = null;
+        }}
         onClick={(event) => event.stopPropagation()}
         onKeyDown={(event) => {
           const delta = event.shiftKey ? 10 : 1;
-          if (!["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) return;
+          if (!["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key))
+            return;
           event.preventDefault();
           event.stopPropagation();
           setRatio((current) => {

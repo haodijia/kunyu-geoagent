@@ -1,12 +1,20 @@
-import { useQuery } from "@tanstack/react-query";
+import { useState } from "react";
+import { Button } from "@/components/ui/button";
+import { SidebarNameForm } from "./sidebar/SidebarNameForm";
+import { ConnectionReadiness } from "./ConnectionReadiness";
+import { workspaceOverviewPath } from "./routes";
+import { productCopy as copy } from "@/locales/zh-CN/product";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { FolderClosed, MessageCircle } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
 import { sessionAnalysisPath } from "@/features/sessions/routes";
 import {
+  createWorkspace,
+  createSession,
   listSessions,
   type Workspace,
-  workspaceQueryKeys
+  workspaceQueryKeys,
 } from "@/features/workspaces/api";
 import { zhCN } from "@/locales/zh-CN";
 
@@ -17,6 +25,17 @@ interface WorkspaceStartPageProps {
 }
 
 export function WorkspaceStartPage({ workspaces }: WorkspaceStartPageProps) {
+  const client = useQueryClient();
+  const navigate = useNavigate();
+  const [creating, setCreating] = useState(workspaces.length === 0);
+  const create = useMutation({
+    mutationFn: createWorkspace,
+    onSuccess: async (workspace) => {
+      await client.invalidateQueries({ queryKey: workspaceQueryKeys.all });
+      void navigate(workspaceOverviewPath(workspace.id));
+    },
+    onError: (error) => console.error("[workspace] Creation failed", error),
+  });
   return (
     <div className="min-h-full bg-muted px-8 py-12">
       <section className="mx-auto w-full max-w-[920px]">
@@ -24,15 +43,40 @@ export function WorkspaceStartPage({ workspaces }: WorkspaceStartPageProps) {
           {content.eyebrow}
         </p>
         <h1 className="mt-2 mb-0 text-3xl font-semibold tracking-normal text-foreground">
-          {content.title}
+          {copy.startTitle}
         </h1>
         <p className="mt-3 mb-8 max-w-2xl text-sm leading-6 text-muted-foreground">
-          {content.description}
+          {copy.startHint}
         </p>
 
+        <div className="mb-6">
+          <ConnectionReadiness />
+        </div>
+        <div className="mb-6 flex items-center justify-between gap-4">
+          <h2 className="text-base font-semibold">{copy.recent}</h2>
+          <Button onClick={() => setCreating(true)}>
+            {copy.createWorkspace}
+          </Button>
+        </div>
+        {creating && (
+          <div className="mb-6 rounded-xl border bg-background p-4">
+            <SidebarNameForm
+              label={copy.createWorkspace}
+              placeholder={copy.workspaceName}
+              pending={create.isPending}
+              error={create.error?.message ?? null}
+              onSubmit={(name) => create.mutate(name)}
+              onCancel={() => setCreating(false)}
+            />
+          </div>
+        )}
         {workspaces.length === 0 ? (
           <div className="rounded-2xl border border-dashed border-input bg-background px-8 py-12 text-center">
-            <FolderClosed className="mx-auto size-8 text-muted-foreground" strokeWidth={1.6} aria-hidden="true" />
+            <FolderClosed
+              className="mx-auto size-8 text-muted-foreground"
+              strokeWidth={1.6}
+              aria-hidden="true"
+            />
             <h2 className="mt-4 mb-0 text-base font-semibold text-foreground">
               {content.emptyTitle}
             </h2>
@@ -54,35 +98,90 @@ export function WorkspaceStartPage({ workspaces }: WorkspaceStartPageProps) {
 
 function RecentWorkspace({ workspace }: { readonly workspace: Workspace }) {
   const navigate = useNavigate();
+  const client = useQueryClient();
+  const create = useMutation({
+    mutationFn: () =>
+      createSession(workspace.id, zhCN.workspaceSidebar.defaultSessionTitle),
+    onSuccess: async (session) => {
+      await client.invalidateQueries({
+        queryKey: workspaceQueryKeys.sessions(workspace.id),
+      });
+      void navigate(
+        sessionAnalysisPath(workspace.id, session.id, "conversation"),
+      );
+    },
+    onError: (error) => console.error("[session] Creation failed", error),
+  });
   const sessionsQuery = useQuery({
     queryKey: workspaceQueryKeys.sessions(workspace.id),
-    queryFn: () => listSessions(workspace.id)
+    queryFn: () => listSessions(workspace.id),
   });
 
   return (
     <section className="rounded-2xl border border-border bg-background p-5 shadow-sm">
       <div className="flex items-center gap-3">
         <span className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-muted text-secondary-foreground">
-          <FolderClosed className="size-4.5" strokeWidth={1.8} aria-hidden="true" />
+          <FolderClosed
+            className="size-4.5"
+            strokeWidth={1.8}
+            aria-hidden="true"
+          />
         </span>
         <h2 className="m-0 min-w-0 flex-1 truncate text-base font-semibold text-foreground">
-          {workspace.name}
+          <button
+            type="button"
+            onClick={() => void navigate(workspaceOverviewPath(workspace.id))}
+          >
+            {workspace.name}
+          </button>
         </h2>
       </div>
 
+      <div className="mt-4 flex gap-2">
+        <Button
+          size="sm"
+          disabled={create.isPending}
+          onClick={() => create.mutate()}
+        >
+          {copy.newSession}
+        </Button>
+        <Button
+          size="sm"
+          variant="ghost"
+          onClick={() => void navigate(workspaceOverviewPath(workspace.id))}
+        >
+          {copy.openWorkspace}
+        </Button>
+      </div>
+      {create.isError && (
+        <p role="alert" className="mt-2 text-sm text-destructive">
+          {create.error.message}
+        </p>
+      )}
       {sessionsQuery.isPending ? (
-        <p className="mt-4 mb-0 text-sm text-muted-foreground">{content.loadingSessions}</p>
+        <p className="mt-4 mb-0 text-sm text-muted-foreground">
+          {content.loadingSessions}
+        </p>
       ) : null}
       {sessionsQuery.isError ? (
-        <div className="mt-4 flex items-center gap-3 text-sm text-destructive" role="alert">
+        <div
+          className="mt-4 flex items-center gap-3 text-sm text-destructive"
+          role="alert"
+        >
           <span>{content.loadSessionsFailed}</span>
-          <button type="button" className="font-medium underline" onClick={() => void sessionsQuery.refetch()}>
+          <button
+            type="button"
+            className="font-medium underline"
+            onClick={() => void sessionsQuery.refetch()}
+          >
             {content.retry}
           </button>
         </div>
       ) : null}
       {sessionsQuery.data?.length === 0 ? (
-        <p className="mt-4 mb-0 text-sm text-muted-foreground">{content.emptySessions}</p>
+        <p className="mt-4 mb-0 text-sm text-muted-foreground">
+          {content.emptySessions}
+        </p>
       ) : null}
       {sessionsQuery.data !== undefined && sessionsQuery.data.length > 0 ? (
         <div className="mt-4 grid gap-1 border-t border-border pt-3">
@@ -91,9 +190,17 @@ function RecentWorkspace({ workspace }: { readonly workspace: Workspace }) {
               key={session.id}
               type="button"
               className="flex h-9 min-w-0 items-center gap-2 rounded-lg px-2 text-left text-sm text-secondary-foreground transition-colors hover:bg-muted hover:text-foreground"
-              onClick={() => void navigate(sessionAnalysisPath(workspace.id, session.id, "conversation"))}
+              onClick={() =>
+                void navigate(
+                  sessionAnalysisPath(workspace.id, session.id, "conversation"),
+                )
+              }
             >
-              <MessageCircle className="size-3.5 shrink-0" strokeWidth={1.8} aria-hidden="true" />
+              <MessageCircle
+                className="size-3.5 shrink-0"
+                strokeWidth={1.8}
+                aria-hidden="true"
+              />
               <span className="truncate">{session.title}</span>
             </button>
           ))}

@@ -1,6 +1,6 @@
 import { SettingsSidebar } from "@/features/settings/SettingsSidebar";
 import { ArrowCircleLeft, SettingTwo } from "@icon-park/react";
-import { Bell, Monitor, Moon, Search, Sun, X } from "lucide-react";
+import { Monitor, Moon, Search, Sun, X } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Outlet, useLocation, useNavigate } from "react-router-dom";
 
@@ -32,7 +32,9 @@ export function AppShell() {
   const setThemeMode = useAppUiStore((state) => state.setThemeMode);
   const toggleSidebar = useAppUiStore((state) => state.toggleSidebar);
   const [mobile, setMobile] = useState(false);
-  const [uploadWorkspace, setUploadWorkspace] = useState<Workspace | null>(null);
+  const [uploadWorkspace, setUploadWorkspace] = useState<Workspace | null>(
+    null,
+  );
   useEffect(() => setUploadWorkspace(null), [location.pathname]);
   const [searchOpen, setSearchOpen] = useState(false);
   const [search, setSearch] = useState("");
@@ -157,15 +159,6 @@ export function AppShell() {
                     <Search size={16} strokeWidth={1.8} aria-hidden="true" />
                   )}
                 </button>
-                {searchOpen ? null : (
-                  <span
-                    className="flex size-8 items-center justify-center"
-                    role="img"
-                    aria-label={content.notifications}
-                  >
-                    <Bell size={16} strokeWidth={1.8} aria-hidden="true" />
-                  </span>
-                )}
               </div>
             )}
           </div>
@@ -251,7 +244,12 @@ export function AppShell() {
           <Outlet />
         </main>
       </div>
-      {uploadWorkspace !== null && <WorkspaceUploadDialog workspace={uploadWorkspace} onClose={() => setUploadWorkspace(null)} />}
+      {uploadWorkspace !== null && (
+        <WorkspaceUploadDialog
+          workspace={uploadWorkspace}
+          onClose={() => setUploadWorkspace(null)}
+        />
+      )}
     </div>
   );
 }

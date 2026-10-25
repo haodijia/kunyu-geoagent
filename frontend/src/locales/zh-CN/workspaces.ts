@@ -107,7 +107,7 @@ export const workspaces = {
     restoreFailed: "无法恢复上次会话，请稍后重试。",
     retry: "重新加载",
     emptyTitle: "还没有工作空间",
-    emptyDescription: "从左侧工作空间区域新建一个工作空间开始使用。",
+    emptyDescription: "创建工作区来保存任务、资料和分析成果。",
     loadingSessions: "正在读取会话…",
     loadSessionsFailed: "无法读取此工作空间的会话。",
     emptySessions: "此工作空间暂无会话。",

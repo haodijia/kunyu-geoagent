@@ -1,3 +1,4 @@
+import { TaskStarter } from "@/features/sessions/TaskStarter";
 import { AgentControls } from "@/features/agent/controls/AgentControls";
 import { conversationAssembler } from "@/features/conversation/assembler";
 import { EventStreamNotice } from "@/features/events/EventStreamNotice";
@@ -65,6 +66,7 @@ export function ConversationView() {
         )}
         {messagesQuery.data !== undefined && (
           <MessageList
+            emptyState={<TaskStarter />}
             navigation={navigation}
             footer={<AgentControls embedded />}
             messages={snapshot.messages}

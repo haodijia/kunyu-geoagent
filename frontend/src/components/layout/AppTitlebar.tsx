@@ -1,10 +1,5 @@
-import { Ellipsis, Share } from "lucide-react";
-
 import { Button } from "@/components/ui/button";
 import { Tooltip } from "@/components/ui/tooltip";
-import { zhCN } from "@/locales/zh-CN";
-
-const content = zhCN.shell;
 
 function SidebarToggleIcon() {
   return (
@@ -37,7 +32,7 @@ export function AppTitlebar({
   onToggleSidebar,
   sidebarCollapsed,
   sidebarWidth,
-  toggleLabel
+  toggleLabel,
 }: AppTitlebarProps) {
   return (
     <header className="relative z-50 flex h-[45px] shrink-0 items-center border-b border-border bg-background [-webkit-app-region:drag]">
@@ -65,26 +60,14 @@ export function AppTitlebar({
       <div
         id="session-titlebar-mode-slot"
         className="absolute top-1/2 -translate-x-1/2 -translate-y-1/2 transition-[left] duration-200 ease-out [-webkit-app-region:no-drag]"
-        style={{ left: `calc((100% + ${sidebarCollapsed ? 56 : sidebarWidth}px) / 2)` }}
+        style={{
+          left: `calc((100% + ${sidebarCollapsed ? 56 : sidebarWidth}px) / 2)`,
+        }}
       />
-      <div id="session-titlebar-actions-slot" className="ml-auto mr-2 flex shrink-0 items-center text-muted-foreground [-webkit-app-region:no-drag]" />
-      <div className="mr-4 flex shrink-0 items-center gap-5 text-muted-foreground [-webkit-app-region:no-drag] max-[640px]:hidden">
-        <span
-          className="flex size-8 items-center justify-center"
-          role="img"
-          aria-label={content.more}
-        >
-          <Ellipsis size={19} strokeWidth={2} aria-hidden="true" />
-        </span>
-        <span
-          className="flex h-8 items-center gap-2 text-sm font-medium"
-          role="img"
-          aria-label={content.share}
-        >
-          <Share size={18} strokeWidth={1.8} aria-hidden="true" />
-          <span aria-hidden="true">{content.share}</span>
-        </span>
-      </div>
+      <div
+        id="session-titlebar-actions-slot"
+        className="ml-auto mr-2 flex shrink-0 items-center text-muted-foreground [-webkit-app-region:no-drag]"
+      />
     </header>
   );
 }

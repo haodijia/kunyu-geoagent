@@ -1,3 +1,5 @@
+import { TaskStatus } from "@/features/agent/controls/TaskStatus";
+import { AnalysisContext } from "@/features/maps/conversation/AnalysisContext";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
 import { useAppUiStore } from "@/app/store";
@@ -144,6 +146,8 @@ export function SessionComposer() {
 
   return (
     <>
+    <AnalysisContext />
+    <TaskStatus />
     <QueuedMessages onDraftLockChange={setQueueEditing} />
     <ConversationPlanBar
       runId={activeTurn?.id ?? null}

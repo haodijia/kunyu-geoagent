@@ -1,11 +1,9 @@
-import { AlarmClock } from "@icon-park/react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Globe, List, Plus } from "lucide-react";
+import { Globe, Plus } from "lucide-react";
 import { useState } from "react";
 import { matchPath, useLocation, useNavigate } from "react-router-dom";
 
 import { SidebarItem } from "@/components/navigation/SidebarItem";
-import { Tooltip } from "@/components/ui/tooltip";
 import { sessionAnalysisPath } from "@/features/sessions/routes";
 import {
   createSession,
@@ -16,6 +14,7 @@ import {
 } from "@/features/workspaces/api";
 import { SidebarNameForm } from "@/features/workspaces/sidebar/SidebarNameForm";
 import { WorkspaceGroup } from "@/features/workspaces/sidebar/WorkspaceGroup";
+import { productCopy } from "@/locales/zh-CN/product";
 import { zhCN } from "@/locales/zh-CN";
 
 const shellContent = zhCN.shell;
@@ -41,6 +40,11 @@ export function TaskSidebarContent({
     "/workspaces/:workspaceId/sessions/:sessionId/*",
     location.pathname,
   );
+  const workspaceMatch = matchPath(
+    "/workspaces/:workspaceId/*",
+    location.pathname,
+  );
+  const [choosingWorkspace, setChoosingWorkspace] = useState(false);
   const activeSessionId = sessionMatch?.params.sessionId ?? null;
   const [workspaceFormOpen, setWorkspaceFormOpen] = useState(false);
   const workspacesQuery = useQuery({
@@ -64,22 +68,32 @@ export function TaskSidebarContent({
         }),
         queryClient.invalidateQueries({ queryKey: workspaceQueryKeys.all }),
       ]);
-      void navigate(sessionAnalysisPath(session.workspace_id, session.id, "conversation"));
+      setChoosingWorkspace(false);
+      void navigate(
+        sessionAnalysisPath(session.workspace_id, session.id, "conversation"),
+      );
     },
   });
   const newChatUnavailable =
     workspacesQuery.isPending || workspacesQuery.isError;
 
   function handleNewChat() {
-    const firstWorkspace = workspacesQuery.data?.[0];
-    if (firstWorkspace === undefined) {
+    const currentWorkspace = workspacesQuery.data?.find(
+      (workspace) => workspace.id === workspaceMatch?.params.workspaceId,
+    );
+    if (workspacesQuery.data?.length === 0) {
       if (collapsed) {
         onRequestExpand();
       }
       setWorkspaceFormOpen(true);
       return;
     }
-    createSessionMutation.mutate(firstWorkspace.id);
+    if (currentWorkspace !== undefined) {
+      createSessionMutation.mutate(currentWorkspace.id);
+    } else {
+      if (collapsed) onRequestExpand();
+      setChoosingWorkspace(true);
+    }
   }
 
   return (
@@ -103,36 +117,39 @@ export function TaskSidebarContent({
               pending={createSessionMutation.isPending}
             />
           </div>
-          {collapsed ? null : (
-            <Tooltip label={content.createSession}>
-              <button
-                type="button"
-                className="mr-2.5 flex size-8 shrink-0 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50 aria-disabled:cursor-default aria-disabled:hover:bg-transparent disabled:pointer-events-none"
-                onClick={newChatUnavailable ? undefined : handleNewChat}
-                disabled={createSessionMutation.isPending}
-                aria-disabled={newChatUnavailable || undefined}
-                aria-busy={createSessionMutation.isPending || undefined}
-                aria-label={content.createSession}
-              >
-                <List size={13} strokeWidth={1.8} aria-hidden="true" />
-              </button>
-            </Tooltip>
-          )}
         </div>
-        <SidebarItem
-          collapsed={collapsed}
-          icon={<AlarmClock theme="outline" size="16" fill="currentColor" />}
-          label={shellContent.scheduledTasks}
-          disabled
-        />
         <SidebarItem
           collapsed={collapsed}
           icon={<Globe size={15} strokeWidth={1.8} />}
           label={shellContent.geoSkill}
-          disabled
+          onClick={() => void navigate("/settings/skills")}
         />
       </nav>
 
+      {choosingWorkspace && !collapsed && (
+        <div className="mx-2 my-2 rounded-xl border bg-background p-3">
+          <p className="mb-2 text-xs text-muted-foreground">
+            {productCopy.chooseWorkspace}
+          </p>
+          {workspacesQuery.data?.map((workspace) => (
+            <button
+              key={workspace.id}
+              type="button"
+              disabled={createSessionMutation.isPending}
+              className="block w-full truncate rounded-md px-2 py-2 text-left text-sm hover:bg-muted disabled:opacity-50"
+              onClick={() => createSessionMutation.mutate(workspace.id)}
+            >
+              {workspace.name}
+            </button>
+          ))}
+          <button
+            className="mt-2 text-xs text-muted-foreground"
+            onClick={() => setChoosingWorkspace(false)}
+          >
+            {content.cancel}
+          </button>
+        </div>
+      )}
       {collapsed ? null : (
         <div className="mt-2 flex min-h-0 flex-1 flex-col border-t border-border pt-2">
           <div className="flex h-8 shrink-0 items-center px-2">

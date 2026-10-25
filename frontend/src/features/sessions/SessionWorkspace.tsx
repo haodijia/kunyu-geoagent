@@ -124,7 +124,7 @@ function SessionWorkspaceContent({
             <SubagentProvider>
             <section className="flex h-full min-h-0 flex-col bg-background">
               <SessionTitlebar />
-              <div className="min-h-0 flex-1 overflow-hidden"><Outlet /></div>
+              <div className="session-analysis-surface min-h-0 flex-1 overflow-hidden"><Outlet /></div>
             </section>
             </SubagentProvider>
             </MessageNavigationProvider>

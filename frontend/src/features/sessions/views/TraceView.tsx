@@ -1,3 +1,4 @@
+import { useLocation } from "react-router-dom";
 import { conversationAssembler } from "@/features/conversation/assembler";
 import { EventStreamNotice } from "@/features/events/EventStreamNotice";
 import { useSessionEvents } from "@/features/events/SessionEventContext";
@@ -16,9 +17,19 @@ import "@/features/events/trajectory/trajectory-theme.css";
 import { SessionComposer } from "@/features/messages/composer/SessionComposer";
 import { useSessionMessages } from "@/features/messages/state/SessionMessagesContext";
 import { zhCN } from "@/locales/zh-CN";
-import { useCallback, useLayoutEffect, useMemo, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 
 export function TraceView() {
+  const location = useLocation();
+  const linkedTool = new URLSearchParams(location.search).get("tool");
+  const linkedSelection = useRef<string | null>(null);
   const eventStream = useSessionEvents();
   const { messagesQuery, agentTurnsQuery, confirmationsQuery } =
     useSessionMessages();
@@ -109,6 +120,21 @@ export function TraceView() {
     setFocusedIndex(index);
     setRange(null);
   }, []);
+
+  useEffect(() => {
+    if (linkedTool === null) {
+      linkedSelection.current = null;
+      return;
+    }
+    if (linkedSelection.current === linkedTool) return;
+    const record = records.find(
+      (item) => item.kind === "tool" && item.source.tool_call_id === linkedTool,
+    );
+    if (record !== undefined) {
+      linkedSelection.current = linkedTool;
+      selectRecord(record.index);
+    }
+  }, [linkedTool, records, selectRecord]);
 
   useLayoutEffect(() => {
     const element = composer.current;
