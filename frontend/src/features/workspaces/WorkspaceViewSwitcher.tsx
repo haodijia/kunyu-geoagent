@@ -92,6 +92,11 @@ export function WorkspaceViewSwitcher({
         aria-label={analysisAction}
         title={analysisAction}
       >
+        <span
+          key={trace ? "trace" : "conversation"}
+          className="analysis-mode-light"
+          aria-hidden="true"
+        />
         <span className="analysis-mode-orbit" aria-hidden="true">
           <MessageCircle
             className="mode-conversation size-4"

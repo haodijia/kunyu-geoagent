@@ -2,6 +2,7 @@ import {
   Compass,
   LocateFixed,
   MousePointer2,
+  Crosshair,
   Minus,
   Plus,
   SquareDashed,
@@ -72,18 +73,37 @@ export function MapToolbar({
       <div className="flex flex-col gap-1 rounded-lg border border-border bg-background/95 p-1 shadow-sm backdrop-blur">
         {(
           [
-            { value: "pixel", Icon: MousePointer2 },
+            {
+              value: "pixel",
+              Icon: mode === "pixel" ? Crosshair : MousePointer2,
+            },
             { value: "region", Icon: SquareDashed },
             { value: "compare", Icon: SquareSplitHorizontal },
           ] as const
         ).map(({ value, Icon }) => (
-          <Tooltip key={value} label={interactionCopy[value]} side="left">
+          <Tooltip
+            key={value}
+            label={
+              value === "pixel"
+                ? mode === "pixel"
+                  ? interactionCopy.pointer
+                  : interactionCopy.selectPoint
+                : interactionCopy[value]
+            }
+            side="left"
+          >
             <Button
               variant={mode === value ? "default" : "ghost"}
               size="icon"
               className="size-8"
               disabled={!map.ready}
-              aria-label={interactionCopy[value]}
+              aria-label={
+                value === "pixel"
+                  ? mode === "pixel"
+                    ? interactionCopy.pointer
+                    : interactionCopy.selectPoint
+                  : interactionCopy[value]
+              }
               aria-pressed={mode === value}
               onClick={() => onInteract(value)}
             >

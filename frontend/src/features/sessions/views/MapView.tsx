@@ -125,13 +125,14 @@ function MapCanvas() {
   );
   const targetLayer =
     selectedLayer ?? spatialLayers.find((layer) => layer.visible);
-  const activeInteraction: MapInteraction =
+  const activeInteraction: MapInteraction | null =
     interaction === null
-      ? { mode: "pixel", layerId: targetLayer?.id ?? null }
+      ? null
       : { ...interaction, layerId: targetLayer?.id ?? null };
   function toggleInteraction(mode: MapInteraction["mode"]) {
     setComparisonError(null);
     setPair(null);
+    useAppUiStore.getState().setMapSelection(session.id, null);
     if (interaction?.mode === mode) {
       setInteraction(null);
       return;
@@ -198,7 +199,7 @@ function MapCanvas() {
     comparisonCapture,
     pair,
   );
-  const interactionContent = (
+  const interactionContent = activeInteraction !== null && (
     <MapInteractions
       value={activeInteraction}
       map={map}
@@ -214,6 +215,7 @@ function MapCanvas() {
       onClose={() => {
         setInteraction(null);
         setPair(null);
+        useAppUiStore.getState().setMapSelection(session.id, null);
       }}
     />
   );
@@ -225,7 +227,7 @@ function MapCanvas() {
       <div ref={targetRef} className="absolute inset-0" />
       <MapToolbar
         map={map}
-        mode={activeInteraction.mode}
+        mode={activeInteraction?.mode ?? null}
         onInteract={toggleInteraction}
         onFitLayers={() => {
           const bounds = spatialLayers

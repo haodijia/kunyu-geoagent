@@ -30,8 +30,6 @@ export interface SessionModelSelection {
 }
 
 interface AppUiState {
-  readonly pinnedConclusionBySession: Readonly<Record<string, string | null>>;
-  readonly setPinnedConclusion: (sessionId: string, text: string | null) => void;
   readonly setMapSelection: (sessionId: string, selection: MapSelection | null) => void;
   readonly analysisModeBySession: Readonly<Record<string, AnalysisMode>>;
   readonly composerAttachmentsBySession: Readonly<Record<string, readonly Attachment[]>>;
@@ -73,8 +71,6 @@ interface AppUiState {
 }
 
 export const useAppUiStore = create<AppUiState>((set) => ({
-  pinnedConclusionBySession: {},
-  setPinnedConclusion: (sessionId, text) => set((state) => ({ pinnedConclusionBySession: { ...state.pinnedConclusionBySession, [sessionId]: text } })),
   analysisModeBySession: {},
   composerDraftBySession: {},
   composerQuoteBySession: {},

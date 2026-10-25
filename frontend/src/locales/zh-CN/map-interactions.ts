@@ -1,6 +1,8 @@
 export const interactionCopy = {
   close: "关闭地图操作",
   pixel: "像元查询",
+  pointer: "切换为鼠标，清除选择",
+  selectPoint: "切换为点选",
   region: "圈选范围",
   compare: "卷帘对比",
   pixelHint: "点击地图查看数值",
