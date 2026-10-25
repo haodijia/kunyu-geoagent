@@ -93,8 +93,13 @@ class AnalysisOutputRecord(Base):
 class MapLayerRecord(Base):
     __tablename__ = "map_layers"
     __table_args__ = (
-        UniqueConstraint("session_id", "output_id", name="uq_map_layers_output"),
+        UniqueConstraint(
+            "session_id", "output_id", "view_id", name="uq_map_layers_output"
+        ),
         CheckConstraint("opacity >= 0 AND opacity <= 1", name="ck_map_layers_opacity"),
+        CheckConstraint(
+            "(output_id IS NULL) = (view_id IS NULL)", name="ck_map_layers_view"
+        ),
         CheckConstraint(
             "(output_id IS NULL) != (image IS NULL)", name="ck_map_layers_source"
         ),
@@ -106,6 +111,7 @@ class MapLayerRecord(Base):
     output_id: Mapped[str | None] = mapped_column(
         ForeignKey("analysis_outputs.id", ondelete="CASCADE"), nullable=True
     )
+    view_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
     image: Mapped[dict | None] = mapped_column(JSON(none_as_null=True), nullable=True)
     bounds: Mapped[list | None] = mapped_column(JSON(none_as_null=True), nullable=True)
     title: Mapped[str] = mapped_column(String(200), nullable=False)

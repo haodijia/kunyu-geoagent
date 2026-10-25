@@ -99,7 +99,7 @@ class PublishedServiceTool(BaseTool):
                 execution="tool",
                 binding=service.binding + ":published-service:v2",
                 summary="Invoke the published OGE service with these parameters.",
-                side_effect="Submits one GP job and collects its complete numeric products.",
+                side_effect="Submits one GP job and collects its numeric TIFF and declared views.",
             )
             if execute
             else None,
@@ -117,7 +117,8 @@ class PublishedServiceTool(BaseTool):
                 return tool_result(
                     {"services": service_catalog()}
                     if args.service_name is None
-                    else service_definition(args.service_name)
+                    else service_definition(args.service_name),
+                    max_bytes=256 * 1024,
                 )
             definition, parameters = service_parameters(
                 args.service_name, args.parameters
@@ -130,7 +131,7 @@ class PublishedServiceTool(BaseTool):
                     "service_name": args.service_name,
                     "service_version": definition["version"],
                     "arguments": parameters,
-                    "products": definition["products"],
+                    "presentation": definition["presentation"],
                     "limitations": definition["limitations"],
                 },
             )

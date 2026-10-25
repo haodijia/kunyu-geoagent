@@ -1,0 +1,50 @@
+{
+  "date": "2026-10-25",
+  "remote": {
+    "job_id": "job-c3198538-29b5-422e-812a-863b9e2bcc10",
+    "band_count": 10,
+    "view_count": 11,
+    "original_tiff_count": 1,
+    "styles": [
+      "rgb",
+      "continuous",
+      "classified"
+    ],
+    "export_resolution_m": 100,
+    "purpose": "Protocol validation; not a flood assessment"
+  },
+  "isolated_checks": {
+    "1_bands_single_original_and_views": true,
+    "3_bands_single_original_and_views": true,
+    "10_bands_single_original_and_views": true,
+    "33_bands_single_original_and_views": true,
+    "atomic_view_validation_and_distinct_layers": true,
+    "preview_download_rgb_sample_and_multiband_statistics": true,
+    "local_view_revision_stale_in_use_and_rollback": true,
+    "single_raster_delete_cleans_all_views_and_layers": true,
+    "invalid_count_names_classes_and_references_rejected": true
+  },
+  "migration": {
+    "baseline": 15,
+    "old_output_records": 30,
+    "raster_results": 10,
+    "views": 30,
+    "preserved_map_layers": 10,
+    "original_tiffs_rewritten": false,
+    "backup_directory_name": "20261025-083141-raster-views"
+  },
+  "native_ui": {
+    "flood_result_tiff_count": 1,
+    "flood_view_count": 21,
+    "view_switch_updates_pixel_query": true,
+    "rgb_pixel_channels": 3,
+    "rgb_selected_area_display_km2": 26.899,
+    "rgb_selected_pixels_per_channel": 268904
+  },
+  "checks": {
+    "frontend_typecheck_and_build": "passed (existing large chunk warning)",
+    "architecture": "passed",
+    "changed_python_ruff": "passed"
+  },
+  "repository_tests_added_or_modified": false
+}

@@ -1,0 +1,985 @@
+{
+  "oge_get_service_definition": {
+    "additionalProperties": false,
+    "properties": {
+      "service_name": {
+        "anyOf": [
+          {
+            "pattern": "^[a-zA-Z0-9_-]{1,80}$",
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "title": "Service Name"
+      }
+    },
+    "title": "ServiceDefinitionArguments",
+    "type": "object"
+  },
+  "oge_execute_service": {
+    "$defs": {
+      "JsonValue": {}
+    },
+    "additionalProperties": false,
+    "properties": {
+      "title": {
+        "maxLength": 120,
+        "minLength": 1,
+        "title": "Title",
+        "type": "string"
+      },
+      "service_name": {
+        "pattern": "^[a-zA-Z0-9_-]{1,80}$",
+        "title": "Service Name",
+        "type": "string"
+      },
+      "parameters": {
+        "additionalProperties": {
+          "$ref": "#/$defs/JsonValue"
+        },
+        "title": "Parameters",
+        "type": "object"
+      }
+    },
+    "required": [
+      "title",
+      "service_name"
+    ],
+    "title": "ExecuteServiceArguments",
+    "type": "object"
+  },
+  "oge_execute_code": {
+    "$defs": {
+      "ClassifiedStyle": {
+        "additionalProperties": false,
+        "properties": {
+          "type": {
+            "const": "classified",
+            "title": "Type",
+            "type": "string"
+          },
+          "classes": {
+            "items": {
+              "$ref": "#/$defs/RasterCategory"
+            },
+            "minItems": 1,
+            "title": "Classes",
+            "type": "array"
+          },
+          "transparent_values": {
+            "items": {
+              "type": "integer"
+            },
+            "title": "Transparent Values",
+            "type": "array"
+          }
+        },
+        "required": [
+          "type",
+          "classes"
+        ],
+        "title": "ClassifiedStyle",
+        "type": "object"
+      },
+      "ContinuousStyle": {
+        "additionalProperties": false,
+        "properties": {
+          "type": {
+            "const": "continuous",
+            "title": "Type",
+            "type": "string"
+          },
+          "color_ramp": {
+            "enum": [
+              "viridis",
+              "blue",
+              "gray"
+            ],
+            "title": "Color Ramp",
+            "type": "string"
+          },
+          "stretch": {
+            "discriminator": {
+              "mapping": {
+                "percentile": "#/$defs/PercentileStretch",
+                "range": "#/$defs/RangeStretch"
+              },
+              "propertyName": "method"
+            },
+            "oneOf": [
+              {
+                "$ref": "#/$defs/RangeStretch"
+              },
+              {
+                "$ref": "#/$defs/PercentileStretch"
+              }
+            ],
+            "title": "Stretch"
+          }
+        },
+        "required": [
+          "type",
+          "color_ramp",
+          "stretch"
+        ],
+        "title": "ContinuousStyle",
+        "type": "object"
+      },
+      "PercentileStretch": {
+        "additionalProperties": false,
+        "properties": {
+          "method": {
+            "const": "percentile",
+            "title": "Method",
+            "type": "string"
+          },
+          "percentiles": {
+            "maxItems": 2,
+            "minItems": 2,
+            "prefixItems": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "number"
+              }
+            ],
+            "title": "Percentiles",
+            "type": "array"
+          }
+        },
+        "required": [
+          "method",
+          "percentiles"
+        ],
+        "title": "PercentileStretch",
+        "type": "object"
+      },
+      "RGBStyle": {
+        "additionalProperties": false,
+        "properties": {
+          "type": {
+            "const": "rgb",
+            "title": "Type",
+            "type": "string"
+          },
+          "stretch": {
+            "discriminator": {
+              "mapping": {
+                "percentile": "#/$defs/PercentileStretch",
+                "range": "#/$defs/RangeStretch"
+              },
+              "propertyName": "method"
+            },
+            "oneOf": [
+              {
+                "$ref": "#/$defs/RangeStretch"
+              },
+              {
+                "$ref": "#/$defs/PercentileStretch"
+              }
+            ],
+            "title": "Stretch"
+          }
+        },
+        "required": [
+          "type",
+          "stretch"
+        ],
+        "title": "RGBStyle",
+        "type": "object"
+      },
+      "RangeStretch": {
+        "additionalProperties": false,
+        "properties": {
+          "method": {
+            "const": "range",
+            "title": "Method",
+            "type": "string"
+          },
+          "ranges": {
+            "items": {
+              "maxItems": 2,
+              "minItems": 2,
+              "prefixItems": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "number"
+                }
+              ],
+              "type": "array"
+            },
+            "minItems": 1,
+            "title": "Ranges",
+            "type": "array"
+          }
+        },
+        "required": [
+          "method",
+          "ranges"
+        ],
+        "title": "RangeStretch",
+        "type": "object"
+      },
+      "RasterBand": {
+        "additionalProperties": false,
+        "properties": {
+          "index": {
+            "minimum": 1,
+            "title": "Index",
+            "type": "integer"
+          },
+          "name": {
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Name",
+            "type": "string"
+          },
+          "title": {
+            "maxLength": 120,
+            "minLength": 1,
+            "title": "Title",
+            "type": "string"
+          },
+          "description": {
+            "maxLength": 1000,
+            "minLength": 1,
+            "title": "Description",
+            "type": "string"
+          },
+          "unit": {
+            "anyOf": [
+              {
+                "maxLength": 80,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Unit"
+          }
+        },
+        "required": [
+          "index",
+          "name",
+          "title",
+          "description"
+        ],
+        "title": "RasterBand",
+        "type": "object"
+      },
+      "RasterCategory": {
+        "additionalProperties": false,
+        "properties": {
+          "value": {
+            "title": "Value",
+            "type": "integer"
+          },
+          "label": {
+            "maxLength": 100,
+            "minLength": 1,
+            "title": "Label",
+            "type": "string"
+          },
+          "color": {
+            "pattern": "^#[0-9a-fA-F]{6}$",
+            "title": "Color",
+            "type": "string"
+          }
+        },
+        "required": [
+          "value",
+          "label",
+          "color"
+        ],
+        "title": "RasterCategory",
+        "type": "object"
+      },
+      "RasterPresentation": {
+        "additionalProperties": false,
+        "properties": {
+          "bands": {
+            "items": {
+              "$ref": "#/$defs/RasterBand"
+            },
+            "minItems": 1,
+            "title": "Bands",
+            "type": "array"
+          },
+          "views": {
+            "items": {
+              "$ref": "#/$defs/RasterView"
+            },
+            "minItems": 1,
+            "title": "Views",
+            "type": "array"
+          },
+          "default_view": {
+            "title": "Default View",
+            "type": "string"
+          }
+        },
+        "required": [
+          "bands",
+          "views",
+          "default_view"
+        ],
+        "title": "RasterPresentation",
+        "type": "object"
+      },
+      "RasterView": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "pattern": "^[a-zA-Z][a-zA-Z0-9_-]{0,63}$",
+            "title": "Id",
+            "type": "string"
+          },
+          "title": {
+            "maxLength": 120,
+            "minLength": 1,
+            "title": "Title",
+            "type": "string"
+          },
+          "description": {
+            "maxLength": 1000,
+            "minLength": 1,
+            "title": "Description",
+            "type": "string"
+          },
+          "group": {
+            "maxLength": 60,
+            "minLength": 1,
+            "title": "Group",
+            "type": "string"
+          },
+          "bands": {
+            "items": {
+              "minimum": 1,
+              "type": "integer"
+            },
+            "minItems": 1,
+            "title": "Bands",
+            "type": "array"
+          },
+          "style": {
+            "discriminator": {
+              "mapping": {
+                "classified": "#/$defs/ClassifiedStyle",
+                "continuous": "#/$defs/ContinuousStyle",
+                "rgb": "#/$defs/RGBStyle"
+              },
+              "propertyName": "type"
+            },
+            "oneOf": [
+              {
+                "$ref": "#/$defs/ContinuousStyle"
+              },
+              {
+                "$ref": "#/$defs/RGBStyle"
+              },
+              {
+                "$ref": "#/$defs/ClassifiedStyle"
+              }
+            ],
+            "title": "Style"
+          }
+        },
+        "required": [
+          "id",
+          "title",
+          "description",
+          "group",
+          "bands",
+          "style"
+        ],
+        "title": "RasterView",
+        "type": "object"
+      }
+    },
+    "additionalProperties": false,
+    "properties": {
+      "title": {
+        "maxLength": 120,
+        "minLength": 1,
+        "title": "Title",
+        "type": "string"
+      },
+      "code": {
+        "description": "OGE Python SDK code that explicitly loads its inputs; compose operators then export exactly one Coverage with result.export(name).",
+        "maxLength": 12000,
+        "minLength": 1,
+        "title": "Code",
+        "type": "string"
+      },
+      "crs": {
+        "pattern": "^EPSG:[0-9]{4,6}$",
+        "title": "Crs",
+        "type": "string"
+      },
+      "scale": {
+        "exclusiveMinimum": 0,
+        "maximum": 100000,
+        "title": "Scale",
+        "type": "number"
+      },
+      "presentation": {
+        "$ref": "#/$defs/RasterPresentation",
+        "description": "Describe every exported band in order and declare views with explicit band selections, styles and a default view. The same contract applies to any band count and RGB."
+      }
+    },
+    "required": [
+      "title",
+      "code",
+      "crs",
+      "scale",
+      "presentation"
+    ],
+    "title": "ExecuteCodeArguments",
+    "type": "object"
+  },
+  "result_get_info": {
+    "additionalProperties": false,
+    "properties": {
+      "file_path": {
+        "maxLength": 4096,
+        "minLength": 1,
+        "title": "File Path",
+        "type": "string"
+      }
+    },
+    "required": [
+      "file_path"
+    ],
+    "title": "InfoArguments",
+    "type": "object"
+  },
+  "result_set_views": {
+    "$defs": {
+      "ClassifiedStyle": {
+        "additionalProperties": false,
+        "properties": {
+          "type": {
+            "const": "classified",
+            "title": "Type",
+            "type": "string"
+          },
+          "classes": {
+            "items": {
+              "$ref": "#/$defs/RasterCategory"
+            },
+            "minItems": 1,
+            "title": "Classes",
+            "type": "array"
+          },
+          "transparent_values": {
+            "items": {
+              "type": "integer"
+            },
+            "title": "Transparent Values",
+            "type": "array"
+          }
+        },
+        "required": [
+          "type",
+          "classes"
+        ],
+        "title": "ClassifiedStyle",
+        "type": "object"
+      },
+      "ContinuousStyle": {
+        "additionalProperties": false,
+        "properties": {
+          "type": {
+            "const": "continuous",
+            "title": "Type",
+            "type": "string"
+          },
+          "color_ramp": {
+            "enum": [
+              "viridis",
+              "blue",
+              "gray"
+            ],
+            "title": "Color Ramp",
+            "type": "string"
+          },
+          "stretch": {
+            "discriminator": {
+              "mapping": {
+                "percentile": "#/$defs/PercentileStretch",
+                "range": "#/$defs/RangeStretch"
+              },
+              "propertyName": "method"
+            },
+            "oneOf": [
+              {
+                "$ref": "#/$defs/RangeStretch"
+              },
+              {
+                "$ref": "#/$defs/PercentileStretch"
+              }
+            ],
+            "title": "Stretch"
+          }
+        },
+        "required": [
+          "type",
+          "color_ramp",
+          "stretch"
+        ],
+        "title": "ContinuousStyle",
+        "type": "object"
+      },
+      "PercentileStretch": {
+        "additionalProperties": false,
+        "properties": {
+          "method": {
+            "const": "percentile",
+            "title": "Method",
+            "type": "string"
+          },
+          "percentiles": {
+            "maxItems": 2,
+            "minItems": 2,
+            "prefixItems": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "number"
+              }
+            ],
+            "title": "Percentiles",
+            "type": "array"
+          }
+        },
+        "required": [
+          "method",
+          "percentiles"
+        ],
+        "title": "PercentileStretch",
+        "type": "object"
+      },
+      "RGBStyle": {
+        "additionalProperties": false,
+        "properties": {
+          "type": {
+            "const": "rgb",
+            "title": "Type",
+            "type": "string"
+          },
+          "stretch": {
+            "discriminator": {
+              "mapping": {
+                "percentile": "#/$defs/PercentileStretch",
+                "range": "#/$defs/RangeStretch"
+              },
+              "propertyName": "method"
+            },
+            "oneOf": [
+              {
+                "$ref": "#/$defs/RangeStretch"
+              },
+              {
+                "$ref": "#/$defs/PercentileStretch"
+              }
+            ],
+            "title": "Stretch"
+          }
+        },
+        "required": [
+          "type",
+          "stretch"
+        ],
+        "title": "RGBStyle",
+        "type": "object"
+      },
+      "RangeStretch": {
+        "additionalProperties": false,
+        "properties": {
+          "method": {
+            "const": "range",
+            "title": "Method",
+            "type": "string"
+          },
+          "ranges": {
+            "items": {
+              "maxItems": 2,
+              "minItems": 2,
+              "prefixItems": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "number"
+                }
+              ],
+              "type": "array"
+            },
+            "minItems": 1,
+            "title": "Ranges",
+            "type": "array"
+          }
+        },
+        "required": [
+          "method",
+          "ranges"
+        ],
+        "title": "RangeStretch",
+        "type": "object"
+      },
+      "RasterCategory": {
+        "additionalProperties": false,
+        "properties": {
+          "value": {
+            "title": "Value",
+            "type": "integer"
+          },
+          "label": {
+            "maxLength": 100,
+            "minLength": 1,
+            "title": "Label",
+            "type": "string"
+          },
+          "color": {
+            "pattern": "^#[0-9a-fA-F]{6}$",
+            "title": "Color",
+            "type": "string"
+          }
+        },
+        "required": [
+          "value",
+          "label",
+          "color"
+        ],
+        "title": "RasterCategory",
+        "type": "object"
+      },
+      "RasterView": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "pattern": "^[a-zA-Z][a-zA-Z0-9_-]{0,63}$",
+            "title": "Id",
+            "type": "string"
+          },
+          "title": {
+            "maxLength": 120,
+            "minLength": 1,
+            "title": "Title",
+            "type": "string"
+          },
+          "description": {
+            "maxLength": 1000,
+            "minLength": 1,
+            "title": "Description",
+            "type": "string"
+          },
+          "group": {
+            "maxLength": 60,
+            "minLength": 1,
+            "title": "Group",
+            "type": "string"
+          },
+          "bands": {
+            "items": {
+              "minimum": 1,
+              "type": "integer"
+            },
+            "minItems": 1,
+            "title": "Bands",
+            "type": "array"
+          },
+          "style": {
+            "discriminator": {
+              "mapping": {
+                "classified": "#/$defs/ClassifiedStyle",
+                "continuous": "#/$defs/ContinuousStyle",
+                "rgb": "#/$defs/RGBStyle"
+              },
+              "propertyName": "type"
+            },
+            "oneOf": [
+              {
+                "$ref": "#/$defs/ContinuousStyle"
+              },
+              {
+                "$ref": "#/$defs/RGBStyle"
+              },
+              {
+                "$ref": "#/$defs/ClassifiedStyle"
+              }
+            ],
+            "title": "Style"
+          }
+        },
+        "required": [
+          "id",
+          "title",
+          "description",
+          "group",
+          "bands",
+          "style"
+        ],
+        "title": "RasterView",
+        "type": "object"
+      }
+    },
+    "additionalProperties": false,
+    "properties": {
+      "output_id": {
+        "maxLength": 64,
+        "minLength": 1,
+        "title": "Output Id",
+        "type": "string"
+      },
+      "expected_revision": {
+        "minimum": 1,
+        "title": "Expected Revision",
+        "type": "integer"
+      },
+      "views": {
+        "items": {
+          "$ref": "#/$defs/RasterView"
+        },
+        "minItems": 1,
+        "title": "Views",
+        "type": "array"
+      },
+      "default_view": {
+        "maxLength": 64,
+        "minLength": 1,
+        "title": "Default View",
+        "type": "string"
+      }
+    },
+    "required": [
+      "output_id",
+      "expected_revision",
+      "views",
+      "default_view"
+    ],
+    "title": "ViewArguments",
+    "type": "object"
+  },
+  "map_present": {
+    "$defs": {
+      "RasterReference": {
+        "additionalProperties": false,
+        "properties": {
+          "output_id": {
+            "maxLength": 64,
+            "minLength": 1,
+            "title": "Output Id",
+            "type": "string"
+          },
+          "view_id": {
+            "pattern": "^[a-zA-Z][a-zA-Z0-9_-]{0,63}$",
+            "title": "View Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "output_id",
+          "view_id"
+        ],
+        "title": "RasterReference",
+        "type": "object"
+      }
+    },
+    "additionalProperties": false,
+    "properties": {
+      "rasters": {
+        "anyOf": [
+          {
+            "items": {
+              "$ref": "#/$defs/RasterReference"
+            },
+            "maxItems": 100,
+            "minItems": 1,
+            "type": "array"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "description": "Raster results and explicit view IDs to show. Supply rasters or image_ids, exclusively.",
+        "title": "Rasters"
+      },
+      "image_ids": {
+        "anyOf": [
+          {
+            "items": {
+              "exclusiveMinimum": 0,
+              "type": "integer"
+            },
+            "maxItems": 100,
+            "minItems": 1,
+            "type": "array"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "description": "Image IDs from search results to add as layers. Supply image_ids or rasters, exclusively.",
+        "title": "Image Ids"
+      },
+      "open_map": {
+        "default": true,
+        "title": "Open Map",
+        "type": "boolean"
+      },
+      "focus": {
+        "default": true,
+        "title": "Focus",
+        "type": "boolean"
+      }
+    },
+    "title": "PresentArguments",
+    "type": "object"
+  },
+  "map_sample_raster": {
+    "additionalProperties": false,
+    "properties": {
+      "output_id": {
+        "maxLength": 64,
+        "minLength": 1,
+        "title": "Output Id",
+        "type": "string"
+      },
+      "view_id": {
+        "anyOf": [
+          {
+            "maxLength": 64,
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "title": "View Id"
+      },
+      "bands": {
+        "anyOf": [
+          {
+            "items": {
+              "minimum": 1,
+              "type": "integer"
+            },
+            "minItems": 1,
+            "type": "array"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "title": "Bands"
+      },
+      "longitude": {
+        "maximum": 180,
+        "minimum": -180,
+        "title": "Longitude",
+        "type": "number"
+      },
+      "latitude": {
+        "maximum": 85,
+        "minimum": -85,
+        "title": "Latitude",
+        "type": "number"
+      }
+    },
+    "required": [
+      "output_id",
+      "longitude",
+      "latitude"
+    ],
+    "title": "SampleArguments",
+    "type": "object"
+  },
+  "map_region_statistics": {
+    "$defs": {
+      "JsonValue": {}
+    },
+    "additionalProperties": false,
+    "properties": {
+      "output_id": {
+        "maxLength": 64,
+        "minLength": 1,
+        "title": "Output Id",
+        "type": "string"
+      },
+      "view_id": {
+        "anyOf": [
+          {
+            "maxLength": 64,
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "title": "View Id"
+      },
+      "bands": {
+        "anyOf": [
+          {
+            "items": {
+              "minimum": 1,
+              "type": "integer"
+            },
+            "minItems": 1,
+            "type": "array"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "title": "Bands"
+      },
+      "geometry": {
+        "additionalProperties": {
+          "$ref": "#/$defs/JsonValue"
+        },
+        "title": "Geometry",
+        "type": "object"
+      },
+      "values": {
+        "anyOf": [
+          {
+            "items": {
+              "type": "number"
+            },
+            "maxItems": 32,
+            "minItems": 1,
+            "type": "array"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "title": "Values"
+      }
+    },
+    "required": [
+      "output_id",
+      "geometry"
+    ],
+    "title": "StatisticsArguments",
+    "type": "object"
+  }
+}

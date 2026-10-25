@@ -88,484 +88,750 @@
       }
     }
   },
-  "products": [
-    {
-      "name": "change_class",
-      "title": "双期水体变化",
-      "description": "共同有效观测且两指数一致时划分稳定非水体、持续水体、新增与退水；分歧和无效观测单独编码。新增水体不等同于已核实洪涝。",
-      "group": "变化",
-      "display_range": [
-        0,
-        5
-      ],
-      "transparent_values": [
-        0
-      ],
-      "categories": [
-        {
-          "value": 0,
-          "label": "稳定非水体",
-          "color": "#d8dee4"
-        },
-        {
-          "value": 1,
-          "label": "持续水体",
-          "color": "#2878b8"
-        },
-        {
-          "value": 2,
-          "label": "新增水体",
-          "color": "#e66a48"
-        },
-        {
-          "value": 3,
-          "label": "退水区域",
-          "color": "#62b6a5"
-        },
-        {
-          "value": 4,
-          "label": "指数分歧",
-          "color": "#d5ad50"
-        },
-        {
-          "value": 5,
-          "label": "无共同有效观测",
-          "color": "#a4a6ad"
-        }
-      ]
-    },
-    {
-      "name": "quality_class",
-      "title": "观测质量",
-      "description": "0双方有效；1仅灾前无效；2仅灾后无效；3双方无效。有效要求SCL为4/5/6、参与指数波段为正且指数在[-1,1]。",
-      "group": "质量",
-      "display_range": [
-        0,
-        3
-      ],
-      "transparent_values": [
-        0
-      ],
-      "categories": [
-        {
-          "value": 0,
-          "label": "双方有效",
-          "color": "#65ad98"
-        },
-        {
-          "value": 1,
-          "label": "灾前无效",
-          "color": "#dfa16a"
-        },
-        {
-          "value": 2,
-          "label": "灾后无效",
-          "color": "#9a81c2"
-        },
-        {
-          "value": 3,
-          "label": "双方无效",
-          "color": "#727785"
-        }
-      ]
-    },
-    {
-      "name": "before_water",
-      "title": "灾前水体",
-      "description": "1表示灾前水体，0表示不满足；NoData表示本产品不可判定。",
-      "group": "变化",
-      "display_range": [
-        0,
-        1
-      ],
-      "transparent_values": [
-        0
-      ],
-      "categories": [
-        {
-          "value": 0,
-          "label": "否",
-          "color": "#d8dee4"
-        },
-        {
-          "value": 1,
-          "label": "灾前水体",
-          "color": "#2878b8"
-        }
-      ]
-    },
-    {
-      "name": "after_water",
-      "title": "灾后水体",
-      "description": "1表示灾后水体，0表示不满足；NoData表示本产品不可判定。",
-      "group": "变化",
-      "display_range": [
-        0,
-        1
-      ],
-      "transparent_values": [
-        0
-      ],
-      "categories": [
-        {
-          "value": 0,
-          "label": "否",
-          "color": "#d8dee4"
-        },
-        {
-          "value": 1,
-          "label": "灾后水体",
-          "color": "#2878b8"
-        }
-      ]
-    },
-    {
-      "name": "common_valid_mask",
-      "title": "共同有效观测",
-      "description": "1表示共同有效观测，0表示不满足；NoData表示本产品不可判定。",
-      "group": "质量",
-      "display_range": [
-        0,
-        1
-      ],
-      "transparent_values": [
-        0
-      ],
-      "categories": [
-        {
-          "value": 0,
-          "label": "否",
-          "color": "#d8dee4"
-        },
-        {
-          "value": 1,
-          "label": "共同有效观测",
-          "color": "#2878b8"
-        }
-      ]
-    },
-    {
-      "name": "comparison_valid_mask",
-      "title": "一致性比较范围",
-      "description": "1表示一致性比较范围，0表示不满足；NoData表示本产品不可判定。",
-      "group": "质量",
-      "display_range": [
-        0,
-        1
-      ],
-      "transparent_values": [
-        0
-      ],
-      "categories": [
-        {
-          "value": 0,
-          "label": "否",
-          "color": "#d8dee4"
-        },
-        {
-          "value": 1,
-          "label": "一致性比较范围",
-          "color": "#2878b8"
-        }
-      ]
-    },
-    {
-      "name": "uncertain_mask",
-      "title": "指数分歧范围",
-      "description": "1表示指数分歧范围，0表示不满足；NoData表示本产品不可判定。",
-      "group": "质量",
-      "display_range": [
-        0,
-        1
-      ],
-      "transparent_values": [
-        0
-      ],
-      "categories": [
-        {
-          "value": 0,
-          "label": "否",
-          "color": "#d8dee4"
-        },
-        {
-          "value": 1,
-          "label": "指数分歧范围",
-          "color": "#2878b8"
-        }
-      ]
-    },
-    {
-      "name": "new_flood",
-      "title": "新增水体范围",
-      "description": "1表示新增水体范围，0表示不满足；NoData表示本产品不可判定。",
-      "group": "变化",
-      "display_range": [
-        0,
-        1
-      ],
-      "transparent_values": [
-        0
-      ],
-      "categories": [
-        {
-          "value": 0,
-          "label": "否",
-          "color": "#d8dee4"
-        },
-        {
-          "value": 1,
-          "label": "新增水体范围",
-          "color": "#e66a48"
-        }
-      ]
-    },
-    {
-      "name": "persistent_water",
-      "title": "持续水体范围",
-      "description": "1表示持续水体范围，0表示不满足；NoData表示本产品不可判定。",
-      "group": "变化",
-      "display_range": [
-        0,
-        1
-      ],
-      "transparent_values": [
-        0
-      ],
-      "categories": [
-        {
-          "value": 0,
-          "label": "否",
-          "color": "#d8dee4"
-        },
-        {
-          "value": 1,
-          "label": "持续水体范围",
-          "color": "#2878b8"
-        }
-      ]
-    },
-    {
-      "name": "receded_water",
-      "title": "退水范围",
-      "description": "1表示退水范围，0表示不满足；NoData表示本产品不可判定。",
-      "group": "变化",
-      "display_range": [
-        0,
-        1
-      ],
-      "transparent_values": [
-        0
-      ],
-      "categories": [
-        {
-          "value": 0,
-          "label": "否",
-          "color": "#d8dee4"
-        },
-        {
-          "value": 1,
-          "label": "退水范围",
-          "color": "#2878b8"
-        }
-      ]
-    },
-    {
-      "name": "before_ndwi",
-      "title": "灾前 NDWI",
-      "description": "原始数值指数；按该指数有效观测掩膜，NoData不参与统计。",
-      "group": "指数",
-      "display_range": [
-        -1,
-        1
-      ],
-      "transparent_values": []
-    },
-    {
-      "name": "after_ndwi",
-      "title": "灾后 NDWI",
-      "description": "原始数值指数；按该指数有效观测掩膜，NoData不参与统计。",
-      "group": "指数",
-      "display_range": [
-        -1,
-        1
-      ],
-      "transparent_values": []
-    },
-    {
-      "name": "ndwi_change",
-      "title": "NDWI 变化",
-      "description": "灾后减灾前；仅两期该指数有效时计算。",
-      "group": "指数",
-      "display_range": [
-        -2,
-        2
-      ],
-      "transparent_values": []
-    },
-    {
-      "name": "before_mndwi",
-      "title": "灾前 MNDWI",
-      "description": "原始数值指数；按该指数有效观测掩膜，NoData不参与统计。",
-      "group": "指数",
-      "display_range": [
-        -1,
-        1
-      ],
-      "transparent_values": []
-    },
-    {
-      "name": "after_mndwi",
-      "title": "灾后 MNDWI",
-      "description": "原始数值指数；按该指数有效观测掩膜，NoData不参与统计。",
-      "group": "指数",
-      "display_range": [
-        -1,
-        1
-      ],
-      "transparent_values": []
-    },
-    {
-      "name": "mndwi_change",
-      "title": "MNDWI 变化",
-      "description": "灾后减灾前；仅两期该指数有效时计算。",
-      "group": "指数",
-      "display_range": [
-        -2,
-        2
-      ],
-      "transparent_values": []
-    },
-    {
-      "name": "flood_vote_count",
-      "title": "阈值组合票数",
-      "description": "NDWI与MNDWI分别采用基准及正负步长，9种组合中被判为新增水体的次数。仅共同有效观测内有值；无有效观测是NoData，不计入0票。票数不是概率。",
-      "group": "敏感性",
-      "display_range": [
-        0,
-        9
-      ],
-      "transparent_values": []
-    },
-    {
-      "name": "stable_flood",
-      "title": "九组一致新增水体",
-      "description": "9种阈值组合全部判为新增水体；仅表示本组阈值内稳定，不等于已核实灾情。",
-      "group": "敏感性",
-      "display_range": [
-        0,
-        1
-      ],
-      "transparent_values": [
-        0
-      ],
-      "categories": [
-        {
-          "value": 0,
-          "label": "非九组一致",
-          "color": "#d8dee4"
-        },
-        {
-          "value": 1,
-          "label": "九组一致",
-          "color": "#bd4e34"
-        }
-      ]
-    },
-    {
-      "name": "sensitivity_class",
-      "title": "阈值敏感性",
-      "description": "0无新增票；1有1至8票；2有9票；3无共同有效观测。",
-      "group": "敏感性",
-      "display_range": [
-        0,
-        3
-      ],
-      "transparent_values": [
-        0
-      ],
-      "categories": [
-        {
-          "value": 0,
-          "label": "无新增票",
-          "color": "#d8dee4"
-        },
-        {
-          "value": 1,
-          "label": "阈值敏感",
-          "color": "#d5ad50"
-        },
-        {
-          "value": 2,
-          "label": "九组一致",
-          "color": "#bd4e34"
-        },
-        {
-          "value": 3,
-          "label": "无有效观测",
-          "color": "#a4a6ad"
-        }
-      ]
-    },
-    {
-      "name": "poi_id",
-      "title": "关注点编号",
-      "description": "同网格关注点ID；有效ID为1至poiMaxId。需与源矢量ID关联，不能将像元数当作设施数量。",
-      "group": "关注点",
-      "display_range": [
-        1,
-        65535
-      ],
-      "transparent_values": []
-    },
-    {
-      "name": "poi_status",
-      "title": "关注点水体变化",
-      "description": "仅关注点ID所在像元保留变化分类；不能据此直接判断整座设施受灾。",
-      "group": "关注点",
-      "display_range": [
-        0,
-        5
-      ],
-      "transparent_values": [],
-      "categories": [
-        {
-          "value": 0,
-          "label": "稳定非水体",
-          "color": "#d8dee4"
-        },
-        {
-          "value": 1,
-          "label": "持续水体",
-          "color": "#2878b8"
-        },
-        {
-          "value": 2,
-          "label": "新增水体",
-          "color": "#e66a48"
-        },
-        {
-          "value": 3,
-          "label": "退水区域",
-          "color": "#62b6a5"
-        },
-        {
-          "value": 4,
-          "label": "指数分歧",
-          "color": "#d5ad50"
-        },
-        {
-          "value": 5,
-          "label": "无共同有效观测",
-          "color": "#a4a6ad"
-        }
-      ]
-    }
-  ],
   "limitations": [
     "默认输入为2026-06-22与2026-07-12，不能代表洪峰最大淹没范围。",
     "阈值为未校准基线，九组一致性不代表精度、概率或实际损失。",
     "SWIR/SCL重采样为10米不增加原始空间细节。",
     "仅支持已核查的EPSG:32649、同原点、同范围数据；替换数据前必须核查元数据。",
     "关注点ID栅格可能只包含部分点；不能用poiMaxId充当点位数量。"
-  ]
+  ],
+  "presentation": {
+    "bands": [
+      {
+        "index": 1,
+        "name": "change_class",
+        "title": "双期水体变化",
+        "description": "共同有效观测且两指数一致时划分稳定非水体、持续水体、新增与退水；分歧和无效观测单独编码。新增水体不等同于已核实洪涝。",
+        "unit": null
+      },
+      {
+        "index": 2,
+        "name": "quality_class",
+        "title": "观测质量",
+        "description": "0双方有效；1仅灾前无效；2仅灾后无效；3双方无效。有效要求SCL为4/5/6、参与指数波段为正且指数在[-1,1]。",
+        "unit": null
+      },
+      {
+        "index": 3,
+        "name": "before_water",
+        "title": "灾前水体",
+        "description": "1表示灾前水体，0表示不满足；NoData表示本产品不可判定。",
+        "unit": null
+      },
+      {
+        "index": 4,
+        "name": "after_water",
+        "title": "灾后水体",
+        "description": "1表示灾后水体，0表示不满足；NoData表示本产品不可判定。",
+        "unit": null
+      },
+      {
+        "index": 5,
+        "name": "common_valid_mask",
+        "title": "共同有效观测",
+        "description": "1表示共同有效观测，0表示不满足；NoData表示本产品不可判定。",
+        "unit": null
+      },
+      {
+        "index": 6,
+        "name": "comparison_valid_mask",
+        "title": "一致性比较范围",
+        "description": "1表示一致性比较范围，0表示不满足；NoData表示本产品不可判定。",
+        "unit": null
+      },
+      {
+        "index": 7,
+        "name": "uncertain_mask",
+        "title": "指数分歧范围",
+        "description": "1表示指数分歧范围，0表示不满足；NoData表示本产品不可判定。",
+        "unit": null
+      },
+      {
+        "index": 8,
+        "name": "new_flood",
+        "title": "新增水体范围",
+        "description": "1表示新增水体范围，0表示不满足；NoData表示本产品不可判定。",
+        "unit": null
+      },
+      {
+        "index": 9,
+        "name": "persistent_water",
+        "title": "持续水体范围",
+        "description": "1表示持续水体范围，0表示不满足；NoData表示本产品不可判定。",
+        "unit": null
+      },
+      {
+        "index": 10,
+        "name": "receded_water",
+        "title": "退水范围",
+        "description": "1表示退水范围，0表示不满足；NoData表示本产品不可判定。",
+        "unit": null
+      },
+      {
+        "index": 11,
+        "name": "before_ndwi",
+        "title": "灾前 NDWI",
+        "description": "原始数值指数；按该指数有效观测掩膜，NoData不参与统计。",
+        "unit": null
+      },
+      {
+        "index": 12,
+        "name": "after_ndwi",
+        "title": "灾后 NDWI",
+        "description": "原始数值指数；按该指数有效观测掩膜，NoData不参与统计。",
+        "unit": null
+      },
+      {
+        "index": 13,
+        "name": "ndwi_change",
+        "title": "NDWI 变化",
+        "description": "灾后减灾前；仅两期该指数有效时计算。",
+        "unit": null
+      },
+      {
+        "index": 14,
+        "name": "before_mndwi",
+        "title": "灾前 MNDWI",
+        "description": "原始数值指数；按该指数有效观测掩膜，NoData不参与统计。",
+        "unit": null
+      },
+      {
+        "index": 15,
+        "name": "after_mndwi",
+        "title": "灾后 MNDWI",
+        "description": "原始数值指数；按该指数有效观测掩膜，NoData不参与统计。",
+        "unit": null
+      },
+      {
+        "index": 16,
+        "name": "mndwi_change",
+        "title": "MNDWI 变化",
+        "description": "灾后减灾前；仅两期该指数有效时计算。",
+        "unit": null
+      },
+      {
+        "index": 17,
+        "name": "flood_vote_count",
+        "title": "阈值组合票数",
+        "description": "NDWI与MNDWI分别采用基准及正负步长，9种组合中被判为新增水体的次数。仅共同有效观测内有值；无有效观测是NoData，不计入0票。票数不是概率。",
+        "unit": null
+      },
+      {
+        "index": 18,
+        "name": "stable_flood",
+        "title": "九组一致新增水体",
+        "description": "9种阈值组合全部判为新增水体；仅表示本组阈值内稳定，不等于已核实灾情。",
+        "unit": null
+      },
+      {
+        "index": 19,
+        "name": "sensitivity_class",
+        "title": "阈值敏感性",
+        "description": "0无新增票；1有1至8票；2有9票；3无共同有效观测。",
+        "unit": null
+      },
+      {
+        "index": 20,
+        "name": "poi_id",
+        "title": "关注点编号",
+        "description": "同网格关注点ID；有效ID为1至poiMaxId。需与源矢量ID关联，不能将像元数当作设施数量。",
+        "unit": null
+      },
+      {
+        "index": 21,
+        "name": "poi_status",
+        "title": "关注点水体变化",
+        "description": "仅关注点ID所在像元保留变化分类；不能据此直接判断整座设施受灾。",
+        "unit": null
+      }
+    ],
+    "views": [
+      {
+        "id": "change_class",
+        "title": "双期水体变化",
+        "description": "共同有效观测且两指数一致时划分稳定非水体、持续水体、新增与退水；分歧和无效观测单独编码。新增水体不等同于已核实洪涝。",
+        "group": "变化",
+        "bands": [
+          1
+        ],
+        "style": {
+          "type": "classified",
+          "classes": [
+            {
+              "value": 0,
+              "label": "稳定非水体",
+              "color": "#d8dee4"
+            },
+            {
+              "value": 1,
+              "label": "持续水体",
+              "color": "#2878b8"
+            },
+            {
+              "value": 2,
+              "label": "新增水体",
+              "color": "#e66a48"
+            },
+            {
+              "value": 3,
+              "label": "退水区域",
+              "color": "#62b6a5"
+            },
+            {
+              "value": 4,
+              "label": "指数分歧",
+              "color": "#d5ad50"
+            },
+            {
+              "value": 5,
+              "label": "无共同有效观测",
+              "color": "#a4a6ad"
+            }
+          ],
+          "transparent_values": [
+            0
+          ]
+        }
+      },
+      {
+        "id": "quality_class",
+        "title": "观测质量",
+        "description": "0双方有效；1仅灾前无效；2仅灾后无效；3双方无效。有效要求SCL为4/5/6、参与指数波段为正且指数在[-1,1]。",
+        "group": "质量",
+        "bands": [
+          2
+        ],
+        "style": {
+          "type": "classified",
+          "classes": [
+            {
+              "value": 0,
+              "label": "双方有效",
+              "color": "#65ad98"
+            },
+            {
+              "value": 1,
+              "label": "灾前无效",
+              "color": "#dfa16a"
+            },
+            {
+              "value": 2,
+              "label": "灾后无效",
+              "color": "#9a81c2"
+            },
+            {
+              "value": 3,
+              "label": "双方无效",
+              "color": "#727785"
+            }
+          ],
+          "transparent_values": [
+            0
+          ]
+        }
+      },
+      {
+        "id": "before_water",
+        "title": "灾前水体",
+        "description": "1表示灾前水体，0表示不满足；NoData表示本产品不可判定。",
+        "group": "变化",
+        "bands": [
+          3
+        ],
+        "style": {
+          "type": "classified",
+          "classes": [
+            {
+              "value": 0,
+              "label": "否",
+              "color": "#d8dee4"
+            },
+            {
+              "value": 1,
+              "label": "灾前水体",
+              "color": "#2878b8"
+            }
+          ],
+          "transparent_values": [
+            0
+          ]
+        }
+      },
+      {
+        "id": "after_water",
+        "title": "灾后水体",
+        "description": "1表示灾后水体，0表示不满足；NoData表示本产品不可判定。",
+        "group": "变化",
+        "bands": [
+          4
+        ],
+        "style": {
+          "type": "classified",
+          "classes": [
+            {
+              "value": 0,
+              "label": "否",
+              "color": "#d8dee4"
+            },
+            {
+              "value": 1,
+              "label": "灾后水体",
+              "color": "#2878b8"
+            }
+          ],
+          "transparent_values": [
+            0
+          ]
+        }
+      },
+      {
+        "id": "common_valid_mask",
+        "title": "共同有效观测",
+        "description": "1表示共同有效观测，0表示不满足；NoData表示本产品不可判定。",
+        "group": "质量",
+        "bands": [
+          5
+        ],
+        "style": {
+          "type": "classified",
+          "classes": [
+            {
+              "value": 0,
+              "label": "否",
+              "color": "#d8dee4"
+            },
+            {
+              "value": 1,
+              "label": "共同有效观测",
+              "color": "#2878b8"
+            }
+          ],
+          "transparent_values": [
+            0
+          ]
+        }
+      },
+      {
+        "id": "comparison_valid_mask",
+        "title": "一致性比较范围",
+        "description": "1表示一致性比较范围，0表示不满足；NoData表示本产品不可判定。",
+        "group": "质量",
+        "bands": [
+          6
+        ],
+        "style": {
+          "type": "classified",
+          "classes": [
+            {
+              "value": 0,
+              "label": "否",
+              "color": "#d8dee4"
+            },
+            {
+              "value": 1,
+              "label": "一致性比较范围",
+              "color": "#2878b8"
+            }
+          ],
+          "transparent_values": [
+            0
+          ]
+        }
+      },
+      {
+        "id": "uncertain_mask",
+        "title": "指数分歧范围",
+        "description": "1表示指数分歧范围，0表示不满足；NoData表示本产品不可判定。",
+        "group": "质量",
+        "bands": [
+          7
+        ],
+        "style": {
+          "type": "classified",
+          "classes": [
+            {
+              "value": 0,
+              "label": "否",
+              "color": "#d8dee4"
+            },
+            {
+              "value": 1,
+              "label": "指数分歧范围",
+              "color": "#2878b8"
+            }
+          ],
+          "transparent_values": [
+            0
+          ]
+        }
+      },
+      {
+        "id": "new_flood",
+        "title": "新增水体范围",
+        "description": "1表示新增水体范围，0表示不满足；NoData表示本产品不可判定。",
+        "group": "变化",
+        "bands": [
+          8
+        ],
+        "style": {
+          "type": "classified",
+          "classes": [
+            {
+              "value": 0,
+              "label": "否",
+              "color": "#d8dee4"
+            },
+            {
+              "value": 1,
+              "label": "新增水体范围",
+              "color": "#e66a48"
+            }
+          ],
+          "transparent_values": [
+            0
+          ]
+        }
+      },
+      {
+        "id": "persistent_water",
+        "title": "持续水体范围",
+        "description": "1表示持续水体范围，0表示不满足；NoData表示本产品不可判定。",
+        "group": "变化",
+        "bands": [
+          9
+        ],
+        "style": {
+          "type": "classified",
+          "classes": [
+            {
+              "value": 0,
+              "label": "否",
+              "color": "#d8dee4"
+            },
+            {
+              "value": 1,
+              "label": "持续水体范围",
+              "color": "#2878b8"
+            }
+          ],
+          "transparent_values": [
+            0
+          ]
+        }
+      },
+      {
+        "id": "receded_water",
+        "title": "退水范围",
+        "description": "1表示退水范围，0表示不满足；NoData表示本产品不可判定。",
+        "group": "变化",
+        "bands": [
+          10
+        ],
+        "style": {
+          "type": "classified",
+          "classes": [
+            {
+              "value": 0,
+              "label": "否",
+              "color": "#d8dee4"
+            },
+            {
+              "value": 1,
+              "label": "退水范围",
+              "color": "#2878b8"
+            }
+          ],
+          "transparent_values": [
+            0
+          ]
+        }
+      },
+      {
+        "id": "before_ndwi",
+        "title": "灾前 NDWI",
+        "description": "原始数值指数；按该指数有效观测掩膜，NoData不参与统计。",
+        "group": "指数",
+        "bands": [
+          11
+        ],
+        "style": {
+          "type": "continuous",
+          "color_ramp": "viridis",
+          "stretch": {
+            "method": "range",
+            "ranges": [
+              [
+                -1,
+                1
+              ]
+            ]
+          }
+        }
+      },
+      {
+        "id": "after_ndwi",
+        "title": "灾后 NDWI",
+        "description": "原始数值指数；按该指数有效观测掩膜，NoData不参与统计。",
+        "group": "指数",
+        "bands": [
+          12
+        ],
+        "style": {
+          "type": "continuous",
+          "color_ramp": "viridis",
+          "stretch": {
+            "method": "range",
+            "ranges": [
+              [
+                -1,
+                1
+              ]
+            ]
+          }
+        }
+      },
+      {
+        "id": "ndwi_change",
+        "title": "NDWI 变化",
+        "description": "灾后减灾前；仅两期该指数有效时计算。",
+        "group": "指数",
+        "bands": [
+          13
+        ],
+        "style": {
+          "type": "continuous",
+          "color_ramp": "viridis",
+          "stretch": {
+            "method": "range",
+            "ranges": [
+              [
+                -2,
+                2
+              ]
+            ]
+          }
+        }
+      },
+      {
+        "id": "before_mndwi",
+        "title": "灾前 MNDWI",
+        "description": "原始数值指数；按该指数有效观测掩膜，NoData不参与统计。",
+        "group": "指数",
+        "bands": [
+          14
+        ],
+        "style": {
+          "type": "continuous",
+          "color_ramp": "viridis",
+          "stretch": {
+            "method": "range",
+            "ranges": [
+              [
+                -1,
+                1
+              ]
+            ]
+          }
+        }
+      },
+      {
+        "id": "after_mndwi",
+        "title": "灾后 MNDWI",
+        "description": "原始数值指数；按该指数有效观测掩膜，NoData不参与统计。",
+        "group": "指数",
+        "bands": [
+          15
+        ],
+        "style": {
+          "type": "continuous",
+          "color_ramp": "viridis",
+          "stretch": {
+            "method": "range",
+            "ranges": [
+              [
+                -1,
+                1
+              ]
+            ]
+          }
+        }
+      },
+      {
+        "id": "mndwi_change",
+        "title": "MNDWI 变化",
+        "description": "灾后减灾前；仅两期该指数有效时计算。",
+        "group": "指数",
+        "bands": [
+          16
+        ],
+        "style": {
+          "type": "continuous",
+          "color_ramp": "viridis",
+          "stretch": {
+            "method": "range",
+            "ranges": [
+              [
+                -2,
+                2
+              ]
+            ]
+          }
+        }
+      },
+      {
+        "id": "flood_vote_count",
+        "title": "阈值组合票数",
+        "description": "NDWI与MNDWI分别采用基准及正负步长，9种组合中被判为新增水体的次数。仅共同有效观测内有值；无有效观测是NoData，不计入0票。票数不是概率。",
+        "group": "敏感性",
+        "bands": [
+          17
+        ],
+        "style": {
+          "type": "continuous",
+          "color_ramp": "viridis",
+          "stretch": {
+            "method": "range",
+            "ranges": [
+              [
+                0,
+                9
+              ]
+            ]
+          }
+        }
+      },
+      {
+        "id": "stable_flood",
+        "title": "九组一致新增水体",
+        "description": "9种阈值组合全部判为新增水体；仅表示本组阈值内稳定，不等于已核实灾情。",
+        "group": "敏感性",
+        "bands": [
+          18
+        ],
+        "style": {
+          "type": "classified",
+          "classes": [
+            {
+              "value": 0,
+              "label": "非九组一致",
+              "color": "#d8dee4"
+            },
+            {
+              "value": 1,
+              "label": "九组一致",
+              "color": "#bd4e34"
+            }
+          ],
+          "transparent_values": [
+            0
+          ]
+        }
+      },
+      {
+        "id": "sensitivity_class",
+        "title": "阈值敏感性",
+        "description": "0无新增票；1有1至8票；2有9票；3无共同有效观测。",
+        "group": "敏感性",
+        "bands": [
+          19
+        ],
+        "style": {
+          "type": "classified",
+          "classes": [
+            {
+              "value": 0,
+              "label": "无新增票",
+              "color": "#d8dee4"
+            },
+            {
+              "value": 1,
+              "label": "阈值敏感",
+              "color": "#d5ad50"
+            },
+            {
+              "value": 2,
+              "label": "九组一致",
+              "color": "#bd4e34"
+            },
+            {
+              "value": 3,
+              "label": "无有效观测",
+              "color": "#a4a6ad"
+            }
+          ],
+          "transparent_values": [
+            0
+          ]
+        }
+      },
+      {
+        "id": "poi_id",
+        "title": "关注点编号",
+        "description": "同网格关注点ID；有效ID为1至poiMaxId。需与源矢量ID关联，不能将像元数当作设施数量。",
+        "group": "关注点",
+        "bands": [
+          20
+        ],
+        "style": {
+          "type": "continuous",
+          "color_ramp": "viridis",
+          "stretch": {
+            "method": "range",
+            "ranges": [
+              [
+                1,
+                65535
+              ]
+            ]
+          }
+        }
+      },
+      {
+        "id": "poi_status",
+        "title": "关注点水体变化",
+        "description": "仅关注点ID所在像元保留变化分类；不能据此直接判断整座设施受灾。",
+        "group": "关注点",
+        "bands": [
+          21
+        ],
+        "style": {
+          "type": "classified",
+          "classes": [
+            {
+              "value": 0,
+              "label": "稳定非水体",
+              "color": "#d8dee4"
+            },
+            {
+              "value": 1,
+              "label": "持续水体",
+              "color": "#2878b8"
+            },
+            {
+              "value": 2,
+              "label": "新增水体",
+              "color": "#e66a48"
+            },
+            {
+              "value": 3,
+              "label": "退水区域",
+              "color": "#62b6a5"
+            },
+            {
+              "value": 4,
+              "label": "指数分歧",
+              "color": "#d5ad50"
+            },
+            {
+              "value": 5,
+              "label": "无共同有效观测",
+              "color": "#a4a6ad"
+            }
+          ],
+          "transparent_values": []
+        }
+      }
+    ],
+    "default_view": "change_class"
+  }
 }

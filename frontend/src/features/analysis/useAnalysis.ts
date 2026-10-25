@@ -3,7 +3,10 @@ import { useSessionEvents } from "@/features/events/SessionEventContext";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useRef } from "react";
 
-export function useAnalysisInvalidation(sessionId: string, workspaceId: string) {
+export function useAnalysisInvalidation(
+  sessionId: string,
+  workspaceId: string,
+) {
   const { events } = useSessionEvents();
   const client = useQueryClient();
   const cursor = useRef(0);
@@ -14,6 +17,9 @@ export function useAnalysisInvalidation(sessionId: string, workspaceId: string) 
       if (event.event_type === "analysis/output") {
         void client.invalidateQueries({
           queryKey: analysisKeys.outputs(workspaceId),
+        });
+        void client.invalidateQueries({
+          queryKey: ["analysis", "workspaces", workspaceId, "output"],
         });
       }
       if (event.event_type === "map/changed") {

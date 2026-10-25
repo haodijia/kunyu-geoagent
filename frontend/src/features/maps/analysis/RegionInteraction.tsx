@@ -51,25 +51,36 @@ export function RegionInteraction({
   const output = outputs.find((item) => item.id === layer?.output_id);
   const complete = useCallback(
     (value: RegionGeometry) => {
-      useAppUiStore
-        .getState()
-        .setMapSelection(sessionId, {
-          geometry: value,
-          layer_id: layer?.id ?? null,
-        });
+      useAppUiStore.getState().setMapSelection(sessionId, {
+        geometry: value,
+        layer_id: layer?.id ?? null,
+      });
       setError(null);
     },
     [sessionId, layer?.id],
   );
   const drawing = useMapDrawing(map.getMap(), map.ready, complete);
   const stats = useQuery({
-    queryKey: ["map-region-statistics", workspaceId, output?.id, geometry],
-    enabled: geometry !== null && output?.kind === "scalar_raster",
+    queryKey: [
+      "map-region-statistics",
+      workspaceId,
+      output?.id,
+      layer?.view_id,
+      layer?.revision,
+      geometry,
+    ],
+    enabled: geometry !== null && output !== undefined,
     retry: false,
     queryFn: ({ signal }) => {
       if (geometry === null || output === undefined)
         throw new Error(copy.noRaster);
-      return rasterApi.statistics(workspaceId, output.id, geometry, signal);
+      return rasterApi.statistics(
+        workspaceId,
+        output.id,
+        geometry,
+        layer!.view_id!,
+        signal,
+      );
     },
   });
   useEffect(() => {
@@ -184,54 +195,64 @@ export function RegionInteraction({
             {stats.data !== undefined && (
               <div className="max-h-44 space-y-2 overflow-y-auto" role="status">
                 <p className="text-xl font-medium tracking-tight tabular-nums">
-                  {(stats.data.region_area_m2 / 1e6).toFixed(3)}{" "}
+                  {(stats.data.bands[0]!.region_area_m2 / 1e6).toFixed(3)}{" "}
                   <span className="text-xs font-normal text-muted-foreground">
                     km²
                   </span>
                 </p>
-                {stats.data.classes.map((value) => (
-                  <div
-                    key={value.value}
-                    className="flex items-center justify-between gap-3"
-                  >
-                    <span className="flex items-center gap-1.5">
-                      <span
-                        className="size-2 rounded-full"
-                        style={{ background: value.color }}
-                      />
-                      {value.label}
-                    </span>
-                    <span className="tabular-nums">
-                      {(value.area_m2 / 1e6).toFixed(3)} km²
-                    </span>
+                {stats.data.bands.map((measurement) => (
+                  <div className="space-y-2" key={measurement.band}>
+                    <p className="font-medium">
+                      {measurement.title}
+                      {measurement.unit === null
+                        ? ""
+                        : ` · ${measurement.unit}`}
+                    </p>
+                    {measurement.classes.map((value) => (
+                      <div
+                        key={value.value}
+                        className="flex items-center justify-between gap-3"
+                      >
+                        <span className="flex items-center gap-1.5">
+                          <span
+                            className="size-2 rounded-full"
+                            style={{ background: value.color }}
+                          />
+                          {value.label}
+                        </span>
+                        <span className="tabular-nums">
+                          {(value.area_m2 / 1e6).toFixed(3)} km²
+                        </span>
+                      </div>
+                    ))}
+                    {measurement.mean !== null &&
+                      measurement.classes.length === 0 && (
+                        <div className="grid grid-cols-3 gap-2">
+                          {[
+                            [copy.min, measurement.minimum],
+                            [copy.max, measurement.maximum],
+                            [copy.mean, measurement.mean],
+                          ].map(([label, value]) => (
+                            <div key={label}>
+                              <p className="text-[10px] text-muted-foreground">
+                                {label}
+                              </p>
+                              <p className="mt-1 tabular-nums">
+                                {typeof value === "number"
+                                  ? Number(value.toPrecision(5))
+                                  : copy.noData}
+                              </p>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    <p className="text-[11px] text-muted-foreground">
+                      {copy.validPixels}{" "}
+                      {measurement.valid_pixel_count.toLocaleString()} /{" "}
+                      {measurement.selected_pixel_count.toLocaleString()}
+                    </p>
                   </div>
                 ))}
-                {stats.data.mean !== null &&
-                  stats.data.classes.length === 0 && (
-                    <div className="grid grid-cols-3 gap-2">
-                      {[
-                        [copy.min, stats.data.minimum],
-                        [copy.max, stats.data.maximum],
-                        [copy.mean, stats.data.mean],
-                      ].map(([label, value]) => (
-                        <div key={label}>
-                          <p className="text-[10px] text-muted-foreground">
-                            {label}
-                          </p>
-                          <p className="mt-1 tabular-nums">
-                            {typeof value === "number"
-                              ? Number(value.toPrecision(5))
-                              : copy.noData}
-                          </p>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                <p className="text-[11px] text-muted-foreground">
-                  {copy.validPixels}{" "}
-                  {stats.data.valid_pixel_count.toLocaleString()} /{" "}
-                  {stats.data.selected_pixel_count.toLocaleString()}
-                </p>
               </div>
             )}
             {(error !== null || stats.isError) && (

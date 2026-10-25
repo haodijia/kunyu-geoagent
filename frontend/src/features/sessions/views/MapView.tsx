@@ -121,7 +121,7 @@ function MapCanvas() {
     .filter((layer) => layer.bounds !== null)
     .sort((a, b) => b.position - a.position);
   const selectedLayer = spatialLayers.find(
-    (layer) => layer.id === selectedLayerId && layer.visible,
+    (layer) => layer.id === selectedLayerId,
   );
   const targetLayer =
     selectedLayer ?? spatialLayers.find((layer) => layer.visible);

@@ -1,4 +1,4 @@
-import { rasterCategories } from "@/features/analysis/raster";
+import type { RasterMetadata } from "./raster-views";
 import { Button } from "@/components/ui/button";
 import type { LayerStatus } from "@/features/maps/analysis/useMapStatus";
 import type { MapLayer } from "@/features/analysis/api";
@@ -35,7 +35,7 @@ export function LayerRow({
   status,
   metadata,
 }: {
-  readonly metadata: Readonly<Record<string, unknown>> | undefined;
+  readonly metadata: RasterMetadata | undefined;
   readonly sessionId: string;
   readonly layer: MapLayer;
   readonly selected: boolean;
@@ -44,11 +44,14 @@ export function LayerRow({
   readonly onAction: (action: LayerAction) => void;
   readonly status: LayerStatus | undefined;
 }) {
+  const view = metadata?.views.find((view) => view.id === layer.view_id);
+  const categories =
+    view?.style.type === "classified" ? view.style.classes : [];
   const [opacity, setOpacity] = useState(layer.opacity);
   useEffect(() => {
     if (!disabled) setOpacity(layer.opacity);
   }, [layer.opacity, disabled]);
-  const image = useLayerPreview(sessionId, layer.id);
+  const image = useLayerPreview(sessionId, layer.id, true, layer.revision);
   const sortable = useSortable({ id: layer.id, disabled });
   return (
     <section
@@ -223,7 +226,7 @@ export function LayerRow({
       )}
       {selected && metadata !== undefined && (
         <div className="flex flex-wrap gap-x-3 gap-y-1 pl-5 text-[10px] text-muted-foreground">
-          {rasterCategories(metadata).map((category) => (
+          {categories.map((category) => (
             <span key={category.value} className="flex items-center gap-1">
               <span
                 className="size-2 rounded-sm"

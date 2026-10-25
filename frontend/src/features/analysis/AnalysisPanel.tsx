@@ -1,4 +1,4 @@
-import { MapProductSelector } from "@/features/analysis/MapProductSelector";
+import { RasterViewSelector } from "@/features/analysis/RasterViewSelector";
 import { Button } from "@/components/ui/button";
 import { useAppUiStore } from "@/app/store";
 import {
@@ -218,12 +218,11 @@ export function AnalysisPanel({
         </div>
       )}
       {open && (
-        <MapProductSelector
+        <RasterViewSelector
           sessionId={sessionId}
           layer={
-            ordered.find(
-              (layer) => layer.id === inspectedLayerId && layer.visible,
-            ) ?? ordered.find((layer) => layer.visible)
+            ordered.find((layer) => layer.id === inspectedLayerId) ??
+            ordered.find((layer) => layer.visible)
           }
           outputs={outputs.data ?? []}
         />

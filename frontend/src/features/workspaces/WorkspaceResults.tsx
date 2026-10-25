@@ -10,7 +10,7 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import type { AnalysisOutput } from "@/features/analysis/api";
 import { OutputCard } from "@/features/analysis/OutputCard";
-import { productReferences } from "@/features/analysis/product-metadata";
+import { rasterCopy } from "@/locales/zh-CN/raster-views";
 import { useOutputImage } from "@/features/analysis/useOutputImage";
 import type { SessionSummary } from "@/features/sessions/api";
 import { OverviewDialog } from "@/features/workspaces/overview/OverviewDialog";
@@ -34,19 +34,10 @@ export function WorkspaceResults({
   readonly onSelect: (id: string) => void;
   readonly onLocate: (path: string) => void;
 }) {
-  const visible = outputs.filter(
-    (output) =>
-      output.metadata.bundle_id === undefined ||
-      output.metadata.bundle_id === output.id,
-  );
-  const selected = outputs.find((output) => output.id === selectedId);
-  const rootId =
-    typeof selected?.metadata.bundle_id === "string"
-      ? selected.metadata.bundle_id
-      : selectedId;
+  const visible = outputs;
   const index = Math.max(
     0,
-    visible.findIndex((output) => output.id === rootId),
+    visible.findIndex((output) => output.id === selectedId),
   );
   const output = visible[index];
   const [detailId, setDetailId] = useState<string | null>(null);
@@ -107,7 +98,7 @@ export function WorkspaceResults({
               />
             )}
             <GalleryImage
-              key={output.id}
+              key={`${output.id}:${output.revision}`}
               output={output}
               position="current"
               onClick={() => setDetailId(output.id)}
@@ -130,11 +121,10 @@ export function WorkspaceResults({
               <p>
                 {new Date(output.created_at).toLocaleDateString("zh-CN")}
                 <span>·</span>
-                {productReferences(output.metadata).length > 0
-                  ? copy.productCount(productReferences(output.metadata).length)
-                  : output.kind === "rgb_raster"
-                    ? "RGB"
-                    : "GeoTIFF"}
+                {rasterCopy.description(
+                  output.metadata.band_count,
+                  output.metadata.views.length,
+                )}
               </p>
             </div>
             <Button
@@ -227,7 +217,12 @@ function GalleryImage({
   readonly position: "previous" | "current" | "next";
   readonly onClick: () => void;
 }) {
-  const image = useOutputImage(output.workspace_id, output.id);
+  const image = useOutputImage(
+    output.workspace_id,
+    output.id,
+    output.metadata.default_view,
+    output.revision,
+  );
   const [failed, setFailed] = useState(false);
   return (
     <button

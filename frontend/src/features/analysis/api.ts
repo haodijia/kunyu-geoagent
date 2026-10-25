@@ -1,3 +1,4 @@
+import type { RasterMetadata } from "./raster-views";
 import { requestBlob, requestJson } from "@/api/client";
 
 export interface AnalysisOutput {
@@ -10,8 +11,8 @@ export interface AnalysisOutput {
   readonly preview_path: string;
   readonly title: string;
   readonly mode: "replay" | "live";
-  readonly kind: "rgb_raster" | "scalar_raster";
-  readonly metadata: Readonly<Record<string, unknown>>;
+  readonly kind: "raster";
+  readonly metadata: RasterMetadata;
   readonly source_metadata: Readonly<Record<string, unknown>>;
   readonly bounds: readonly [number, number, number, number];
   readonly original_status: number;
@@ -22,6 +23,7 @@ export interface MapLayer {
   readonly id: string;
   readonly session_id: string;
   readonly output_id: string | null;
+  readonly view_id: string | null;
   readonly image: {
     readonly image_id: number;
     readonly product_name: string;
@@ -60,10 +62,10 @@ export const analysisApi = {
   outputs: (id: string) =>
     requestJson<AnalysisOutput[]>(workspaceResultsPath(id)),
   layers: (id: string) => requestJson<MapLayer[]>(`${mapPath(id)}/layers`),
-  addLayer: (id: string, outputId: string) =>
+  addLayer: (id: string, outputId: string, viewId: string) =>
     requestJson<MapLayer>(`${mapPath(id)}/layers`, {
       method: "POST",
-      body: JSON.stringify({ output_id: outputId }),
+      body: JSON.stringify({ output_id: outputId, view_id: viewId }),
     }),
   style: (id: string, layer: MapLayer, style: LayerStyle) =>
     requestJson<MapLayer>(
@@ -77,17 +79,13 @@ export const analysisApi = {
     requestJson<void>(`${mapPath(id)}/layers/${encodeURIComponent(layer.id)}`, {
       method: "DELETE",
     }),
-  preview: (id: string, outputId: string) =>
+  preview: (id: string, outputId: string, viewId?: string) =>
     requestBlob(
-      `${workspaceResultsPath(id)}/${encodeURIComponent(outputId)}/preview`,
+      `${workspaceResultsPath(id)}/${encodeURIComponent(outputId)}/preview${viewId === undefined ? "" : `?view_id=${encodeURIComponent(viewId)}`}`,
     ),
   download: (id: string, outputId: string) =>
     requestBlob(
       `${workspaceResultsPath(id)}/${encodeURIComponent(outputId)}/download`,
-    ),
-  downloadBundle: (id: string, outputId: string) =>
-    requestBlob(
-      `${workspaceResultsPath(id)}/${encodeURIComponent(outputId)}/bundle`,
     ),
   layerPreview: (sessionId: string, layerId: string, signal?: AbortSignal) =>
     requestBlob(

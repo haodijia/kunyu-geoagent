@@ -7,7 +7,7 @@ from pathlib import Path
 from jsonschema import Draft202012Validator
 
 from kunyu.domain.geospatial.analysis import AnalysisError
-from kunyu.domain.geospatial.products import RasterProduct
+from kunyu.domain.geospatial.raster import RasterPresentation
 
 CATALOG = Path(__file__).with_name("services")
 
@@ -20,11 +20,7 @@ def service_definition(name: str) -> dict:
         raise AnalysisError("SERVICE_NOT_REGISTERED", "该服务尚未登记成果契约。", 404)
     data = json.loads(path.read_text(encoding="utf-8"))
     Draft202012Validator.check_schema(data["parameters"])
-    names = [product["name"] for product in data["products"]]
-    if not names or len(set(names)) != len(names):
-        raise AnalysisError("INVALID_SERVICE_CONTRACT", "服务成果名称必须非空且唯一。")
-    for product in data["products"]:
-        RasterProduct.model_validate(product)
+    RasterPresentation.model_validate(data["presentation"])
     return data
 
 

@@ -1,3 +1,4 @@
+import { rasterView } from "./raster-views";
 import { useAppUiStore } from "@/app/store";
 import type { AnalysisOutput, MapLayer } from "@/features/analysis/api";
 import { referenceText } from "@/features/workspaces/references";
@@ -15,10 +16,14 @@ export function appendReference(
     previous.trim() === "" ? `${reference} ` : `${previous}\n${reference} `,
   );
 }
-export function referenceOutput(sessionId: string, output: AnalysisOutput) {
+export function referenceOutput(
+  sessionId: string,
+  output: AnalysisOutput,
+  viewId = output.metadata.default_view,
+) {
   appendReference(
     sessionId,
-    output.title,
+    `${output.title} · ${rasterView(output, viewId).title} [view_id=${viewId}]`,
     output.file_path.split("/").map(encodeURIComponent).join("/"),
   );
 }
@@ -37,6 +42,6 @@ export function referenceLayer(
     const output = outputs.find((item) => item.id === layer.output_id);
     if (output === undefined)
       throw new Error("Selected result is unavailable.");
-    referenceOutput(sessionId, output);
+    referenceOutput(sessionId, output, layer.view_id!);
   }
 }

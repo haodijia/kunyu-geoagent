@@ -1,7 +1,6 @@
 """Keep source raster values intact and render scalar/RGB map imagery."""
 
 import json
-import math
 from functools import lru_cache
 from io import BytesIO
 from pathlib import Path
@@ -13,22 +12,15 @@ from PIL import Image
 from rasterio.enums import Resampling
 from rasterio.transform import from_bounds
 from rasterio.vrt import WarpedVRT
-from rasterio.warp import transform_bounds
 
 from kunyu.domain.geospatial.analysis import AnalysisError
-from kunyu.integrations.filesystem.io import check_cancelled
 from kunyu.integrations.filesystem.names import numbered_name, readable_name
 from kunyu.integrations.filesystem.workspaces import validate_filename
-from kunyu.integrations.geospatial.classified_display import (
-    classified_rgba,
-    read_categories,
-)
-from kunyu.integrations.geospatial.rgb_display import rgb_ranges, rgb_rgba
 
 
 class AnalysisRaster:
     def __init__(self, data_directory: Path) -> None:
-        self.root = data_directory / "workspaces"
+        self.root = (data_directory / "workspaces").resolve()
 
     def directory(self, workspace_id: str, name: str) -> Path:
         if not workspace_id.startswith("ws_") or any(
@@ -67,147 +59,31 @@ class AnalysisRaster:
             )
         return path
 
-    def prepare(self, workspace_id: str, name: str, cancelled: Event) -> dict:
-        directory = self.directory(workspace_id, name)
-        return self.prepare_file(
-            directory / "result.tif", self.preview_path(workspace_id, name), cancelled
+    def prepare(
+        self, workspace_id: str, name: str, presentation, cancelled: Event
+    ) -> dict:
+        from kunyu.integrations.geospatial.raster_manifest import prepare_manifest
+
+        return prepare_manifest(
+            self.directory(workspace_id, name) / "result.tif",
+            self.preview_path(workspace_id, name).parent / "views",
+            presentation,
+            cancelled,
         )
 
-    def prepare_file(self, path: Path, preview: Path, cancelled: Event) -> dict:
-        check_cancelled(cancelled, "prepare analysis output")
-        with rasterio.open(path) as src:
-            categories = read_categories(src.tags())
-            scalar = src.count == 1 and np.issubdtype(
-                np.dtype(src.dtypes[0]), np.integer
-            )
-            scalar = scalar or (
-                src.count == 1 and np.issubdtype(np.dtype(src.dtypes[0]), np.floating)
-            )
-            rgb = src.count == 3 and set(src.dtypes) <= {"uint8", "uint16"}
-            if src.crs is None or not (scalar or rgb):
-                raise AnalysisError(
-                    "UNSUPPORTED_RASTER",
-                    "Map rendering requires a georeferenced numeric single band or three-band uint8/uint16 RGB raster.",
-                )
-            bounds = list(transform_bounds(src.crs, "EPSG:4326", *src.bounds))
-            if not all(math.isfinite(value) for value in bounds):
-                raise AnalysisError(
-                    "INVALID_RASTER_BOUNDS", "Raster bounds are not finite."
-                )
-            data = src.read(
-                out_shape=(src.count, 512, 512),
-                masked=True,
-                resampling=Resampling.nearest,
-            )
-            limits = None
-            color_limits = None
-            if categories is not None:
-                if not scalar:
-                    raise AnalysisError(
-                        "INVALID_RASTER_CATEGORIES", "分类图例仅适用于单波段栅格。"
-                    )
-                rgba = classified_rgba(data[0], categories)
-            elif scalar:
-                valid = data[0].compressed()
-                valid = valid[np.isfinite(valid)]
-                if "KUNYU_DISPLAY_RANGE" in src.tags():
-                    limits = _display_ranges(src.tags()["KUNYU_DISPLAY_RANGE"], 1)[0]
-                elif not len(valid):
-                    raise AnalysisError(
-                        "EMPTY_RASTER", "The raster preview contains no finite values."
-                    )
-                else:
-                    limits = [
-                        float(np.percentile(valid, 2)),
-                        float(np.percentile(valid, 98)),
-                    ]
-                if limits[0] == limits[1]:
-                    limits[1] = limits[0] + max(1, abs(limits[0]) * 0.01)
-                rgba = _scalar_rgba(data[0], *limits)
-            else:
-                color_limits = (
-                    [[0.0, 255.0]] * 3
-                    if set(src.dtypes) == {"uint8"}
-                    else rgb_ranges(data)
-                )
-                if "KUNYU_RGB_RANGES" in src.tags():
-                    color_limits = _display_ranges(src.tags()["KUNYU_RGB_RANGES"], 3)
-                rgba = rgb_rgba(
-                    data, src.dataset_mask(out_shape=(512, 512)), color_limits
-                )
-            transparent = json.loads(src.tags().get("KUNYU_TRANSPARENT_VALUES", "[]"))
-            if not isinstance(transparent, list) or any(
-                type(v) is not int for v in transparent
-            ):
-                raise AnalysisError("INVALID_RASTER_STYLE", "透明类别配置无效。")
-            if categories is not None:
-                rgba[np.isin(data[0].data, transparent), 3] = 0
-            metadata = {
-                "width": src.width,
-                "height": src.height,
-                "bands": src.count,
-                "band_names": list(src.descriptions),
-                "units": list(src.units),
-                "dtypes": list(src.dtypes),
-                "crs": str(src.crs),
-                "bounds": bounds,
-                "nodata": src.nodata
-                if src.nodata is not None and math.isfinite(src.nodata)
-                else None,
-                "display_kind": "classified"
-                if categories is not None
-                else "scalar"
-                if scalar
-                else "rgb",
-                "display_range": limits,
-                "display_ranges": color_limits,
-                "palette": "viridis" if scalar and categories is None else None,
-                "numeric_values_available": scalar,
-                "categories": categories,
-                "transparent_values": transparent,
-            }
-        check_cancelled(cancelled, "publish analysis preview")
-        preview.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
-        Image.fromarray(rgba).save(preview)
-        return metadata
-
-    def tile(self, relative: str, z: int, x: int, y: int, metadata: dict) -> bytes:
+    def tile(self, relative: str, z: int, x: int, y: int, view: dict) -> bytes:
         if z < 0 or z > 24 or x < 0 or y < 0 or x >= 2**z or y >= 2**z:
             raise AnalysisError("INVALID_TILE", "Invalid tile coordinates.", 422)
-        limits = metadata["display_range"]
-        color_limits = (
-            metadata["display_ranges"] if metadata["display_kind"] == "rgb" else None
-        )
         return _render_tile(
-            self.path(relative),
-            z,
-            x,
-            y,
-            None if limits is None else tuple(limits),
-            None
-            if color_limits is None
-            else tuple(tuple(band) for band in color_limits),
-            None
-            if metadata.get("categories") is None
-            else tuple(
-                (entry["value"], entry["label"], entry["color"])
-                for entry in metadata["categories"]
-            ),
-            tuple(metadata.get("transparent_values", [])),
+            self.path(relative), z, x, y, json.dumps(view, sort_keys=True)
         )
 
 
 @lru_cache(maxsize=128)
-def _render_tile(
-    path: Path,
-    z: int,
-    x: int,
-    y: int,
-    limits: tuple | None,
-    color_limits: tuple | None,
-    categories: tuple | None,
-    transparent: tuple,
-) -> bytes:
+def _render_tile(path: Path, z: int, x: int, y: int, view_json: str) -> bytes:
+    from kunyu.integrations.geospatial.raster_display import render_rgba
+
+    view = json.loads(view_json)
     size = 256
     unit = 20037508.342789244
     span = 2 * unit / (2**z)
@@ -217,79 +93,23 @@ def _render_tile(
         -unit + (x + 1) * span,
         unit - y * span,
     )
-    transform = from_bounds(*bounds, size, size)
     with (
         rasterio.open(path) as src,
         WarpedVRT(
             src,
             crs="EPSG:3857",
-            transform=transform,
+            transform=from_bounds(*bounds, size, size),
             width=size,
             height=size,
             add_alpha=True,
             resampling=Resampling.nearest,
         ) as vrt,
     ):
-        if categories is not None:
-            values = vrt.read(1, masked=True)
-            rgba = classified_rgba(
-                values,
-                [
-                    {"value": value, "label": label, "color": color}
-                    for value, label, color in categories
-                ],
-            )
-            rgba[np.isin(values.data, transparent), 3] = 0
-        elif limits is None:
-            rgba = rgb_rgba(
-                vrt.read(indexes=(1, 2, 3), masked=True),
-                vrt.read(vrt.count),
-                color_limits,
-            )
-        else:
-            band = vrt.read(1, masked=True)
-            rgba = _scalar_rgba(band, *limits)
-            rgba[:, :, 3] = np.minimum(
-                rgba[:, :, 3], (vrt.read(vrt.count) > 0).astype("uint8") * 255
-            )
+        data = vrt.read(indexes=view["bands"], masked=True)
+        data = np.ma.array(
+            data, mask=np.ma.getmaskarray(data) | (vrt.read(vrt.count) == 0)[None, :, :]
+        )
+        rgba = render_rgba(data, view["style"], view["render_ranges"])
     out = BytesIO()
     Image.fromarray(rgba).save(out, format="PNG")
     return out.getvalue()
-
-
-def _scalar_rgba(data, minimum: float, maximum: float):
-    values = data.astype("float64").filled(np.nan)
-    valid = ~np.ma.getmaskarray(data) & np.isfinite(values)
-    normalized = np.clip(
-        (np.where(valid, values, minimum) - minimum) / (maximum - minimum), 0, 1
-    )
-    stops = np.array(
-        [[68, 1, 84], [59, 82, 139], [33, 145, 140], [94, 201, 98], [253, 231, 37]]
-    )
-    positions = np.linspace(0, 1, len(stops))
-    rgb = np.stack(
-        [np.interp(normalized, positions, stops[:, channel]) for channel in range(3)],
-        axis=-1,
-    ).astype("uint8")
-    return np.dstack((rgb, valid.astype("uint8") * 255))
-
-
-def _display_ranges(raw: str, count: int) -> list[list[float]]:
-    try:
-        values = json.loads(raw)
-        if not isinstance(values, list) or len(values) != count:
-            raise ValueError("Invalid range count")
-        for pair in values:
-            if (
-                not isinstance(pair, list)
-                or len(pair) != 2
-                or not all(
-                    type(value) in {float, int} and math.isfinite(value)
-                    for value in pair
-                )
-                or pair[0] >= pair[1]
-            ):
-                raise ValueError("Invalid display range")
-        return values
-    except (ValueError, TypeError) as error:
-        raise AnalysisError("INVALID_DISPLAY_RANGE", "栅格显示范围无效。") from error

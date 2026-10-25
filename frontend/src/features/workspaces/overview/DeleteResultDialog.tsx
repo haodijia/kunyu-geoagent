@@ -13,7 +13,6 @@ import {
   workspaceResultsPath,
   type AnalysisOutput,
 } from "@/features/analysis/api";
-import { productReferences } from "@/features/analysis/product-metadata";
 import { overviewCopy as copy } from "@/locales/zh-CN/workspace-overview";
 
 export function DeleteResultDialog({
@@ -24,7 +23,7 @@ export function DeleteResultDialog({
   readonly onClose: () => void;
 }) {
   const client = useQueryClient();
-  const count = Math.max(1, productReferences(output.metadata).length);
+  const count = output.metadata.views.length;
   const remove = useMutation({
     mutationFn: () =>
       requestJson<{

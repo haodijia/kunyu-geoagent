@@ -1,7 +1,12 @@
 import { analysisApi } from "@/features/analysis/api";
 import { useEffect, useState } from "react";
 
-export function useOutputImage(workspaceId: string, outputId: string) {
+export function useOutputImage(
+  workspaceId: string,
+  outputId: string,
+  viewId?: string,
+  revision?: number,
+) {
   const [url, setUrl] = useState<string | null>(null);
   const [error, setError] = useState(false);
   useEffect(() => {
@@ -10,7 +15,7 @@ export function useOutputImage(workspaceId: string, outputId: string) {
     setUrl(null);
     setError(false);
     void analysisApi
-      .preview(workspaceId, outputId)
+      .preview(workspaceId, outputId, viewId)
       .then((blob) => {
         if (!active) return;
         objectUrl = URL.createObjectURL(blob);
@@ -28,6 +33,6 @@ export function useOutputImage(workspaceId: string, outputId: string) {
       active = false;
       if (objectUrl !== null) URL.revokeObjectURL(objectUrl);
     };
-  }, [workspaceId, outputId]);
+  }, [workspaceId, outputId, viewId, revision]);
   return { url, error };
 }

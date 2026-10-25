@@ -37,6 +37,7 @@ from kunyu.domain.conversation.attachments import (
     attachment_path,
 )
 from kunyu.domain.geospatial.analysis import AnalysisError, LayerStyleWrite
+from kunyu.domain.geospatial.raster import RasterReference
 from kunyu.domain.models.model_images import ModelImageInput
 from kunyu.integrations.filesystem.io import check_cancelled
 from kunyu.integrations.filesystem.operation import filesystem_operation
@@ -50,26 +51,30 @@ class ContextArguments(ToolArguments):
 
 
 class PresentArguments(ToolArguments):
-    output_ids: list[Annotated[str, Field(min_length=1, max_length=64)]] | None = Field(
+    rasters: list[RasterReference] | None = Field(
         default=None,
         min_length=1,
         max_length=100,
-        description="Analysis output IDs to add as layers. Supply output_ids or image_ids, exclusively.",
+        description="Raster results and explicit view IDs to show. Supply rasters or image_ids, exclusively.",
     )
     image_ids: list[Annotated[int, Field(gt=0)]] | None = Field(
         default=None,
         min_length=1,
         max_length=100,
-        description="Image IDs from search results to add as layers. Supply image_ids or output_ids, exclusively.",
+        description="Image IDs from search results to add as layers. Supply image_ids or rasters, exclusively.",
     )
     open_map: bool = True
     focus: bool = True
 
     @model_validator(mode="after")
     def one_source(self):
-        if (self.image_ids is None) == (self.output_ids is None):
-            raise ValueError("Supply exactly one of image_ids or output_ids.")
-        ids = self.image_ids if self.image_ids is not None else self.output_ids
+        if (self.image_ids is None) == (self.rasters is None):
+            raise ValueError("Supply exactly one of image_ids or rasters.")
+        ids = (
+            self.image_ids
+            if self.image_ids is not None
+            else [(r.output_id, r.view_id) for r in self.rasters]
+        )
         if len(set(ids)) != len(ids):
             raise ValueError("Resource IDs must be unique.")
         return self
@@ -184,7 +189,7 @@ class MapTool(BaseTool):
                     session_id,
                     call.call_id,
                     image_ids=args.image_ids,
-                    output_ids=args.output_ids,
+                    rasters=args.rasters,
                 )
                 return tool_result(
                     {"layers": [layer.model_dump(mode="json") for layer in layers]},

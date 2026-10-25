@@ -460,6 +460,7 @@ CREATE TABLE map_layers (
 	id VARCHAR(64) NOT NULL,
 	session_id VARCHAR(64) NOT NULL,
 	output_id VARCHAR(64),
+	view_id VARCHAR(64),
 	image JSON,
 	bounds JSON,
 	title VARCHAR(200) NOT NULL,
@@ -468,8 +469,9 @@ CREATE TABLE map_layers (
 	position INTEGER NOT NULL,
 	revision INTEGER NOT NULL,
 	PRIMARY KEY (id),
-	CONSTRAINT uq_map_layers_output UNIQUE (session_id, output_id),
+	CONSTRAINT uq_map_layers_output UNIQUE (session_id, output_id, view_id),
 	CONSTRAINT ck_map_layers_opacity CHECK (opacity >= 0 AND opacity <= 1),
+	CONSTRAINT ck_map_layers_view CHECK ((output_id IS NULL) = (view_id IS NULL)),
 	CONSTRAINT ck_map_layers_source CHECK ((output_id IS NULL) != (image IS NULL)),
 	FOREIGN KEY(session_id) REFERENCES sessions (id) ON DELETE CASCADE,
 	FOREIGN KEY(output_id) REFERENCES analysis_outputs (id) ON DELETE CASCADE
@@ -496,4 +498,4 @@ CREATE TABLE background_jobs (
 );
 CREATE INDEX ix_background_jobs_session_id ON background_jobs(session_id);
 
-PRAGMA user_version = 14;
+PRAGMA user_version = 15;

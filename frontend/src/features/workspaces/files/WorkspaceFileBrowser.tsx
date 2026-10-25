@@ -210,13 +210,7 @@ export function WorkspaceFileBrowser({
                       variant="ghost"
                       size="icon-sm"
                       aria-label={copy.linkedDelete}
-                      onClick={() =>
-                        setRemoval(
-                          outputs.find(
-                            (item) => item.id === output.metadata.bundle_id,
-                          ) ?? output,
-                        )
-                      }
+                      onClick={() => setRemoval(output)}
                     >
                       <Trash2 className="size-3.5" />
                     </Button>

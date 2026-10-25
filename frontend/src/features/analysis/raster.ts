@@ -11,11 +11,15 @@ export interface RasterSample {
   readonly inside: boolean;
   readonly values: readonly (number | null)[];
   readonly bands: readonly (string | null)[];
+  readonly units: readonly (string | null)[];
   readonly row?: number;
   readonly column?: number;
   readonly categories: readonly Category[] | null;
 }
-export interface RegionStatistics {
+export interface BandRegionStatistics {
+  readonly band: number;
+  readonly title: string;
+  readonly unit: string | null;
   readonly selected_pixel_count: number;
   readonly valid_pixel_count: number;
   readonly minimum: number | null;
@@ -30,6 +34,11 @@ export interface RegionStatistics {
   }[];
   readonly coverage_note: string;
 }
+export interface RegionStatistics {
+  readonly output_id: string;
+  readonly view_id: string;
+  readonly bands: readonly BandRegionStatistics[];
+}
 const root = (workspace: string, output: string) =>
   `/api/v1/workspaces/${encodeURIComponent(workspace)}/results/${encodeURIComponent(output)}`;
 export const rasterApi = {
@@ -39,36 +48,22 @@ export const rasterApi = {
     longitude: number,
     latitude: number,
     signal: AbortSignal,
+    viewId: string,
   ) =>
     requestJson<RasterSample>(
-      `${root(workspace, output)}/sample?longitude=${longitude}&latitude=${latitude}`,
+      `${root(workspace, output)}/sample?longitude=${longitude}&latitude=${latitude}&view_id=${encodeURIComponent(viewId)}`,
       { signal },
     ),
   statistics: (
     workspace: string,
     output: string,
     geometry: RegionGeometry,
+    viewId: string,
     signal?: AbortSignal,
   ) =>
     requestJson<RegionStatistics>(`${root(workspace, output)}/statistics`, {
       method: "POST",
-      body: JSON.stringify({ geometry }),
+      body: JSON.stringify({ geometry, view_id: viewId }),
       signal,
     }),
 };
-export function rasterCategories(
-  metadata: Readonly<Record<string, unknown>>,
-): readonly Category[] {
-  if (!Array.isArray(metadata.categories)) return [];
-  return metadata.categories.filter(
-    (entry: unknown): entry is Category =>
-      typeof entry === "object" &&
-      entry !== null &&
-      "value" in entry &&
-      typeof entry.value === "number" &&
-      "label" in entry &&
-      typeof entry.label === "string" &&
-      "color" in entry &&
-      typeof entry.color === "string",
-  );
-}

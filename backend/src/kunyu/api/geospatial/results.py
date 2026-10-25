@@ -10,7 +10,9 @@ from kunyu.api.dependencies import get_database
 from kunyu.api.errors import ApiError
 from kunyu.application.analysis.removal import ResultRemovalService
 from kunyu.application.analysis.results import ResultService
+from kunyu.application.analysis.views import RasterViewService
 from kunyu.application.workspaces.service import WorkspaceNotFoundError
+from kunyu.domain.geospatial.raster import RasterView
 from kunyu.integrations.filesystem.operation import filesystem_operation
 from kunyu.persistence.database import Database
 
@@ -43,8 +45,41 @@ def remove_result(
         ) from error
 
 
+class ViewUpdate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    expected_revision: int = Field(ge=1)
+    views: list[RasterView] = Field(min_length=1)
+    default_view: str = Field(min_length=1, max_length=64)
+
+
+@router.put("/{output_id}/views")
+async def set_views(
+    workspace_id: str, output_id: str, body: ViewUpdate, service: Service
+):
+    try:
+        return await filesystem_operation(
+            lambda cancelled: RasterViewService(
+                service.analysis.repository, service.analysis.raster
+            ).replace(
+                workspace_id,
+                output_id,
+                body.expected_revision,
+                body.views,
+                body.default_view,
+                cancelled,
+            )
+        )
+    except OSError as error:
+        logging.getLogger(__name__).exception("Raster view update failed")
+        raise ApiError(
+            503, "VIEW_SAVE_FAILED", "Could not save raster view files."
+        ) from error
+
+
 class RegionRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
+    view_id: str | None = Field(default=None, max_length=64)
+    bands: list[Annotated[int, Field(ge=1)]] | None = Field(default=None, min_length=1)
     geometry: dict[str, JsonValue]
     values: list[Annotated[float, Field(allow_inf_nan=False)]] | None = Field(
         default=None, min_length=1, max_length=32
@@ -58,9 +93,13 @@ async def sample(
     service: Service,
     longitude: float = Query(ge=-180, le=180, allow_inf_nan=False),
     latitude: float = Query(ge=-85, le=85, allow_inf_nan=False),
+    view_id: str | None = None,
+    bands: Annotated[list[int] | None, Query()] = None,
 ):
     return await filesystem_operation(
-        lambda _: service.sample(workspace_id, output_id, longitude, latitude)
+        lambda _: service.sample(
+            workspace_id, output_id, longitude, latitude, view_id, bands
+        )
     )
 
 
@@ -70,6 +109,11 @@ async def statistics(
 ):
     return await filesystem_operation(
         lambda _: service.statistics(
-            workspace_id, output_id, body.geometry, body.values
+            workspace_id,
+            output_id,
+            body.geometry,
+            body.values,
+            body.view_id,
+            body.bands,
         )
     )

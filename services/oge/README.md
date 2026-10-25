@@ -7,7 +7,7 @@
 2026-10-24 已通过在线开发中心发布 `flood_monitoring_bundle`，版本契约为 2.0.0。OGE 的“编辑服务”只允许修改名称和描述，故新版以独立名称发布；既有 `flood_monitoring` 保持原状态，未删除。
 
 - 源码：`flood_monitoring.py`，直接粘贴到 OGE 开发中心，保存脚本后在资源行“…”选择“发布为服务”。不要在本机安装 OGE 来执行这个算法。
-- 平台契约：`backend/src/kunyu/integrations/oge/services/flood_monitoring_bundle.json`。包含默认参数、21个波段的名称、分类含义、图例、分组及解释限制。新增服务只需登记对应契约，不添加案例专用地图按钮。
+- 平台契约：`backend/src/kunyu/integrations/oge/services/flood_monitoring_bundle.json`。包含默认参数、21个波段的名称与意义、推荐视图、分类图例、分组及解释限制。新增服务只需登记对应契约，不添加案例专用地图按钮。
 - 调用：`POST https://openge.org.cn/api/management/gp-service/process/flood_monitoring_bundle/api`，使用 OGE 登录得到的 Bearer Authorization。请求体 `{}` 使用全部已发布默认值；如 `{"ndwiThreshold":0.02,"mndwiThreshold":0.01,"thresholdStep":0.05}` 调整方法参数。
 - 返回 `processId=job-...` 是异步任务，不是图像地址。状态 `/computation-api/process/{jobId}`；引擎结果 `/computation-api/process/result/{jobId}`；数值 TIFF `/computation-api/styles/cog/{jobId}`。
 - 实测 GP 成功状态为 `resultStatus=1`、`resultFileStatus=1`、引擎 `status=success`；不套用旧文档的“2=成功”。结果中的 `processId=DAGJSON` 是过程类型，任务身份以 `jobId` 为准。
@@ -36,7 +36,7 @@
 
 执行前记录任务，编译或提交失败保存诊断；提交结果不明时不自动重试。重启只恢复状态查询与下载，不重复发起计算。代码执行与已发布GP服务使用各自明确的协议。
 
-收集器核对全部波段名称和顺序，再无损拆成可独立渲染的单波段文件。原始完整 TIFF 保留供下载。21个产品在同一数据库事务发布，各自有output_id、路径、预览、图例、统计和共同来源；这不代表21次远端计算。成果卡按主题组织，工作区只展示一个完整成果入口。
+收集器核对实际波段数量、名称和顺序，一个成果只保存原始21波段 TIFF。服务契约中的 presentation 声明 bands、views 与 default_view；21个视图引用同一 output_id 的不同波段，各有预览、图例和对应波段统计。地图使用 {output_id,view_id}，不再拆分单波段文件或登记子成果。单波段、RGB 和任意多波段使用同一模型，详见 `../../docs/develop/统一栅格与视图.md`。
 
 点查直接点击地图；框选按下拖动松开即统计；多边形逐点绘制、双击完成；Esc退出并清除选区。图层栏决定查询对象，切换本组成果立即换图。选区随下一条消息传给Agent，用户不用重复传GeoJSON、填坐标或再点“应用”。统计结果在侧栏显示，不在绘制前打开弹窗。
 
@@ -71,7 +71,7 @@
 
 关注点栅格实际包含13个ID，`poiMaxId=30`只是上限。两期观测为2026-06-22和2026-07-12，结果不代表洪峰最大淹没范围、淹没深度、受灾人口或实际损失。没有这些额外输入时，报告明确留下数据缺口。
 
-### 平台联调记录
+### 历史平台联调记录（统一模型迁移前）
 
 真实 Agent 本地任务 `job_52f4ad1e-086f-4f57-99c4-f0318ce545a6`，远端任务 `job-f3e5b00b-1baf-4374-9b58-f60d0fe31820`，最终成功。Agent仅提交一次服务，得到21个登记成果、添加主图层并完成分区统计。整幅查询超过四百万像元时明确报错，随后分成两区查询；未重跑OGE。21项预览、21项地图瓦片以及单波段／完整包下载已通过应用HTTP接口读取验证。
 

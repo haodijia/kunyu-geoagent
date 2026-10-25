@@ -233,7 +233,7 @@ class AnalysisRepository:
                 source_session_title=source_session.title,
                 title=str(job.parameters["title"]),
                 mode=job.mode,
-                kind="scalar_raster" if metadata["bands"] == 1 else "rgb_raster",
+                kind="raster",
                 raster_metadata=metadata,
                 source_metadata={
                     **source_metadata,
@@ -255,71 +255,6 @@ class AnalysisRepository:
             tx.flush()
             publish(self.database, tx, job.session_id, "analysis/output", row.id, 1)
             return output_value(row)
-
-    def publish_products(
-        self, job: AnalysisJob, products: list[dict], result: dict
-    ) -> AnalysisOutput:
-        """Publish the primary and all sibling products in one transaction."""
-        root_id = "out_" + job.id.removeprefix("job_")
-        refs = [
-            {
-                "id": root_id if i == 0 else f"{root_id}_b{i + 1:02d}",
-                "name": p["name"],
-                "title": p["title"],
-                "group": p["metadata"]["group"],
-                "file_path": "/workspace/" + p["file"].split("/", 1)[1],
-                "summary": p["metadata"]["summary"],
-            }
-            for i, p in enumerate(products)
-        ]
-        with self.database.sessions.begin() as tx:
-            tx.execute(text("BEGIN IMMEDIATE"))
-            existing = tx.get(AnalysisOutputRecord, root_id)
-            if existing is not None:
-                return output_value(existing)
-            session = require_session(tx, job.session_id)
-            now = datetime.now(UTC)
-            primary = None
-            for i, (product, ref) in enumerate(zip(products, refs, strict=True)):
-                metadata = {**product["metadata"], "bundle_id": root_id}
-                if i == 0:
-                    metadata["products"] = refs
-                row = AnalysisOutputRecord(
-                    id=ref["id"],
-                    job_id=job.id if i == 0 else None,
-                    session_id=job.session_id,
-                    workspace_id=job.workspace_id,
-                    source_session_title=session.title,
-                    title=product["title"],
-                    mode=job.mode,
-                    kind="scalar_raster",
-                    raster_metadata=metadata,
-                    source_metadata={
-                        "parameters": job.parameters,
-                        "execution_result": result,
-                        "origin": {
-                            "session_id": job.session_id,
-                            "job_id": job.id,
-                            "run_id": job.run_id,
-                            "tool_call_id": job.tool_call_id,
-                        },
-                        "bundle_file": f"{job.workspace_id}/results/{job.parameters['result_directory']}/result.tif",
-                    },
-                    bounds=metadata["bounds"],
-                    cog_file=product["file"],
-                    preview_file=product["preview"],
-                    original_status=200,
-                    revision=1,
-                    created_at=now,
-                )
-                tx.add(row)
-                if i == 0:
-                    primary = row
-                tx.flush()
-                publish(self.database, tx, job.session_id, "analysis/output", row.id, 1)
-            if primary is None:
-                raise AnalysisError("EMPTY_PRODUCTS", "服务没有声明成果。")
-            return output_value(primary)
 
 
 def job_value(row: AnalysisJobRecord) -> AnalysisJob:

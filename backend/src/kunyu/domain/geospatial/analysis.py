@@ -67,7 +67,7 @@ class AnalysisOutput(AnalysisValue):
     preview_path: str
     title: str
     mode: Literal["replay", "live"]
-    kind: Literal["rgb_raster", "scalar_raster"]
+    kind: Literal["raster"]
     metadata: dict[str, JsonValue]
     source_metadata: dict[str, JsonValue]
     bounds: tuple[float, float, float, float]
@@ -80,6 +80,7 @@ class MapLayer(AnalysisValue):
     id: str
     session_id: str
     output_id: str | None
+    view_id: str | None
     image: LayerImage | None
     bounds: tuple[float, float, float, float] | None
     title: str
@@ -92,6 +93,8 @@ class MapLayer(AnalysisValue):
     def source(self) -> Self:
         if (self.output_id is None) == (self.image is None):
             raise ValueError("A map layer must reference exactly one output or image.")
+        if (self.output_id is None) != (self.view_id is None):
+            raise ValueError("Raster layers require a view; image layers have no view.")
         return self
 
 

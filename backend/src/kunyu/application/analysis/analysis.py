@@ -17,10 +17,9 @@ from kunyu.domain.geospatial.analysis import (
     AnalysisOutput,
 )
 from kunyu.domain.geospatial.oge import OgeError
-from kunyu.domain.geospatial.products import RasterProduct
+from kunyu.domain.geospatial.raster import RasterPresentation
 from kunyu.integrations.filesystem.operation import filesystem_operation
 from kunyu.integrations.geospatial.analysis_raster import AnalysisRaster
-from kunyu.integrations.geospatial.raster_products import prepare_products
 from kunyu.integrations.oge.execution import ExecutionGateway
 from kunyu.integrations.oge.published_service import PublishedServiceGateway
 from kunyu.persistence.geospatial.analysis import AnalysisRepository
@@ -213,29 +212,21 @@ class AnalysisService:
                 return
         self.repository.change(job.id, stage="render")
         await self.notify()
-        if job.parameters.get("products"):
-            definitions = [
-                RasterProduct.model_validate(p) for p in job.parameters["products"]
-            ]
-            products = await filesystem_operation(
-                lambda cancelled: prepare_products(
-                    self.raster, job.workspace_id, name, definitions, cancelled
-                )
+        presentation = RasterPresentation.model_validate(job.parameters["presentation"])
+        metadata = await filesystem_operation(
+            lambda cancelled: self.raster.prepare(
+                job.workspace_id, name, presentation, cancelled
             )
-            self.repository.publish_products(job, products, result)
-        else:
-            metadata = await filesystem_operation(
-                lambda cancelled: self.raster.prepare(job.workspace_id, name, cancelled)
-            )
-            self.repository.publish_output(
-                job,
-                output_id,
-                metadata,
-                {"execution_result": result, "parameters": job.parameters},
-                f"{job.workspace_id}/results/{name}/result.tif",
-                f"{job.workspace_id}/.cache/results/{name}/preview.png",
-                200,
-            )
+        )
+        self.repository.publish_output(
+            job,
+            output_id,
+            metadata,
+            {"execution_result": result, "parameters": job.parameters},
+            f"{job.workspace_id}/results/{name}/result.tif",
+            f"{job.workspace_id}/.cache/results/{name}/views/{presentation.default_view}.png",
+            200,
+        )
         self.repository.change(
             job.id,
             state="succeeded",

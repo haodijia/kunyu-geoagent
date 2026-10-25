@@ -40,7 +40,7 @@ export const overviewCopy = {
   deleting: "正在删除…",
   confirmDelete: "删除并清理",
   deleteDescription: (title: string, count: number) =>
-    `将永久删除“${title}”及其 ${count} 项数值成果、原始成果包、预览文件和所有会话中的关联地图图层。源影像与会话记录保留。此操作无法撤销。`,
+    `将永久删除“${title}”及其 ${count} 个展示视图、原始 TIFF、预览文件和所有会话中的关联地图图层。源影像与会话记录保留。此操作无法撤销。`,
   preview: "文件预览",
   previous: "上一项成果",
   next: "下一项成果",

@@ -7,6 +7,7 @@ from kunyu.domain.geospatial.analysis import (
     LayerStyleWrite,
     MapLayer,
 )
+from kunyu.domain.geospatial.raster import RasterReference
 from kunyu.persistence.database import Database
 from kunyu.persistence.geospatial.analysis import AnalysisRepository, output_value
 from kunyu.persistence.geospatial.analysis_shared import publish, require_session
@@ -32,13 +33,17 @@ class MapRepository:
         request_id: str,
         *,
         image_ids: list[int] | None = None,
-        output_ids: list[str] | None = None,
+        rasters: list[RasterReference] | None = None,
     ) -> list[MapLayer]:
-        if (image_ids is None) == (output_ids is None):
+        if (image_ids is None) == (rasters is None):
             raise AnalysisError(
-                "INVALID_TARGET", "Supply exactly one of image_ids or output_ids.", 422
+                "INVALID_TARGET", "Supply exactly one of image_ids or rasters.", 422
             )
-        ids = image_ids if image_ids is not None else output_ids
+        ids = (
+            image_ids
+            if image_ids is not None
+            else [(ref.output_id, ref.view_id) for ref in rasters]
+        )
         if not ids or len(set(ids)) != len(ids):
             raise AnalysisError(
                 "INVALID_TARGET", "Resource IDs must be nonempty and unique.", 422
@@ -55,12 +60,14 @@ class MapRepository:
                     for row in tx.scalars(
                         select(AnalysisOutputRecord).where(
                             AnalysisOutputRecord.workspace_id == session.workspace_id,
-                            AnalysisOutputRecord.id.in_(output_ids),
+                            AnalysisOutputRecord.id.in_(
+                                [ref.output_id for ref in rasters]
+                            ),
                         )
                     )
                 }
                 missing = [
-                    identity for identity in output_ids if identity not in outputs
+                    ref.output_id for ref in rasters if ref.output_id not in outputs
                 ]
                 if missing:
                     raise AnalysisError(
@@ -71,7 +78,10 @@ class MapRepository:
                 layers = add_output_layers(
                     tx,
                     session_id,
-                    tuple(output_value(outputs[identity]) for identity in output_ids),
+                    tuple(
+                        (output_value(outputs[ref.output_id]), ref.view_id)
+                        for ref in rasters
+                    ),
                 )
             publish(self.database, tx, session_id, "map/changed", request_id, 1)
             return [MapLayer.model_validate(row) for row in layers]
@@ -93,12 +103,12 @@ class MapRepository:
             require_session(tx, session_id)
             return MapLayer.model_validate(require_layer(tx, session_id, layer_id))
 
-    def add(self, session_id: str, output_id: str) -> MapLayer:
+    def add(self, session_id: str, output_id: str, view_id: str) -> MapLayer:
         output = self.outputs.output(session_id, output_id)
         with self.database.sessions.begin() as tx:
             tx.execute(text("BEGIN IMMEDIATE"))
             require_session(tx, session_id, writable=True)
-            row = add_output_layers(tx, session_id, (output,))[0]
+            row = add_output_layers(tx, session_id, ((output, view_id),))[0]
             publish(self.database, tx, session_id, "map/changed", row.id, row.revision)
             return MapLayer.model_validate(row)
 

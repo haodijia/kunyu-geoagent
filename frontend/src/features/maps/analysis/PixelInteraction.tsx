@@ -35,7 +35,14 @@ export function PixelInteraction({
   const layerId = layer?.id ?? null;
   const instance = map.getMap();
   const query = useQuery({
-    queryKey: ["map-pixel", workspaceId, outputId, point],
+    queryKey: [
+      "map-pixel",
+      workspaceId,
+      outputId,
+      layer?.view_id,
+      layer?.revision,
+      point,
+    ],
     enabled: point !== null && outputId !== null,
     retry: false,
     queryFn: ({ signal }) => {
@@ -46,6 +53,7 @@ export function PixelInteraction({
         point[0]!,
         point[1]!,
         signal,
+        layer!.view_id!,
       );
     },
   });
@@ -56,12 +64,10 @@ export function PixelInteraction({
   }, [query.isError, query.error]);
   useEffect(() => {
     if (selection?.geometry.type === "Point" && selection.layer_id !== layerId)
-      useAppUiStore
-        .getState()
-        .setMapSelection(sessionId, {
-          geometry: selection.geometry,
-          layer_id: layerId,
-        });
+      useAppUiStore.getState().setMapSelection(sessionId, {
+        geometry: selection.geometry,
+        layer_id: layerId,
+      });
   }, [selection, layerId, sessionId]);
   useEffect(() => {
     if (instance === null || !map.ready || outputId === null) return;
@@ -133,6 +139,9 @@ export function PixelInteraction({
                       >
                         <span className="truncate text-muted-foreground">
                           {sample.bands[index] ?? copy.band(index + 1)}
+                          {sample.units[index] == null
+                            ? ""
+                            : ` · ${sample.units[index]}`}
                         </span>
                         <span className="flex shrink-0 items-center gap-1.5 font-medium tabular-nums">
                           {category !== undefined && (

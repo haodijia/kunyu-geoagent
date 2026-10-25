@@ -1,3 +1,4 @@
+import { rasterView } from "@/features/analysis/raster-views";
 import { getRuntimeConnection } from "@/api/runtime";
 import {
   analysisApi,
@@ -68,7 +69,10 @@ function LayerSource({
     enabled: layer.output_id !== null,
   });
   const resampling =
-    output.data?.metadata.display_kind === "classified" ? "nearest" : "linear";
+    output.data !== undefined &&
+    rasterView(output.data, layer.view_id!).style.type === "classified"
+      ? "nearest"
+      : "linear";
   useEffect(() => {
     const error =
       renderable &&
@@ -109,7 +113,7 @@ function LayerSource({
       });
     } else {
       const url = new URL(
-        `${workspaceResultsPath(workspaceId)}/${encodeURIComponent(layer.output_id!)}/tiles/{z}/{x}/{y}.png`,
+        `${workspaceResultsPath(workspaceId)}/${encodeURIComponent(layer.output_id!)}/tiles/{z}/{x}/{y}.png?view_id=${encodeURIComponent(layer.view_id!)}&revision=${layer.revision}`,
         getRuntimeConnection().baseUrl,
       ).href
         .replaceAll("%7B", "{")
@@ -147,6 +151,8 @@ function LayerSource({
     map.ready,
     layer.id,
     layer.output_id,
+    layer.view_id,
+    layer.revision,
     layer.image,
     layer.bounds,
     layer.visible,

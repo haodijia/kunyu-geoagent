@@ -67,11 +67,7 @@ function WorkspaceOverviewContent({
         {workspace.error.message}
       </p>
     );
-  const outputCount = outputs.data?.filter(
-    (output) =>
-      output.metadata.bundle_id === undefined ||
-      output.metadata.bundle_id === output.id,
-  ).length;
+  const outputCount = outputs.data?.length;
   return (
     <section className="workspace-overview" aria-label="工作区总览">
       <WorkspaceOverviewTitlebar

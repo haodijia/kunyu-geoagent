@@ -111,7 +111,12 @@ class AnalysisPlugin:
                     )
                 ),
             )
-        for name in ("result_get_info", "map_sample_raster", "map_region_statistics"):
+        for name in (
+            "result_get_info",
+            "result_set_views",
+            "map_sample_raster",
+            "map_region_statistics",
+        ):
             tools.register(
                 context,
                 name,

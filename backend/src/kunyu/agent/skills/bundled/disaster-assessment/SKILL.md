@@ -17,16 +17,18 @@ description: 组织灾害遥感研判、显式研究区、水体变化计算、�
 
 先使用 read 读取 references/water-change.md。依次核实输入身份、日期、实际波段、辐射解释和共同有效观测。优先通过 oge_get_service_definition 核对已发布服务的输入和成果契约，适用时调用 oge_execute_service；自定义算子链使用 oge_execute_code。计算均在 OGE 执行，不要把本地验收结果描述为远端计算成果。
 
-数据处理与变化计算通过已发布服务或 OGE 代码完成。一次服务任务可返回完整 products 列表；它们共享输入和方法版本，不为每个图层重复调用服务。下载结果后读取预览与元数据，使用 map_present 上图。可通过 map_sample_raster 查询原值、map_region_statistics 核对区域统计。类别含义依据实际执行代码解释，不从像元值自动推断。
+数据处理与变化计算通过已发布服务或 OGE 代码完成。一次服务任务可返回一个原始数值 TIFF、bands 与 views 描述；它们共享输入和方法版本，不为每个图层重复调用服务。下载结果后读取预览与元数据，使用 map_present 上图。可通过 map_sample_raster 查询原值、map_region_statistics 核对区域统计。类别含义依据实际执行代码解释，不从像元值自动推断。
 
 每条关键结论区分观测、推断和未知项。两期持续水体不等同于永久水体；新增水体候选不等同于已核实洪涝；退水期影像不能代表洪峰最大范围。缺少耕地、道路、人口或现场资料时明确对应分析尚未完成。
 
 ## 完整成果的渐进研判
 
-1. 收到完成结果后，先读取 products、limitations 与主分类的 summary。分类面积为 pixel_count × grid_pixel_area_m2，明确称为投影网格面积；不要把类别编码的均值当作灾情指标。
-2. 先用 map_present 展示主变化图层。需要解释质量、阈值敏感性或指数变化时，按 product.name 选择已有 output_id；不要为展示另一波段重跑。
-3. 用户直接点击地图或拖出范围，下一条消息附带 map_selection。使用其 layer_id 对应的成果及 geometry 进行点查／区域统计；不要让用户再次上传或手工填写坐标。
+1. 收到完成结果后，先读取 bands、views、limitations 与主分类波段的 summary。分类面积为 summary.value_counts 中的 pixel_count × grid_pixel_area_m2，明确称为投影网格面积；不要把类别编码的均值当作灾情指标。
+2. 先用 map_present(rasters=[{output_id, view_id}]) 展示主变化图层。需要解释质量、阈值敏感性或指数变化时，按 views 的 id 选择同一 output_id 的 view_id；不要为展示另一波段重跑。
+3. 用户直接点击地图或拖出范围，下一条消息附带 map_selection。使用其 layer_id 对应的 output_id、view_id 及 geometry 进行点查／区域统计；不要让用户再次上传或手工填写坐标。
 4. 关注点编号必须与实际源矢量ID对应。poiMaxId 是编号上限，不是点位数量；无效观测和指数分歧不能归为未受影响。
 5. 仅修改阈值、数据或其他计算参数时启动新任务，保留原结果以供对比。卷帘、颜色、透明度和区域统计都不触发新的 OGE 计算。
 
 点查与统计的NoData不等于0：例如flood_vote_count仅共同有效范围有值，无观测像元不属于0票。九组一致只能表述为“在本组阈值内稳定”，不能推广成对所有阈值稳定或已验证精度。map_present仅确认添加图层；只有map_get_context返回当前revision的ready才能声称渲染完成，未读取图像不得编写目视描述。
+
+自定义代码必须同时提交 presentation：完整 bands 说明、推荐 views 和 default_view。波段可任意数量；RGB 是选择三个波段的视图，分类和连续色带是选择一个波段的视图，全部引用同一个原始 TIFF。描述必须与实际计算一致，不能编造类别或单位。

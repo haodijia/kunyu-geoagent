@@ -15,19 +15,29 @@ from kunyu.domain.geospatial.analysis import AnalysisError
 from kunyu.integrations.geospatial.study_area import area_m2, validated_geometry
 
 
-def sample_raster(path: Path, longitude: float, latitude: float) -> dict:
+def sample_raster(
+    path: Path, longitude: float, latitude: float, bands: list[int]
+) -> dict:
     with rasterio.open(path) as src:
         x, y = Transformer.from_crs("EPSG:4326", src.crs, always_xy=True).transform(
             longitude, latitude
         )
         if not math.isfinite(x) or not math.isfinite(y):
-            return {"inside": False, "values": [], "bands": list(src.descriptions)}
+            return {
+                "inside": False,
+                "values": [],
+                "bands": [src.descriptions[i - 1] for i in bands],
+            }
         row, column = src.index(x, y)
         if not 0 <= row < src.height or not 0 <= column < src.width:
-            return {"inside": False, "values": [], "bands": list(src.descriptions)}
-        values = src.read(window=Window(column, row, 1, 1), masked=True).astype(
-            "float64"
-        )
+            return {
+                "inside": False,
+                "values": [],
+                "bands": [src.descriptions[i - 1] for i in bands],
+            }
+        values = src.read(
+            indexes=bands, window=Window(column, row, 1, 1), masked=True
+        ).astype("float64")
         return {
             "inside": True,
             "row": row,
@@ -36,20 +46,20 @@ def sample_raster(path: Path, longitude: float, latitude: float) -> dict:
                 None if np.ma.is_masked(v) or not np.isfinite(v) else float(v)
                 for v in values[:, 0, 0]
             ],
-            "bands": list(src.descriptions),
+            "bands": [src.descriptions[i - 1] for i in bands],
             "crs": str(src.crs),
         }
 
 
 def region_statistics(
-    path: Path, geometry: dict, metadata: dict, values: list[float] | None = None
+    path: Path,
+    geometry: dict,
+    band: int,
+    categories: list[dict] | None,
+    values: list[float] | None = None,
 ) -> dict:
     geometry = validated_geometry(geometry)
     with rasterio.open(path) as src:
-        if src.count != 1:
-            raise AnalysisError(
-                "SCALAR_REQUIRED", "区域统计仅支持单波段数值或分类成果。", 422
-            )
         projected = transform_geom("EPSG:4326", src.crs, geometry)
         bounds = shape(projected).bounds
         raw = from_bounds(*bounds, src.transform)
@@ -71,7 +81,7 @@ def region_statistics(
             transform=transform,
             invert=True,
         )
-        data = src.read(1, window=window, masked=True).astype("float64")
+        data = src.read(band, window=window, masked=True).astype("float64")
         valid = selected & ~np.ma.getmaskarray(data) & np.isfinite(data.data)
         observed = data.data[valid]
         result = {
@@ -91,11 +101,14 @@ def region_statistics(
                 maximum=float(observed.max()),
                 mean=float(observed.mean()),
             )
-        categories = metadata.get("categories")
         if categories is not None:
             totals = {entry["value"]: 0.0 for entry in categories}
+            # Polygonize dense legend indices; original codes may exceed int32.
+            class_indices = np.zeros(data.shape, dtype="int32")
+            for index, entry in enumerate(categories):
+                class_indices[valid & (data.data == entry["value"])] = index
             for count, (polygon, code) in enumerate(
-                shapes(data.data.astype("int32"), mask=valid, transform=transform)
+                shapes(class_indices, mask=valid, transform=transform)
             ):
                 if count >= 50_000:
                     raise AnalysisError(
@@ -103,7 +116,7 @@ def region_statistics(
                         "统计区域的分类碎片超过五万个，请缩小范围。",
                         422,
                     )
-                totals[int(code)] += area_m2(
+                totals[categories[int(code)]["value"]] += area_m2(
                     transform_geom(src.crs, "EPSG:4326", polygon)
                 )
             result["classes"] = [

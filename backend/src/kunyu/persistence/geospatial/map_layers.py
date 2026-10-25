@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session
 from kunyu.domain.geospatial.analysis import AnalysisError, AnalysisOutput
 from kunyu.domain.geospatial.imagery import layer_image, ring_bounds
 from kunyu.domain.geospatial.oge import OgeImageRecord
+from kunyu.domain.geospatial.raster import raster_view
 from kunyu.persistence.records.geospatial import MapLayerRecord
 
 
@@ -37,21 +38,25 @@ def normalize_positions(tx: Session, session_id: str) -> None:
 
 
 def add_output_layers(
-    tx: Session, session_id: str, outputs: tuple[AnalysisOutput, ...]
+    tx: Session, session_id: str, outputs: tuple[tuple[AnalysisOutput, str], ...]
 ) -> list[MapLayerRecord]:
     layers = ordered_layers(tx, session_id)
-    existing = {row.output_id: row for row in layers if row.output_id is not None}
+    existing = {
+        (row.output_id, row.view_id): row for row in layers if row.output_id is not None
+    }
     presented = []
-    for output in outputs:
-        row = existing.get(output.id)
+    for output, view_id in outputs:
+        view = raster_view(output.metadata, view_id)
+        row = existing.get((output.id, view_id))
         if row is None:
             row = MapLayerRecord(
                 id=f"layer_{uuid4()}",
                 session_id=session_id,
                 output_id=output.id,
+                view_id=view_id,
                 image=None,
                 bounds=list(output.bounds),
-                title=output.title,
+                title=view["title"],
                 visible=True,
                 opacity=0.85,
                 position=len(layers),
@@ -59,7 +64,7 @@ def add_output_layers(
             )
             tx.add(row)
             layers.append(row)
-            existing[output.id] = row
+            existing[(output.id, view_id)] = row
         elif not row.visible:
             row.visible = True
             row.revision += 1
@@ -88,6 +93,7 @@ def add_image_layers(
             id=f"layer_{uuid4()}",
             session_id=session_id,
             output_id=None,
+            view_id=None,
             image=source.model_dump(mode="json"),
             bounds=None if bounds is None else list(bounds),
             title=f"{image.productName} · {image.phenomenonTime[:10]}",

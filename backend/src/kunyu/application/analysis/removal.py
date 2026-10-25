@@ -3,7 +3,7 @@
 import errno
 import logging
 import os
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 from tempfile import TemporaryDirectory
 
 from sqlalchemy import delete, select, text
@@ -40,20 +40,8 @@ class ResultRemovalService:
                     selected = next((row for row in rows if row.id == output_id), None)
                     if selected is None:
                         raise AnalysisError("NOT_FOUND", "Result was not found.", 404)
-                    family = selected.raster_metadata.get("bundle_id", selected.id)
-                    if not isinstance(family, str) or not family:
-                        raise AnalysisError(
-                            "RESULT_INVALID_BUNDLE",
-                            "Result bundle identity is invalid.",
-                            409,
-                        )
-                    removed = [
-                        row
-                        for row in rows
-                        if row.id == family
-                        or row.raster_metadata.get("bundle_id") == family
-                    ]
-                    ids = [row.id for row in removed]
+                    removed = [selected]
+                    ids = [selected.id]
                     files = set().union(*(self._files(row) for row in removed))
                     other_files = set().union(
                         *(self._files(row) for row in rows if row.id not in ids)
@@ -112,8 +100,8 @@ class ResultRemovalService:
                         break
                     parent = parent.parent
         logger.info(
-            "Removed result family %s with %d products and %d files",
-            family,
+            "Removed raster result %s with %d records and %d files",
+            output_id,
             len(ids),
             len(moved),
         )
@@ -124,11 +112,14 @@ class ResultRemovalService:
 
     @staticmethod
     def _files(row: AnalysisOutputRecord) -> set[str]:
-        paths = {row.cog_file, row.preview_file}
-        bundle = row.source_metadata.get("bundle_file")
-        if isinstance(bundle, str):
-            paths.add(bundle)
-        return paths
+        directory = PurePosixPath(row.preview_file).parent
+        return {
+            row.cog_file,
+            *(
+                str(directory / f"{view['id']}.png")
+                for view in row.raster_metadata["views"]
+            ),
+        }
 
     def _path(self, workspace_id: str, relative: str) -> Path:
         path = self.root / relative

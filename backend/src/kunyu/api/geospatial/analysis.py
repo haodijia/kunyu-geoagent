@@ -1,10 +1,10 @@
 """Workspace results, session analysis and map presentation endpoints."""
 
+from pathlib import PurePosixPath
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, Request, Response
 from fastapi.responses import FileResponse
-from pydantic import BaseModel, ConfigDict
 
 from kunyu.api.errors import ApiError
 from kunyu.application.analysis.analysis import AnalysisService
@@ -14,6 +14,7 @@ from kunyu.domain.geospatial.analysis import (
     MapLayer,
 )
 from kunyu.domain.geospatial.oge import OgeError
+from kunyu.domain.geospatial.raster import RasterReference, raster_view
 from kunyu.persistence.geospatial.maps import MapRepository
 
 router = APIRouter(prefix="/api/v1", tags=["analysis"])
@@ -31,9 +32,13 @@ Analysis = Annotated[AnalysisService, Depends(analysis)]
 Maps = Annotated[MapRepository, Depends(maps)]
 
 
-class OutputReference(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-    output_id: str
+def preview_path(
+    service: AnalysisService, workspace_id: str, output_id: str, view_id: str | None
+):
+    output = service.repository.workspace_output(workspace_id, output_id)
+    view = raster_view(output.metadata, view_id)
+    _, path = service.repository.files(workspace_id, output_id)
+    return service.raster.path(str(PurePosixPath(path).parent / f"{view['id']}.png"))
 
 
 @router.get("/sessions/{session_id}/map/layers/{layer_id}/preview")
@@ -54,8 +59,10 @@ async def layer_preview(
             raise ApiError(error.status, error.code, str(error)) from None
         return Response(raw, media_type="image/png")
     output = repository.outputs.output(session_id, layer.output_id)
-    _, path = repository.outputs.files(output.workspace_id, output.id)
-    return FileResponse(service.raster.path(path), media_type="image/png")
+    return FileResponse(
+        preview_path(service, output.workspace_id, output.id, layer.view_id),
+        media_type="image/png",
+    )
 
 
 @router.get("/workspaces/{workspace_id}/results", response_model=list[AnalysisOutput])
@@ -71,9 +78,12 @@ def workspace_output(workspace_id: str, output_id: str, service: Analysis):
 
 
 @router.get("/workspaces/{workspace_id}/results/{output_id}/preview")
-def preview(workspace_id: str, output_id: str, service: Analysis):
-    _, path = service.repository.files(workspace_id, output_id)
-    return FileResponse(service.raster.path(path), media_type="image/png")
+def preview(
+    workspace_id: str, output_id: str, service: Analysis, view_id: str | None = None
+):
+    return FileResponse(
+        preview_path(service, workspace_id, output_id, view_id), media_type="image/png"
+    )
 
 
 @router.get("/workspaces/{workspace_id}/results/{output_id}/download")
@@ -91,7 +101,15 @@ def download(
 
 
 @router.get("/workspaces/{workspace_id}/results/{output_id}/tiles/{z}/{x}/{y}.png")
-def tile(workspace_id: str, output_id: str, z: int, x: int, y: int, service: Analysis):
+def tile(
+    workspace_id: str,
+    output_id: str,
+    z: int,
+    x: int,
+    y: int,
+    service: Analysis,
+    view_id: str | None = None,
+):
     path, _ = service.repository.files(workspace_id, output_id)
     return Response(
         service.raster.tile(
@@ -99,23 +117,13 @@ def tile(workspace_id: str, output_id: str, z: int, x: int, y: int, service: Ana
             z,
             x,
             y,
-            service.repository.workspace_output(workspace_id, output_id).metadata,
+            raster_view(
+                service.repository.workspace_output(workspace_id, output_id).metadata,
+                view_id,
+            ),
         ),
         media_type="image/png",
         headers={"Cache-Control": "private, max-age=3600"},
-    )
-
-
-@router.get("/workspaces/{workspace_id}/results/{output_id}/bundle")
-def download_bundle(workspace_id: str, output_id: str, service: Analysis):
-    output = service.repository.workspace_output(workspace_id, output_id)
-    path = output.source_metadata.get("bundle_file")
-    if not isinstance(path, str):
-        raise ApiError(404, "BUNDLE_NOT_FOUND", "该成果没有完整数值包。")
-    return FileResponse(
-        service.raster.path(path),
-        media_type="image/tiff",
-        filename="analysis-bundle.tif",
     )
 
 
@@ -125,8 +133,8 @@ def layers(session_id: str, repository: Maps):
 
 
 @router.post("/sessions/{session_id}/map/layers", response_model=MapLayer)
-def add_layer(session_id: str, body: OutputReference, repository: Maps):
-    return repository.add(session_id, body.output_id)
+def add_layer(session_id: str, body: RasterReference, repository: Maps):
+    return repository.add(session_id, body.output_id, body.view_id)
 
 
 @router.patch("/sessions/{session_id}/map/layers/{layer_id}", response_model=MapLayer)
