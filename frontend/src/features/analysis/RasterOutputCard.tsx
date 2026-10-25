@@ -49,8 +49,12 @@ export function RasterOutputCard({
       if (action === "map") {
         if (sessionId === null)
           throw new Error("An active session is required.");
-        await analysisApi.addLayer(sessionId, output.id);
-        useAppUiStore.getState().focusMap(sessionId, output.bounds);
+        const layer = await analysisApi.addLayer(sessionId, output.id);
+        const ui = useAppUiStore.getState();
+        ui.initializeMapContext(sessionId, workspaceId);
+        ui.inspectMapLayer(sessionId, layer.id);
+        ui.setMapComparison(sessionId, null);
+        ui.focusMap(sessionId, output.bounds);
         await client.invalidateQueries({
           queryKey: analysisKeys.layers(sessionId),
         });

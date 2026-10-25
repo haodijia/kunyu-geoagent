@@ -70,7 +70,31 @@
       "selection_attached_to_composer": true,
       "inspection_and_layers_do_not_overlap": true
     },
-    "automation_blocker": "Native coordinate click and drag return noWindowsAvailable; reconnecting the app and resetting the automation session did not restore reliable interaction."
+    "bundle_card": {
+      "groups_checked": ["变化", "指数", "敏感性"],
+      "preview_legend_summary_updates": true
+    },
+    "rectangle_drag": {
+      "automatic_statistics": true,
+      "selection_attached_to_composer": true,
+      "selected_pixels": 345000,
+      "region_area_km2_displayed": 34.510,
+      "switch_from": "sensitivity_class",
+      "switch_to": "new_flood",
+      "same_geometry_preserved": true,
+      "new_flood_area_km2_displayed": 4.892,
+      "valid_storage_pixels_after_switch": 251989
+    },
+    "escape_clears_selection": true,
+    "swipe": {
+      "starts_on_toolbar_click": true,
+      "divider_before_percent": 50,
+      "divider_after_drag_percent": 65.07177,
+      "clipping_updated": true
+    },
+    "view_map_selects_requested_product": "before_ndwi",
+    "view_map_exits_previous_comparison": true,
+    "automation_blocker_resolved": true
   },
-  "remaining_ui_check": "Final bundle card layout, region statistics after product switching, and swipe comparison require an operable foreground desktop."
+  "remaining_ui_checks": []
 }
