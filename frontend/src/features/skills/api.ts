@@ -1,10 +1,17 @@
 import { requestJson } from "@/api/client";
-
 export type SkillResourceBase =
-  | { readonly kind: "directory"; readonly path: string }
-  | { readonly kind: "url"; readonly url: string }
-  | { readonly kind: "opaque"; readonly description: string };
-
+  | {
+      readonly kind: "directory";
+      readonly path: string;
+    }
+  | {
+      readonly kind: "url";
+      readonly url: string;
+    }
+  | {
+      readonly kind: "opaque";
+      readonly description: string;
+    };
 export interface Skill {
   readonly name: string;
   readonly description: string;
@@ -17,27 +24,49 @@ export interface Skill {
   readonly user_invocable: boolean;
   readonly editable: boolean;
 }
-
 export interface SkillDetail extends Skill {
   readonly content: string;
   readonly raw: string | null;
 }
-
 export const skillQueryKeys = {
   all: ["skills"] as const,
   catalog: ["skills", "catalog"] as const,
   detail: (name: string) => ["skills", "detail", name] as const,
 };
-
 export const skillsApi = {
-  list: () => requestJson<{ directory: string; skills: Skill[] }>("/api/v1/skills"),
-  detail: (name: string) => requestJson<SkillDetail>(`/api/v1/skills/${encodeURIComponent(name)}`),
-  save: (name: string, content: string, create: boolean) => requestJson<Skill>(
-    create ? "/api/v1/skills" : `/api/v1/skills/${encodeURIComponent(name)}`,
-    { method: create ? "POST" : "PUT", body: JSON.stringify(create ? { name, content } : { content }) },
-  ),
-  import: (path: string) => requestJson<Skill>("/api/v1/skills/import", {
-    method: "POST", body: JSON.stringify({ path }),
-  }),
-  delete: (name: string) => requestJson<void>(`/api/v1/skills/${encodeURIComponent(name)}`, { method: "DELETE" }),
+  list: () =>
+    requestJson<{
+      directory: string;
+      skills: Skill[];
+    }>("/api/v1/skills"),
+  detail: (name: string) =>
+    requestJson<SkillDetail>(`/api/v1/skills/${encodeURIComponent(name)}`),
+  save: (name: string, content: string, create: boolean) =>
+    requestJson<Skill>(
+      create ? "/api/v1/skills" : `/api/v1/skills/${encodeURIComponent(name)}`,
+      {
+        method: create ? "POST" : "PUT",
+        body: JSON.stringify(
+          create
+            ? {
+                name,
+                content,
+              }
+            : {
+                content,
+              },
+        ),
+      },
+    ),
+  import: (path: string) =>
+    requestJson<Skill>("/api/v1/skills/import", {
+      method: "POST",
+      body: JSON.stringify({
+        path,
+      }),
+    }),
+  delete: (name: string) =>
+    requestJson<void>(`/api/v1/skills/${encodeURIComponent(name)}`, {
+      method: "DELETE",
+    }),
 };

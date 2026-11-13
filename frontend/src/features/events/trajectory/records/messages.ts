@@ -23,7 +23,6 @@ import type {
   TrajectoryUsage,
 } from "@/features/events/trajectory/trajectory-model";
 import { zhCN } from "@/locales/zh-CN";
-
 export function userRecord(
   events: readonly TrajectoryEventProjection[],
   context: RecordContext,
@@ -44,15 +43,21 @@ export function userRecord(
     completedAt: first.occurredAt,
     startedAt: first.occurredAt,
     isError: false,
-    source: { role: "user", message_id: first.entityId, run_id: first.runId },
+    source: {
+      role: "user",
+      message_id: first.entityId,
+      run_id: first.runId,
+    },
     input:
       message?.role === "user"
-        ? { content: message.content, attachments: message.attachments }
+        ? {
+            content: message.content,
+            attachments: message.attachments,
+          }
         : content,
     output: null,
   });
 }
-
 export function assistantRecord(
   events: readonly TrajectoryEventProjection[],
   context: RecordContext,
@@ -181,7 +186,6 @@ export function assistantRecord(
     },
   });
 }
-
 function reconstructAssistantText(
   events: readonly TrajectoryEventProjection[],
 ): string {
@@ -203,7 +207,6 @@ function reconstructAssistantText(
   }
   return result.join("");
 }
-
 function usageFrom(
   event: TrajectoryEventProjection | undefined,
 ): TrajectoryUsage | null {
@@ -213,5 +216,9 @@ function usageFrom(
   const totalTokens = nullableInteger(event.payload.total_tokens);
   if (inputTokens === null && outputTokens === null && totalTokens === null)
     return null;
-  return { inputTokens, outputTokens, totalTokens };
+  return {
+    inputTokens,
+    outputTokens,
+    totalTokens,
+  };
 }

@@ -1,51 +1,41 @@
 {
-  "name": "kunyu-frontend",
+  "name": "kunyu-web",
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "packageManager": "npm@12.0.2",
   "scripts": {
-    "build": "tsc --noEmit && vite build",
+    "build": "vue-tsc --noEmit && vite build",
     "dev": "vite",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "vue-tsc --noEmit"
   },
   "dependencies": {
-    "@dnd-kit/core": "6.3.1",
-    "@dnd-kit/sortable": "10.0.0",
-    "@dnd-kit/utilities": "3.2.2",
-    "@icon-park/react": "1.4.2",
-    "@radix-ui/react-alert-dialog": "1.1.23",
-    "@radix-ui/react-checkbox": "1.3.11",
-    "@radix-ui/react-dropdown-menu": "2.1.24",
-    "@radix-ui/react-popover": "1.1.23",
-    "@radix-ui/react-slot": "1.3.3",
-    "@radix-ui/react-tooltip": "1.2.16",
-    "@tanstack/react-query": "5.103.2",
+    "@icon-park/vue-next": "1.4.2",
+    "@tanstack/vue-query": "5.107.1",
     "class-variance-authority": "0.7.1",
     "clsx": "2.1.1",
     "diff": "9.0.0",
-    "lucide-react": "1.48.0",
+    "lucide-vue-next": "^0.577.0",
     "maplibre-gl": "6.14.0",
     "mdast-util-to-string": "4.0.0",
-    "react": "19.3.0",
-    "react-dom": "19.3.0",
-    "react-markdown": "^10.1.0",
-    "react-router-dom": "7.18.4",
+    "pinia": "^3.0.4",
+    "reka-ui": "2.11.0",
     "remark-gfm": "^4.0.1",
     "remark-parse": "11.0.0",
-    "sonner": "2.0.8",
     "tailwind-merge": "3.7.0",
     "unified": "11.0.5",
-    "zustand": "5.0.15"
+    "vue": "3.5.45",
+    "vue-draggable-plus": "^0.6.1",
+    "vue-router": "^4.6.4",
+    "vue-sonner": "2.0.9"
   },
   "devDependencies": {
     "@tailwindcss/vite": "4.3.3",
     "@types/node": "24.13.6",
-    "@types/react": "19.3.0",
-    "@types/react-dom": "19.3.0",
-    "@vitejs/plugin-react": "6.1.1",
+    "@vitejs/plugin-vue": "^6.0.4",
+    "@vitejs/plugin-vue-jsx": "5.1.6",
     "tailwindcss": "4.3.3",
-    "typescript": "7.0.2",
-    "vite": "8.3.0"
+    "typescript": "5.9.3",
+    "vite": "8.3.0",
+    "vue-tsc": "^3.3.2"
   }
 }

@@ -8,7 +8,6 @@ import {
   contentText,
   parseContentBlocks,
 } from "@/features/events/stream/content-blocks";
-
 export interface MessageReasoning {
   readonly text: string;
   readonly startedAt: string;
@@ -40,7 +39,10 @@ export function collectMessageReasoning(
       );
       const text = contentText(parseContentBlocks(record.payload.blocks), true);
       if (settled !== null && text !== "")
-        thoughts.set(record.messageId, { ...settled, text });
+        thoughts.set(record.messageId, {
+          ...settled,
+          text,
+        });
       else thoughts.delete(record.messageId);
     } else if (record.eventType === "message.assistant.reasoning.delta") {
       const text = record.payload.text;

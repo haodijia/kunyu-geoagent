@@ -14,7 +14,6 @@ import {
 import type { TrajectoryRecord } from "@/features/events/trajectory/trajectory-model";
 import { sanitizeTrajectoryValue } from "@/features/events/trajectory/trajectory-sanitize";
 import { zhCN } from "@/locales/zh-CN";
-
 export function contextRecord(
   events: readonly TrajectoryEventProjection[],
   context: RecordContext,
@@ -32,13 +31,14 @@ export function contextRecord(
       typeof first.payload.prompt !== "string"
     )
       throw new Error("Invalid delegation record.");
-    const started = events.findLast(event => event.eventType === "subagent/started");
-    const completed = ended !== undefined && (
-      started === undefined || (
-        ended.sequence > started.sequence &&
-        ended.payload.child_run_id === started.payload.child_run_id
-      )
+    const started = events.findLast(
+      (event) => event.eventType === "subagent/started",
     );
+    const completed =
+      ended !== undefined &&
+      (started === undefined ||
+        (ended.sequence > started.sequence &&
+          ended.payload.child_run_id === started.payload.child_run_id));
     const status = completed ? stringValue(ended.payload.status) : "pending";
     if (status === null) throw new Error("Invalid delegation settlement.");
     return baseRecord(events, {
@@ -99,7 +99,13 @@ export function contextRecord(
         selection: selection?.payload ?? null,
       },
       input: first.payload.messages,
-      output: output === null ? null : { ...output, stream_origin: "model" },
+      output:
+        output === null
+          ? null
+          : {
+              ...output,
+              stream_origin: "model",
+            },
       usage:
         typeof usage === "object" && usage !== null
           ? {
@@ -212,8 +218,12 @@ export function contextRecord(
     if (!Array.isArray(first.payload.targets))
       throw new Error("Invalid image offload record.");
     const count = first.payload.targets.reduce(
-      (sum: number, target: { image_indexes: unknown[] }) =>
-        sum + target.image_indexes.length,
+      (
+        sum: number,
+        target: {
+          image_indexes: unknown[];
+        },
+      ) => sum + target.image_indexes.length,
       0,
     );
     const text = zhCN.conversation.attachments.offloadSummary(count);
@@ -287,7 +297,6 @@ export function contextRecord(
     output,
   });
 }
-
 export function systemRecord(
   events: readonly TrajectoryEventProjection[],
   context: RecordContext,

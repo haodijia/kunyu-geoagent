@@ -1,11 +1,10 @@
-import type { Map } from "maplibre-gl";
 import type { ComparisonCapture } from "@/features/maps/analysis/MapComparison";
 import {
   captureMapCanvas,
   MapCaptureError,
 } from "@/features/maps/runtime/map-capture";
 import { zhCN } from "@/locales/zh-CN";
-
+import type { Map } from "maplibre-gl";
 export async function captureComparedMap(
   map: Map,
   comparison: ComparisonCapture | null,

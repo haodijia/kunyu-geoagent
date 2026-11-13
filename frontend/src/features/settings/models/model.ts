@@ -1,9 +1,7 @@
 import { ApiError } from "@/api/client";
 import type { ModelConnection } from "@/features/settings/models/api";
 import { zhCN } from "@/locales/zh-CN";
-
 export type ConnectionTone = "ready" | "attention" | "muted" | "busy";
-
 export function connectionStatus(connection: ModelConnection): {
   readonly tone: ConnectionTone;
   readonly label: string;
@@ -13,19 +11,31 @@ export function connectionStatus(connection: ModelConnection): {
     connection.management_status !== "ready" ||
     connection.discovery.status === "pending"
   ) {
-    return { tone: "busy", label: content.managing };
+    return {
+      tone: "busy",
+      label: content.managing,
+    };
   }
   if (!connection.enabled) {
-    return { tone: "muted", label: content.disabled };
+    return {
+      tone: "muted",
+      label: content.disabled,
+    };
   }
   if (connection.credential.status !== "ready") {
-    return { tone: "attention", label: content.credentialRequired };
+    return {
+      tone: "attention",
+      label: content.credentialRequired,
+    };
   }
   if (
     connection.discovery.status === "failed" ||
     connection.discovery.status === "interrupted"
   ) {
-    return { tone: "attention", label: content.discoveryFailed };
+    return {
+      tone: "attention",
+      label: content.discoveryFailed,
+    };
   }
   const usable = connection.entries.some(
     (entry) =>
@@ -33,26 +43,33 @@ export function connectionStatus(connection: ModelConnection): {
       entry.availability === "available" &&
       entry.enabled &&
       entry.checks.text.status === "passed" &&
-      entry.checks.tools.status === "passed"
+      entry.checks.tools.status === "passed",
   );
   if (!usable) {
-    return { tone: "attention", label: content.needsSetup };
+    return {
+      tone: "attention",
+      label: content.needsSetup,
+    };
   }
-  return { tone: "ready", label: content.ready };
+  return {
+    tone: "ready",
+    label: content.ready,
+  };
 }
-
 export function connectionErrorMessage(error: unknown): string {
   if (!(error instanceof ApiError)) {
     return zhCN.modelConnections.errors.unknown;
   }
   const code = error.code ?? "REQUEST_FAILED";
-  const messages: Readonly<Record<string, string>> = zhCN.modelConnections.errors.byCode;
-  return messages[code] ??
-    zhCN.modelConnections.errors.requestFailed(error.status);
+  const messages: Readonly<Record<string, string>> =
+    zhCN.modelConnections.errors.byCode;
+  return (
+    messages[code] ?? zhCN.modelConnections.errors.requestFailed(error.status)
+  );
 }
-
 export function providerErrorLabel(code: string | null): string | null {
   if (code === null) return null;
-  const messages: Readonly<Record<string, string>> = zhCN.modelConnections.errors.byCode;
+  const messages: Readonly<Record<string, string>> =
+    zhCN.modelConnections.errors.byCode;
   return messages[code] ?? code;
 }

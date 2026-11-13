@@ -1,5 +1,3 @@
-import type { ReactNode } from "react";
-
 import type { AgentTurnState, ToolCall } from "@/features/agent/api";
 import {
   GeneratingToolActivity,
@@ -7,7 +5,7 @@ import {
 } from "@/features/agent/tools/ToolActivity";
 import type { Confirmation } from "@/features/confirmations/api";
 import type { GeneratingTool } from "@/features/events/stream/stream-presentation";
-
+import { type VNodeChild } from "vue";
 interface ConversationSlots {
   readonly "message.generating-tools": {
     readonly tools: readonly GeneratingTool[];
@@ -18,15 +16,12 @@ interface ConversationSlots {
     readonly tools: readonly ToolCall[];
   };
 }
-
-type SlotRenderer<Props> = (props: Props) => ReactNode;
-
+type SlotRenderer<Props> = (props: Props) => VNodeChild;
 class ConversationSlotRegistry {
   private readonly renderers = new Map<
     keyof ConversationSlots,
     SlotRenderer<never>
   >();
-
   register<Name extends keyof ConversationSlots>(
     name: Name,
     renderer: SlotRenderer<ConversationSlots[Name]>,
@@ -36,11 +31,10 @@ class ConversationSlotRegistry {
     }
     this.renderers.set(name, renderer as SlotRenderer<never>);
   }
-
   render<Name extends keyof ConversationSlots>(
     name: Name,
     props: ConversationSlots[Name],
-  ): ReactNode {
+  ): VNodeChild {
     const renderer = this.renderers.get(name);
     if (renderer === undefined) {
       throw new Error(`Conversation slot '${name}' is not registered.`);
@@ -48,11 +42,17 @@ class ConversationSlotRegistry {
     return (renderer as SlotRenderer<ConversationSlots[Name]>)(props);
   }
 }
-
 export const conversationSlots = new ConversationSlotRegistry();
 conversationSlots.register("message.generating-tools", ({ tools }) => (
   <GeneratingToolActivity tools={tools} />
 ));
-conversationSlots.register("message.tools", ({ confirmations, tools, runState }) => (
-  <ToolActivity confirmations={confirmations} tools={tools} runState={runState} />
-));
+conversationSlots.register(
+  "message.tools",
+  ({ confirmations, tools, runState }) => (
+    <ToolActivity
+      confirmations={confirmations}
+      tools={tools}
+      runState={runState}
+    />
+  ),
+);

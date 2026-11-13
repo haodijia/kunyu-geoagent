@@ -1,6 +1,5 @@
 import { requestJson } from "@/api/client";
 import type { AgentTurn } from "@/features/agent/api";
-
 export interface QuestionItem {
   readonly id: string;
   readonly question: string;
@@ -29,7 +28,9 @@ export interface HumanQuestion {
   readonly tool_call_id: string;
   readonly questions: readonly QuestionItem[];
   readonly status: "pending" | "answered" | "dismissed" | "cancelled";
-  readonly answer: { readonly answers: readonly QuestionAnswer[] } | null;
+  readonly answer: {
+    readonly answers: readonly QuestionAnswer[];
+  } | null;
   readonly created_at: string;
   readonly updated_at: string;
   readonly updated_sequence: number;
@@ -54,7 +55,13 @@ export const decideQuestion = (
     `/api/v1/questions/${encodeURIComponent(id)}/${answers === null ? "dismiss" : "answer"}`,
     {
       method: "POST",
-      body: JSON.stringify(answers === null ? {} : { answers }),
+      body: JSON.stringify(
+        answers === null
+          ? {}
+          : {
+              answers,
+            },
+      ),
     },
   );
 export function mergeQuestions(

@@ -4,79 +4,182 @@ import {
   uploadAttachments,
   type AttachmentUpload,
 } from "@/features/attachments/api";
+import { refSetter, watchMounted } from "@/lib/lifecycle";
 import { zhCN } from "@/locales/zh-CN";
-import { useEffect, useRef, useState } from "react";
-
+import {
+  computed,
+  shallowReactive,
+  shallowRef,
+  toValue,
+  type MaybeRefOrGetter,
+} from "vue";
 const content = zhCN.conversation.attachments;
-const IMAGE_TYPES = new Set(["image/png", "image/jpeg", "image/webp", "image/gif"]);
+const IMAGE_TYPES = new Set([
+  "image/png",
+  "image/jpeg",
+  "image/webp",
+  "image/gif",
+]);
 const EMPTY_ATTACHMENTS = [] as const;
-
-export function useComposerAttachments(sessionId: string) {
-  const attachments = useAppUiStore((state) => state.composerAttachmentsBySession[sessionId] ?? EMPTY_ATTACHMENTS);
-  const setAttachments = useAppUiStore((state) => state.setComposerAttachments);
-  const busy = useRef(false);
-  const controller = useRef<AbortController | null>(null);
-  const retryBatch = useRef<readonly AttachmentUpload[] | null>(null);
-  const [pending, setPending] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => () => controller.current?.abort(), []);
-
-  async function publish(items: readonly AttachmentUpload[], abort: AbortController) {
-    retryBatch.current = items;
+export function useComposerAttachments(sessionId: MaybeRefOrGetter<string>) {
+  const attachments = computed(() =>
+    ((state) =>
+      state.composerAttachmentsBySession[toValue(sessionId)] ??
+      EMPTY_ATTACHMENTS)(useAppUiStore()),
+  );
+  const setAttachments = computed(() =>
+    ((state) => state.setComposerAttachments)(useAppUiStore()),
+  );
+  const busy = shallowRef(false);
+  const controller = shallowRef<AbortController | null>(null);
+  const retryBatch = shallowRef<readonly AttachmentUpload[] | null>(null);
+  const pending = shallowRef(false),
+    setPending = refSetter(pending);
+  const error = shallowRef<string | null>(null),
+    setError = refSetter(error);
+  watchMounted([], () => () => controller.value?.abort());
+  async function publish(
+    items: readonly AttachmentUpload[],
+    abort: AbortController,
+  ) {
+    retryBatch.value = items;
     try {
-      const refs = await uploadAttachments(sessionId, items, abort.signal);
+      const refs = await uploadAttachments(
+        toValue(sessionId),
+        items,
+        abort.signal,
+      );
       if (abort.signal.aborted) return;
-      const current = useAppUiStore.getState().composerAttachmentsBySession[sessionId] ?? EMPTY_ATTACHMENTS;
-      setAttachments(sessionId, [...current, ...refs]);
-      retryBatch.current = null;
+      const current =
+        useAppUiStore().composerAttachmentsBySession[toValue(sessionId)] ??
+        EMPTY_ATTACHMENTS;
+      setAttachments.value(toValue(sessionId), [...current, ...refs]);
+      retryBatch.value = null;
       setError(null);
     } catch (failure) {
       if (abort.signal.aborted) return;
-      console.error("[attachments] Upload failed.", { sessionId, error: failure });
+      console.error("[attachments] Upload failed.", {
+        sessionId: toValue(sessionId),
+        error: failure,
+      });
       const labels: Readonly<Record<string, string>> = content.errors;
-      setError(failure instanceof ApiError && failure.code !== null && labels[failure.code] !== undefined ? labels[failure.code]! : content.uploadFailed);
+      setError(
+        failure instanceof ApiError &&
+          failure.code !== null &&
+          labels[failure.code] !== undefined
+          ? labels[failure.code]!
+          : content.uploadFailed,
+      );
     } finally {
-      if (!abort.signal.aborted) { busy.current = false; setPending(false); }
+      if (!abort.signal.aborted) {
+        busy.value = false;
+        setPending(false);
+      }
     }
   }
-
   async function addFiles(files: readonly File[]) {
-    if (busy.current || retryBatch.current !== null || files.length === 0) return;
-    const current = useAppUiStore.getState().composerAttachmentsBySession[sessionId] ?? EMPTY_ATTACHMENTS;
-    if (current.length + files.length > 8) { setError(content.tooMany); return; }
-    if (files.some((file) => file.size > 16 * 1024 * 1024) || current.reduce((sum, ref) => sum + ref.bytes, 0) + files.reduce((sum, file) => sum + file.size, 0) > 32 * 1024 * 1024) { setError(content.tooLarge); return; }
-    busy.current = true;
+    if (busy.value || retryBatch.value !== null || files.length === 0) return;
+    const current =
+      useAppUiStore().composerAttachmentsBySession[toValue(sessionId)] ??
+      EMPTY_ATTACHMENTS;
+    if (current.length + files.length > 8) {
+      setError(content.tooMany);
+      return;
+    }
+    if (
+      files.some((file) => file.size > 16 * 1024 * 1024) ||
+      current.reduce((sum, ref) => sum + ref.bytes, 0) +
+        files.reduce((sum, file) => sum + file.size, 0) >
+        32 * 1024 * 1024
+    ) {
+      setError(content.tooLarge);
+      return;
+    }
+    busy.value = true;
     setPending(true);
     setError(null);
-    const abort = new AbortController(); controller.current = abort;
+    const abort = new AbortController();
+    controller.value = abort;
     try {
-      const items = await Promise.all(files.map(async (file): Promise<AttachmentUpload> => {
-        const bytes = new Uint8Array(await file.arrayBuffer());
-        const parts: string[] = [];
-        for (let offset = 0; offset < bytes.length; offset += 32_768) parts.push(String.fromCharCode(...bytes.subarray(offset, offset + 32_768)));
-        return { id: crypto.randomUUID(), name: file.name, kind: IMAGE_TYPES.has(file.type) ? "image" : "file", media_type: IMAGE_TYPES.has(file.type) ? file.type : null, data_base64: btoa(parts.join("")) };
-      }));
+      const items = await Promise.all(
+        files.map(async (file): Promise<AttachmentUpload> => {
+          const bytes = new Uint8Array(await file.arrayBuffer());
+          const parts: string[] = [];
+          for (let offset = 0; offset < bytes.length; offset += 32_768)
+            parts.push(
+              String.fromCharCode(...bytes.subarray(offset, offset + 32_768)),
+            );
+          return {
+            id: crypto.randomUUID(),
+            name: file.name,
+            kind: IMAGE_TYPES.has(file.type) ? "image" : "file",
+            media_type: IMAGE_TYPES.has(file.type) ? file.type : null,
+            data_base64: btoa(parts.join("")),
+          };
+        }),
+      );
       if (!abort.signal.aborted) await publish(items, abort);
     } catch (failure) {
       if (abort.signal.aborted) return;
-      console.error("[attachments] File read failed.", { sessionId, error: failure });
-      setError(content.readFailed); busy.current = false; setPending(false);
+      console.error("[attachments] File read failed.", {
+        sessionId: toValue(sessionId),
+        error: failure,
+      });
+      setError(content.readFailed);
+      busy.value = false;
+      setPending(false);
     }
   }
-
-  return {
-    attachments, pending, error,
-    blocked: () => busy.current || retryBatch.current !== null,
-    addFiles,
-    remove: (id: string) => { if (!busy.current) { const current = useAppUiStore.getState().composerAttachmentsBySession[sessionId] ?? EMPTY_ATTACHMENTS; setAttachments(sessionId, current.filter((ref) => ref.id !== id)); } },
-    retry: () => {
-      if (busy.current || retryBatch.current === null) return;
-      const abort = new AbortController(); controller.current = abort;
-      busy.current = true; setPending(true); setError(null);
-      void publish(retryBatch.current, abort);
+  return shallowReactive({
+    get attachments() {
+      return attachments.value;
     },
-    dismissError: () => { if (!busy.current) { retryBatch.current = null; setError(null); } },
-    retryAvailable: retryBatch.current !== null,
-  };
+    get pending() {
+      return pending.value;
+    },
+    get error() {
+      return error.value;
+    },
+    get blocked() {
+      return () => busy.value || retryBatch.value !== null;
+    },
+    get addFiles() {
+      return addFiles;
+    },
+    get remove() {
+      return (id: string) => {
+        if (!busy.value) {
+          const current =
+            useAppUiStore().composerAttachmentsBySession[toValue(sessionId)] ??
+            EMPTY_ATTACHMENTS;
+          setAttachments.value(
+            toValue(sessionId),
+            current.filter((ref) => ref.id !== id),
+          );
+        }
+      };
+    },
+    get retry() {
+      return () => {
+        if (busy.value || retryBatch.value === null) return;
+        const abort = new AbortController();
+        controller.value = abort;
+        busy.value = true;
+        setPending(true);
+        setError(null);
+        void publish(retryBatch.value, abort);
+      };
+    },
+    get dismissError() {
+      return () => {
+        if (!busy.value) {
+          retryBatch.value = null;
+          setError(null);
+        }
+      };
+    },
+    get retryAvailable() {
+      return retryBatch.value !== null;
+    },
+  });
 }

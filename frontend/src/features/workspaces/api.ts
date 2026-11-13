@@ -1,66 +1,68 @@
 import { requestJson } from "@/api/client";
 import type { SessionSummary } from "@/features/sessions/api";
-
 export interface Workspace {
   readonly id: string;
   readonly name: string;
   readonly created_at: string;
   readonly updated_at: string;
 }
-
 export const workspaceQueryKeys = {
   all: ["workspaces"] as const,
   detail: (workspaceId: string) => ["workspaces", workspaceId] as const,
   sessions: (workspaceId: string) =>
-    ["workspaces", workspaceId, "sessions"] as const
+    ["workspaces", workspaceId, "sessions"] as const,
 };
-
 export function listWorkspaces(): Promise<Workspace[]> {
   return requestJson<Workspace[]>("/api/v1/workspaces");
 }
-
 export function getWorkspace(workspaceId: string): Promise<Workspace> {
-  return requestJson<Workspace>(`/api/v1/workspaces/${encodeURIComponent(workspaceId)}`);
+  return requestJson<Workspace>(
+    `/api/v1/workspaces/${encodeURIComponent(workspaceId)}`,
+  );
 }
-
 export function createWorkspace(name: string): Promise<Workspace> {
   return requestJson<Workspace>("/api/v1/workspaces", {
     method: "POST",
-    body: JSON.stringify({ name })
+    body: JSON.stringify({
+      name,
+    }),
   });
 }
-
 export function renameWorkspace(
   workspaceId: string,
-  name: string
+  name: string,
 ): Promise<Workspace> {
-  return requestJson<Workspace>(`/api/v1/workspaces/${encodeURIComponent(workspaceId)}`, {
-    method: "PATCH",
-    body: JSON.stringify({ name })
-  });
-}
-
-export function listSessions(workspaceId: string): Promise<SessionSummary[]> {
-  return requestJson<SessionSummary[]>(
-    `/api/v1/workspaces/${encodeURIComponent(workspaceId)}/sessions`
+  return requestJson<Workspace>(
+    `/api/v1/workspaces/${encodeURIComponent(workspaceId)}`,
+    {
+      method: "PATCH",
+      body: JSON.stringify({
+        name,
+      }),
+    },
   );
 }
-
+export function listSessions(workspaceId: string): Promise<SessionSummary[]> {
+  return requestJson<SessionSummary[]>(
+    `/api/v1/workspaces/${encodeURIComponent(workspaceId)}/sessions`,
+  );
+}
 export function createSession(
   workspaceId: string,
-  title: string
+  title: string,
 ): Promise<SessionSummary> {
   return requestJson<SessionSummary>(
     `/api/v1/workspaces/${encodeURIComponent(workspaceId)}/sessions`,
     {
       method: "POST",
-      body: JSON.stringify({ title })
-    }
+      body: JSON.stringify({
+        title,
+      }),
+    },
   );
 }
-
 export function removeWorkspace(workspaceId: string): Promise<void> {
   return requestJson(`/api/v1/workspaces/${encodeURIComponent(workspaceId)}`, {
-    method: "DELETE"
+    method: "DELETE",
   });
 }

@@ -5,7 +5,11 @@ export const conversation = {
       loading: "正在读取工作区…",
       empty: "没有匹配的文件、影像或结果。",
       loadFailed: "工作区内容读取失败，请重试。",
-      kinds: { file: "工作区文件", image: "影像", result: "分析结果" },
+      kinds: {
+        file: "工作区文件",
+        image: "影像",
+        result: "分析结果",
+      },
     },
     contextUsage: {
       label: "上下文用量",

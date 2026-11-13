@@ -1,12 +1,10 @@
 import type { AgentTurn } from "@/features/agent/api";
 import type { Confirmation } from "@/features/confirmations/api";
 import type { TrajectoryEventProjection } from "@/features/events/projection/events";
+import type { ActiveAssistant } from "@/features/events/stream/live-assistant";
 import { buildTrajectoryRecords } from "@/features/events/trajectory/records/build";
 import type { TrajectoryRecord } from "@/features/events/trajectory/trajectory-model";
 import type { SessionMessage } from "@/features/messages/api";
-
-import type { ActiveAssistant } from "@/features/events/stream/live-assistant";
-
 export interface ConversationSource {
   readonly activeAssistant: ActiveAssistant | null;
   readonly confirmations: readonly Confirmation[];
@@ -14,19 +12,16 @@ export interface ConversationSource {
   readonly messages: readonly SessionMessage[];
   readonly turns: readonly AgentTurn[];
 }
-
 export interface ChatSnapshot {
   readonly target: "chat";
   readonly confirmations: readonly Confirmation[];
   readonly messages: readonly SessionMessage[];
   readonly turns: readonly AgentTurn[];
 }
-
 export interface TrajectorySnapshot {
   readonly target: "trajectory";
   readonly records: readonly TrajectoryRecord[];
 }
-
 class ConversationAssembler {
   assemble(target: "chat", source: ConversationSource): ChatSnapshot;
   assemble(
@@ -57,5 +52,4 @@ class ConversationAssembler {
     };
   }
 }
-
 export const conversationAssembler = new ConversationAssembler();

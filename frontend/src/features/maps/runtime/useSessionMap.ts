@@ -1,3 +1,14 @@
+import { resolveResourceUrl } from "@/api/runtime";
+import { useAppUiStore } from "@/app/store";
+import {
+  MAP_HILLSHADE_COLORS,
+  MAP_LOAD_TIMEOUT_MS,
+  MAP_STYLES,
+  MAP_TERRAIN,
+} from "@/features/maps/runtime/config";
+import { type MapDimension } from "@/features/sessions/map-context";
+import { refSetter, watchMounted } from "@/lib/lifecycle";
+import { zhCN } from "@/locales/zh-CN";
 import {
   AttributionControl,
   Map,
@@ -7,22 +18,14 @@ import {
   type LngLatBoundsLike,
 } from "maplibre-gl";
 import workerUrl from "maplibre-gl/dist/maplibre-gl-worker.mjs?worker&url";
-import { useEffect, useRef, useState, type RefObject } from "react";
-
-import { useAppUiStore } from "@/app/store";
 import {
-  MAP_HILLSHADE_COLORS,
-  MAP_LOAD_TIMEOUT_MS,
-  MAP_STYLES,
-  MAP_TERRAIN,
-} from "@/features/maps/runtime/config";
-import { type MapDimension } from "@/features/sessions/map-context";
-import { zhCN } from "@/locales/zh-CN";
-
-import { getRuntimeConnection } from "@/api/runtime";
-
+  shallowReactive,
+  shallowRef,
+  toValue,
+  type MaybeRefOrGetter,
+  type ShallowRef,
+} from "vue";
 setWorkerUrl(workerUrl);
-
 function currentTheme() {
   const theme = document.documentElement.dataset.theme;
   if (theme !== "light" && theme !== "dark") {
@@ -30,11 +33,9 @@ function currentTheme() {
   }
   return theme;
 }
-
 function currentStyle() {
   return MAP_STYLES[currentTheme()];
 }
-
 function applyDimension(map: Map, dimension: MapDimension) {
   if (dimension === "3d") {
     for (const sourceId of [
@@ -92,185 +93,204 @@ function applyDimension(map: Map, dimension: MapDimension) {
     }
   }
 }
-
 export function useSessionMap(
-  targetRef: RefObject<HTMLDivElement | null>,
-  overlayRef: RefObject<HTMLDivElement | null>,
-  sessionId: string,
-  workspaceId: string,
+  targetRef: ShallowRef<HTMLDivElement | null>,
+  overlayRef: ShallowRef<HTMLDivElement | null>,
+  sessionId: MaybeRefOrGetter<string>,
+  workspaceId: MaybeRefOrGetter<string>,
 ) {
-  const mapRef = useRef<Map | null>(null);
-  const overlayHeightRef = useRef(0);
-  const dimensionRef = useRef<MapDimension>("2d");
-  const [dimension, setDimension] = useState<MapDimension>("2d");
-  const [ready, setReady] = useState(false);
-  const [loading, setLoading] = useState(true);
-  const [failed, setFailed] = useState(false);
-  const [attempt, setAttempt] = useState(0);
-
-  useEffect(() => {
-    const target = targetRef.current;
-    const overlay = overlayRef.current;
-    if (target === null || overlay === null || target.parentElement === null) {
-      throw new Error("Map container and composer overlay are required.");
-    }
-    const container = target.parentElement;
-    const store = useAppUiStore.getState();
-    store.initializeMapContext(sessionId, workspaceId);
-    const context = useAppUiStore.getState().mapContextBySession[sessionId]!;
-
-    dimensionRef.current = context.camera.dimension;
-    setDimension(context.camera.dimension);
-    setReady(false);
-    setLoading(true);
-    setFailed(false);
-
-    const reportError = (error: unknown) => {
-      console.error("[map] MapLibre resource or rendering failure.", {
-        sessionId,
-        error,
-      });
-      setFailed(true);
-      setLoading(false);
-    };
-    let map: Map;
-    try {
-      map = new Map({
-        container: target,
-        style: currentStyle(),
-        center: [context.viewport.longitude, context.viewport.latitude],
-        zoom: context.viewport.zoom,
-        minZoom: 0,
-        maxZoom: 24,
-        bearing: context.camera.bearing,
-        pitch: context.camera.pitch,
-        maxPitch: context.camera.dimension === "3d" ? MAP_TERRAIN.maxPitch : 0,
-        attributionControl: false,
-        canvasContextAttributes: { antialias: true },
-        transformRequest: (url) => {
-          const runtime = getRuntimeConnection();
-          const targetUrl = new URL(url, runtime.baseUrl);
-          if (
-            targetUrl.origin === new URL(runtime.baseUrl).origin &&
-            targetUrl.pathname.startsWith("/api/")
-          ) {
-            return {
-              url,
-              headers: { "X-Kunyu-Session": runtime.sessionToken },
-            };
-          }
-          return { url };
-        },
-      });
-    } catch (error) {
-      reportError(error);
-      return;
-    }
-    mapRef.current = map;
-    map.addControl(new AttributionControl({ compact: true }), "bottom-right");
-    map.addControl(
-      new ScaleControl({ unit: "metric", maxWidth: 100 }),
-      "bottom-left",
-    );
-    map.getCanvas().setAttribute("aria-label", zhCN.map.label);
-
-    const rememberView = () => {
-      const center = map.getCenter().wrap();
-      const viewport = {
-        longitude: center.lng,
-        latitude: center.lat,
-        zoom: map.getZoom(),
-      };
-      const camera = {
-        dimension: dimensionRef.current,
-        bearing: map.getBearing(),
-        pitch: map.getPitch(),
-      };
-      useAppUiStore.getState().setMapView(sessionId, viewport, camera);
-    };
-    const onStyleLoad = () => {
-      applyDimension(map, dimensionRef.current);
-      setReady(true);
-    };
-    const onError = (event: ErrorEvent) => reportError(event.error);
-    const onContextLost = () => {
-      setReady(false);
-      reportError(new Error("WebGL context was lost."));
-    };
-    let loadTimer: ReturnType<typeof setTimeout>;
-    const onIdle = () => {
-      clearTimeout(loadTimer);
-      setLoading(false);
-    };
-    const startLoadTimer = () => {
-      clearTimeout(loadTimer);
-      loadTimer = setTimeout(
-        () =>
-          reportError(
-            new Error("Map resources did not finish loading in time."),
-          ),
-        MAP_LOAD_TIMEOUT_MS,
-      );
-    };
-    let styleUrl = currentStyle();
-    const themeObserver = new MutationObserver(() => {
-      const nextStyle = currentStyle();
-      if (nextStyle === styleUrl) return;
-      styleUrl = nextStyle;
+  const mapRef = shallowRef<Map | null>(null);
+  const overlayHeightRef = shallowRef(0);
+  const dimensionRef = shallowRef<MapDimension>("2d");
+  const dimension = shallowRef<MapDimension>("2d"),
+    setDimension = refSetter(dimension);
+  const ready = shallowRef(false),
+    setReady = refSetter(ready);
+  const loading = shallowRef(true),
+    setLoading = refSetter(loading);
+  const failed = shallowRef(false),
+    setFailed = refSetter(failed);
+  const attempt = shallowRef(0),
+    setAttempt = refSetter(attempt);
+  watchMounted(
+    [
+      () => attempt.value,
+      () => overlayRef,
+      () => toValue(sessionId),
+      () => targetRef,
+      () => toValue(workspaceId),
+    ],
+    () => {
+      const target = targetRef.value;
+      const overlay = overlayRef.value;
+      if (
+        target === null ||
+        overlay === null ||
+        target.parentElement === null
+      ) {
+        throw new Error("Map container and composer overlay are required.");
+      }
+      const container = target.parentElement;
+      const store = useAppUiStore();
+      store.initializeMapContext(toValue(sessionId), toValue(workspaceId));
+      const context = useAppUiStore().mapContextBySession[toValue(sessionId)]!;
+      dimensionRef.value = context.camera.dimension;
+      setDimension(context.camera.dimension);
       setReady(false);
       setLoading(true);
+      setFailed(false);
+      const reportError = (error: unknown) => {
+        console.error("[map] MapLibre resource or rendering failure.", {
+          sessionId: toValue(sessionId),
+          error,
+        });
+        setFailed(true);
+        setLoading(false);
+      };
+      let map: Map;
+      try {
+        map = new Map({
+          container: target,
+          style: currentStyle(),
+          center: [context.viewport.longitude, context.viewport.latitude],
+          zoom: context.viewport.zoom,
+          minZoom: 0,
+          maxZoom: 24,
+          bearing: context.camera.bearing,
+          pitch: context.camera.pitch,
+          maxPitch:
+            context.camera.dimension === "3d" ? MAP_TERRAIN.maxPitch : 0,
+          attributionControl: false,
+          canvasContextAttributes: {
+            antialias: true,
+          },
+          transformRequest: (url) => {
+            return { url: resolveResourceUrl(url), credentials: "same-origin" };
+          },
+        });
+      } catch (error) {
+        reportError(error);
+        return;
+      }
+      mapRef.value = map;
+      map.addControl(
+        new AttributionControl({
+          compact: true,
+        }),
+        "bottom-right",
+      );
+      map.addControl(
+        new ScaleControl({
+          unit: "metric",
+          maxWidth: 100,
+        }),
+        "bottom-left",
+      );
+      map.getCanvas().setAttribute("aria-label", zhCN.map.label);
+      const rememberView = () => {
+        const center = map.getCenter().wrap();
+        const viewport = {
+          longitude: center.lng,
+          latitude: center.lat,
+          zoom: map.getZoom(),
+        };
+        const camera = {
+          dimension: dimensionRef.value,
+          bearing: map.getBearing(),
+          pitch: map.getPitch(),
+        };
+        useAppUiStore().setMapView(toValue(sessionId), viewport, camera);
+      };
+      const onStyleLoad = () => {
+        applyDimension(map, dimensionRef.value);
+        setReady(true);
+      };
+      const onError = (event: ErrorEvent) => reportError(event.error);
+      const onContextLost = () => {
+        setReady(false);
+        reportError(new Error("WebGL context was lost."));
+      };
+      let loadTimer: ReturnType<typeof setTimeout>;
+      const onIdle = () => {
+        clearTimeout(loadTimer);
+        setLoading(false);
+      };
+      const startLoadTimer = () => {
+        clearTimeout(loadTimer);
+        loadTimer = setTimeout(
+          () =>
+            reportError(
+              new Error("Map resources did not finish loading in time."),
+            ),
+          MAP_LOAD_TIMEOUT_MS,
+        );
+      };
+      let styleUrl = currentStyle();
+      const themeObserver = new MutationObserver(() => {
+        const nextStyle = currentStyle();
+        if (nextStyle === styleUrl) return;
+        styleUrl = nextStyle;
+        setReady(false);
+        setLoading(true);
+        startLoadTimer();
+        map.setStyle(nextStyle, {
+          diff: false,
+        });
+      });
+      themeObserver.observe(document.documentElement, {
+        attributes: true,
+        attributeFilter: ["data-theme"],
+      });
+      const resize = () => {
+        const overlayHeight =
+          container.getBoundingClientRect().bottom -
+          overlay.getBoundingClientRect().top;
+        overlayHeightRef.value = overlayHeight;
+        container.style.setProperty(
+          "--map-overlay-height",
+          `${overlayHeight}px`,
+        );
+        map.setPadding({
+          ...map.getPadding(),
+          bottom: overlayHeight,
+        });
+        map.resize();
+      };
+      const resizeObserver = new ResizeObserver(resize);
+      resizeObserver.observe(target);
+      resizeObserver.observe(overlay);
+      resize();
+      map.on("style.load", onStyleLoad);
+      map.on("moveend", rememberView);
+      map.on("idle", onIdle);
+      map.on("error", onError);
+      map.on("webglcontextlost", onContextLost);
       startLoadTimer();
-      map.setStyle(nextStyle, { diff: false });
-    });
-    themeObserver.observe(document.documentElement, {
-      attributes: true,
-      attributeFilter: ["data-theme"],
-    });
-    const resize = () => {
-      const overlayHeight =
-        container.getBoundingClientRect().bottom -
-        overlay.getBoundingClientRect().top;
-      overlayHeightRef.current = overlayHeight;
-      container.style.setProperty("--map-overlay-height", `${overlayHeight}px`);
-      map.setPadding({ ...map.getPadding(), bottom: overlayHeight });
-      map.resize();
-    };
-    const resizeObserver = new ResizeObserver(resize);
-    resizeObserver.observe(target);
-    resizeObserver.observe(overlay);
-    resize();
-    map.on("style.load", onStyleLoad);
-    map.on("moveend", rememberView);
-    map.on("idle", onIdle);
-    map.on("error", onError);
-    map.on("webglcontextlost", onContextLost);
-    startLoadTimer();
-
-    return () => {
-      rememberView();
-      clearTimeout(loadTimer);
-      themeObserver.disconnect();
-      resizeObserver.disconnect();
-      map.off("style.load", onStyleLoad);
-      map.off("moveend", rememberView);
-      map.off("idle", onIdle);
-      map.off("error", onError);
-      map.off("webglcontextlost", onContextLost);
-      mapRef.current = null;
-      map.remove();
-    };
-  }, [attempt, overlayRef, sessionId, targetRef, workspaceId]);
-
+      return () => {
+        rememberView();
+        clearTimeout(loadTimer);
+        themeObserver.disconnect();
+        resizeObserver.disconnect();
+        map.off("style.load", onStyleLoad);
+        map.off("moveend", rememberView);
+        map.off("idle", onIdle);
+        map.off("error", onError);
+        map.off("webglcontextlost", onContextLost);
+        mapRef.value = null;
+        map.remove();
+      };
+    },
+  );
   function focusBounds(bounds: LngLatBoundsLike) {
-    const map = mapRef.current;
-    if (map === null || !ready) return;
+    const map = mapRef.value;
+    if (map === null || !ready.value) return;
     map.fitBounds(bounds, {
       // Replace layout padding: additive fit padding shifts the geographic center.
       absolutePadding: true,
       padding: {
         top: 40,
         right: 60,
-        bottom: overlayHeightRef.current + 30,
+        bottom: overlayHeightRef.value + 30,
         left: Math.min(340, map.getContainer().clientWidth * 0.4),
       },
       maxZoom: 14,
@@ -279,27 +299,54 @@ export function useSessionMap(
         : 700,
     });
   }
-
   function changeDimension(next: MapDimension) {
-    const map = mapRef.current;
-    if (map === null || !ready || next === dimensionRef.current) return;
-    dimensionRef.current = next;
+    const map = mapRef.value;
+    if (map === null || !ready.value || next === dimensionRef.value) return;
+    dimensionRef.value = next;
     setDimension(next);
     applyDimension(map, next);
-    map.easeTo({ pitch: next === "3d" ? MAP_TERRAIN.pitch : 0, duration: 600 });
+    map.easeTo({
+      pitch: next === "3d" ? MAP_TERRAIN.pitch : 0,
+      duration: 600,
+    });
   }
-
-  return {
-    getMap: () => mapRef.current,
-    dimension,
-    ready,
-    focusBounds,
-    loading,
-    failed,
-    changeDimension,
-    resetNorth: () => mapRef.current?.easeTo({ bearing: 0, duration: 400 }),
-    zoomIn: () => mapRef.current?.zoomIn(),
-    zoomOut: () => mapRef.current?.zoomOut(),
-    reload: () => setAttempt((value) => value + 1),
-  };
+  return shallowReactive({
+    get getMap() {
+      return () => mapRef.value;
+    },
+    get dimension() {
+      return dimension.value;
+    },
+    get ready() {
+      return ready.value;
+    },
+    get focusBounds() {
+      return focusBounds;
+    },
+    get loading() {
+      return loading.value;
+    },
+    get failed() {
+      return failed.value;
+    },
+    get changeDimension() {
+      return changeDimension;
+    },
+    get resetNorth() {
+      return () =>
+        mapRef.value?.easeTo({
+          bearing: 0,
+          duration: 400,
+        });
+    },
+    get zoomIn() {
+      return () => mapRef.value?.zoomIn();
+    },
+    get zoomOut() {
+      return () => mapRef.value?.zoomOut();
+    },
+    get reload() {
+      return () => setAttempt((value) => value + 1);
+    },
+  });
 }

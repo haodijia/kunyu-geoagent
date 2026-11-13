@@ -1,6 +1,5 @@
-import type { RasterMetadata } from "./raster-views";
 import { requestBlob, requestJson } from "@/api/client";
-
+import type { RasterMetadata } from "./raster-views";
 export interface AnalysisOutput {
   readonly workspace_id: string;
   readonly id: string;
@@ -65,7 +64,10 @@ export const analysisApi = {
   addLayer: (id: string, outputId: string, viewId: string) =>
     requestJson<MapLayer>(`${mapPath(id)}/layers`, {
       method: "POST",
-      body: JSON.stringify({ output_id: outputId, view_id: viewId }),
+      body: JSON.stringify({
+        output_id: outputId,
+        view_id: viewId,
+      }),
     }),
   style: (id: string, layer: MapLayer, style: LayerStyle) =>
     requestJson<MapLayer>(

@@ -1,14 +1,13 @@
-import { rasterView } from "./raster-views";
 import { useAppUiStore } from "@/app/store";
 import type { AnalysisOutput, MapLayer } from "@/features/analysis/api";
 import { referenceText } from "@/features/workspaces/references";
-
+import { rasterView } from "./raster-views";
 export function appendReference(
   sessionId: string,
   name: string,
   target: string,
 ) {
-  const store = useAppUiStore.getState();
+  const store = useAppUiStore();
   const previous = store.composerDraftBySession[sessionId] ?? "";
   const reference = referenceText(name, target);
   store.setComposerDraft(

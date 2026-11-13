@@ -6,7 +6,6 @@ import {
   type AssistantFrame,
 } from "@/features/events/stream/live-assistant";
 import { zhCN } from "@/locales/zh-CN";
-
 export interface SessionEvent {
   readonly id: string;
   readonly session_id: string;
@@ -16,7 +15,6 @@ export interface SessionEvent {
   readonly occurred_at: string;
   readonly run_id: string | null;
 }
-
 export type SessionFollow =
   | {
       readonly type: "opened";
@@ -24,10 +22,18 @@ export type SessionFollow =
       readonly events: readonly SessionEvent[];
       readonly assistant: AssistantBaseline;
     }
-  | { readonly type: "event"; readonly event: SessionEvent }
-  | { readonly type: "map_capture"; readonly requestId: string }
-  | { readonly type: "assistant"; readonly frame: AssistantFrame };
-
+  | {
+      readonly type: "event";
+      readonly event: SessionEvent;
+    }
+  | {
+      readonly type: "map_capture";
+      readonly requestId: string;
+    }
+  | {
+      readonly type: "assistant";
+      readonly frame: AssistantFrame;
+    };
 export async function* streamSessionFollow(
   sessionId: string,
   afterSequence: number,
@@ -37,7 +43,6 @@ export async function* streamSessionFollow(
   const path =
     `/api/v1/sessions/${encodeURIComponent(sessionId)}/events/stream` +
     `?after_sequence=${afterSequence}`;
-
   let opened = false;
   for await (const frame of streamEvents(path, signal)) {
     if (frame.event === "session.opened") {
@@ -75,9 +80,17 @@ export async function* streamSessionFollow(
       throw new Error("Session follow omitted its opening snapshot.");
     if (frame.event === "map.capture") {
       const value = JSON.parse(frame.data) as unknown;
-      if (frame.id !== null || !isRecord(value) || typeof value.request_id !== "string" || value.request_id.length === 0)
+      if (
+        frame.id !== null ||
+        !isRecord(value) ||
+        typeof value.request_id !== "string" ||
+        value.request_id.length === 0
+      )
         throw new Error("Invalid map capture request.");
-      yield { type: "map_capture", requestId: value.request_id };
+      yield {
+        type: "map_capture",
+        requestId: value.request_id,
+      };
       continue;
     }
     if (frame.event === "assistant.stream") {
@@ -101,10 +114,12 @@ export async function* streamSessionFollow(
     if (frame.event !== event.event_type) {
       throw new Error(zhCN.trajectory.eventTypeMismatch);
     }
-    yield { type: "event", event };
+    yield {
+      type: "event",
+      event,
+    };
   }
 }
-
 function parseSessionEvent(value: unknown): SessionEvent {
   if (
     !isRecord(value) ||
@@ -120,10 +135,8 @@ function parseSessionEvent(value: unknown): SessionEvent {
   ) {
     throw new Error(zhCN.trajectory.invalidEvent);
   }
-
   return value as unknown as SessionEvent;
 }
-
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }

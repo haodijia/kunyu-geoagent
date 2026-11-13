@@ -1,185 +1,257 @@
-import { rasterView } from "@/features/analysis/raster-views";
-import { getRuntimeConnection } from "@/api/runtime";
+import { resolveResourceUrl } from "@/api/runtime";
 import {
   analysisApi,
   analysisKeys,
   workspaceResultsPath,
   type MapLayer,
 } from "@/features/analysis/api";
-import { useQuery } from "@tanstack/react-query";
+import { rasterView } from "@/features/analysis/raster-views";
 import { useLayerPreview } from "@/features/maps/layers/useLayerPreview";
 import type { useSessionMap } from "@/features/maps/runtime/useSessionMap";
+import { watchMounted } from "@/lib/lifecycle";
 import { zhCN } from "@/locales/zh-CN";
+import { useQuery } from "@tanstack/vue-query";
 import type { Map as LibreMap } from "maplibre-gl";
-import { useEffect } from "react";
-
+import { computed, defineComponent, reactive } from "vue";
 type SessionMap = ReturnType<typeof useSessionMap>;
-
-export function MapLayers({
-  map,
-  workspaceId,
-  layers,
-  comparison,
-  onError,
-}: {
-  readonly map: SessionMap;
-  readonly workspaceId: string;
-  readonly layers: readonly MapLayer[];
-  readonly comparison: readonly [string, string] | null;
-  readonly onError: (layerId: string, error: string | null) => void;
-}) {
-  return layers.map((layer) => (
-    <LayerSource
-      key={layer.id}
-      map={map}
-      workspaceId={workspaceId}
-      layer={layer}
-      layers={layers}
-      renderable={layer.visible || comparison?.includes(layer.id) === true}
-      onError={onError}
-    />
-  ));
-}
-
-function LayerSource({
-  map,
-  workspaceId,
-  layer,
-  layers,
-  renderable,
-  onError,
-}: {
-  readonly map: SessionMap;
-  readonly workspaceId: string;
-  readonly layer: MapLayer;
-  readonly layers: readonly MapLayer[];
-  readonly renderable: boolean;
-  readonly onError: (layerId: string, error: string | null) => void;
-}) {
-  const instance = map.getMap();
-  const preview = useLayerPreview(
-    layer.session_id,
-    layer.id,
-    layer.image !== null && renderable,
-  );
-  const footprint = layer.image?.footprint;
-  const output = useQuery({
-    queryKey: analysisKeys.output(workspaceId, layer.output_id ?? ""),
-    queryFn: () => analysisApi.output(workspaceId, layer.output_id!),
-    enabled: layer.output_id !== null,
-  });
-  const resampling =
-    output.data !== undefined &&
-    rasterView(output.data, layer.view_id!).style.type === "classified"
-      ? "nearest"
-      : "linear";
-  useEffect(() => {
-    const error =
-      renderable &&
-      (layer.bounds === null ||
-        output.isError ||
-        (layer.image !== null && preview.error));
-    onError(layer.id, error ? zhCN.analysis.previewFailed : null);
-    return () => onError(layer.id, null);
-  }, [
-    layer.id,
-    renderable,
-    layer.bounds,
-    layer.image,
-    preview.error,
-    output.isError,
-    onError,
-  ]);
-  useEffect(() => {
-    if (!map.ready || instance === null || layer.bounds === null) return;
-    if (layer.image !== null) {
-      if (
-        !renderable ||
-        preview.url === null ||
-        footprint === null ||
-        footprint === undefined
-      )
-        return;
-      const coordinates = footprint.slice(0, 4).map((point) => [...point]) as [
-        [number, number],
-        [number, number],
-        [number, number],
-        [number, number],
-      ];
-      instance.addSource(layer.id, {
-        type: "image",
-        url: preview.url,
-        coordinates,
-      });
-    } else {
-      const url = new URL(
-        `${workspaceResultsPath(workspaceId)}/${encodeURIComponent(layer.output_id!)}/tiles/{z}/{x}/{y}.png?view_id=${encodeURIComponent(layer.view_id!)}&revision=${layer.revision}`,
-        getRuntimeConnection().baseUrl,
-      ).href
-        .replaceAll("%7B", "{")
-        .replaceAll("%7D", "}");
-      instance.addSource(layer.id, {
-        type: "raster",
-        tiles: [url],
-        tileSize: 256,
-        bounds: [...layer.bounds],
-        minzoom: 0,
-        maxzoom: 24,
-      });
-    }
-    instance.addLayer({
-      id: layer.id,
-      type: "raster",
-      source: layer.id,
-      paint: {
-        "raster-opacity": layer.opacity,
-        "raster-fade-duration": 0,
-        "raster-resampling": resampling,
-      },
-      layout: { visibility: layer.visible ? "visible" : "none" },
-    });
-    positionLayer(instance, layer, layers);
+export const MapLayers = defineComponent(
+  (
+    componentProps: {
+      readonly map: SessionMap;
+      readonly workspaceId: string;
+      readonly layers: readonly MapLayer[];
+      readonly comparison: readonly [string, string] | null;
+      readonly onError: (layerId: string, error: string | null) => void;
+    },
+    { slots: _slots },
+  ) => {
+    const map = computed(() => componentProps.map),
+      workspaceId = computed(() => componentProps.workspaceId),
+      layers = computed(() => componentProps.layers),
+      comparison = computed(() => componentProps.comparison),
+      onError = computed(() => componentProps.onError);
     return () => {
-      if (instance.getStyle() === undefined) return;
-      if (instance.getLayer(layer.id) !== undefined)
-        instance.removeLayer(layer.id);
-      if (instance.getSource(layer.id) !== undefined)
-        instance.removeSource(layer.id);
+      const _layers = layers.value,
+        _map = map.value,
+        _workspaceId = workspaceId.value,
+        _comparison = comparison.value,
+        _onError = onError.value;
+      return _layers.map((layer) => (
+        <LayerSource
+          key={layer.id}
+          map={_map}
+          workspaceId={_workspaceId}
+          layer={layer}
+          layers={_layers}
+          renderable={layer.visible || _comparison?.includes(layer.id) === true}
+          onError={_onError}
+        />
+      ));
     };
-  }, [
-    instance,
-    map.ready,
-    layer.id,
-    layer.output_id,
-    layer.view_id,
-    layer.revision,
-    layer.image,
-    layer.bounds,
-    layer.visible,
-    renderable,
-    preview.url,
-    footprint,
-    workspaceId,
-  ]);
-  useEffect(() => {
-    if (
-      !map.ready ||
-      instance === null ||
-      instance.getLayer(layer.id) === undefined
-    )
-      return;
-    instance.setPaintProperty(layer.id, "raster-opacity", layer.opacity);
-    instance.setPaintProperty(layer.id, "raster-resampling", resampling);
-    instance.setLayoutProperty(
-      layer.id,
-      "visibility",
-      layer.visible ? "visible" : "none",
+  },
+  {
+    name: "MapLayers",
+    inheritAttrs: false,
+    props: ["map", "workspaceId", "layers", "comparison", "onError"],
+  },
+);
+const LayerSource = defineComponent(
+  (
+    componentProps: {
+      readonly map: SessionMap;
+      readonly workspaceId: string;
+      readonly layer: MapLayer;
+      readonly layers: readonly MapLayer[];
+      readonly renderable: boolean;
+      readonly onError: (layerId: string, error: string | null) => void;
+    },
+    { slots: _slots },
+  ) => {
+    const map = computed(() => componentProps.map),
+      workspaceId = computed(() => componentProps.workspaceId),
+      layer = computed(() => componentProps.layer),
+      layers = computed(() => componentProps.layers),
+      renderable = computed(() => componentProps.renderable),
+      onError = computed(() => componentProps.onError);
+    const instance = computed(() => map.value.getMap());
+    const preview = useLayerPreview(
+      () => layer.value.session_id,
+      () => layer.value.id,
+      () => layer.value.image !== null && renderable.value,
     );
-    positionLayer(instance, layer, layers);
-  }, [instance, map.ready, layer, layers, preview.url, resampling]);
-  return null;
-}
-
+    const footprint = computed(() => layer.value.image?.footprint);
+    const output = reactive(
+      useQuery(
+        computed(() => ({
+          queryKey: analysisKeys.output(
+            workspaceId.value,
+            layer.value.output_id ?? "",
+          ),
+          queryFn: () =>
+            analysisApi.output(workspaceId.value, layer.value.output_id!),
+          enabled: layer.value.output_id !== null,
+        })),
+      ),
+    );
+    const resampling = computed(() =>
+      output.data !== undefined &&
+      rasterView(output.data, layer.value.view_id!).style.type === "classified"
+        ? "nearest"
+        : "linear",
+    );
+    watchMounted(
+      [
+        () => layer.value.id,
+        () => renderable.value,
+        () => layer.value.bounds,
+        () => layer.value.image,
+        () => preview.error,
+        () => output.isError,
+        () => onError.value,
+      ],
+      () => {
+        const error =
+          renderable.value &&
+          (layer.value.bounds === null ||
+            output.isError ||
+            (layer.value.image !== null && preview.error));
+        onError.value(
+          layer.value.id,
+          error ? zhCN.analysis.previewFailed : null,
+        );
+        return () => onError.value(layer.value.id, null);
+      },
+    );
+    watchMounted(
+      [
+        () => instance.value,
+        () => map.value.ready,
+        () => layer.value.id,
+        () => layer.value.output_id,
+        () => layer.value.view_id,
+        () => layer.value.revision,
+        () => layer.value.image,
+        () => layer.value.bounds,
+        () => layer.value.visible,
+        () => renderable.value,
+        () => preview.url,
+        () => footprint.value,
+        () => workspaceId.value,
+      ],
+      () => {
+        const activeMap = instance.value;
+        const activeLayer = layer.value;
+        if (
+          !map.value.ready ||
+          activeMap === null ||
+          layer.value.bounds === null
+        )
+          return;
+        if (layer.value.image !== null) {
+          if (
+            !renderable.value ||
+            preview.url === null ||
+            footprint.value === null ||
+            footprint.value === undefined
+          )
+            return;
+          const coordinates = footprint.value
+            .slice(0, 4)
+            .map((point) => [...point]) as [
+            [number, number],
+            [number, number],
+            [number, number],
+            [number, number],
+          ];
+          activeMap.addSource(layer.value.id, {
+            type: "image",
+            url: preview.url,
+            coordinates,
+          });
+        } else {
+          const url = resolveResourceUrl(
+            `${workspaceResultsPath(workspaceId.value)}/${encodeURIComponent(layer.value.output_id!)}/tiles/{z}/{x}/{y}.png?view_id=${encodeURIComponent(layer.value.view_id!)}&revision=${layer.value.revision}`,
+          )
+            .replaceAll("%7B", "{")
+            .replaceAll("%7D", "}");
+          activeMap.addSource(layer.value.id, {
+            type: "raster",
+            tiles: [url],
+            tileSize: 256,
+            bounds: [...layer.value.bounds],
+            minzoom: 0,
+            maxzoom: 24,
+          });
+        }
+        activeMap.addLayer({
+          id: layer.value.id,
+          type: "raster",
+          source: layer.value.id,
+          paint: {
+            "raster-opacity": layer.value.opacity,
+            "raster-fade-duration": 0,
+            "raster-resampling": resampling.value,
+          },
+          layout: {
+            visibility: layer.value.visible ? "visible" : "none",
+          },
+        });
+        positionLayer(activeMap, layer.value, layers.value);
+        return () => {
+          const _instance = activeMap,
+            _layer = activeLayer;
+          if (_instance.getStyle() === undefined) return;
+          if (_instance.getLayer(_layer.id) !== undefined)
+            _instance.removeLayer(_layer.id);
+          if (_instance.getSource(_layer.id) !== undefined)
+            _instance.removeSource(_layer.id);
+        };
+      },
+    );
+    watchMounted(
+      [
+        () => instance.value,
+        () => map.value.ready,
+        () => layer.value,
+        () => layers.value,
+        () => preview.url,
+        () => resampling.value,
+      ],
+      () => {
+        if (
+          !map.value.ready ||
+          instance.value === null ||
+          instance.value.getLayer(layer.value.id) === undefined
+        )
+          return;
+        instance.value.setPaintProperty(
+          layer.value.id,
+          "raster-opacity",
+          layer.value.opacity,
+        );
+        instance.value.setPaintProperty(
+          layer.value.id,
+          "raster-resampling",
+          resampling.value,
+        );
+        instance.value.setLayoutProperty(
+          layer.value.id,
+          "visibility",
+          layer.value.visible ? "visible" : "none",
+        );
+        positionLayer(instance.value, layer.value, layers.value);
+      },
+    );
+    return () => {
+      return null;
+    };
+  },
+  {
+    name: "LayerSource",
+    inheritAttrs: false,
+    props: ["map", "workspaceId", "layer", "layers", "renderable", "onError"],
+  },
+);
 function positionLayer(
   instance: LibreMap,
   layer: MapLayer,

@@ -6,96 +6,146 @@ import {
   subagentKeys,
   type Subagent,
 } from "@/features/subagents/api";
+import { refSetter, watchMounted } from "@/lib/lifecycle";
 import { zhCN } from "@/locales/zh-CN";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/vue-query";
 import {
-  createContext,
-  lazy,
+  computed,
+  defineAsyncComponent,
+  defineComponent,
+  inject,
+  provide,
+  reactive,
+  shallowReactive,
+  shallowRef,
   Suspense,
-  useContext,
-  useEffect,
-  useState,
-  type ReactNode,
-} from "react";
-
-const Dialog = lazy(() => import("./SubagentDialog"));
+  toRefs,
+  type InjectionKey,
+  type VNodeChild,
+} from "vue";
+const Dialog = defineAsyncComponent(() => import("./SubagentDialog"));
 function useStateForParent() {
   const parent = useSessionWorkspace();
-  const { events } = useSessionEvents();
+  const { events } = toRefs(useSessionEvents());
   const client = useQueryClient();
-  const [selected, setSelected] = useState<string | null>(null);
-  const query = useQuery({
-    queryKey: subagentKeys.list(parent.id),
-    queryFn: ({ signal }) => listSubagents(parent.id, signal),
-    retry: false,
-    refetchInterval: (query) =>
-      query.state.data?.some((child) => child.settled_sequence === null)
-        ? 1000
-        : false,
+  const selected = shallowRef<string | null>(null),
+    setSelected = refSetter(selected);
+  const query = reactive(
+    useQuery(
+      computed(() => ({
+        queryKey: subagentKeys.list(parent.id),
+        queryFn: ({ signal }: { signal: AbortSignal }) =>
+          listSubagents(parent.id, signal),
+        retry: false,
+        refetchInterval: (query: {
+          state: { data: Subagent[] | undefined };
+        }) =>
+          query.state.data?.some((child) => child.settled_sequence === null)
+            ? 1000
+            : false,
+      })),
+    ),
+  );
+  const revision = computed(
+    () =>
+      events.value.findLast((event) => event.event_type.startsWith("subagent/"))
+        ?.sequence,
+  );
+  watchMounted([() => client, () => parent.id, () => revision.value], () => {
+    if (revision.value !== undefined)
+      void client.invalidateQueries({
+        queryKey: subagentKeys.list(parent.id),
+      });
   });
-  const revision = events.findLast((event) =>
-    event.event_type.startsWith("subagent/"),
-  )?.sequence;
-  useEffect(() => {
-    if (revision !== undefined)
-      void client.invalidateQueries({ queryKey: subagentKeys.list(parent.id) });
-  }, [client, parent.id, revision]);
-  const cancel = useMutation({
-    mutationFn: (id: string) => cancelSubagent(parent.id, id),
-    onSuccess: (child: Subagent) => {
-      client.setQueryData(
-        subagentKeys.detail(parent.id, child.child_id),
-        child,
-      );
-      void client.invalidateQueries({ queryKey: subagentKeys.list(parent.id) });
+  const cancel = reactive(
+    useMutation({
+      mutationFn: (id: string) => cancelSubagent(parent.id, id),
+      onSuccess: (child: Subagent) => {
+        client.setQueryData(
+          subagentKeys.detail(parent.id, child.child_id),
+          child,
+        );
+        void client.invalidateQueries({
+          queryKey: subagentKeys.list(parent.id),
+        });
+      },
+    }),
+  );
+  return shallowReactive({
+    get parentId() {
+      return parent.id;
+    },
+    get archived() {
+      return parent.archived;
+    },
+    get query() {
+      return query;
+    },
+    get selected() {
+      return selected.value;
+    },
+    get open() {
+      return setSelected;
+    },
+    get close() {
+      return () => setSelected(null);
+    },
+    get cancel() {
+      return cancel;
     },
   });
-  return {
-    parentId: parent.id,
-    archived: parent.archived,
-    query,
-    selected,
-    open: setSelected,
-    close: () => setSelected(null),
-    cancel,
-  };
 }
-const Context = createContext<ReturnType<typeof useStateForParent> | null>(
-  null,
+const Context: InjectionKey<ReturnType<typeof useStateForParent> | null> =
+  Symbol("Context");
+export const SubagentProvider = defineComponent(
+  (
+    _componentProps: {
+      readonly children?: VNodeChild;
+    },
+    { slots },
+  ) => {
+    const children = () => slots.default?.();
+    const state = useStateForParent();
+    provide(Context, state);
+    return () => {
+      const selected = state.selected;
+      return (
+        <>
+          {children()}
+          {selected !== null && (
+            <Suspense
+              v-slots={{
+                default: () => (
+                  <Dialog
+                    key={selected}
+                    parentId={state.parentId}
+                    childId={selected}
+                    onClose={state.close}
+                  />
+                ),
+                fallback: () => (
+                  <div
+                    role="status"
+                    class="fixed bottom-4 right-4 rounded-lg border bg-background px-4 py-2 text-sm"
+                  >
+                    {zhCN.subagents.loading}
+                  </div>
+                ),
+              }}
+            />
+          )}
+        </>
+      );
+    };
+  },
+  {
+    name: "SubagentProvider",
+    inheritAttrs: false,
+    props: [],
+  },
 );
-export function SubagentProvider({
-  children,
-}: {
-  readonly children: ReactNode;
-}) {
-  const state = useStateForParent();
-  return (
-    <Context value={state}>
-      {children}
-      {state.selected !== null && (
-        <Suspense
-          fallback={
-            <div
-              role="status"
-              className="fixed bottom-4 right-4 rounded-lg border bg-background px-4 py-2 text-sm"
-            >
-              {zhCN.subagents.loading}
-            </div>
-          }
-        >
-          <Dialog
-            key={state.selected}
-            parentId={state.parentId}
-            childId={state.selected}
-            onClose={state.close}
-          />
-        </Suspense>
-      )}
-    </Context>
-  );
-}
 export function useSubagents() {
-  const state = useContext(Context);
+  const state = inject(Context, null);
   if (state === null)
     throw new Error("Subagent presentation requires the parent provider.");
   return state;

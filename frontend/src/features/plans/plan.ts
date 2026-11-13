@@ -5,7 +5,6 @@ import { toString } from "mdast-util-to-string";
 import remarkGfm from "remark-gfm";
 import remarkParse from "remark-parse";
 import { unified } from "unified";
-
 const parser = unified().use(remarkParse).use(remarkGfm);
 interface MarkdownNode {
   readonly type: string;

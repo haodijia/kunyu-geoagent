@@ -1,46 +1,49 @@
-import * as TooltipPrimitive from "@radix-ui/react-tooltip";
-import type { PropsWithChildren, ReactElement } from "react";
-
-interface TooltipProps {
-  readonly children: ReactElement;
-  readonly label: string;
-  readonly visible?: boolean;
-  readonly side?: "top" | "right" | "bottom" | "left";
-  readonly delayMs?: number;
+import {
+  TooltipProvider as Provider,
+  TooltipArrow,
+  TooltipContent,
+  TooltipPortal,
+  TooltipRoot,
+  TooltipTrigger,
+} from "reka-ui";
+import type { SetupContext, VNodeChild } from "vue";
+export function TooltipProvider(
+  _props: {
+    children?: VNodeChild;
+  },
+  { slots }: SetupContext,
+) {
+  return <Provider delayDuration={300}>{slots.default?.()}</Provider>;
 }
-
-export function TooltipProvider({ children }: PropsWithChildren) {
+export function Tooltip(
+  {
+    label,
+    visible = true,
+    side = "right",
+    delayMs = 300,
+  }: {
+    label: string;
+    visible?: boolean;
+    side?: "top" | "right" | "bottom" | "left";
+    delayMs?: number;
+    children?: VNodeChild;
+  },
+  { slots }: SetupContext,
+) {
+  if (!visible) return <>{slots.default?.()}</>;
   return (
-    <TooltipPrimitive.Provider delayDuration={300}>
-      {children}
-    </TooltipPrimitive.Provider>
-  );
-}
-
-export function Tooltip({
-  children,
-  label,
-  visible = true,
-  side = "right",
-  delayMs = 300
-}: TooltipProps) {
-  if (!visible) {
-    return children;
-  }
-
-  return (
-    <TooltipPrimitive.Root delayDuration={delayMs}>
-      <TooltipPrimitive.Trigger asChild>{children}</TooltipPrimitive.Trigger>
-      <TooltipPrimitive.Portal>
-        <TooltipPrimitive.Content
+    <TooltipRoot delayDuration={delayMs}>
+      <TooltipTrigger asChild>{slots.default?.()}</TooltipTrigger>
+      <TooltipPortal>
+        <TooltipContent
           side={side}
           sideOffset={12}
-          className="z-[110] max-w-[min(24rem,calc(100vw-2rem))] rounded-md bg-foreground px-2.5 py-1.5 text-xs font-medium break-words text-background shadow-lg"
+          class="z-[110] max-w-[min(24rem,calc(100vw-2rem))] rounded-md bg-foreground px-2.5 py-1.5 text-xs font-medium break-words text-background shadow-lg"
         >
           {label}
-          <TooltipPrimitive.Arrow className="fill-foreground" />
-        </TooltipPrimitive.Content>
-      </TooltipPrimitive.Portal>
-    </TooltipPrimitive.Root>
+          <TooltipArrow class="fill-foreground" />
+        </TooltipContent>
+      </TooltipPortal>
+    </TooltipRoot>
   );
 }

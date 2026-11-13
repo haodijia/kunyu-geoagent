@@ -1,6 +1,5 @@
 export const shell = {
   api: {
-    runtimeUnavailable: "桌面运行时连接不可用。",
     eventStreamMissingBody: "事件流响应缺少正文。",
     invalidPath: (path: string) => `接口路径必须以 /api/ 开头：${path}`,
     requestFailed: (status: number) => `请求失败（${status}）。`,

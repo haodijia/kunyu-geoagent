@@ -24,7 +24,9 @@ export function collectReplyCopyRows(
     const content = blocks.get(message.id);
     if (content === undefined) continue;
     const segments = content.flatMap((block) =>
-      block.type === "text" && block.text.trim().length > 0 ? [block.text.trim()] : [],
+      block.type === "text" && block.text.trim().length > 0
+        ? [block.text.trim()]
+        : [],
     );
     if (segments.length > 0) {
       lastTextId = message.id;
@@ -34,13 +36,29 @@ export function collectReplyCopyRows(
   if (!processing) finish();
   return rows;
 }
-
-export function formatMessageTime(timestamp: string, now = new Date(), locale = "zh-CN"): string {
+export function formatMessageTime(
+  timestamp: string,
+  now = new Date(),
+  locale = "zh-CN",
+): string {
   const date = new Date(timestamp);
   const sameYear = date.getFullYear() === now.getFullYear();
-  const today = sameYear && date.getMonth() === now.getMonth() && date.getDate() === now.getDate();
+  const today =
+    sameYear &&
+    date.getMonth() === now.getMonth() &&
+    date.getDate() === now.getDate();
   return new Intl.DateTimeFormat(locale, {
-    ...(today ? {} : { ...(sameYear ? {} : { year: "numeric" }), month: "2-digit", day: "2-digit" }),
+    ...(today
+      ? {}
+      : {
+          ...(sameYear
+            ? {}
+            : {
+                year: "numeric",
+              }),
+          month: "2-digit",
+          day: "2-digit",
+        }),
     hour: "2-digit",
     minute: "2-digit",
   }).format(date);

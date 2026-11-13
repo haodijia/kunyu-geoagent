@@ -10,24 +10,20 @@ import type {
   TrajectoryCellProps,
   TrajectoryTurnModel,
 } from "@/features/events/trajectory/trajectory-model";
-
 interface TimelineRecordDetail {
   decodingMs?: number;
   durationMs?: number;
   startedAt?: number;
   ttftMs?: number;
 }
-
 interface FractionRange {
   start: number;
   end: number;
 }
-
 export interface HoverPoint {
   fraction: number;
   recordIndex: number | null;
 }
-
 export interface PanGesture {
   anchorClientX: number;
   anchorStart: number;
@@ -35,7 +31,6 @@ export interface PanGesture {
   pannable: boolean;
   pointerId: number;
 }
-
 function assistantTimingDetail(
   metrics: AssistantMetricDetail | undefined,
 ): Pick<TimelineRecordDetail, "ttftMs" | "decodingMs"> {
@@ -54,9 +49,11 @@ function assistantTimingDetail(
     completed < first
   )
     return {};
-  return { ttftMs: first - start, decodingMs: completed - first };
+  return {
+    ttftMs: first - start,
+    decodingMs: completed - first,
+  };
 }
-
 export function timelineRecordDetail(
   cell: TrajectoryCellProps,
 ): TimelineRecordDetail {
@@ -69,12 +66,19 @@ export function timelineRecordDetail(
       ? undefined
       : cell.startedAt;
   return {
-    ...(durationMs === undefined ? {} : { durationMs }),
-    ...(startedAt === undefined ? {} : { startedAt }),
+    ...(durationMs === undefined
+      ? {}
+      : {
+          durationMs,
+        }),
+    ...(startedAt === undefined
+      ? {}
+      : {
+          startedAt,
+        }),
     ...assistantTimingDetail(cell.assistantMetrics),
   };
 }
-
 function timelineKindLabel(
   kind: TrajectoryCellKind,
   t: TrajectoryTranslate,
@@ -96,7 +100,6 @@ function timelineKindLabel(
       return t("kind.subtool");
   }
 }
-
 function formatRecordedTime(timestamp: number): string {
   return new Date(timestamp).toLocaleTimeString(undefined, {
     hour: "2-digit",
@@ -105,7 +108,6 @@ function formatRecordedTime(timestamp: number): string {
     fractionalSecondDigits: 3,
   });
 }
-
 export function timelineTooltipLabel(
   kind: TrajectoryCellKind,
   detail: TimelineRecordDetail | undefined,
@@ -123,10 +125,10 @@ export function timelineTooltipLabel(
     detail.startedAt === undefined
       ? null
       : detail.durationMs === undefined
-        ? t("timeline.started", { time: formatRecordedTime(detail.startedAt) })
-        : `${formatRecordedTime(detail.startedAt)} → ${formatRecordedTime(
-            detail.startedAt + detail.durationMs,
-          )}`;
+        ? t("timeline.started", {
+            time: formatRecordedTime(detail.startedAt),
+          })
+        : `${formatRecordedTime(detail.startedAt)} → ${formatRecordedTime(detail.startedAt + detail.durationMs)}`;
   const segments =
     detail.ttftMs === undefined || detail.decodingMs === undefined
       ? null
@@ -161,17 +163,20 @@ export interface TrajectoryTimelineProps {
   /** Bring the nearest record into view after clicking timeline whitespace. */
   onRecordFocus?: (index: number) => void;
 }
-
 export function orderedRange(left: number, right: number): FractionRange {
   return left <= right
-    ? { start: left, end: right }
-    : { start: right, end: left };
+    ? {
+        start: left,
+        end: right,
+      }
+    : {
+        start: right,
+        end: left,
+      };
 }
-
 export function clampFraction(value: number): number {
   return Math.min(1, Math.max(0, value));
 }
-
 export function centeredRange(
   center: number,
   width: number,
@@ -183,9 +188,11 @@ export function centeredRange(
     Math.max(center - clampedWidth / 2, minimum),
     maximum - clampedWidth,
   );
-  return { start, end: start + clampedWidth };
+  return {
+    start,
+    end: start + clampedWidth,
+  };
 }
-
 export function rangeFraction(
   range: TrajectoryTimeRange,
   start: number,

@@ -1,7 +1,13 @@
 import type { HumanQuestion } from "@/features/questions/api";
+import { refSetter } from "@/lib/lifecycle";
 import { zhCN } from "@/locales/zh-CN";
-import { useState } from "react";
-
+import {
+  computed,
+  shallowReactive,
+  shallowRef,
+  toValue,
+  type MaybeRefOrGetter,
+} from "vue";
 export interface AnswerDraft {
   readonly selected: readonly string[];
   readonly custom: string;
@@ -52,37 +58,60 @@ function valid(value: unknown, question: HumanQuestion): value is Progress {
     })
   );
 }
-export function useQuestionDraft(question: HumanQuestion) {
-  const key = `kunyu.questions.${question.session_id}.${question.id}`;
-  const [state, setState] = useState<{
-    progress: Progress | null;
-    error: string | null;
-  }>(() => {
-    try {
-      const raw = sessionStorage.getItem(key);
-      if (raw === null) return { progress: empty(question), error: null };
-      const value: unknown = JSON.parse(raw);
-      if (!valid(value, question)) throw new Error("Invalid question draft.");
-      return { progress: value, error: null };
-    } catch (error) {
-      console.error("[questions] Failed to restore answer draft.", {
-        id: question.id,
-        error,
-      });
-      return { progress: null, error: zhCN.questions.draftReadFailed };
-    }
-  });
+export function useQuestionDraft(question: MaybeRefOrGetter<HumanQuestion>) {
+  const key = computed(
+    () =>
+      `kunyu.questions.${toValue(question).session_id}.${toValue(question).id}`,
+  );
+  const state = shallowRef<{
+      progress: Progress | null;
+      error: string | null;
+    }>(
+      (() => {
+        try {
+          const raw = sessionStorage.getItem(key.value);
+          if (raw === null)
+            return {
+              progress: empty(toValue(question)),
+              error: null,
+            };
+          const value: unknown = JSON.parse(raw);
+          if (!valid(value, toValue(question)))
+            throw new Error("Invalid question draft.");
+          return {
+            progress: value,
+            error: null,
+          };
+        } catch (error) {
+          console.error("[questions] Failed to restore answer draft.", {
+            id: toValue(question).id,
+            error,
+          });
+          return {
+            progress: null,
+            error: zhCN.questions.draftReadFailed,
+          };
+        }
+      })(),
+    ),
+    setState = refSetter(state);
   function replace(index: number, drafts: readonly AnswerDraft[]) {
-    const progress = { index, drafts };
-    if (!valid(progress, question))
+    const progress = {
+      index,
+      drafts,
+    };
+    if (!valid(progress, toValue(question)))
       throw new Error("Invalid question progress.");
     try {
-      sessionStorage.setItem(key, JSON.stringify(progress));
-      setState({ progress, error: null });
+      sessionStorage.setItem(key.value, JSON.stringify(progress));
+      setState({
+        progress,
+        error: null,
+      });
       return true;
     } catch (error) {
       console.error("[questions] Failed to save answer draft.", {
-        id: question.id,
+        id: toValue(question).id,
         error,
       });
       setState((current) => ({
@@ -94,11 +123,14 @@ export function useQuestionDraft(question: HumanQuestion) {
   }
   function reset() {
     try {
-      sessionStorage.removeItem(key);
-      setState({ progress: empty(question), error: null });
+      sessionStorage.removeItem(key.value);
+      setState({
+        progress: empty(toValue(question)),
+        error: null,
+      });
     } catch (error) {
       console.error("[questions] Failed to reset answer draft.", {
-        id: question.id,
+        id: toValue(question).id,
         error,
       });
       setState((current) => ({
@@ -108,7 +140,23 @@ export function useQuestionDraft(question: HumanQuestion) {
     }
   }
   function clear() {
-    sessionStorage.removeItem(key);
+    sessionStorage.removeItem(key.value);
   }
-  return { ...state, replace, reset, clear };
+  return shallowReactive({
+    get progress() {
+      return state.value.progress;
+    },
+    get error() {
+      return state.value.error;
+    },
+    get replace() {
+      return replace;
+    },
+    get reset() {
+      return reset;
+    },
+    get clear() {
+      return clear;
+    },
+  });
 }

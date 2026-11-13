@@ -1,16 +1,10 @@
-import type { Attachment } from "@/features/attachments/api";
 import { requestJson } from "@/api/client";
-import type { MapContext } from "@/features/sessions/map-context";
 import type { AgentTurn } from "@/features/agent/api";
+import type { Attachment } from "@/features/attachments/api";
 import type { SessionEvent } from "@/features/events/api";
-
+import type { MapContext } from "@/features/sessions/map-context";
 export type MessageStatus =
-  | "streaming"
-  | "completed"
-  | "interrupted"
-  | "failed"
-  | "cancelled";
-
+  "streaming" | "completed" | "interrupted" | "failed" | "cancelled";
 export interface SessionMessage {
   readonly id: string;
   readonly session_id: string;
@@ -27,21 +21,20 @@ export interface SessionMessage {
   readonly created_at: string;
   readonly updated_at: string;
 }
-
 export const messageQueryKeys = {
-  session: (sessionId: string) => ["sessions", sessionId, "messages"] as const
+  session: (sessionId: string) => ["sessions", sessionId, "messages"] as const,
 };
-
 export function listMessages(
   sessionId: string,
-  signal?: AbortSignal
+  signal?: AbortSignal,
 ): Promise<SessionMessage[]> {
   return requestJson<SessionMessage[]>(
     `/api/v1/sessions/${encodeURIComponent(sessionId)}/messages`,
-    { signal }
+    {
+      signal,
+    },
   );
 }
-
 export function appendUserMessage(
   sessionId: string,
   idempotencyKey: string,
@@ -53,19 +46,22 @@ export function appendUserMessage(
     readonly modelId: string;
     readonly reasoningEffort: string | null;
     readonly mapContext: MapContext;
-  }
+  },
 ): Promise<AcceptedMessage> {
   return requestJson<AcceptedMessage>(
     `/api/v1/sessions/${encodeURIComponent(sessionId)}/messages`,
     {
       method: "POST",
-      headers: { "Idempotency-Key": idempotencyKey },
-      body: JSON.stringify(serializeMessageInput(input))
-    }
+      headers: {
+        "Idempotency-Key": idempotencyKey,
+      },
+      body: JSON.stringify(serializeMessageInput(input)),
+    },
   );
 }
-
-export function serializeMessageInput(input: Parameters<typeof appendUserMessage>[2]) {
+export function serializeMessageInput(
+  input: Parameters<typeof appendUserMessage>[2],
+) {
   const map = input.mapContext;
   return {
     content: input.content,
@@ -74,28 +70,28 @@ export function serializeMessageInput(input: Parameters<typeof appendUserMessage
     model_selection: {
       connection_id: input.connectionId,
       model_id: input.modelId,
-      reasoning_effort: input.reasoningEffort
+      reasoning_effort: input.reasoningEffort,
     },
     map_context: {
       workspace_id: map.workspaceId,
       selection: map.selection,
-    }
+    },
   };
 }
-
 export function injectSessionContext(
   sessionId: string,
-  content: string
+  content: string,
 ): Promise<SessionEvent> {
   return requestJson<SessionEvent>(
     `/api/v1/sessions/${encodeURIComponent(sessionId)}/context`,
     {
       method: "POST",
-      body: JSON.stringify({ content })
-    }
+      body: JSON.stringify({
+        content,
+      }),
+    },
   );
 }
-
 export interface AcceptedMessage {
   readonly message: SessionMessage;
   readonly turn: AgentTurn | null;

@@ -5,7 +5,6 @@ import {
   streamPresentation,
   type PresentedBlock,
 } from "@/features/events/stream/stream-presentation";
-
 export function collectMessageBlocks(
   records: readonly TrajectoryEventProjection[],
 ) {
@@ -24,7 +23,14 @@ export function collectMessageBlocks(
         String(record.payload.outcome),
       ) || record.payload.error_code === "OUTPUT_LIMIT";
     const thoughts = observed.filter(
-      (block): block is Extract<PresentedBlock, { type: "reasoning" }> =>
+      (
+        block,
+      ): block is Extract<
+        PresentedBlock,
+        {
+          type: "reasoning";
+        }
+      > =>
         block.type === "reasoning" &&
         (!interrupted || block.text.trim() !== ""),
     );
@@ -33,7 +39,11 @@ export function collectMessageBlocks(
       record.messageId,
       parseContentBlocks(record.payload.blocks).map(
         (block, index): PresentedBlock => {
-          if (block.type === "tool-call") return { ...block, index };
+          if (block.type === "tool-call")
+            return {
+              ...block,
+              index,
+            };
           const timing =
             block.type === "reasoning" ? thoughts[thoughtIndex++] : undefined;
           return {

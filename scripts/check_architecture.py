@@ -143,6 +143,7 @@ def frontend_target(path: Path, imported: str) -> Path | None:
         stem,
         Path(str(stem) + ".ts"),
         Path(str(stem) + ".tsx"),
+        Path(str(stem) + ".vue"),
         Path(str(stem) + ".d.ts"),
         stem / "index.ts",
         stem / "index.tsx",
@@ -154,23 +155,32 @@ def frontend_target(path: Path, imported: str) -> Path | None:
 
 def check_frontend(errors: list[str]) -> int:
     paths = sorted(
-        path for path in FRONTEND.rglob("*") if path.suffix in {".ts", ".tsx"}
+        path for path in FRONTEND.rglob("*") if path.suffix in {".ts", ".tsx", ".vue"}
     )
     for path in paths:
         relative = path.relative_to(FRONTEND).as_posix()
         pure = relative.startswith(PURE_FRONTEND)
         for match in IMPORT.finditer(path.read_text(encoding="utf-8")):
             imported = next(value for value in match.groups() if value is not None)
-            if pure and imported == "react":
+            if imported.startswith(("react", "@radix-ui/", "@dnd-kit/", "electron")):
                 errors.append(
-                    f"{relative}: data transformations must not depend on React"
+                    f"{relative}: obsolete desktop/React dependency {imported}"
+                )
+            if pure and imported in {
+                "vue",
+                "pinia",
+                "vue-router",
+                "@tanstack/vue-query",
+            }:
+                errors.append(
+                    f"{relative}: data transformations must not depend on UI frameworks"
                 )
             if not imported.startswith(("@/", ".")):
                 continue
             target = frontend_target(path, imported)
             if target is None:
                 errors.append(f"{relative}: missing import {imported}")
-            elif pure and target.suffix == ".tsx":
+            elif pure and target.suffix in {".tsx", ".vue"}:
                 errors.append(
                     f"{relative}: data transformations must not depend on UI {imported}"
                 )

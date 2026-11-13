@@ -1,0 +1,20 @@
+export const webContent = {
+  title: "坤舆智枢",
+  subtitle: "灾害遥感监测与研判工作区",
+  password: "实例访问口令",
+  enter: "进入工作区",
+  entering: "正在验证…",
+  checking: "正在连接工作区…",
+  description: "输入团队共享的实例访问口令",
+  failed: "连接失败，请检查服务状态。",
+  logout: "退出实例",
+  signedOut: "会话已结束，请重新输入实例访问口令。",
+  storage: {
+    title: "数据与存储",
+    description: "业务数据保存在服务器持久化目录中。",
+    directory: "服务器数据目录",
+    free: "可用空间",
+    total: "总空间",
+    help: "通过部署配置 KUNYU_APP_DATA_DIR 调整目录，Docker 使用 /data 持久卷。",
+  },
+};

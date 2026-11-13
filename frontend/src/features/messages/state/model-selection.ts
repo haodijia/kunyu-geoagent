@@ -2,12 +2,10 @@ import type {
   ModelCatalogEntry,
   ModelConnection,
 } from "@/features/settings/models/api";
-
 export interface UsableModel {
   readonly connection: ModelConnection;
   readonly entry: ModelCatalogEntry;
 }
-
 export function usableModelsFrom(
   connections: readonly ModelConnection[],
 ): UsableModel[] {
@@ -22,7 +20,10 @@ export function usableModelsFrom(
               entry.checks.text.status === "passed" &&
               entry.checks.tools.status === "passed",
           )
-          .map((entry) => ({ connection, entry }))
+          .map((entry) => ({
+            connection,
+            entry,
+          }))
       : [],
   );
 }

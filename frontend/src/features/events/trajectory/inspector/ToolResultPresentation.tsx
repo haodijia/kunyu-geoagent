@@ -4,16 +4,49 @@ import { collectImageOffloads } from "@/features/attachments/image-offloads";
 import { useSessionEvents } from "@/features/events/SessionEventContext";
 import type { TrajectoryRecord } from "@/features/events/trajectory/trajectory-model";
 import { useSessionWorkspace } from "@/features/sessions/SessionWorkspaceContext";
-import { useMemo } from "react";
-
-export function ToolResultPresentation({ record }: { readonly record: TrajectoryRecord }) {
-  const session = useSessionWorkspace();
-  const { records } = useSessionEvents();
-  const offloads = useMemo(() => collectImageOffloads(records), [records]);
-  const output = record.output;
-  if (record.kind !== "tool" || output === null || typeof output !== "object" || !("content" in output)) return null;
-  if (!("display" in output) || typeof record.source.tool_call_id !== "string")
-    throw new Error("Tool result has no frontend projection or source identity.");
-  const id = record.source.tool_call_id;
-  return <ToolResultView display={parseToolDisplay(output.display)} sessionId={session.id} toolCallId={id} offloadedIds={offloads.get(id)} />;
-}
+import { computed, defineComponent, toRefs } from "vue";
+export const ToolResultPresentation = defineComponent(
+  (
+    componentProps: {
+      readonly record: TrajectoryRecord;
+    },
+    { slots: _slots },
+  ) => {
+    const record = computed(() => componentProps.record);
+    const session = useSessionWorkspace();
+    const { records } = toRefs(useSessionEvents());
+    const offloads = computed(() => collectImageOffloads(records.value));
+    const output = computed(() => record.value.output);
+    const id = computed(() => record.value.source.tool_call_id);
+    return () => {
+      const _record = record.value,
+        _output = output.value,
+        _id = id.value,
+        _offloads = offloads.value;
+      if (
+        _record.kind !== "tool" ||
+        _output === null ||
+        typeof _output !== "object" ||
+        !("content" in _output)
+      )
+        return null;
+      if (!("display" in _output) || typeof _id !== "string")
+        throw new Error(
+          "Tool result has no frontend projection or source identity.",
+        );
+      return (
+        <ToolResultView
+          display={parseToolDisplay(_output.display)}
+          sessionId={session.id}
+          toolCallId={_id}
+          offloadedIds={_offloads.get(_id)}
+        />
+      );
+    };
+  },
+  {
+    name: "ToolResultPresentation",
+    inheritAttrs: false,
+    props: ["record"],
+  },
+);

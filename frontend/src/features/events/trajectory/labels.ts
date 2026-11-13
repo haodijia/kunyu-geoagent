@@ -1,8 +1,6 @@
 import type { TrajectoryEventKind } from "@/features/events/projection/events";
 import { zhCN } from "@/locales/zh-CN";
-
 const content = zhCN.trajectory;
-
 export function kindLabel(kind: TrajectoryEventKind): string {
   switch (kind) {
     case "system":

@@ -1,24 +1,19 @@
-import { useQuery } from "@tanstack/react-query";
-import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
-
 import { ApiError } from "@/api/client";
-import {
-  clearLastSessionRoute,
-  readLastSessionRoute
-} from "@/app/storage";
+import { useNavigation } from "@/app/navigation";
+import { clearLastSessionRoute, readLastSessionRoute } from "@/app/storage";
 import { Button } from "@/components/ui/button";
 import { getSession, sessionQueryKeys } from "@/features/sessions/api";
-import { parseSessionRoute, type SessionRoute } from "@/features/sessions/routes";
 import {
-  listWorkspaces,
-  workspaceQueryKeys
-} from "@/features/workspaces/api";
+  parseSessionRoute,
+  type SessionRoute,
+} from "@/features/sessions/routes";
+import { listWorkspaces, workspaceQueryKeys } from "@/features/workspaces/api";
 import { WorkspaceStartPage } from "@/features/workspaces/WorkspaceStartPage";
+import { refSetter, watchMounted } from "@/lib/lifecycle";
 import { zhCN } from "@/locales/zh-CN";
-
+import { useQuery } from "@tanstack/vue-query";
+import { computed, defineComponent, reactive, shallowRef } from "vue";
 const content = zhCN.workspaceStart;
-
 function readStoredRoute(): SessionRoute | null {
   const pathname = readLastSessionRoute();
   if (pathname === null) {
@@ -26,104 +21,183 @@ function readStoredRoute(): SessionRoute | null {
   }
   const route = parseSessionRoute(pathname);
   if (route === null) {
-    console.error("[navigation] Removing invalid stored session route.", { pathname });
+    console.error("[navigation] Removing invalid stored session route.", {
+      pathname,
+    });
     clearLastSessionRoute();
   }
   return route;
 }
-
-export function LaunchPage() {
-  const navigate = useNavigate();
-  const [storedRoute, setStoredRoute] = useState<SessionRoute | null>(readStoredRoute);
-  const workspacesQuery = useQuery({
-    queryKey: workspaceQueryKeys.all,
-    queryFn: listWorkspaces
-  });
-  const sessionQuery = useQuery({
-    queryKey: storedRoute === null
-      ? ["sessions", "restore", "none"]
-      : sessionQueryKeys.detail(storedRoute.sessionId),
-    queryFn: () => {
-      if (storedRoute === null) {
-        throw new Error("A stored session route is required for restoration.");
+export const LaunchPage = defineComponent(
+  (_props, { slots: _slots }) => {
+    const navigate = useNavigation();
+    const storedRoute = shallowRef<SessionRoute | null>(readStoredRoute()),
+      setStoredRoute = refSetter(storedRoute);
+    const workspacesQuery = reactive(
+      useQuery(
+        computed(() => ({
+          queryKey: workspaceQueryKeys.all,
+          queryFn: listWorkspaces,
+        })),
+      ),
+    );
+    const sessionQuery = reactive(
+      useQuery(
+        computed(() => ({
+          queryKey:
+            storedRoute.value === null
+              ? ["sessions", "restore", "none"]
+              : sessionQueryKeys.detail(storedRoute.value.sessionId),
+          queryFn: () => {
+            if (storedRoute.value === null) {
+              throw new Error(
+                "A stored session route is required for restoration.",
+              );
+            }
+            return getSession(storedRoute.value.sessionId);
+          },
+          enabled: storedRoute.value !== null,
+        })),
+      ),
+    );
+    watchMounted(
+      [
+        () => navigate,
+        () => sessionQuery.data,
+        () => sessionQuery.error,
+        () => storedRoute.value,
+        () => workspacesQuery.data,
+      ],
+      () => {
+        if (storedRoute.value === null || workspacesQuery.data === undefined) {
+          return;
+        }
+        if (
+          sessionQuery.error instanceof ApiError &&
+          sessionQuery.error.status === 404
+        ) {
+          clearLastSessionRoute();
+          setStoredRoute(null);
+          return;
+        }
+        if (sessionQuery.data === undefined) {
+          return;
+        }
+        const workspaceExists = workspacesQuery.data.some(
+          (workspace) => workspace.id === storedRoute.value?.workspaceId,
+        );
+        if (
+          !workspaceExists ||
+          sessionQuery.data.archived ||
+          sessionQuery.data.workspace_id !== storedRoute.value.workspaceId
+        ) {
+          clearLastSessionRoute();
+          setStoredRoute(null);
+          return;
+        }
+        void navigate(storedRoute.value.pathname, {
+          replace: true,
+        });
+      },
+    );
+    return () => {
+      if (
+        workspacesQuery.isPending ||
+        (storedRoute.value !== null && sessionQuery.isPending)
+      ) {
+        return (
+          <LaunchStatus
+            message={
+              storedRoute.value === null ? content.loading : content.restoring
+            }
+          />
+        );
       }
-      return getSession(storedRoute.sessionId);
+      if (workspacesQuery.isError) {
+        return (
+          <LaunchError
+            message={content.loadFailed}
+            onRetry={() => void workspacesQuery.refetch()}
+          />
+        );
+      }
+      if (storedRoute.value !== null) {
+        if (
+          sessionQuery.isError &&
+          !(
+            sessionQuery.error instanceof ApiError &&
+            sessionQuery.error.status === 404
+          )
+        ) {
+          return (
+            <LaunchError
+              message={content.restoreFailed}
+              onRetry={() => void sessionQuery.refetch()}
+            />
+          );
+        }
+        return <LaunchStatus message={content.restoring} />;
+      }
+      return <WorkspaceStartPage workspaces={workspacesQuery.data} />;
+    };
+  },
+  {
+    name: "LaunchPage",
+    inheritAttrs: false,
+    props: [],
+  },
+);
+const LaunchStatus = defineComponent(
+  (
+    componentProps: {
+      readonly message: string;
     },
-    enabled: storedRoute !== null
-  });
-
-  useEffect(() => {
-    if (storedRoute === null || workspacesQuery.data === undefined) {
-      return;
-    }
-    if (sessionQuery.error instanceof ApiError && sessionQuery.error.status === 404) {
-      clearLastSessionRoute();
-      setStoredRoute(null);
-      return;
-    }
-    if (sessionQuery.data === undefined) {
-      return;
-    }
-    const workspaceExists = workspacesQuery.data.some(
-      (workspace) => workspace.id === storedRoute.workspaceId
-    );
-    if (
-      !workspaceExists ||
-      sessionQuery.data.archived ||
-      sessionQuery.data.workspace_id !== storedRoute.workspaceId
-    ) {
-      clearLastSessionRoute();
-      setStoredRoute(null);
-      return;
-    }
-    void navigate(storedRoute.pathname, { replace: true });
-  }, [navigate, sessionQuery.data, sessionQuery.error, storedRoute, workspacesQuery.data]);
-
-  if (workspacesQuery.isPending || (storedRoute !== null && sessionQuery.isPending)) {
-    return <LaunchStatus message={storedRoute === null ? content.loading : content.restoring} />;
-  }
-  if (workspacesQuery.isError) {
-    return (
-      <LaunchError
-        message={content.loadFailed}
-        onRetry={() => void workspacesQuery.refetch()}
-      />
-    );
-  }
-  if (storedRoute !== null) {
-    if (sessionQuery.isError && !(sessionQuery.error instanceof ApiError && sessionQuery.error.status === 404)) {
+    { slots: _slots },
+  ) => {
+    const message = computed(() => componentProps.message);
+    return () => {
+      const _message = message.value;
       return (
-        <LaunchError
-          message={content.restoreFailed}
-          onRetry={() => void sessionQuery.refetch()}
-        />
+        <div class="flex min-h-full items-center justify-center p-8 text-sm text-muted-foreground">
+          {_message}
+        </div>
       );
-    }
-    return <LaunchStatus message={content.restoring} />;
-  }
-  return <WorkspaceStartPage workspaces={workspacesQuery.data} />;
-}
-
-function LaunchStatus({ message }: { readonly message: string }) {
-  return (
-    <div className="flex min-h-full items-center justify-center p-8 text-sm text-muted-foreground">
-      {message}
-    </div>
-  );
-}
-
+    };
+  },
+  {
+    name: "LaunchStatus",
+    inheritAttrs: false,
+    props: ["message"],
+  },
+);
 interface LaunchErrorProps {
   readonly message: string;
   readonly onRetry: () => void;
 }
-
-function LaunchError({ message, onRetry }: LaunchErrorProps) {
-  return (
-    <div className="flex min-h-full items-center justify-center p-8">
-      <div className="text-center">
-        <p className="mt-0 mb-4 text-sm text-destructive" role="alert">{message}</p>
-        <Button type="button" variant="outline" onClick={onRetry}>{content.retry}</Button>
-      </div>
-    </div>
-  );
-}
+const LaunchError = defineComponent(
+  (componentProps: LaunchErrorProps, { slots: _slots }) => {
+    const message = computed(() => componentProps.message),
+      onRetry = computed(() => componentProps.onRetry);
+    return () => {
+      const _message2 = message.value,
+        _onRetry = onRetry.value;
+      return (
+        <div class="flex min-h-full items-center justify-center p-8">
+          <div class="text-center">
+            <p class="mt-0 mb-4 text-sm text-destructive" role="alert">
+              {_message2}
+            </p>
+            <Button type="button" variant="outline" onClick={_onRetry}>
+              {content.retry}
+            </Button>
+          </div>
+        </div>
+      );
+    };
+  },
+  {
+    name: "LaunchError",
+    inheritAttrs: false,
+    props: ["message", "onRetry"],
+  },
+);

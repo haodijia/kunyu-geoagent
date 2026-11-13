@@ -1,16 +1,4 @@
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import {
-  ChevronRight,
-  Download,
-  LoaderCircle,
-  Plus,
-  RefreshCw,
-  Sparkles,
-} from "lucide-react";
-import { useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
-import { toast } from "sonner";
-
+import { useNavigation } from "@/app/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -18,87 +6,212 @@ import {
   SettingsPageWrapper,
 } from "@/features/settings/SettingsPage";
 import { skillQueryKeys, skillsApi } from "@/features/skills/api";
+import { refSetter } from "@/lib/lifecycle";
 import { zhCN } from "@/locales/zh-CN";
-
+import { useMutation, useQuery, useQueryClient } from "@tanstack/vue-query";
+import {
+  ChevronRight,
+  Download,
+  LoaderCircle,
+  Plus,
+  RefreshCw,
+  Sparkles,
+} from "lucide-vue-next";
+import { computed, defineComponent, reactive, shallowRef } from "vue";
+import { RouterLink } from "vue-router";
+import { toast } from "vue-sonner";
 const content = zhCN.skills;
-
-export function SkillsPage() {
-  const queryClient = useQueryClient();
-  const navigate = useNavigate();
-  const [search, setSearch] = useState("");
-  const [importOpen, setImportOpen] = useState(false);
-  const [path, setPath] = useState("");
-  const catalog = useQuery({ queryKey: skillQueryKeys.catalog, queryFn: skillsApi.list });
-  const importSkill = useMutation({
-    mutationFn: () => skillsApi.import(path.trim()),
-    onSuccess: async (skill) => {
-      await queryClient.invalidateQueries({ queryKey: skillQueryKeys.all });
-      toast.success(content.imported);
-      void navigate(`/settings/skills/view/${encodeURIComponent(skill.name)}`);
-    },
-    onError: (error) => console.error("[skills] Import failed.", error),
-  });
-  const skills = catalog.data?.skills.filter((skill) =>
-    `${skill.name} ${skill.description} ${skill.when_to_use === null ? "" : skill.when_to_use}`.toLowerCase().includes(search.toLowerCase()),
-  );
-
-  return (
-    <SettingsPageWrapper>
-      <SettingsPageHeader title={content.title} description={content.description} actions={
-        <>
-          <Button variant="ghost" size="icon" aria-label={content.refresh} disabled={catalog.isFetching}
-            onClick={() => void catalog.refetch()}>
-            <RefreshCw className={`size-4 ${catalog.isFetching ? "animate-spin" : ""}`} />
-          </Button>
-          <Button variant="outline" onClick={() => setImportOpen((value) => !value)}>
-            <Download className="size-4" />{content.import}
-          </Button>
-          <Button asChild><Link to="/settings/skills/new"><Plus className="size-4" />{content.create}</Link></Button>
-        </>
-      } />
-      {importOpen ? (
-        <form className="mt-6 flex flex-col gap-3 rounded-xl border border-border bg-card p-4"
-          onSubmit={(event) => { event.preventDefault(); importSkill.mutate(); }}>
-          <label className="flex flex-col gap-2 text-[13px]">
-            <span className="font-medium">{content.importPath}</span>
-            <Input value={path} onChange={(event) => setPath(event.target.value)}
-              placeholder={content.importPlaceholder} disabled={importSkill.isPending} />
-          </label>
-          <p className="m-0 text-xs leading-5 text-muted-foreground">{content.importHelp}</p>
-          {importSkill.isError ? <p className="m-0 text-xs text-destructive" role="alert">{importSkill.error.message}</p> : null}
-          <div className="flex justify-end">
-            <Button type="submit" disabled={!path.trim() || importSkill.isPending}>
-              {importSkill.isPending ? <LoaderCircle className="size-4 animate-spin" /> : null}{content.import}
-            </Button>
-          </div>
-        </form>
-      ) : null}
-      <div className="my-6 flex flex-col gap-2">
-        <Input aria-label={content.search} placeholder={content.search} value={search} onChange={(event) => setSearch(event.target.value)} />
-        {catalog.data ? <p className="m-0 text-xs text-muted-foreground [overflow-wrap:anywhere]">{content.directory} · {catalog.data.directory}</p> : null}
-      </div>
-      {catalog.isPending ? <p className="text-sm text-muted-foreground">{content.loading}</p> : null}
-      {catalog.isError ? <p className="text-sm text-destructive" role="alert">{catalog.error.message}</p> : null}
-      {skills?.length === 0 ? <p className="text-sm text-muted-foreground">{content.empty}</p> : null}
-      <div className="settings-list">
-        {skills?.map((skill) => (
-          <Link key={skill.name} to={`/settings/skills/view/${encodeURIComponent(skill.name)}`}
-            className="flex min-w-0 items-center gap-3 py-4 text-foreground no-underline transition-colors hover:bg-muted/50">
-            <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-muted"><Sparkles className="size-5" /></span>
-            <div className="min-w-0 flex-1">
-              <div className="flex flex-wrap items-center gap-2">
-                <span className="text-sm font-medium">{skill.name}</span>
-                <span className="rounded bg-muted px-1.5 py-0.5 text-[10px] text-muted-foreground">{content.sources[skill.source as keyof typeof content.sources] ?? skill.source}</span>
-                {!skill.model_invocable ? <span className="text-[11px] text-muted-foreground">{content.modelDisabled}</span> : null}
-                {!skill.user_invocable ? <span className="text-[11px] text-muted-foreground">{content.userDisabled}</span> : null}
+export const SkillsPage = defineComponent(
+  (_props, { slots: _slots }) => {
+    const queryClient = useQueryClient();
+    const navigate = useNavigation();
+    const search = shallowRef(""),
+      setSearch = refSetter(search);
+    const importOpen = shallowRef(false),
+      setImportOpen = refSetter(importOpen);
+    const path = shallowRef(""),
+      setPath = refSetter(path);
+    const catalog = reactive(
+      useQuery(
+        computed(() => ({
+          queryKey: skillQueryKeys.catalog,
+          queryFn: skillsApi.list,
+        })),
+      ),
+    );
+    const importSkill = reactive(
+      useMutation({
+        mutationFn: () => skillsApi.import(path.value.trim()),
+        onSuccess: async (skill) => {
+          await queryClient.invalidateQueries({
+            queryKey: skillQueryKeys.all,
+          });
+          toast.success(content.imported);
+          void navigate(
+            `/settings/skills/view/${encodeURIComponent(skill.name)}`,
+          );
+        },
+        onError: (error) => console.error("[skills] Import failed.", error),
+      }),
+    );
+    const skills = computed(() =>
+      catalog.data?.skills.filter((skill) =>
+        `${skill.name} ${skill.description} ${skill.when_to_use === null ? "" : skill.when_to_use}`
+          .toLowerCase()
+          .includes(search.value.toLowerCase()),
+      ),
+    );
+    return () => {
+      const _skills = skills.value;
+      return (
+        <SettingsPageWrapper>
+          <SettingsPageHeader
+            title={content.title}
+            description={content.description}
+            actions={
+              <>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  aria-label={content.refresh}
+                  disabled={catalog.isFetching}
+                  onClick={() => void catalog.refetch()}
+                >
+                  <RefreshCw
+                    class={`size-4 ${catalog.isFetching ? "animate-spin" : ""}`}
+                  />
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={() => setImportOpen((value) => !value)}
+                >
+                  <Download class="size-4" />
+                  {content.import}
+                </Button>
+                <Button asChild>
+                  <RouterLink to="/settings/skills/new">
+                    <Plus class="size-4" />
+                    {content.create}
+                  </RouterLink>
+                </Button>
+              </>
+            }
+          />
+          {importOpen.value ? (
+            <form
+              class="mt-6 flex flex-col gap-3 rounded-xl border border-border bg-card p-4"
+              onSubmit={(event) => {
+                event.preventDefault();
+                importSkill.mutate();
+              }}
+            >
+              <label class="flex flex-col gap-2 text-[13px]">
+                <span class="font-medium">{content.importPath}</span>
+                <Input
+                  value={path.value}
+                  onInput={(event) =>
+                    setPath((event.target as HTMLInputElement).value)
+                  }
+                  placeholder={content.importPlaceholder}
+                  disabled={importSkill.isPending}
+                />
+              </label>
+              <p class="m-0 text-xs leading-5 text-muted-foreground">
+                {content.importHelp}
+              </p>
+              {importSkill.isError ? (
+                <p class="m-0 text-xs text-destructive" role="alert">
+                  {importSkill.error.message}
+                </p>
+              ) : null}
+              <div class="flex justify-end">
+                <Button
+                  type="submit"
+                  disabled={!path.value.trim() || importSkill.isPending}
+                >
+                  {importSkill.isPending ? (
+                    <LoaderCircle class="size-4 animate-spin" />
+                  ) : null}
+                  {content.import}
+                </Button>
               </div>
-              <p className="m-0 mt-1 line-clamp-2 text-xs leading-5 text-muted-foreground">{skill.description}</p>
-              {skill.when_to_use !== null && <p className="m-0 mt-1 line-clamp-2 text-xs leading-5 text-muted-foreground">{content.whenToUse} · {skill.when_to_use}</p>}
-            </div>
-            <ChevronRight className="size-4 shrink-0 text-muted-foreground" />
-          </Link>
-        ))}
-      </div>
-    </SettingsPageWrapper>
-  );
-}
+            </form>
+          ) : null}
+          <div class="my-6 flex flex-col gap-2">
+            <Input
+              aria-label={content.search}
+              placeholder={content.search}
+              value={search.value}
+              onInput={(event) =>
+                setSearch((event.target as HTMLInputElement).value)
+              }
+            />
+            {catalog.data ? (
+              <p class="m-0 text-xs text-muted-foreground [overflow-wrap:anywhere]">
+                {content.directory} · {catalog.data.directory}
+              </p>
+            ) : null}
+          </div>
+          {catalog.isPending ? (
+            <p class="text-sm text-muted-foreground">{content.loading}</p>
+          ) : null}
+          {catalog.isError ? (
+            <p class="text-sm text-destructive" role="alert">
+              {catalog.error.message}
+            </p>
+          ) : null}
+          {_skills?.length === 0 ? (
+            <p class="text-sm text-muted-foreground">{content.empty}</p>
+          ) : null}
+          <div class="settings-list">
+            {_skills?.map((skill) => (
+              <RouterLink
+                key={skill.name}
+                to={`/settings/skills/view/${encodeURIComponent(skill.name)}`}
+                class="flex min-w-0 items-center gap-3 py-4 text-foreground no-underline transition-colors hover:bg-muted/50"
+              >
+                <span class="flex size-10 shrink-0 items-center justify-center rounded-xl bg-muted">
+                  <Sparkles class="size-5" />
+                </span>
+                <div class="min-w-0 flex-1">
+                  <div class="flex flex-wrap items-center gap-2">
+                    <span class="text-sm font-medium">{skill.name}</span>
+                    <span class="rounded bg-muted px-1.5 py-0.5 text-[10px] text-muted-foreground">
+                      {content.sources[
+                        skill.source as keyof typeof content.sources
+                      ] ?? skill.source}
+                    </span>
+                    {!skill.model_invocable ? (
+                      <span class="text-[11px] text-muted-foreground">
+                        {content.modelDisabled}
+                      </span>
+                    ) : null}
+                    {!skill.user_invocable ? (
+                      <span class="text-[11px] text-muted-foreground">
+                        {content.userDisabled}
+                      </span>
+                    ) : null}
+                  </div>
+                  <p class="m-0 mt-1 line-clamp-2 text-xs leading-5 text-muted-foreground">
+                    {skill.description}
+                  </p>
+                  {skill.when_to_use !== null && (
+                    <p class="m-0 mt-1 line-clamp-2 text-xs leading-5 text-muted-foreground">
+                      {content.whenToUse} · {skill.when_to_use}
+                    </p>
+                  )}
+                </div>
+                <ChevronRight class="size-4 shrink-0 text-muted-foreground" />
+              </RouterLink>
+            ))}
+          </div>
+        </SettingsPageWrapper>
+      );
+    };
+  },
+  {
+    name: "SkillsPage",
+    inheritAttrs: false,
+    props: [],
+  },
+);

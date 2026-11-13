@@ -1,5 +1,4 @@
 import { requestJson } from "@/api/client";
-
 export interface SubmittedPlan {
   readonly tool_call_id: string;
   readonly title: string;

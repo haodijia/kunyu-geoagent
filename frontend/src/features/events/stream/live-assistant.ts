@@ -6,7 +6,6 @@ import {
   type AssistantStreamRecord,
   type StreamChunk,
 } from "@/features/events/stream/assistant-stream";
-
 export interface ActiveAssistant {
   readonly attempt_id: string;
   readonly run_id: string;
@@ -50,9 +49,10 @@ export type AssistantFrame =
             readonly sequence: number;
             readonly outcome: string;
           }
-        | { readonly kind: "abandoned" };
+        | {
+            readonly kind: "abandoned";
+          };
     };
-
 export function parseAssistantBaseline(value: unknown): AssistantBaseline {
   if (
     !object(value) ||
@@ -159,7 +159,11 @@ export class LiveAssistantStream {
         throw new Error(
           "Assistant stream start requires a settled predecessor and durable boundary.",
         );
-      this.active = { ...frame, next_index: 0, stream: [] };
+      this.active = {
+        ...frame,
+        next_index: 0,
+        stream: [],
+      };
       this.settlement = null;
     } else {
       const active = this.active;
@@ -196,7 +200,6 @@ export class LiveAssistantStream {
     return this.active;
   }
 }
-
 function appendChunk(
   stream: readonly AssistantStreamRecord[],
   time: number,
@@ -224,12 +227,24 @@ function appendChunk(
     }
     return [
       ...stream,
-      { type, time0: time, index: chunk.index, dt: [], texts: [chunk.text] },
+      {
+        type,
+        time0: time,
+        index: chunk.index,
+        dt: [],
+        texts: [chunk.text],
+      },
     ];
   }
-  return [...stream, { type: "chunk", time, chunk }];
+  return [
+    ...stream,
+    {
+      type: "chunk",
+      time,
+      chunk,
+    },
+  ];
 }
-
 function object(value: unknown): value is Record<string, unknown> {
   return value !== null && typeof value === "object" && !Array.isArray(value);
 }

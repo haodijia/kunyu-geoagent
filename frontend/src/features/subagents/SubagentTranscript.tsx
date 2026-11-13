@@ -16,54 +16,82 @@ import { getSession } from "@/features/sessions/api";
 import { SessionWorkspaceProvider } from "@/features/sessions/SessionWorkspaceContext";
 import type { Subagent } from "@/features/subagents/api";
 import css from "@/features/subagents/subagents.module.css";
+import { refSetter, watchMounted } from "@/lib/lifecycle";
 import { zhCN } from "@/locales/zh-CN";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useEffect, useMemo, useState } from "react";
-
-export function SubagentTranscript({
-  child,
-  tab,
-}: {
-  readonly child: Subagent;
-  readonly tab: "conversation" | "trajectory";
-}) {
-  return (
-    <SessionEventProvider key={child.child_id} sessionId={child.child_id}>
-      <Transcript child={child} tab={tab} />
-    </SessionEventProvider>
-  );
-}
-function Transcript({
-  child,
-  tab,
-}: {
-  readonly child: Subagent;
-  readonly tab: "conversation" | "trajectory";
-}) {
-  const stream = useSessionEvents(),
-    client = useQueryClient();
-  const key = ["subagent-transcript", child.child_id] as const;
-  const query = useQuery({
-    queryKey: key,
-    queryFn: async ({ signal }) => {
-      const [session, messages, turns] = await Promise.all([
-        getSession(child.child_id),
-        listMessages(child.child_id, signal),
-        listAgentTurns(child.child_id),
-      ]);
-      return { session, messages, turns };
+import { useQuery, useQueryClient } from "@tanstack/vue-query";
+import { computed, defineComponent, reactive, shallowRef } from "vue";
+export const SubagentTranscript = defineComponent(
+  (
+    componentProps: {
+      readonly child: Subagent;
+      readonly tab: "conversation" | "trajectory";
     },
-    retry: false,
-  });
-  const revision = stream.events.at(-1)?.sequence;
-  useEffect(() => {
-    if (revision !== undefined)
-      void client.invalidateQueries({
-        queryKey: ["subagent-transcript", child.child_id],
-      });
-  }, [client, child.child_id, revision]);
-  const records = useMemo(
-    () =>
+    { slots: _slots },
+  ) => {
+    const child = computed(() => componentProps.child),
+      tab = computed(() => componentProps.tab);
+    return () => {
+      const _child = child.value,
+        _tab = tab.value;
+      return (
+        <SessionEventProvider key={_child.child_id} sessionId={_child.child_id}>
+          <Transcript child={_child} tab={_tab} />
+        </SessionEventProvider>
+      );
+    };
+  },
+  {
+    name: "SubagentTranscript",
+    inheritAttrs: false,
+    props: ["child", "tab"],
+  },
+);
+const Transcript = defineComponent(
+  (
+    componentProps: {
+      readonly child: Subagent;
+      readonly tab: "conversation" | "trajectory";
+    },
+    { slots: _slots },
+  ) => {
+    const child = computed(() => componentProps.child),
+      tab = computed(() => componentProps.tab);
+    const stream = useSessionEvents(),
+      client = useQueryClient();
+    const key = computed(
+      () => ["subagent-transcript", child.value.child_id] as const,
+    );
+    const query = reactive(
+      useQuery(
+        computed(() => ({
+          queryKey: key.value,
+          queryFn: async ({ signal }: { signal: AbortSignal }) => {
+            const [session, messages, turns] = await Promise.all([
+              getSession(child.value.child_id),
+              listMessages(child.value.child_id, signal),
+              listAgentTurns(child.value.child_id),
+            ]);
+            return {
+              session,
+              messages,
+              turns,
+            };
+          },
+          retry: false,
+        })),
+      ),
+    );
+    const revision = computed(() => stream.events.at(-1)?.sequence);
+    watchMounted(
+      [() => client, () => child.value.child_id, () => revision.value],
+      () => {
+        if (revision.value !== undefined)
+          void client.invalidateQueries({
+            queryKey: ["subagent-transcript", child.value.child_id],
+          });
+      },
+    );
+    const records = computed(() =>
       query.data === undefined
         ? []
         : conversationAssembler.assemble("trajectory", {
@@ -73,83 +101,99 @@ function Transcript({
             events: stream.records,
             activeAssistant: stream.activeAssistant,
           }).records,
-    [query.data, stream.records, stream.activeAssistant],
-  );
-  const [selected, setSelected] = useState<number | null>(null);
-  const [collapsed, setCollapsed] = useState<ReadonlySet<number>>(new Set());
-  const [, setDetailWidth] = useState(440);
-  const [jump, setJump] = useState<MessageNavigation["pendingJump"]>(null);
-  const selection = records.find((record) => record.index === selected);
-  if (query.isPending)
-    return (
-      <p role="status" className="p-5 text-sm text-muted-foreground">
-        {zhCN.subagents.loading}
-      </p>
     );
-  if (query.isError)
-    return (
-      <p role="alert" className="p-5 text-sm text-destructive">
-        {zhCN.subagents.loadFailed}
-        <Button variant="ghost" onClick={() => void query.refetch()}>
-          {zhCN.conversation.retry}
-        </Button>
-      </p>
+    const selected = shallowRef<number | null>(null),
+      setSelected = refSetter(selected);
+    const collapsed = shallowRef<ReadonlySet<number>>(new Set()),
+      setCollapsed = refSetter(collapsed);
+    const _revision = shallowRef(440),
+      setDetailWidth = refSetter(_revision);
+    const jump = shallowRef<MessageNavigation["pendingJump"]>(null),
+      setJump = refSetter(jump);
+    const selection = computed(() =>
+      records.value.find((record) => record.index === selected.value),
     );
-  return (
-    <SessionWorkspaceProvider session={query.data.session}>
-      {stream.status !== "connected" && (
-        <EventStreamNotice error={stream.error} status={stream.status} />
-      )}
-      {tab === "conversation" ? (
-        <div
-          data-message-scroll
-          className="message-list-scroller h-full min-h-0 overflow-y-auto"
-        >
-          <MessageList
-            emptyState={
-              <p role="status" className="p-5 text-sm text-muted-foreground">
-                {zhCN.subagents.waitingMessages}
-              </p>
-            }
-            navigation={{
-              pendingJump: jump,
-              acknowledge: (id) =>
-                setJump((current) => (current?.id === id ? null : current)),
-            }}
-            messages={query.data.messages}
-            turns={query.data.turns}
-            confirmations={[]}
-          />
-        </div>
-      ) : (
-        <div className={css.trace}>
-          <TrajectoryLedger
-            records={records}
-            selectedIndex={selected}
-            focusedIndex={null}
-            searchMatches={null}
-            rangeMatches={null}
-            onSelect={setSelected}
-            collapsedTurns={collapsed}
-            onToggleTurn={(turn) =>
-              setCollapsed((current) => {
-                const next = new Set(current);
-                if (next.has(turn)) next.delete(turn);
-                else next.add(turn);
-                return next;
-              })
-            }
-          />
-          {selection !== undefined && (
-            <TrajectoryInspector
-              key={selection.id}
-              record={selection}
-              onClose={() => setSelected(null)}
-              onWidthChange={setDetailWidth}
-            />
+    return () => {
+      const _tab2 = tab.value,
+        _records = records.value,
+        _selection = selection.value;
+      if (query.isPending)
+        return (
+          <p role="status" class="p-5 text-sm text-muted-foreground">
+            {zhCN.subagents.loading}
+          </p>
+        );
+      if (query.isError)
+        return (
+          <p role="alert" class="p-5 text-sm text-destructive">
+            {zhCN.subagents.loadFailed}
+            <Button variant="ghost" onClick={() => void query.refetch()}>
+              {zhCN.conversation.retry}
+            </Button>
+          </p>
+        );
+      return (
+        <SessionWorkspaceProvider session={query.data.session}>
+          {stream.status !== "connected" && (
+            <EventStreamNotice error={stream.error} status={stream.status} />
           )}
-        </div>
-      )}
-    </SessionWorkspaceProvider>
-  );
-}
+          {_tab2 === "conversation" ? (
+            <div
+              data-message-scroll
+              class="message-list-scroller h-full min-h-0 overflow-y-auto"
+            >
+              <MessageList
+                emptyState={
+                  <p role="status" class="p-5 text-sm text-muted-foreground">
+                    {zhCN.subagents.waitingMessages}
+                  </p>
+                }
+                navigation={{
+                  pendingJump: jump.value,
+                  acknowledge: (id) =>
+                    setJump((current) => (current?.id === id ? null : current)),
+                }}
+                messages={query.data.messages}
+                turns={query.data.turns}
+                confirmations={[]}
+              />
+            </div>
+          ) : (
+            <div class={css.trace}>
+              <TrajectoryLedger
+                records={_records}
+                selectedIndex={selected.value}
+                focusedIndex={null}
+                searchMatches={null}
+                rangeMatches={null}
+                onSelect={setSelected}
+                collapsedTurns={collapsed.value}
+                onToggleTurn={(turn) =>
+                  setCollapsed((current) => {
+                    const next = new Set(current);
+                    if (next.has(turn)) next.delete(turn);
+                    else next.add(turn);
+                    return next;
+                  })
+                }
+              />
+              {_selection !== undefined && (
+                <TrajectoryInspector
+                  key={_selection.id}
+                  record={_selection}
+                  onClose={() => setSelected(null)}
+                  onWidthChange={setDetailWidth}
+                />
+              )}
+            </div>
+          )}
+        </SessionWorkspaceProvider>
+      );
+    };
+  },
+  {
+    name: "Transcript",
+    inheritAttrs: false,
+    props: ["child", "tab"],
+  },
+);

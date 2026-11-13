@@ -1,5 +1,4 @@
 import type { AnalysisOutput } from "./api";
-
 export interface RasterCategory {
   readonly value: number;
   readonly label: string;
@@ -37,7 +36,10 @@ export type RasterStyle =
       readonly color_ramp: "viridis" | "blue" | "gray";
       readonly stretch: unknown;
     }
-  | { readonly type: "rgb"; readonly stretch: unknown };
+  | {
+      readonly type: "rgb";
+      readonly stretch: unknown;
+    };
 export interface RasterView {
   readonly id: string;
   readonly title: string;

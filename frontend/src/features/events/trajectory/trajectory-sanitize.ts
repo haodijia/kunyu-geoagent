@@ -13,7 +13,6 @@ const SENSITIVE_FIELDS = [
   "secret",
   "token",
 ];
-
 export function sanitizeTrajectoryValue(value: unknown, depth = 0): unknown {
   if (depth > 8) return "[内容过深]";
   if (typeof value === "string") return value.replace(SENSITIVE_TEXT, REDACTED);
@@ -31,7 +30,6 @@ export function sanitizeTrajectoryValue(value: unknown, depth = 0): unknown {
   }
   return value;
 }
-
 function isSensitiveField(key: string): boolean {
   const normalized = key.replace(/[^a-z0-9]/gi, "").toLocaleLowerCase("en-US");
   return SENSITIVE_FIELDS.some(

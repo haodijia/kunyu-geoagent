@@ -2,7 +2,6 @@ import {
   timedChunks,
   type AssistantStreamRecord,
 } from "@/features/events/stream/assistant-stream";
-
 export interface GeneratingTool {
   readonly index: number;
   readonly id: string;
@@ -10,17 +9,23 @@ export interface GeneratingTool {
   readonly arguments: string;
 }
 export type PresentedBlock =
-  | (({ readonly type: "text" } | { readonly type: "reasoning" }) & {
+  | ((
+      | {
+          readonly type: "text";
+        }
+      | {
+          readonly type: "reasoning";
+        }
+    ) & {
       readonly index: number;
       readonly text: string;
       readonly startedAt: string | null;
       readonly finishedAt: string | null;
     })
-  | ({ readonly type: "tool-call" } & GeneratingTool);
-
-export function streamPresentation(
-  stream: readonly AssistantStreamRecord[],
-) {
+  | ({
+      readonly type: "tool-call";
+    } & GeneratingTool);
+export function streamPresentation(stream: readonly AssistantStreamRecord[]) {
   type Partial = {
     kind: "text" | "reasoning" | "tool-call";
     text: string;

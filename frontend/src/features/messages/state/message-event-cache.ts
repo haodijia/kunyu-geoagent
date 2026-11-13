@@ -9,12 +9,10 @@ import {
   parseContentBlocks,
 } from "@/features/events/stream/content-blocks";
 import type { SessionMessage } from "@/features/messages/api";
-
 export interface MessageEventResult {
   readonly messages: SessionMessage[];
   readonly needsSnapshot: boolean;
 }
-
 export function isMessageEvent(event: SessionEvent): boolean {
   return (
     event.event_type === "message.user.appended" ||
@@ -24,13 +22,16 @@ export function isMessageEvent(event: SessionEvent): boolean {
     event.event_type === "model.attempt.finished"
   );
 }
-
 export function applyMessageEvent(
   messages: SessionMessage[],
   event: SessionEvent,
 ): MessageEventResult {
   if (event.event_type === "message.user.appended") {
-    if ((event.payload.source === "tool-jobs" || event.payload.source === "tool-subagents")) return unchanged(messages);
+    if (
+      event.payload.source === "tool-jobs" ||
+      event.payload.source === "tool-subagents"
+    )
+      return unchanged(messages);
     return applyUserAppended(messages, event);
   }
   if (event.event_type === "message.assistant.started") {
@@ -44,9 +45,11 @@ export function applyMessageEvent(
   }
   if (event.event_type === "model.attempt.finished")
     return applyAttemptFinished(messages, event);
-  return { messages: [...messages], needsSnapshot: false };
+  return {
+    messages: [...messages],
+    needsSnapshot: false,
+  };
 }
-
 function applyUserAppended(
   messages: SessionMessage[],
   event: SessionEvent,
@@ -92,7 +95,6 @@ function applyUserAppended(
     ],
   };
 }
-
 export function mergeMessageSnapshots(
   current: readonly SessionMessage[] | undefined,
   incoming: readonly SessionMessage[],
@@ -112,7 +114,6 @@ export function mergeMessageSnapshots(
     (left, right) => left.sequence - right.sequence,
   );
 }
-
 function applyAssistantStarted(
   messages: SessionMessage[],
   event: SessionEvent,
@@ -160,7 +161,6 @@ function applyAssistantStarted(
     ],
   };
 }
-
 function applyAssistantDelta(
   messages: SessionMessage[],
   event: SessionEvent,
@@ -187,7 +187,6 @@ function applyAssistantDelta(
     return snapshotNeeded(messages);
   }
   if (current.updated_sequence >= event.sequence) return unchanged(messages);
-
   const currentCodepoints = Array.from(current.content);
   const deltaCodepoints = Array.from(text);
   if (offset > currentCodepoints.length) return snapshotNeeded(messages);
@@ -207,9 +206,11 @@ function applyAssistantDelta(
     updated_sequence: event.sequence,
     updated_at: event.occurred_at,
   };
-  return { messages: next, needsSnapshot: false };
+  return {
+    messages: next,
+    needsSnapshot: false,
+  };
 }
-
 function applyAssistantCompleted(
   messages: SessionMessage[],
   event: SessionEvent,
@@ -244,13 +245,17 @@ function applyAssistantCompleted(
     updated_sequence: event.sequence,
     updated_at: event.occurred_at,
   };
-  return { messages: next, needsSnapshot: false };
+  return {
+    messages: next,
+    needsSnapshot: false,
+  };
 }
-
 function unchanged(messages: SessionMessage[]): MessageEventResult {
-  return { messages, needsSnapshot: false };
+  return {
+    messages,
+    needsSnapshot: false,
+  };
 }
-
 function applyAttemptFinished(
   messages: SessionMessage[],
   event: SessionEvent,
@@ -290,18 +295,21 @@ function applyAttemptFinished(
     updated_sequence: event.sequence,
     updated_at: event.occurred_at,
   };
-  return { messages: next, needsSnapshot: false };
+  return {
+    messages: next,
+    needsSnapshot: false,
+  };
 }
-
 function snapshotNeeded(messages: SessionMessage[]): MessageEventResult {
-  return { messages, needsSnapshot: true };
+  return {
+    messages,
+    needsSnapshot: true,
+  };
 }
-
 function stringPayload(event: SessionEvent, key: string): string | null {
   const value = event.payload[key];
   return typeof value === "string" ? value : null;
 }
-
 function numberPayload(event: SessionEvent, key: string): number | null {
   const value = event.payload[key];
   return typeof value === "number" && Number.isSafeInteger(value) && value >= 0

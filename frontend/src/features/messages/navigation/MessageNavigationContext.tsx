@@ -1,3 +1,4 @@
+import { useNavigation } from "@/app/navigation";
 import {
   buildMessageAnchors,
   type MessageAnchor,
@@ -5,52 +6,119 @@ import {
 import { useSessionMessages } from "@/features/messages/state/SessionMessagesContext";
 import { useSessionWorkspace } from "@/features/sessions/SessionWorkspaceContext";
 import { sessionAnalysisPath } from "@/features/sessions/routes";
+import { refSetter } from "@/lib/lifecycle";
 import {
-  createContext,
-  useContext,
-  useMemo,
-  useRef,
-  useState,
-  type ReactNode,
-} from "react";
-import { useNavigate } from "react-router-dom";
-
+  computed,
+  defineComponent,
+  inject,
+  provide,
+  reactive,
+  shallowRef,
+  toRefs,
+  type InjectionKey,
+  type VNodeChild,
+} from "vue";
 export interface MessageNavigation {
   readonly anchors: readonly MessageAnchor[];
   readonly loading: boolean;
   readonly error: Error | null;
   readonly searchOpen: boolean;
   readonly setSearchOpen: (value: boolean) => void;
-  readonly pendingJump: { readonly id: number; readonly messageId: string } | null;
+  readonly pendingJump: {
+    readonly id: number;
+    readonly messageId: string;
+  } | null;
   readonly jump: (messageId: string) => void;
   readonly acknowledge: (id: number) => void;
   readonly retry: () => void;
 }
-const NavigationContext = createContext<MessageNavigation | null>(null);
-
-export function MessageNavigationProvider({ children }: { readonly children: ReactNode }) {
-  const session = useSessionWorkspace(), navigate = useNavigate();
-  const { messagesQuery } = useSessionMessages();
-  const [searchOpen, setSearchOpen] = useState(false);
-  const [pendingJump, setPendingJump] = useState<MessageNavigation["pendingJump"]>(null);
-  const nextId = useRef(0);
-  const anchors = useMemo(() => messagesQuery.data === undefined ? [] : buildMessageAnchors(messagesQuery.data), [messagesQuery.data]);
-  const value: MessageNavigation = {
-    anchors, loading: messagesQuery.isPending, error: messagesQuery.error, searchOpen, setSearchOpen, pendingJump,
-    jump: (messageId) => {
-      if (!anchors.some((anchor) => anchor.messageId === messageId)) throw new Error("The message anchor does not belong to this session.");
-      setPendingJump({ id: ++nextId.current, messageId });
-      setSearchOpen(false);
-      void navigate(sessionAnalysisPath(session.workspace_id, session.id, "conversation"));
+const NavigationContext: InjectionKey<MessageNavigation | null> =
+  Symbol("NavigationContext");
+export const MessageNavigationProvider = defineComponent(
+  (
+    _componentProps: {
+      readonly children?: VNodeChild;
     },
-    acknowledge: (id) => setPendingJump((current) => current?.id === id ? null : current),
-    retry: () => { void messagesQuery.refetch(); },
-  };
-  return <NavigationContext value={value}>{children}</NavigationContext>;
-}
-
+    { slots },
+  ) => {
+    const children = () => slots.default?.();
+    const session = useSessionWorkspace(),
+      navigate = useNavigation();
+    const { messagesQuery } = toRefs(useSessionMessages());
+    const searchOpen = shallowRef(false),
+      setSearchOpen = refSetter(searchOpen);
+    const pendingJump = shallowRef<MessageNavigation["pendingJump"]>(null),
+      setPendingJump = refSetter(pendingJump);
+    const nextId = shallowRef(0);
+    const anchors = computed(() =>
+      messagesQuery.value.data === undefined
+        ? []
+        : buildMessageAnchors(messagesQuery.value.data),
+    );
+    const value = computed<MessageNavigation>(() => ({
+      anchors: anchors.value,
+      loading: messagesQuery.value.isPending,
+      error: messagesQuery.value.error,
+      searchOpen: searchOpen.value,
+      setSearchOpen,
+      pendingJump: pendingJump.value,
+      jump: (messageId) => {
+        if (!anchors.value.some((anchor) => anchor.messageId === messageId))
+          throw new Error(
+            "The message anchor does not belong to this session.",
+          );
+        setPendingJump({
+          id: ++nextId.value,
+          messageId,
+        });
+        setSearchOpen(false);
+        void navigate(
+          sessionAnalysisPath(session.workspace_id, session.id, "conversation"),
+        );
+      },
+      acknowledge: (id) =>
+        setPendingJump((current) => (current?.id === id ? null : current)),
+      retry: () => {
+        void messagesQuery.value.refetch();
+      },
+    }));
+    provide(
+      NavigationContext,
+      reactive({
+        get anchors() {
+          return value.value.anchors;
+        },
+        get loading() {
+          return value.value.loading;
+        },
+        get error() {
+          return value.value.error;
+        },
+        get searchOpen() {
+          return value.value.searchOpen;
+        },
+        get pendingJump() {
+          return value.value.pendingJump;
+        },
+        setSearchOpen,
+        jump: (id: string) => value.value.jump(id),
+        acknowledge: (id: number) => value.value.acknowledge(id),
+        retry: () => value.value.retry(),
+      }),
+    );
+    return () => {
+      return <>{children()}</>;
+    };
+  },
+  {
+    name: "MessageNavigationProvider",
+    inheritAttrs: false,
+    props: [],
+  },
+);
 export function useMessageNavigation(): MessageNavigation {
-  const context = useContext(NavigationContext);
-  if (context === null) throw new Error("Message navigation requires its session provider.");
+  const context = inject(NavigationContext, null);
+  if (context === null)
+    throw new Error("Message navigation requires its session provider.");
   return context;
 }

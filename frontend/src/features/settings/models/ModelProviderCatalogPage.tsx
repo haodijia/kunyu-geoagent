@@ -1,7 +1,4 @@
-import { ChevronRight, Search } from "lucide-react";
-import { useMemo, useState } from "react";
-import { useNavigate } from "react-router-dom";
-
+import { useNavigation } from "@/app/navigation";
 import { Input } from "@/components/ui/input";
 import {
   displayForProvider,
@@ -16,86 +13,131 @@ import {
   SettingsPageHeader,
   SettingsPageWrapper,
 } from "@/features/settings/SettingsPage";
+import { refSetter } from "@/lib/lifecycle";
 import { zhCN } from "@/locales/zh-CN";
-
+import { ChevronRight, Search } from "lucide-vue-next";
+import { computed, defineComponent, shallowRef } from "vue";
 const content = zhCN.modelConnections;
-
-export function ModelProviderCatalogPage() {
-  const navigate = useNavigate();
-  const [query, setQuery] = useState("");
-  const [category, setCategory] = useState<ProviderCategory>("recommended");
-  const providers = useMemo(() => {
-    const normalizedQuery = query.trim().toLocaleLowerCase();
-    return providerCatalog.filter((provider) => {
-      if (category === "recommended" ? !provider.recommended : provider.category !== category) return false;
-      if (normalizedQuery === "") return true;
-      const display = displayForProvider(provider);
-      return [display.name, display.description, display.badge, provider.id]
-        .some((value) => value.toLocaleLowerCase().includes(normalizedQuery));
+export const ModelProviderCatalogPage = defineComponent(
+  (_props, { slots: _slots }) => {
+    const navigate = useNavigation();
+    const query = shallowRef(""),
+      setQuery = refSetter(query);
+    const category = shallowRef<ProviderCategory>("recommended"),
+      setCategory = refSetter(category);
+    const providers = computed(() => {
+      const normalizedQuery = query.value.trim().toLocaleLowerCase();
+      return providerCatalog.filter((provider) => {
+        if (
+          category.value === "recommended"
+            ? !provider.recommended
+            : provider.category !== category.value
+        )
+          return false;
+        if (normalizedQuery === "") return true;
+        const display = displayForProvider(provider);
+        return [
+          display.name,
+          display.description,
+          display.badge,
+          provider.id,
+        ].some((value) => value.toLocaleLowerCase().includes(normalizedQuery));
+      });
     });
-  }, [category, query]);
+    return () => {
+      const _providers = providers.value;
+      return (
+        <SettingsPageWrapper>
+          <SettingsPageHeader
+            title={content.title}
+            description={content.description}
+            actions={null}
+          />
+          <div class="model-route-page">
+            <div class="model-route-header">
+              <button
+                type="button"
+                class="model-route-header__back"
+                onClick={() => void navigate("/settings/models")}
+              >
+                {content.catalog.backToList}
+              </button>
+              <div>
+                <h2>{content.catalog.title}</h2>
+                <p>{content.catalog.description}</p>
+              </div>
+            </div>
 
-  return (
-    <SettingsPageWrapper>
-      <SettingsPageHeader title={content.title} description={content.description} actions={null} />
-      <div className="model-route-page">
-        <div className="model-route-header">
-          <button type="button" className="model-route-header__back" onClick={() => void navigate("/settings/models")}>
-            {content.catalog.backToList}
-          </button>
-          <div>
-            <h2>{content.catalog.title}</h2>
-            <p>{content.catalog.description}</p>
+            <div class="provider-catalog-toolbar">
+              <label class="provider-catalog-search">
+                <Search class="size-4" aria-hidden="true" />
+                <Input
+                  value={query.value}
+                  placeholder={content.catalog.search}
+                  aria-label={content.catalog.searchLabel}
+                  onInput={(event) =>
+                    setQuery((event.target as HTMLInputElement).value)
+                  }
+                />
+              </label>
+              <select
+                aria-label={content.catalog.category}
+                value={category.value}
+                onChange={(event) =>
+                  setCategory(
+                    (event.target as HTMLInputElement)
+                      .value as ProviderCategory,
+                  )
+                }
+              >
+                {Object.entries(providerCategoryCopy).map(([value, label]) => (
+                  <option key={value} value={value}>
+                    {label}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {_providers.length === 0 ? (
+              <div class="model-empty model-empty--compact">
+                {content.catalog.empty}
+              </div>
+            ) : (
+              <div class="provider-list">
+                {_providers.map((provider) => {
+                  const display = displayForProvider(provider);
+                  return (
+                    <button
+                      type="button"
+                      key={provider.id}
+                      class="provider-row"
+                      onClick={() =>
+                        void navigate(`/settings/models/new/${provider.id}`)
+                      }
+                    >
+                      <ProviderLogo type={provider.providerType} compact />
+                      <span class="provider-row__body">
+                        <strong>{display.name}</strong>
+                        <span>{display.description}</span>
+                      </span>
+                      <span class="model-badge">{display.badge}</span>
+                      <ChevronRight
+                        class="size-4 text-t-tertiary"
+                        aria-hidden="true"
+                      />
+                    </button>
+                  );
+                })}
+              </div>
+            )}
           </div>
-        </div>
-
-        <div className="provider-catalog-toolbar">
-          <label className="provider-catalog-search">
-            <Search className="size-4" aria-hidden="true" />
-            <Input
-              value={query}
-              placeholder={content.catalog.search}
-              aria-label={content.catalog.searchLabel}
-              onChange={(event) => setQuery(event.target.value)}
-            />
-          </label>
-          <select
-            aria-label={content.catalog.category}
-            value={category}
-            onChange={(event) => setCategory(event.target.value as ProviderCategory)}
-          >
-            {Object.entries(providerCategoryCopy).map(([value, label]) => (
-              <option key={value} value={value}>{label}</option>
-            ))}
-          </select>
-        </div>
-
-        {providers.length === 0 ? (
-          <div className="model-empty model-empty--compact">{content.catalog.empty}</div>
-        ) : (
-          <div className="provider-list">
-            {providers.map((provider) => {
-              const display = displayForProvider(provider);
-              return (
-                <button
-                  type="button"
-                  key={provider.id}
-                  className="provider-row"
-                  onClick={() => void navigate(`/settings/models/new/${provider.id}`)}
-                >
-                  <ProviderLogo type={provider.providerType} compact />
-                  <span className="provider-row__body">
-                    <strong>{display.name}</strong>
-                    <span>{display.description}</span>
-                  </span>
-                  <span className="model-badge">{display.badge}</span>
-                  <ChevronRight className="size-4 text-t-tertiary" aria-hidden="true" />
-                </button>
-              );
-            })}
-          </div>
-        )}
-      </div>
-    </SettingsPageWrapper>
-  );
-}
+        </SettingsPageWrapper>
+      );
+    };
+  },
+  {
+    name: "ModelProviderCatalogPage",
+    inheritAttrs: false,
+    props: [],
+  },
+);

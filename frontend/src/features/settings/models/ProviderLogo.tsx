@@ -1,8 +1,25 @@
-import type { ReactNode } from "react";
-
+const LetterMark = defineComponent(
+  (
+    componentProps: {
+      readonly label: string;
+    },
+    { slots: _slots },
+  ) => {
+    const label = computed(() => componentProps.label);
+    return () => {
+      const _label = label.value;
+      return <span class="provider-logo__letters">{_label}</span>;
+    };
+  },
+  {
+    name: "LetterMark",
+    inheritAttrs: false,
+    props: ["label"],
+  },
+);
 import type { ModelProviderType } from "@/features/settings/models/api";
-
-const marks: Record<ModelProviderType, ReactNode> = {
+import { computed, defineComponent, type VNodeChild } from "vue";
+const marks: Record<ModelProviderType, VNodeChild> = {
   openai: (
     <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
       <path d="M12 2.2a5.1 5.1 0 0 1 4.58 2.86 5.1 5.1 0 0 1 3.72 7.31 5.1 5.1 0 0 1-3.72 7.31A5.1 5.1 0 0 1 9.1 21.5a5.1 5.1 0 0 1-5.4-7.86A5.1 5.1 0 0 1 7.42 6.3 5.1 5.1 0 0 1 12 2.2Zm-1.1 3.1-3.04 1.76v4.18l1.65.95V8.01l3.05-1.76a3.1 3.1 0 0 1 3.6.36 3.1 3.1 0 0 0-5.26-1.31Zm5.86 3.2-3.62-2.09-1.64.95 3.62 2.09v3.52l3.05 1.76a3.1 3.1 0 0 0-1.41-6.23Zm1.5 8.63v-1.9l-3.61-2.08v-1.9l-3.05-1.76-3.62 2.09v4.18l1.64.95v-4.18l1.98-1.14 1.97 1.14v2.29l-3.05 1.76a3.1 3.1 0 0 0 5.26 1.31l2.48-1.43v.57Zm-7.35 1.57 3.04-1.76v-1.9l-3.04 1.76a3.1 3.1 0 0 1-3.6-.36 3.1 3.1 0 0 0 3.6 2.26Z" />
@@ -10,7 +27,10 @@ const marks: Record<ModelProviderType, ReactNode> = {
   ),
   deepseek: (
     <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
-      <path fill="#4D6BFE" d="M21.8 5.1c-1 .8-1.9.8-2.8.7-.9-.1-1.6.2-2.1.8-1.8-1.8-4.6-2.7-7.4-2.2C4.6 5.3 1.2 9.6 2 14.1c.8 4.7 5.4 7.7 10.2 6.5 3.8-1 6.5-4.1 7-8.1 2.1-.6 3.3-2.5 3-4.8-.1-.8.2-1.7-.4-2.6Zm-8.3 12.8c-3.5.5-6.8-1.3-8.2-4.4-.7-1.6-.7-3.3-.4-4.7 3-.2 5.4 1 7.4 3.1 1.2 1.3 2 2.9 3.5 4.2-.6.9-1.4 1.5-2.3 1.8Z" />
+      <path
+        fill="#4D6BFE"
+        d="M21.8 5.1c-1 .8-1.9.8-2.8.7-.9-.1-1.6.2-2.1.8-1.8-1.8-4.6-2.7-7.4-2.2C4.6 5.3 1.2 9.6 2 14.1c.8 4.7 5.4 7.7 10.2 6.5 3.8-1 6.5-4.1 7-8.1 2.1-.6 3.3-2.5 3-4.8-.1-.8.2-1.7-.4-2.6Zm-8.3 12.8c-3.5.5-6.8-1.3-8.2-4.4-.7-1.6-.7-3.3-.4-4.7 3-.2 5.4 1 7.4 3.1 1.2 1.3 2 2.9 3.5 4.2-.6.9-1.4 1.5-2.3 1.8Z"
+      />
     </svg>
   ),
   moonshot: <LetterMark label="M" />,
@@ -42,9 +62,18 @@ const marks: Record<ModelProviderType, ReactNode> = {
   ),
   together: (
     <svg viewBox="0 0 24 24" aria-hidden="true">
-      <path d="M23.197 4.503A6 6 0 0 0 15 2.307a5.973 5.973 0 0 0-2.995 4.933l5.996.008v.515h-5.996c.039.937.298 1.87.8 2.74a6 6 0 1 0 10.39-6Z" fill="#EF2CC1" />
-      <path d="M.805 4.5A6 6 0 0 0 3 12.697a5.972 5.972 0 0 0 5.77.127L5.779 7.627l.446-.257 2.997 5.192A6 6 0 1 0 .804 4.5Z" fill="#CAAEF5" />
-      <path d="M12 23.894a6 6 0 0 0 5.999-6c0-2.13-1.1-3.996-2.775-5.06l-3.005 5.189-.444-.258 2.997-5.192A6 6 0 1 0 12 23.894Z" fill="#FC4C02" />
+      <path
+        d="M23.197 4.503A6 6 0 0 0 15 2.307a5.973 5.973 0 0 0-2.995 4.933l5.996.008v.515h-5.996c.039.937.298 1.87.8 2.74a6 6 0 1 0 10.39-6Z"
+        fill="#EF2CC1"
+      />
+      <path
+        d="M.805 4.5A6 6 0 0 0 3 12.697a5.972 5.972 0 0 0 5.77.127L5.779 7.627l.446-.257 2.997 5.192A6 6 0 1 0 .804 4.5Z"
+        fill="#CAAEF5"
+      />
+      <path
+        d="M12 23.894a6 6 0 0 0 5.999-6c0-2.13-1.1-3.996-2.775-5.06l-3.005 5.189-.444-.258 2.997-5.192A6 6 0 1 0 12 23.894Z"
+        fill="#FC4C02"
+      />
     </svg>
   ),
   deepinfra: <LetterMark label="DI" />,
@@ -66,11 +95,23 @@ const marks: Record<ModelProviderType, ReactNode> = {
   ),
   mistral: (
     <svg viewBox="0 0 24 24" aria-hidden="true">
-      <path d="M3.428 3.4h3.429v3.428H3.428V3.4Zm13.714 0h3.43v3.428h-3.43V3.4Z" fill="gold" />
-      <path d="M3.428 6.828h6.857v3.429H3.429V6.828Zm10.286 0h6.857v3.429h-6.857V6.828Z" fill="#FFAF00" />
+      <path
+        d="M3.428 3.4h3.429v3.428H3.428V3.4Zm13.714 0h3.43v3.428h-3.43V3.4Z"
+        fill="gold"
+      />
+      <path
+        d="M3.428 6.828h6.857v3.429H3.429V6.828Zm10.286 0h6.857v3.429h-6.857V6.828Z"
+        fill="#FFAF00"
+      />
       <path d="M3.428 10.258h17.144v3.428H3.428v-3.428Z" fill="#FF8205" />
-      <path d="M3.428 13.686h3.429v3.428H3.428v-3.428Zm6.858 0h3.429v3.428h-3.429v-3.428Zm6.856 0h3.43v3.428h-3.43v-3.428Z" fill="#FA500F" />
-      <path d="M0 17.114h10.286v3.429H0v-3.429Zm13.714 0H24v3.429H13.714v-3.429Z" fill="#E10500" />
+      <path
+        d="M3.428 13.686h3.429v3.428H3.428v-3.428Zm6.858 0h3.429v3.428h-3.429v-3.428Zm6.856 0h3.43v3.428h-3.43v-3.428Z"
+        fill="#FA500F"
+      />
+      <path
+        d="M0 17.114h10.286v3.429H0v-3.429Zm13.714 0H24v3.429H13.714v-3.429Z"
+        fill="#E10500"
+      />
     </svg>
   ),
   ollama: (
@@ -81,27 +122,47 @@ const marks: Record<ModelProviderType, ReactNode> = {
   lm_studio: <LetterMark label="LM" />,
   localai: <LetterMark label="LA" />,
   custom: (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true">
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      stroke-width="1.8"
+      aria-hidden="true"
+    >
       <circle cx="12" cy="12" r="8" />
       <path d="M8 9.5h6.5a2 2 0 0 1 0 4h-5a2 2 0 0 0 0 4H16" />
     </svg>
-  )
+  ),
 };
-
-export function ProviderLogo({
-  type,
-  compact = false
-}: {
-  readonly type: ModelProviderType;
-  readonly compact?: boolean;
-}) {
-  return (
-    <span className="provider-logo" data-compact={compact || undefined} aria-hidden="true">
-      {marks[type]}
-    </span>
-  );
-}
-
-function LetterMark({ label }: { readonly label: string }) {
-  return <span className="provider-logo__letters">{label}</span>;
-}
+export const ProviderLogo = defineComponent(
+  (
+    componentProps: {
+      readonly type: ModelProviderType;
+      readonly compact?: boolean;
+    },
+    { slots: _slots },
+  ) => {
+    const type = computed(() => componentProps.type),
+      compact = computed(() =>
+        componentProps.compact === undefined ? false : componentProps.compact,
+      );
+    return () => {
+      const _compact = compact.value,
+        _type = type.value;
+      return (
+        <span
+          class="provider-logo"
+          data-compact={_compact || undefined}
+          aria-hidden="true"
+        >
+          {marks[_type]}
+        </span>
+      );
+    };
+  },
+  {
+    name: "ProviderLogo",
+    inheritAttrs: false,
+    props: ["type", "compact"],
+  },
+);

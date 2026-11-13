@@ -7,7 +7,6 @@ import type {
 } from "@/features/events/trajectory/trajectory-model";
 import { sanitizeTrajectoryValue } from "@/features/events/trajectory/trajectory-sanitize";
 import { zhCN } from "@/locales/zh-CN";
-
 export function unsupportedRecord(
   event: TrajectoryEventProjection,
   context: RecordContext,
@@ -30,7 +29,6 @@ export function unsupportedRecord(
     output: null,
   });
 }
-
 export function baseRecord(
   events: readonly TrajectoryEventProjection[],
   value: {
@@ -80,15 +78,18 @@ export function baseRecord(
     },
     ...(integerValue(first.payload.step) === null
       ? {}
-      : { step: integerValue(first.payload.step)! }),
+      : {
+          step: integerValue(first.payload.step)!,
+        }),
     usage: value.usage ?? null,
     callOnly: value.callOnly,
     ...(value.assistantMetrics === undefined
       ? {}
-      : { assistantMetrics: value.assistantMetrics }),
+      : {
+          assistantMetrics: value.assistantMetrics,
+        }),
   };
 }
-
 export function turnFor(
   event: TrajectoryEventProjection,
   context: RecordContext,
@@ -97,7 +98,6 @@ export function turnFor(
     ? null
     : (context.runTurns.get(event.runId) ?? null);
 }
-
 function duration(start: string | null, end: string | null): number | null {
   const startTime = timestamp(start);
   const endTime = timestamp(end);
@@ -105,37 +105,30 @@ function duration(start: string | null, end: string | null): number | null {
     return null;
   return endTime - startTime;
 }
-
 export function timestamp(value: string | undefined | null): number | null {
   if (value === undefined || value === null) return null;
   const parsed = Date.parse(value);
   return Number.isFinite(parsed) ? parsed : null;
 }
-
 export function stringValue(value: unknown): string | null {
   return typeof value === "string" && value.length > 0 ? value : null;
 }
-
 export function integerValue(value: unknown): number | null {
   return Number.isSafeInteger(value) && (value as number) >= 0
     ? (value as number)
     : null;
 }
-
 export function nullableInteger(value: unknown): number | null {
   return value === null ? null : integerValue(value);
 }
-
 export function safeString(value: unknown): string {
   if (typeof value === "string") return value;
   return JSON.stringify(value);
 }
-
 export function statusLabel(status: string): string {
   const labels = zhCN.trajectory.statuses as Readonly<Record<string, string>>;
   return labels[status] ?? status;
 }
-
 export function tokenCount(value: unknown): number | null {
   if (value === null || value === undefined) return null;
   if (typeof value !== "number" || !Number.isSafeInteger(value) || value < 0)

@@ -2,15 +2,14 @@ import { ApiError } from "@/api/client";
 import { sessionQueryKeys, type SessionSummary } from "@/features/sessions/api";
 import { archivedSessionApi } from "@/features/sessions/archive/archive-api";
 import { workspaceQueryKeys } from "@/features/workspaces/api";
+import { refSetter, watchMounted } from "@/lib/lifecycle";
 import { zhCN } from "@/locales/zh-CN";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
-import React from "react";
-import { toast } from "sonner";
-
+import { useQuery, useQueryClient } from "@tanstack/vue-query";
+import { computed, reactive, shallowReactive, shallowRef, toRefs } from "vue";
+import { toast } from "vue-sonner";
 const FIRST_SCREEN_LIMIT = 5;
 const LOAD_MORE_LIMIT = 10;
 const content = zhCN.archivedSessions;
-
 type ExtraPage = {
   items: SessionSummary[];
   hasMore: boolean;
@@ -31,7 +30,6 @@ export type ProjectBlock = {
   hasMore: boolean;
   cursor: string | null;
 };
-
 type DeleteRequest = {
   title: string;
   description: string;
@@ -40,117 +38,110 @@ type DeleteRequest = {
   workspaceIds: string[];
   sessionIds: string[];
 };
-
 export function useArchivedSessions() {
-  const [deleteRequest, setDeleteRequest] =
-    React.useState<DeleteRequest | null>(null);
-  const [deleting, setDeleting] = React.useState(false);
-  const [selectionMode, setSelectionMode] = React.useState(false);
-  const [selectedKeys, setSelectedKeys] = React.useState<ReadonlySet<string>>(
-    () => new Set<string>()
-  );
-  const [extraPages, setExtraPages] = React.useState<Record<string, ExtraPage>>(
-    {}
-  );
-  const [loadingTokens, setLoadingTokens] = React.useState<ReadonlySet<string>>(
-    () => new Set<string>()
-  );
-
+  const deleteRequest = shallowRef<DeleteRequest | null>(null),
+    setDeleteRequest = refSetter(deleteRequest);
+  const deleting = shallowRef(false),
+    setDeleting = refSetter(deleting);
+  const selectionMode = shallowRef(false),
+    setSelectionMode = refSetter(selectionMode);
+  const selectedKeys = shallowRef<ReadonlySet<string>>(
+      (() => new Set<string>())(),
+    ),
+    setSelectedKeys = refSetter(selectedKeys);
+  const extraPages = shallowRef<Record<string, ExtraPage>>({}),
+    setExtraPages = refSetter(extraPages);
+  const loadingTokens = shallowRef<ReadonlySet<string>>(
+      (() => new Set<string>())(),
+    ),
+    setLoadingTokens = refSetter(loadingTokens);
   const queryClient = useQueryClient();
   const {
     data,
     isLoading,
     error: loadError,
-    refetch: mutate
-  } = useQuery({
-    queryKey: sessionQueryKeys.archived,
-    queryFn: () => archivedSessionApi.list(FIRST_SCREEN_LIMIT)
+    refetch: mutate,
+  } = toRefs(
+    reactive(
+      useQuery(
+        computed(() => ({
+          queryKey: sessionQueryKeys.archived,
+          queryFn: () => archivedSessionApi.list(FIRST_SCREEN_LIMIT),
+        })),
+      ),
+    ),
+  );
+  watchMounted([() => loadError.value], () => {
+    if (loadError.value)
+      console.error("[archives] Loading failed", loadError.value);
   });
-
-  React.useEffect(() => {
-    if (loadError) console.error("[archives] Loading failed", loadError);
-  }, [loadError]);
-
-  const refresh = React.useCallback(async () => {
+  const refresh = async () => {
     setExtraPages({});
-    await mutate({ throwOnError: true });
-  }, [mutate]);
-
-  const restoredRef = React.useRef(false);
-  React.useEffect(
-    () => () => {
-      if (restoredRef.current)
-        void queryClient.invalidateQueries({
-          queryKey: workspaceQueryKeys.all
-        });
-    },
-    [queryClient]
+    await mutate.value({
+      throwOnError: true,
+    });
+  };
+  const restoredRef = shallowRef(false);
+  watchMounted([() => queryClient], () => () => {
+    if (restoredRef.value)
+      void queryClient.invalidateQueries({
+        queryKey: workspaceQueryKeys.all,
+      });
+  });
+  const archivedBlocks = computed(() =>
+    (data.value ?? []).map((group): ProjectBlock => {
+      const extra = extraPages.value[group.workspace_id];
+      const items = extra ? [...group.items, ...extra.items] : group.items;
+      return {
+        key: group.workspace_id,
+        name: group.workspace_name,
+        projectId: group.workspace_id,
+        scopeToken: group.workspace_id,
+        rows: items.map((session) => ({
+          key: session.id,
+          item_id: session.id,
+          name: session.title,
+          updatedAt: session.created_at,
+        })),
+        hasMore: extra ? extra.hasMore : group.has_more,
+        cursor: extra ? extra.cursor : group.next_cursor,
+      };
+    }),
   );
-
-  const archivedBlocks = React.useMemo(
+  const total = computed(() =>
+    archivedBlocks.value.reduce((count, group) => count + group.rows.length, 0),
+  );
+  const allRows = computed(() =>
+    archivedBlocks.value.flatMap((block) => block.rows),
+  );
+  const selectedRows = computed(() =>
+    allRows.value.filter((row) => selectedKeys.value.has(row.key)),
+  );
+  const allRowsSelected = computed(
     () =>
-      (data ?? []).map((group): ProjectBlock => {
-        const extra = extraPages[group.workspace_id];
-        const items = extra ? [...group.items, ...extra.items] : group.items;
-        return {
-          key: group.workspace_id,
-          name: group.workspace_name,
-          projectId: group.workspace_id,
-          scopeToken: group.workspace_id,
-          rows: items.map((session) => ({
-            key: session.id,
-            item_id: session.id,
-            name: session.title,
-            updatedAt: session.created_at
-          })),
-          hasMore: extra ? extra.hasMore : group.has_more,
-          cursor: extra ? extra.cursor : group.next_cursor
-        };
-      }),
-    [data, extraPages]
+      allRows.value.length > 0 &&
+      allRows.value.every((row) => selectedKeys.value.has(row.key)),
   );
-  const total = archivedBlocks.reduce(
-    (count, group) => count + group.rows.length,
-    0
-  );
-
-  const allRows = React.useMemo(
-    () => archivedBlocks.flatMap((block) => block.rows),
-    [archivedBlocks]
-  );
-
-  const selectedRows = React.useMemo(
-    () => allRows.filter((row) => selectedKeys.has(row.key)),
-    [allRows, selectedKeys]
-  );
-  const allRowsSelected =
-    allRows.length > 0 && allRows.every((row) => selectedKeys.has(row.key));
-
-  React.useEffect(() => {
-    const availableKeys = new Set(allRows.map((row) => row.key));
+  watchMounted([() => allRows.value], () => {
+    const availableKeys = new Set(allRows.value.map((row) => row.key));
     setSelectedKeys((prev) => {
       const next = new Set([...prev].filter((key) => availableKeys.has(key)));
       if (next.size === prev.size) return prev;
       return next;
     });
-  }, [allRows]);
-
-  const setRowSelected = React.useCallback(
-    (row: ArchivedRow, checked: boolean) => {
-      setSelectedKeys((prev) => {
-        const next = new Set(prev);
-        if (checked) {
-          next.add(row.key);
-        } else {
-          next.delete(row.key);
-        }
-        return next;
-      });
-    },
-    []
-  );
-
-  const toggleRowSelected = React.useCallback((row: ArchivedRow) => {
+  });
+  const setRowSelected = (row: ArchivedRow, checked: boolean) => {
+    setSelectedKeys((prev) => {
+      const next = new Set(prev);
+      if (checked) {
+        next.add(row.key);
+      } else {
+        next.delete(row.key);
+      }
+      return next;
+    });
+  };
+  const toggleRowSelected = (row: ArchivedRow) => {
     setSelectedKeys((prev) => {
       const next = new Set(prev);
       if (next.has(row.key)) {
@@ -160,56 +151,48 @@ export function useArchivedSessions() {
       }
       return next;
     });
-  }, []);
-
-  const setBlockSelected = React.useCallback(
-    (block: ProjectBlock, checked: boolean) => {
-      setSelectedKeys((prev) => {
-        const next = new Set(prev);
-        for (const row of block.rows) {
-          if (checked) {
-            next.add(row.key);
-          } else {
-            next.delete(row.key);
-          }
-        }
-        return next;
-      });
-    },
-    []
-  );
-
-  const handleSelectAll = React.useCallback(() => {
+  };
+  const setBlockSelected = (block: ProjectBlock, checked: boolean) => {
     setSelectedKeys((prev) => {
-      if (allRows.length > 0 && allRows.every((row) => prev.has(row.key))) {
+      const next = new Set(prev);
+      for (const row of block.rows) {
+        if (checked) {
+          next.add(row.key);
+        } else {
+          next.delete(row.key);
+        }
+      }
+      return next;
+    });
+  };
+  const handleSelectAll = () => {
+    setSelectedKeys((prev) => {
+      if (
+        allRows.value.length > 0 &&
+        allRows.value.every((row) => prev.has(row.key))
+      ) {
         return new Set<string>();
       }
-      return new Set(allRows.map((row) => row.key));
+      return new Set(allRows.value.map((row) => row.key));
     });
-  }, [allRows]);
-
-  const handleCancelSelectionMode = React.useCallback(() => {
+  };
+  const handleCancelSelectionMode = () => {
     setSelectionMode(false);
     setSelectedKeys(new Set<string>());
-  }, []);
-
-  const handleRestore = React.useCallback(
-    async (row: ArchivedRow) => {
-      try {
-        const session = await archivedSessionApi.restore(row.item_id);
-        queryClient.setQueryData(sessionQueryKeys.detail(session.id), session);
-        restoredRef.current = true;
-        await refresh();
-        toast.success(content.restoreSuccess);
-      } catch (error) {
-        console.error("Failed to restore archived item:", error);
-        toast.error(content.restoreFailed);
-      }
-    },
-    [refresh, queryClient]
-  );
-
-  const handleLoadMore = React.useCallback(async (block: ProjectBlock) => {
+  };
+  const handleRestore = async (row: ArchivedRow) => {
+    try {
+      const session = await archivedSessionApi.restore(row.item_id);
+      queryClient.setQueryData(sessionQueryKeys.detail(session.id), session);
+      restoredRef.value = true;
+      await refresh();
+      toast.success(content.restoreSuccess);
+    } catch (error) {
+      console.error("Failed to restore archived item:", error);
+      toast.error(content.restoreFailed);
+    }
+  };
+  const handleLoadMore = async (block: ProjectBlock) => {
     if (!block.hasMore || !block.cursor) return;
     const token = block.scopeToken;
     setLoadingTokens((prev) => new Set(prev).add(token));
@@ -217,7 +200,7 @@ export function useArchivedSessions() {
       const page = await archivedSessionApi.page({
         workspaceId: token,
         cursor: block.cursor,
-        limit: LOAD_MORE_LIMIT
+        limit: LOAD_MORE_LIMIT,
       });
       setExtraPages((prev) => {
         const existing = prev[token]?.items ?? [];
@@ -226,8 +209,8 @@ export function useArchivedSessions() {
           [token]: {
             items: [...existing, ...page.items],
             hasMore: page.has_more,
-            cursor: page.next_cursor
-          }
+            cursor: page.next_cursor,
+          },
         };
       });
     } catch (error) {
@@ -240,60 +223,57 @@ export function useArchivedSessions() {
         return next;
       });
     }
-  }, []);
-
-  const handleDelete = React.useCallback((row: ArchivedRow) => {
+  };
+  const handleDelete = (row: ArchivedRow) => {
     setDeleteRequest({
       title: content.deleteTitle,
       description: content.deleteDescription(row.name),
       label: content.delete,
       rows: [row],
       workspaceIds: [],
-      sessionIds: [row.item_id]
+      sessionIds: [row.item_id],
     });
-  }, []);
-
-  const handleDeleteSelected = React.useCallback(() => {
-    if (selectedRows.length === 0) return;
-
-    const selectedProjectBlocks = archivedBlocks.filter(
+  };
+  const handleDeleteSelected = () => {
+    if (selectedRows.value.length === 0) return;
+    const selectedProjectBlocks = archivedBlocks.value.filter(
       (block) =>
         block.projectId &&
         block.rows.length > 0 &&
-        block.rows.every((row) => selectedKeys.has(row.key))
+        block.rows.every((row) => selectedKeys.value.has(row.key)),
     );
     const projectSelectedKeys = new Set(
-      selectedProjectBlocks.flatMap((block) => block.rows.map((row) => row.key))
+      selectedProjectBlocks.flatMap((block) =>
+        block.rows.map((row) => row.key),
+      ),
     );
-    const selectedSingleRows = selectedRows.filter(
-      (row) => !projectSelectedKeys.has(row.key)
+    const selectedSingleRows = selectedRows.value.filter(
+      (row) => !projectSelectedKeys.has(row.key),
     );
-
     setDeleteRequest({
       title: content.deleteSelectedTitle,
-      description: content.deleteSelectedDescription(selectedRows.length),
+      description: content.deleteSelectedDescription(selectedRows.value.length),
       label: content.deleteSelected,
-      rows: [...selectedRows],
+      rows: [...selectedRows.value],
       workspaceIds: selectedProjectBlocks.map((block) => block.projectId),
-      sessionIds: selectedSingleRows.map((row) => row.item_id)
+      sessionIds: selectedSingleRows.map((row) => row.item_id),
     });
-  }, [archivedBlocks, selectedKeys, selectedRows]);
-
+  };
   const confirmDelete = async () => {
-    if (deleteRequest === null || deleting) return;
+    if (deleteRequest.value === null || deleting.value) return;
     setDeleting(true);
     try {
       await Promise.all([
-        ...deleteRequest.workspaceIds.map((id) =>
-          archivedSessionApi.deleteWorkspace(id)
+        ...deleteRequest.value.workspaceIds.map((id) =>
+          archivedSessionApi.deleteWorkspace(id),
         ),
-        ...deleteRequest.sessionIds.map((id) =>
-          archivedSessionApi.deleteItem(id)
-        )
+        ...deleteRequest.value.sessionIds.map((id) =>
+          archivedSessionApi.deleteItem(id),
+        ),
       ]);
-      for (const row of deleteRequest.rows) {
+      for (const row of deleteRequest.value.rows) {
         queryClient.removeQueries({
-          queryKey: sessionQueryKeys.detail(row.item_id)
+          queryKey: sessionQueryKeys.detail(row.item_id),
         });
       }
       setSelectedKeys(new Set<string>());
@@ -306,38 +286,83 @@ export function useArchivedSessions() {
       toast.error(
         error instanceof ApiError && error.code === "RUN_CONFLICT"
           ? content.deleteRunConflict
-          : content.deleteFailed
+          : content.deleteFailed,
       );
     } finally {
       setDeleting(false);
     }
   };
-
-  return {
-    deleteRequest,
-    deleting,
-    confirmDelete,
-    cancelDelete: () => {
-      if (!deleting) setDeleteRequest(null);
+  return shallowReactive({
+    get deleteRequest() {
+      return deleteRequest.value;
     },
-    archivedBlocks,
-    total,
-    isLoading,
-    loadError,
-    selectionMode,
-    setSelectionMode,
-    selectedKeys,
-    selectedRows,
-    allRowsSelected,
-    loadingTokens,
-    toggleRowSelected,
-    setRowSelected,
-    setBlockSelected,
-    handleSelectAll,
-    handleCancelSelectionMode,
-    handleRestore,
-    handleLoadMore,
-    handleDelete,
-    handleDeleteSelected
-  };
+    get deleting() {
+      return deleting.value;
+    },
+    get confirmDelete() {
+      return confirmDelete;
+    },
+    get cancelDelete() {
+      return () => {
+        if (!deleting.value) setDeleteRequest(null);
+      };
+    },
+    get archivedBlocks() {
+      return archivedBlocks.value;
+    },
+    get total() {
+      return total.value;
+    },
+    get isLoading() {
+      return isLoading.value;
+    },
+    get loadError() {
+      return loadError.value;
+    },
+    get selectionMode() {
+      return selectionMode.value;
+    },
+    get setSelectionMode() {
+      return setSelectionMode;
+    },
+    get selectedKeys() {
+      return selectedKeys.value;
+    },
+    get selectedRows() {
+      return selectedRows.value;
+    },
+    get allRowsSelected() {
+      return allRowsSelected.value;
+    },
+    get loadingTokens() {
+      return loadingTokens.value;
+    },
+    get toggleRowSelected() {
+      return toggleRowSelected;
+    },
+    get setRowSelected() {
+      return setRowSelected;
+    },
+    get setBlockSelected() {
+      return setBlockSelected;
+    },
+    get handleSelectAll() {
+      return handleSelectAll;
+    },
+    get handleCancelSelectionMode() {
+      return handleCancelSelectionMode;
+    },
+    get handleRestore() {
+      return handleRestore;
+    },
+    get handleLoadMore() {
+      return handleLoadMore;
+    },
+    get handleDelete() {
+      return handleDelete;
+    },
+    get handleDeleteSelected() {
+      return handleDeleteSelected;
+    },
+  });
 }

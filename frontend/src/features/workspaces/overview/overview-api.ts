@@ -1,5 +1,4 @@
 import { requestJson } from "@/api/client";
-
 export interface WorkspaceMetrics {
   sessions: number;
   runs: number;
@@ -11,7 +10,11 @@ export interface WorkspaceMetrics {
   tool_calls: number;
   total_tokens: number | null;
   token_reported_runs: number;
-  activity: readonly { day: string; runs: number; completed: number }[];
+  activity: readonly {
+    day: string;
+    runs: number;
+    completed: number;
+  }[];
 }
 export interface WorkspaceMemory {
   id: string;
@@ -27,9 +30,10 @@ export const overviewKey = (id: string) => ["workspace-overview", id] as const;
 export const getOverview = (id: string, signal: AbortSignal) =>
   requestJson<WorkspaceOverviewData>(
     `/api/v1/workspaces/${encodeURIComponent(id)}/overview`,
-    { signal },
+    {
+      signal,
+    },
   );
-
 export interface InstructionDocument {
   content: string;
   version: string | null;
@@ -58,8 +62,13 @@ export const saveMemory = (
       method: memory === null ? "POST" : "PATCH",
       body: JSON.stringify(
         memory === null
-          ? { content }
-          : { content, expected_content: memory.content },
+          ? {
+              content,
+            }
+          : {
+              content,
+              expected_content: memory.content,
+            },
       ),
     },
   );

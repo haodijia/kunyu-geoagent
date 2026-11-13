@@ -1,8 +1,11 @@
 import { requestJson } from "@/api/client";
-import type { MapSelection } from "@/features/sessions/map-context";
 import type { ToolContentBlock } from "@/features/agent/tools/tool-content";
-import type { ToolCompaction, ToolDisplay } from "@/features/agent/tools/tool-output";
+import type {
+  ToolCompaction,
+  ToolDisplay,
+} from "@/features/agent/tools/tool-output";
 import type { Attachment } from "@/features/attachments/api";
+import type { MapSelection } from "@/features/sessions/map-context";
 import type {
   MaxTokensField,
   ModelAuthMode,
@@ -10,66 +13,119 @@ import type {
   ModelProtocol,
   ModelProviderType,
 } from "@/features/settings/models/api";
-
-export function discardAgentInput(sessionId: string, messageId: string): Promise<void> {
+export function discardAgentInput(
+  sessionId: string,
+  messageId: string,
+): Promise<void> {
   return requestJson<void>(
     `/api/v1/sessions/${encodeURIComponent(sessionId)}/agent/inbox/${encodeURIComponent(messageId)}`,
-    { method: "DELETE" },
+    {
+      method: "DELETE",
+    },
   );
 }
-
-export function updateAgentQueue(sessionId: string, update: { readonly mode: "auto" | "manual" } | { readonly message_ids: readonly string[] }): Promise<void> {
-  return requestJson<void>(`/api/v1/sessions/${encodeURIComponent(sessionId)}/agent/queue`, {
-    method: "PATCH", body: JSON.stringify(update),
-  });
+export function updateAgentQueue(
+  sessionId: string,
+  update:
+    | {
+        readonly mode: "auto" | "manual";
+      }
+    | {
+        readonly message_ids: readonly string[];
+      },
+): Promise<void> {
+  return requestJson<void>(
+    `/api/v1/sessions/${encodeURIComponent(sessionId)}/agent/queue`,
+    {
+      method: "PATCH",
+      body: JSON.stringify(update),
+    },
+  );
 }
-
-export function sendQueuedAgentInput(sessionId: string, messageId: string): Promise<void> {
-  return requestJson<void>(`/api/v1/sessions/${encodeURIComponent(sessionId)}/agent/inbox/${encodeURIComponent(messageId)}/send`, {
-    method: "POST", body: "{}",
-  });
+export function sendQueuedAgentInput(
+  sessionId: string,
+  messageId: string,
+): Promise<void> {
+  return requestJson<void>(
+    `/api/v1/sessions/${encodeURIComponent(sessionId)}/agent/inbox/${encodeURIComponent(messageId)}/send`,
+    {
+      method: "POST",
+      body: "{}",
+    },
+  );
 }
-
 export function clearAgentQueue(sessionId: string): Promise<void> {
-  return requestJson<void>(`/api/v1/sessions/${encodeURIComponent(sessionId)}/agent/queue/clear`, {
-    method: "POST", body: "{}",
-  });
+  return requestJson<void>(
+    `/api/v1/sessions/${encodeURIComponent(sessionId)}/agent/queue/clear`,
+    {
+      method: "POST",
+      body: "{}",
+    },
+  );
 }
-
 export interface QueuedAgentDraft {
   readonly message_id: string;
   readonly content: string;
   readonly attachments: readonly Attachment[];
   readonly map_context: TurnMapContext;
-  readonly turn: { readonly model_snapshot: StepModelSnapshot } | null;
+  readonly turn: {
+    readonly model_snapshot: StepModelSnapshot;
+  } | null;
 }
-
-export function takeQueuedAgentDraft(sessionId: string, messageId: string): Promise<QueuedAgentDraft> {
-  return requestJson<QueuedAgentDraft>(`/api/v1/sessions/${encodeURIComponent(sessionId)}/agent/inbox/${encodeURIComponent(messageId)}/edit`, {
-    method: "POST", body: "{}",
-  });
+export function takeQueuedAgentDraft(
+  sessionId: string,
+  messageId: string,
+): Promise<QueuedAgentDraft> {
+  return requestJson<QueuedAgentDraft>(
+    `/api/v1/sessions/${encodeURIComponent(sessionId)}/agent/inbox/${encodeURIComponent(messageId)}/edit`,
+    {
+      method: "POST",
+      body: "{}",
+    },
+  );
 }
-
-export interface QueueInteractionLease { readonly lease_milliseconds: number; }
-
-export function acquireQueueInteraction(sessionId: string, interactionId: string, messageIds: readonly string[]): Promise<QueueInteractionLease> {
-  return requestJson<QueueInteractionLease>(`/api/v1/sessions/${encodeURIComponent(sessionId)}/agent/queue/interactions/${encodeURIComponent(interactionId)}`, {
-    method: "POST", body: JSON.stringify({ message_ids: messageIds }),
-  });
+export interface QueueInteractionLease {
+  readonly lease_milliseconds: number;
 }
-
-export function renewQueueInteraction(sessionId: string, interactionId: string): Promise<QueueInteractionLease> {
-  return requestJson<QueueInteractionLease>(`/api/v1/sessions/${encodeURIComponent(sessionId)}/agent/queue/interactions/${encodeURIComponent(interactionId)}`, {
-    method: "PATCH", body: "{}",
-  });
+export function acquireQueueInteraction(
+  sessionId: string,
+  interactionId: string,
+  messageIds: readonly string[],
+): Promise<QueueInteractionLease> {
+  return requestJson<QueueInteractionLease>(
+    `/api/v1/sessions/${encodeURIComponent(sessionId)}/agent/queue/interactions/${encodeURIComponent(interactionId)}`,
+    {
+      method: "POST",
+      body: JSON.stringify({
+        message_ids: messageIds,
+      }),
+    },
+  );
 }
-
-export function releaseQueueInteraction(sessionId: string, interactionId: string): Promise<void> {
-  return requestJson<void>(`/api/v1/sessions/${encodeURIComponent(sessionId)}/agent/queue/interactions/${encodeURIComponent(interactionId)}`, {
-    method: "DELETE", keepalive: true,
-  });
+export function renewQueueInteraction(
+  sessionId: string,
+  interactionId: string,
+): Promise<QueueInteractionLease> {
+  return requestJson<QueueInteractionLease>(
+    `/api/v1/sessions/${encodeURIComponent(sessionId)}/agent/queue/interactions/${encodeURIComponent(interactionId)}`,
+    {
+      method: "PATCH",
+      body: "{}",
+    },
+  );
 }
-
+export function releaseQueueInteraction(
+  sessionId: string,
+  interactionId: string,
+): Promise<void> {
+  return requestJson<void>(
+    `/api/v1/sessions/${encodeURIComponent(sessionId)}/agent/queue/interactions/${encodeURIComponent(interactionId)}`,
+    {
+      method: "DELETE",
+      keepalive: true,
+    },
+  );
+}
 export type AgentTurnState =
   | "ready"
   | "model_running"
@@ -80,7 +136,6 @@ export type AgentTurnState =
   | "completed"
   | "failed"
   | "cancelled";
-
 export interface ToolCall {
   readonly id: string;
   readonly session_id: string;
@@ -103,7 +158,6 @@ export interface ToolCall {
   readonly updated_at: string;
   readonly updated_sequence: number;
 }
-
 export interface StepModelSnapshot {
   readonly connection_id: string;
   readonly provider_type: ModelProviderType;
@@ -121,12 +175,10 @@ export interface StepModelSnapshot {
   readonly retention_tokens: number;
   readonly image_input: ModelImageInput;
 }
-
 export interface TurnMapContext {
   readonly workspace_id: string;
   readonly selection: MapSelection | null;
 }
-
 export interface TurnBudget {
   readonly model_calls: number;
   readonly tool_calls: number;
@@ -137,7 +189,6 @@ export interface TurnBudget {
   readonly output_tokens: number | null;
   readonly total_tokens: number | null;
 }
-
 export interface AgentTurn {
   readonly id: string;
   readonly session_id: string;
@@ -160,44 +211,49 @@ export interface AgentTurn {
   readonly updated_at: string;
   readonly updated_sequence: number;
 }
-
 export const agentQueryKeys = {
-  session: (sessionId: string) => ["sessions", sessionId, "agent-turns"] as const
+  session: (sessionId: string) =>
+    ["sessions", sessionId, "agent-turns"] as const,
 };
-
 export function listAgentTurns(sessionId: string): Promise<AgentTurn[]> {
   return requestJson<AgentTurn[]>(
-    `/api/v1/sessions/${encodeURIComponent(sessionId)}/agent`
+    `/api/v1/sessions/${encodeURIComponent(sessionId)}/agent`,
   );
 }
-
 export function cancelAgent(sessionId: string): Promise<AgentTurn> {
-  return requestJson<AgentTurn>(`/api/v1/sessions/${encodeURIComponent(sessionId)}/agent/cancel`, {
-    method: "POST",
-    body: "{}"
-  });
+  return requestJson<AgentTurn>(
+    `/api/v1/sessions/${encodeURIComponent(sessionId)}/agent/cancel`,
+    {
+      method: "POST",
+      body: "{}",
+    },
+  );
 }
-
 export function resumeAgent(sessionId: string): Promise<AgentTurn> {
-  return requestJson<AgentTurn>(`/api/v1/sessions/${encodeURIComponent(sessionId)}/agent/resume`, {
-    method: "POST",
-    body: "{}"
-  });
+  return requestJson<AgentTurn>(
+    `/api/v1/sessions/${encodeURIComponent(sessionId)}/agent/resume`,
+    {
+      method: "POST",
+      body: "{}",
+    },
+  );
 }
-
 export function mergeAgentTurns(
   current: readonly AgentTurn[] | undefined,
-  incoming: readonly AgentTurn[]
+  incoming: readonly AgentTurn[],
 ): AgentTurn[] {
   if (current === undefined) return [...incoming];
   const merged = new Map(current.map((turn) => [turn.id, turn]));
   for (const turn of incoming) {
     const existing = merged.get(turn.id);
-    if (existing === undefined || turn.updated_sequence >= existing.updated_sequence) {
+    if (
+      existing === undefined ||
+      turn.updated_sequence >= existing.updated_sequence
+    ) {
       merged.set(turn.id, turn);
     }
   }
   return [...merged.values()].sort((left, right) =>
-    left.created_at.localeCompare(right.created_at)
+    left.created_at.localeCompare(right.created_at),
   );
 }

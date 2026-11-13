@@ -1,6 +1,5 @@
 import { requestJson } from "@/api/client";
 import type { MultiPolygon, Polygon } from "geojson";
-
 export type RegionGeometry = Polygon | MultiPolygon;
 export interface Category {
   readonly value: number;
@@ -26,7 +25,9 @@ export interface BandRegionStatistics {
   readonly maximum: number | null;
   readonly mean: number | null;
   readonly region_area_m2: number;
-  readonly classes: readonly (Category & { readonly area_m2: number })[];
+  readonly classes: readonly (Category & {
+    readonly area_m2: number;
+  })[];
   readonly value_areas: readonly {
     readonly value: number;
     readonly pixel_count: number;
@@ -52,7 +53,9 @@ export const rasterApi = {
   ) =>
     requestJson<RasterSample>(
       `${root(workspace, output)}/sample?longitude=${longitude}&latitude=${latitude}&view_id=${encodeURIComponent(viewId)}`,
-      { signal },
+      {
+        signal,
+      },
     ),
   statistics: (
     workspace: string,
@@ -63,7 +66,10 @@ export const rasterApi = {
   ) =>
     requestJson<RegionStatistics>(`${root(workspace, output)}/statistics`, {
       method: "POST",
-      body: JSON.stringify({ geometry, view_id: viewId }),
+      body: JSON.stringify({
+        geometry,
+        view_id: viewId,
+      }),
       signal,
     }),
 };

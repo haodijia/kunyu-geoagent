@@ -1,24 +1,43 @@
 import { useMessages } from "@/features/messages/state/useMessages";
-import type { ReactNode } from "react";
-import { createContext, useContext } from "react";
-
-const Context = createContext<ReturnType<typeof useMessages> | null>(null);
-
-export function SessionMessagesProvider({
-  sessionId,
-  workspaceId,
-  children,
-}: {
-  readonly sessionId: string;
-  readonly workspaceId: string;
-  readonly children: ReactNode;
-}) {
-  const state = useMessages(sessionId, workspaceId);
-  return <Context value={state}>{children}</Context>;
-}
-
+import {
+  computed,
+  defineComponent,
+  inject,
+  provide,
+  type InjectionKey,
+  type VNodeChild,
+} from "vue";
+const Context: InjectionKey<ReturnType<typeof useMessages> | null> =
+  Symbol("Context");
+export const SessionMessagesProvider = defineComponent(
+  (
+    componentProps: {
+      readonly sessionId: string;
+      readonly workspaceId: string;
+      readonly children?: VNodeChild;
+    },
+    { slots },
+  ) => {
+    const sessionId = computed(() => componentProps.sessionId),
+      workspaceId = computed(() => componentProps.workspaceId),
+      children = () => slots.default?.();
+    const state = useMessages(
+      () => sessionId.value,
+      () => workspaceId.value,
+    );
+    provide(Context, state);
+    return () => {
+      return <>{children()}</>;
+    };
+  },
+  {
+    name: "SessionMessagesProvider",
+    inheritAttrs: false,
+    props: ["sessionId", "workspaceId"],
+  },
+);
 export function useSessionMessages() {
-  const state = useContext(Context);
+  const state = inject(Context, null);
   if (state === null) throw new Error("SessionMessagesProvider is required.");
   return state;
 }

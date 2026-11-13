@@ -1,5 +1,5 @@
 @import "tailwindcss";
-@import "@icon-park/react/styles/index.css" layer(components);
+@import "@icon-park/vue-next/styles/index.css" layer(components);
 @import "./styles/theme.css";
 @import "./styles/conversation.css";
 @import "./features/settings/settings.css";

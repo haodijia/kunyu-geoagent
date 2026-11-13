@@ -13,7 +13,6 @@ import type { TrajectoryRecord } from "@/features/events/trajectory/trajectory-m
 import { sanitizeTrajectoryValue } from "@/features/events/trajectory/trajectory-sanitize";
 import { toolJob } from "@/features/jobs/job-state";
 import { zhCN } from "@/locales/zh-CN";
-
 export function toolRecord(
   events: readonly TrajectoryEventProjection[],
   context: RecordContext,
@@ -86,8 +85,12 @@ export function toolRecord(
     text: `${name} ${safeString(input)}`,
     searchText: `${name} ${toolLabel(name)} ${safeString(input)} ${safeString(output)}`,
     status,
-    completedAt: job === undefined ? terminal?.occurredAt ?? null
-      : job.finished_at === null ? null : new Date(job.finished_at * 1_000).toISOString(),
+    completedAt:
+      job === undefined
+        ? (terminal?.occurredAt ?? null)
+        : job.finished_at === null
+          ? null
+          : new Date(job.finished_at * 1_000).toISOString(),
     startedAt: started?.occurredAt ?? null,
     isError: status === "failed",
     source: {
@@ -106,7 +109,6 @@ export function toolRecord(
     output,
   });
 }
-
 export function confirmationRecord(
   events: readonly TrajectoryEventProjection[],
   context: RecordContext,
@@ -164,7 +166,6 @@ export function confirmationRecord(
           },
   });
 }
-
 function toolLabel(name: string): string {
   const names = zhCN.conversation.tools.names as Readonly<
     Record<string, string>

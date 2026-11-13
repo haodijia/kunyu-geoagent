@@ -12,38 +12,47 @@ import {
 } from "@/features/events/trajectory/timeline/model";
 import type { TrajectoryTimeRange } from "@/features/events/trajectory/timeline/timeline";
 import { deriveTrajectoryTimeline } from "@/features/events/trajectory/timeline/timeline";
-import type { CSSProperties, KeyboardEvent, PointerEvent } from "react";
-import { useEffect, useMemo, useRef, useState } from "react";
-
+import { refSetter, watchMounted } from "@/lib/lifecycle";
+import {
+  computed,
+  shallowReactive,
+  shallowRef,
+  toValue,
+  type CSSProperties,
+  type MaybeRefOrGetter,
+} from "vue";
 const MINIMUM_DRAG_PX = 3;
-
 const MINIMUM_ZOOM_OPERATIONS = 4;
-
 const EDGE_PAN_ZONE_FRACTION = 0.08;
-
 const EDGE_PAN_STEP_FRACTION = 0.025;
-
 const MAXIMUM_EDGE_PAN_PX = 32;
-
-export function useTrajectoryTimeline({
-  turns,
-  mode,
-  range,
-  hasEarlierRecords = false,
-  onLoadEarlier,
-  selectedIndex = null,
-  onRangeChange,
-  onRecordSelect,
-  onRecordFocus,
-}: TrajectoryTimelineProps) {
-  const model = useMemo(
-    () => deriveTrajectoryTimeline(turns, mode),
-    [mode, turns],
+export function useTrajectoryTimeline(
+  source: MaybeRefOrGetter<TrajectoryTimelineProps>,
+) {
+  const turns = computed(() => toValue(source).turns),
+    mode = computed(() => toValue(source).mode),
+    range = computed(() => toValue(source).range),
+    hasEarlierRecords = computed(() =>
+      toValue(source).hasEarlierRecords === undefined
+        ? false
+        : toValue(source).hasEarlierRecords,
+    ),
+    onLoadEarlier = computed(() => toValue(source).onLoadEarlier),
+    selectedIndex = computed(() =>
+      toValue(source).selectedIndex === undefined
+        ? null
+        : toValue(source).selectedIndex,
+    ),
+    onRangeChange = computed(() => toValue(source).onRangeChange),
+    onRecordSelect = computed(() => toValue(source).onRecordSelect),
+    onRecordFocus = computed(() => toValue(source).onRecordFocus);
+  const model = computed(() =>
+    deriveTrajectoryTimeline(turns.value, mode.value),
   );
-  const detailByIndex = useMemo(
+  const detailByIndex = computed(
     () =>
       new Map(
-        turns.flatMap((turn) =>
+        turns.value.flatMap((turn) =>
           turn.groups.flatMap((group) =>
             group.cells.map(
               (cell) => [cell.index, timelineRecordDetail(cell)] as const,
@@ -51,46 +60,57 @@ export function useTrajectoryTimeline({
           ),
         ),
       ),
-    [turns],
   );
-  const dragRef = useRef<{
+  const dragRef = shallowRef<{
     pointerId: number;
     anchorTime: number;
     anchorClientX: number;
     recordIndex: number | null;
   } | null>(null);
-  const panRef = useRef<PanGesture | null>(null);
-  const rootRef = useRef<HTMLElement | null>(null);
-  const trackRef = useRef<HTMLDivElement | null>(null);
-  const [draft, setDraft] = useState<TrajectoryTimeRange | null>(null);
-  const [hover, setHover] = useState<HoverPoint | null>(null);
-  const [loadingEarlier, setLoadingEarlier] = useState(false);
-  const [panning, setPanning] = useState(false);
-  const [viewport, setViewport] = useState<TrajectoryTimeRange | null>(null);
-  const [animateViewport, setAnimateViewport] = useState(false);
-  useEffect(() => {
-    if (
-      model !== null &&
-      range !== null &&
-      (range.end < model.start || range.start > model.end)
-    ) {
-      onRangeChange(null);
-    }
-  }, [model, onRangeChange, range]);
-  useEffect(() => {
-    if (model === null) return;
+  const panRef = shallowRef<PanGesture | null>(null);
+  const rootRef = shallowRef<HTMLElement | null>(null);
+  const trackRef = shallowRef<HTMLDivElement | null>(null);
+  const draft = shallowRef<TrajectoryTimeRange | null>(null),
+    setDraft = refSetter(draft);
+  const hover = shallowRef<HoverPoint | null>(null),
+    setHover = refSetter(hover);
+  const loadingEarlier = shallowRef(false),
+    setLoadingEarlier = refSetter(loadingEarlier);
+  const panning = shallowRef(false),
+    setPanning = refSetter(panning);
+  const viewport = shallowRef<TrajectoryTimeRange | null>(null),
+    setViewport = refSetter(viewport);
+  const animateViewport = shallowRef(false),
+    setAnimateViewport = refSetter(animateViewport);
+  watchMounted(
+    [() => model.value, () => onRangeChange.value, () => range.value],
+    () => {
+      if (
+        model.value !== null &&
+        range.value !== null &&
+        (range.value.end < model.value.start ||
+          range.value.start > model.value.end)
+      ) {
+        onRangeChange.value(null);
+      }
+    },
+  );
+  watchMounted([() => model.value], () => {
+    const currentModel = model.value;
+    if (currentModel === null) return;
     setAnimateViewport(false);
     setViewport((current) =>
       current !== null &&
-      (current.end < model.start || current.start > model.end)
+      (current.end < currentModel.start || current.start > currentModel.end)
         ? null
         : current,
     );
-  }, [model]);
-  useEffect(() => {
-    if (model === null || selectedIndex === null) return;
-    const selectedSpan = model.spans.find(
-      (span) => span.index === selectedIndex,
+  });
+  watchMounted([() => model.value, () => selectedIndex.value], () => {
+    const currentModel = model.value;
+    if (currentModel === null || selectedIndex.value === null) return;
+    const selectedSpan = currentModel.spans.find(
+      (span) => span.index === selectedIndex.value,
     );
     if (selectedSpan === undefined) return;
     setAnimateViewport(true);
@@ -104,122 +124,154 @@ export function useTrajectoryTimeline({
           ? selectedSpan.start
           : selectedSpan.end - duration;
       const nextStart = Math.min(
-        Math.max(desiredStart, model.start),
-        Math.max(model.start, model.end - duration),
+        Math.max(desiredStart, currentModel.start),
+        Math.max(currentModel.start, currentModel.end - duration),
       );
       if (nextStart === current.start) return current;
-      return { start: nextStart, end: nextStart + duration };
+      return {
+        start: nextStart,
+        end: nextStart + duration,
+      };
     });
-  }, [model, selectedIndex]);
-  const fullDuration = Math.max(1, (model?.end ?? 0) - (model?.start ?? 0));
-  const viewportDuration = Math.min(
-    fullDuration,
-    Math.max(1, (viewport?.end ?? 0) - (viewport?.start ?? 0)),
+  });
+  const fullDuration = computed(() =>
+    Math.max(1, (model.value?.end ?? 0) - (model.value?.start ?? 0)),
   );
-  const viewportStart =
-    model === null || viewport === null
-      ? (model?.start ?? 0)
+  const viewportDuration = computed(() =>
+    Math.min(
+      fullDuration.value,
+      Math.max(1, (viewport.value?.end ?? 0) - (viewport.value?.start ?? 0)),
+    ),
+  );
+  const viewportStart = computed(() =>
+    model.value === null || viewport.value === null
+      ? (model.value?.start ?? 0)
       : Math.min(
-          Math.max(viewport.start, model.start),
-          model.end - viewportDuration,
-        );
-  const domainDuration = viewport === null ? fullDuration : viewportDuration;
-  const domainStart = viewport === null ? (model?.start ?? 0) : viewportStart;
-  const showsEarlierBoundary =
-    hasEarlierRecords && model !== null && domainStart === model.start;
-  const loadEarlier =
-    onLoadEarlier === undefined || loadingEarlier
+          Math.max(viewport.value.start, model.value.start),
+          model.value.end - viewportDuration.value,
+        ),
+  );
+  const domainDuration = computed(() =>
+    viewport.value === null ? fullDuration.value : viewportDuration.value,
+  );
+  const domainStart = computed(() =>
+    viewport.value === null ? (model.value?.start ?? 0) : viewportStart.value,
+  );
+  const showsEarlierBoundary = computed(
+    () =>
+      hasEarlierRecords.value &&
+      model.value !== null &&
+      domainStart.value === model.value.start,
+  );
+  const loadEarlier = computed(() =>
+    onLoadEarlier.value === undefined || loadingEarlier.value
       ? undefined
       : () => {
           setLoadingEarlier(true);
-          void onLoadEarlier().finally(() => {
+          void onLoadEarlier.value?.().finally(() => {
             setLoadingEarlier(false);
           });
-        };
-  const projectedDomainStyle =
-    model === null
+        },
+  );
+  const projectedDomainStyle = computed(() =>
+    model.value === null
       ? undefined
       : ({
-          "--trajectory-domain-left": `${(-(domainStart - model.start) / domainDuration) * 100}%`,
-          "--trajectory-domain-width": `${(fullDuration / domainDuration) * 100}%`,
-        } as CSSProperties);
-  const committed =
-    model === null || range === null
-      ? null
-      : rangeFraction(
-          range,
-          domainStart,
-          domainDuration,
-          model.start,
-          model.end,
-        );
-  const draftFraction =
-    model === null || draft === null
-      ? null
-      : rangeFraction(
-          draft,
-          domainStart,
-          domainDuration,
-          model.start,
-          model.end,
-        );
-  const visibleRange = draftFraction ?? committed;
-  const activeRange = draft ?? range;
-  useEffect(() => {
-    const root = rootRef.current;
-    if (root === null) return;
-    const onWheel = (event: globalThis.WheelEvent): void => {
-      event.preventDefault();
-      const track = trackRef.current;
-      if (track === null || model === null) return;
-      setAnimateViewport(false);
-      const rect = track.getBoundingClientRect();
-      const anchorFraction = clampFraction(
-        (event.clientX - rect.left) / Math.max(1, rect.width),
-      );
-      const nextDuration = Math.min(
-        fullDuration,
-        Math.max(
-          Math.min(
-            mode === "sequence" ? MINIMUM_ZOOM_OPERATIONS : 20,
-            fullDuration,
-          ),
-          domainDuration * Math.exp(event.deltaY * 0.0015),
-        ),
-      );
-      if (nextDuration >= fullDuration * 0.999) {
-        setViewport(null);
-        return;
-      }
-      const anchorTime = domainStart + anchorFraction * domainDuration;
-      const nextStart = Math.min(
-        Math.max(anchorTime - anchorFraction * nextDuration, model.start),
-        model.end - nextDuration,
-      );
-      setViewport({ start: nextStart, end: nextStart + nextDuration });
-    };
-    root.addEventListener("wheel", onWheel, { passive: false });
-    return () => {
-      root.removeEventListener("wheel", onWheel);
-    };
-  }, [domainDuration, domainStart, fullDuration, mode, model]);
-
-  if (model === null)
-    return { model, rootRef, loadingEarlier, setHover, loadEarlier };
-
-  const minimumSelectionDuration = Math.min(
-    domainDuration,
-    fullDuration / model.spans.length,
+          "--trajectory-domain-left": `${(-(domainStart.value - model.value.start) / domainDuration.value) * 100}%`,
+          "--trajectory-domain-width": `${(fullDuration.value / domainDuration.value) * 100}%`,
+        } as CSSProperties),
   );
-
-  const fractionAt = (event: PointerEvent<HTMLDivElement>): number => {
-    const rect = event.currentTarget.getBoundingClientRect();
+  const committed = computed(() =>
+    model.value === null || range.value === null
+      ? null
+      : rangeFraction(
+          range.value,
+          domainStart.value,
+          domainDuration.value,
+          model.value.start,
+          model.value.end,
+        ),
+  );
+  const draftFraction = computed(() =>
+    model.value === null || draft.value === null
+      ? null
+      : rangeFraction(
+          draft.value,
+          domainStart.value,
+          domainDuration.value,
+          model.value.start,
+          model.value.end,
+        ),
+  );
+  const visibleRange = computed(() => draftFraction.value ?? committed.value);
+  const activeRange = computed(() => draft.value ?? range.value);
+  watchMounted(
+    [
+      () => domainDuration.value,
+      () => domainStart.value,
+      () => fullDuration.value,
+      () => mode.value,
+      () => model.value,
+    ],
+    () => {
+      const root = rootRef.value;
+      if (root === null) return;
+      const onWheel = (event: globalThis.WheelEvent): void => {
+        event.preventDefault();
+        const track = trackRef.value;
+        if (track === null || model.value === null) return;
+        setAnimateViewport(false);
+        const rect = track.getBoundingClientRect();
+        const anchorFraction = clampFraction(
+          (event.clientX - rect.left) / Math.max(1, rect.width),
+        );
+        const nextDuration = Math.min(
+          fullDuration.value,
+          Math.max(
+            Math.min(
+              mode.value === "sequence" ? MINIMUM_ZOOM_OPERATIONS : 20,
+              fullDuration.value,
+            ),
+            domainDuration.value * Math.exp(event.deltaY * 0.0015),
+          ),
+        );
+        if (nextDuration >= fullDuration.value * 0.999) {
+          setViewport(null);
+          return;
+        }
+        const anchorTime =
+          domainStart.value + anchorFraction * domainDuration.value;
+        const nextStart = Math.min(
+          Math.max(
+            anchorTime - anchorFraction * nextDuration,
+            model.value.start,
+          ),
+          model.value.end - nextDuration,
+        );
+        setViewport({
+          start: nextStart,
+          end: nextStart + nextDuration,
+        });
+      };
+      root.addEventListener("wheel", onWheel, {
+        passive: false,
+      });
+      return () => {
+        root.removeEventListener("wheel", onWheel);
+      };
+    },
+  );
+  const minimumSelectionDuration = computed(() =>
+    Math.min(
+      domainDuration.value,
+      fullDuration.value / Math.max(1, model.value?.spans.length ?? 0),
+    ),
+  );
+  const fractionAt = (event: PointerEvent): number => {
+    const rect = (event.currentTarget as HTMLElement).getBoundingClientRect();
     return clampFraction((event.clientX - rect.left) / Math.max(1, rect.width));
   };
-
-  const recordIndexAt = (
-    event: PointerEvent<HTMLDivElement>,
-  ): number | null => {
+  const recordIndexAt = (event: PointerEvent): number | null => {
     const target = event.target instanceof HTMLElement ? event.target : null;
     const value = target?.closest<HTMLElement>("[data-timeline-record-index]")
       ?.dataset.timelineRecordIndex;
@@ -227,49 +279,62 @@ export function useTrajectoryTimeline({
     const index = Number(value);
     return Number.isFinite(index) ? index : null;
   };
-
   const commit = (nextRange: TrajectoryTimeRange) => {
-    onRangeChange(nextRange);
+    onRangeChange.value(nextRange);
   };
-
-  const onPointerDown = (event: PointerEvent<HTMLDivElement>) => {
+  const onPointerDown = (event: PointerEvent) => {
     if (event.button === 2) {
-      panRef.current = {
+      panRef.value = {
         anchorClientX: event.clientX,
-        anchorStart: domainStart,
+        anchorStart: domainStart.value,
         moved: false,
-        pannable: viewport !== null,
+        pannable: viewport.value !== null,
         pointerId: event.pointerId,
       };
-      if (viewport !== null) setAnimateViewport(false);
+      if (viewport.value !== null) setAnimateViewport(false);
       setPanning(true);
-      if (typeof event.currentTarget.setPointerCapture === "function") {
-        event.currentTarget.setPointerCapture(event.pointerId);
+      if (
+        typeof (event.currentTarget as HTMLElement).setPointerCapture ===
+        "function"
+      ) {
+        (event.currentTarget as HTMLElement).setPointerCapture(event.pointerId);
       }
       return;
     }
     if (event.button !== 0) return;
     const anchor = fractionAt(event);
-    const anchorTime = domainStart + anchor * domainDuration;
+    const anchorTime = domainStart.value + anchor * domainDuration.value;
     const recordIndex = recordIndexAt(event);
-    setHover({ fraction: anchor, recordIndex });
-    dragRef.current = {
+    setHover({
+      fraction: anchor,
+      recordIndex,
+    });
+    dragRef.value = {
       pointerId: event.pointerId,
       anchorTime,
       anchorClientX: event.clientX,
       recordIndex,
     };
-    if (typeof event.currentTarget.setPointerCapture === "function") {
-      event.currentTarget.setPointerCapture(event.pointerId);
+    if (
+      typeof (event.currentTarget as HTMLElement).setPointerCapture ===
+      "function"
+    ) {
+      (event.currentTarget as HTMLElement).setPointerCapture(event.pointerId);
     }
-    setDraft({ start: anchorTime, end: anchorTime });
+    setDraft({
+      start: anchorTime,
+      end: anchorTime,
+    });
   };
-
-  const onPointerMove = (event: PointerEvent<HTMLDivElement>) => {
-    const rect = event.currentTarget.getBoundingClientRect();
+  const onPointerMove = (event: PointerEvent) => {
+    if (model.value === null) return;
+    const rect = (event.currentTarget as HTMLElement).getBoundingClientRect();
     const fraction = fractionAt(event);
-    setHover({ fraction, recordIndex: recordIndexAt(event) });
-    const pan = panRef.current;
+    setHover({
+      fraction,
+      recordIndex: recordIndexAt(event),
+    });
+    const pan = panRef.value;
     if (pan !== null && pan.pointerId === event.pointerId) {
       if (Math.abs(event.clientX - pan.anchorClientX) >= MINIMUM_DRAG_PX) {
         pan.moved = true;
@@ -278,16 +343,22 @@ export function useTrajectoryTimeline({
       const delta =
         (event.clientX - pan.anchorClientX) / Math.max(1, rect.width);
       const nextStart = Math.min(
-        Math.max(pan.anchorStart - delta * domainDuration, model.start),
-        model.end - domainDuration,
+        Math.max(
+          pan.anchorStart - delta * domainDuration.value,
+          model.value.start,
+        ),
+        model.value.end - domainDuration.value,
       );
-      setViewport({ start: nextStart, end: nextStart + domainDuration });
+      setViewport({
+        start: nextStart,
+        end: nextStart + domainDuration.value,
+      });
       return;
     }
-    const drag = dragRef.current;
+    const drag = dragRef.value;
     if (drag === null || drag.pointerId !== event.pointerId) return;
-    let nextDomainStart = domainStart;
-    if (viewport !== null) {
+    let nextDomainStart = domainStart.value;
+    if (viewport.value !== null) {
       const localX = event.clientX - rect.left;
       const edgeWidth = Math.min(
         MAXIMUM_EDGE_PAN_PX,
@@ -302,71 +373,74 @@ export function useTrajectoryTimeline({
             : localX - (rect.width - edgeWidth);
         const strength = clampFraction(edgeDistance / edgeWidth);
         const desiredStart =
-          domainStart +
+          domainStart.value +
           direction *
-            domainDuration *
+            domainDuration.value *
             EDGE_PAN_STEP_FRACTION *
             Math.max(0.2, strength);
         nextDomainStart = Math.min(
-          Math.max(desiredStart, model.start),
-          model.end - domainDuration,
+          Math.max(desiredStart, model.value.start),
+          model.value.end - domainDuration.value,
         );
-        if (nextDomainStart !== domainStart) {
+        if (nextDomainStart !== domainStart.value) {
           setAnimateViewport(false);
           setViewport({
             start: nextDomainStart,
-            end: nextDomainStart + domainDuration,
+            end: nextDomainStart + domainDuration.value,
           });
         }
       }
     }
-    const pointTime = nextDomainStart + fraction * domainDuration;
+    const pointTime = nextDomainStart + fraction * domainDuration.value;
     setDraft(orderedRange(drag.anchorTime, pointTime));
   };
-
-  const onPointerEnd = (event: PointerEvent<HTMLDivElement>) => {
-    const pan = panRef.current;
+  const onPointerEnd = (event: PointerEvent) => {
+    if (model.value === null) return;
+    const pan = panRef.value;
     if (pan !== null && pan.pointerId === event.pointerId) {
       const moved =
         pan.moved ||
         Math.abs(event.clientX - pan.anchorClientX) >= MINIMUM_DRAG_PX;
-      panRef.current = null;
+      panRef.value = null;
       setPanning(false);
-      if (!moved) onRangeChange(null);
+      if (!moved) onRangeChange.value(null);
       return;
     }
-    const drag = dragRef.current;
+    const drag = dragRef.value;
     if (drag === null || drag.pointerId !== event.pointerId) return;
     const pointFraction = fractionAt(event);
-    const pointTime = domainStart + pointFraction * domainDuration;
+    const pointTime = domainStart.value + pointFraction * domainDuration.value;
     const selected = orderedRange(drag.anchorTime, pointTime);
-    setHover({ fraction: pointFraction, recordIndex: recordIndexAt(event) });
-    dragRef.current = null;
+    setHover({
+      fraction: pointFraction,
+      recordIndex: recordIndexAt(event),
+    });
+    dragRef.value = null;
     setDraft(null);
     const click =
       Math.abs(event.clientX - drag.anchorClientX) < MINIMUM_DRAG_PX;
     const clickedSpan =
       click && drag.recordIndex !== null
-        ? model.spans.find((span) => span.index === drag.recordIndex)
+        ? model.value.spans.find((span) => span.index === drag.recordIndex)
         : undefined;
     if (clickedSpan !== undefined) {
-      onRangeChange(null);
-      onRecordSelect?.(clickedSpan.index);
+      onRangeChange.value(null);
+      onRecordSelect.value?.(clickedSpan.index);
       return;
     }
     const committedRange =
-      selected.end - selected.start < minimumSelectionDuration
+      selected.end - selected.start < minimumSelectionDuration.value
         ? centeredRange(
             click ? selected.start : (selected.start + selected.end) / 2,
-            minimumSelectionDuration,
-            model.start,
-            model.end,
+            minimumSelectionDuration.value,
+            model.value.start,
+            model.value.end,
           )
         : selected;
     commit(committedRange);
     if (click) {
       const timelinePoint = selected.start;
-      const nearest = model.spans.reduce((candidate, span) => {
+      const nearest = model.value.spans.reduce((candidate, span) => {
         const candidateDistance =
           timelinePoint < candidate.start
             ? candidate.start - timelinePoint
@@ -381,49 +455,96 @@ export function useTrajectoryTimeline({
               : 0;
         return spanDistance < candidateDistance ? span : candidate;
       });
-      onRecordFocus?.(nearest.index);
+      onRecordFocus.value?.(nearest.index);
     }
   };
-
-  const onKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
-    if (event.key !== "Escape" || range === null) return;
+  const onKeyDown = (event: KeyboardEvent) => {
+    if (event.key !== "Escape" || range.value === null) return;
     event.preventDefault();
-    onRangeChange(null);
+    onRangeChange.value(null);
   };
-
   const onPointerCancel = () => {
-    dragRef.current = null;
-    panRef.current = null;
+    dragRef.value = null;
+    panRef.value = null;
     setDraft(null);
     setHover(null);
     setPanning(false);
   };
-
-  return {
-    model,
-    rootRef,
-    loadingEarlier,
-    setHover,
-    loadEarlier,
-    detailByIndex,
-    dragRef,
-    panRef,
-    trackRef,
-    draft,
-    hover,
-    panning,
-    animateViewport,
-    fullDuration,
-    domainDuration,
-    domainStart,
-    showsEarlierBoundary,
-    projectedDomainStyle,
-    visibleRange,
-    activeRange,
-    onKeyDown,
-    onPointerDown,
-    onPointerMove,
-    onPointerEnd,
-    onPointerCancel,
-  };
+  return shallowReactive({
+    get model() {
+      return model.value;
+    },
+    get rootRef() {
+      return rootRef;
+    },
+    get loadingEarlier() {
+      return loadingEarlier.value;
+    },
+    get setHover() {
+      return setHover;
+    },
+    get loadEarlier() {
+      return loadEarlier.value;
+    },
+    get detailByIndex() {
+      return detailByIndex.value;
+    },
+    get dragRef() {
+      return dragRef;
+    },
+    get panRef() {
+      return panRef;
+    },
+    get trackRef() {
+      return trackRef;
+    },
+    get draft() {
+      return draft.value;
+    },
+    get hover() {
+      return hover.value;
+    },
+    get panning() {
+      return panning.value;
+    },
+    get animateViewport() {
+      return animateViewport.value;
+    },
+    get fullDuration() {
+      return fullDuration.value;
+    },
+    get domainDuration() {
+      return domainDuration.value;
+    },
+    get domainStart() {
+      return domainStart.value;
+    },
+    get showsEarlierBoundary() {
+      return showsEarlierBoundary.value;
+    },
+    get projectedDomainStyle() {
+      return projectedDomainStyle.value;
+    },
+    get visibleRange() {
+      return visibleRange.value;
+    },
+    get activeRange() {
+      return activeRange.value;
+    },
+    get onKeyDown() {
+      return onKeyDown;
+    },
+    get onPointerDown() {
+      return onPointerDown;
+    },
+    get onPointerMove() {
+      return onPointerMove;
+    },
+    get onPointerEnd() {
+      return onPointerEnd;
+    },
+    get onPointerCancel() {
+      return onPointerCancel;
+    },
+  });
 }

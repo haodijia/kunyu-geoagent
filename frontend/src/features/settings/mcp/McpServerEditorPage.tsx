@@ -1,3 +1,4 @@
+import { useNavigation } from "@/app/navigation";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
@@ -12,12 +13,12 @@ import {
   type McpServer,
 } from "@/features/settings/mcp/api";
 import { mcpError, mcpQueryKey } from "@/features/settings/mcp/model";
+import { refSetter } from "@/lib/lifecycle";
 import { zhCN } from "@/locales/zh-CN";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { ArrowLeft, LoaderCircle } from "lucide-react";
-import { useState, type FormEvent } from "react";
-import { useNavigate, useParams } from "react-router-dom";
-
+import { useQuery, useQueryClient } from "@tanstack/vue-query";
+import { ArrowLeft, LoaderCircle } from "lucide-vue-next";
+import { computed, defineComponent, reactive, shallowRef } from "vue";
+import { useRoute } from "vue-router";
 const content = zhCN.mcp;
 const blank: McpConfig = {
   name: "",
@@ -38,318 +39,402 @@ const blank: McpConfig = {
     max_attempts: 10,
   },
 };
-export function McpServerEditorPage() {
-  const { serverName } = useParams(),
-    navigate = useNavigate();
-  const query = useQuery({
-    queryKey: mcpQueryKey,
-    queryFn: mcpApi.list,
-    enabled: serverName !== undefined,
-  });
-  const server =
-    serverName === undefined
-      ? null
-      : query.data?.find((server) => server.config.name === serverName);
-  return (
-    <SettingsPageWrapper>
-      <SettingsPageHeader
-        title={
-          serverName === undefined ? content.add : content.edit(serverName)
-        }
-        description={content.editorDescription}
-        actions={null}
-        navigation={
-          <Button
-            size="sm"
-            variant="ghost"
-            onClick={() => void navigate("/settings/mcp")}
-          >
-            <ArrowLeft className="size-3.5" />
-            {content.back}
-          </Button>
-        }
-      />
-      {serverName !== undefined && query.isPending ? (
-        <div className="model-loading">
-          <LoaderCircle className="size-5 animate-spin" />
-          {content.loading}
-        </div>
-      ) : query.isError ? (
-        <p role="alert" className="mt-6 text-destructive">
-          {mcpError(query.error)}
-        </p>
-      ) : server === undefined ? (
-        <p className="mt-6" role="alert">
-          {content.notFound}
-        </p>
-      ) : (
-        <Editor
-          key={server === null ? "new" : server.config.name}
-          server={server}
-        />
-      )}
-    </SettingsPageWrapper>
-  );
-}
-function Editor({ server }: { readonly server: McpServer | null }) {
-  const [config, setConfig] = useState<McpConfig>(
-      server === null ? blank : server.config,
-    ),
-    [args, setArgs] = useState(
-      JSON.stringify(server === null ? [] : server.config.args),
-    ),
-    [error, setError] = useState<string | null>(null),
-    [pending, setPending] = useState(false),
-    [secretText, setSecretText] = useState("{}"),
-    [secretStatus, setSecretStatus] = useState<string | null>(null);
-  const [revision, setRevision] = useState(
-    server === null ? 1 : server.revision,
-  );
-  const cache = useQueryClient(),
-    navigate = useNavigate();
-  async function save(event: FormEvent) {
-    event.preventDefault();
-    setError(null);
-    setPending(true);
-    try {
-      const parsed: unknown = JSON.parse(args);
-      if (
-        !Array.isArray(parsed) ||
-        parsed.some((arg) => typeof arg !== "string")
-      )
-        throw Error(content.argsInvalid);
-      const body = {
-        ...config,
-        args: config.transport === "stdio" ? parsed : [],
-      };
-      if (server === null) await mcpApi.create(body);
-      else await mcpApi.update(body, revision);
-      await cache.invalidateQueries({ queryKey: mcpQueryKey });
-      void navigate("/settings/mcp");
-    } catch (error) {
-      setError(mcpError(error));
-    } finally {
-      setPending(false);
-    }
-  }
-  async function saveSecrets(event: FormEvent) {
-    event.preventDefault();
-    setError(null);
-    setSecretStatus(null);
-    setPending(true);
-    try {
-      const parsed: unknown = JSON.parse(secretText);
-      if (
-        typeof parsed !== "object" ||
-        parsed === null ||
-        Array.isArray(parsed) ||
-        Object.values(parsed).some((value) => typeof value !== "string")
-      )
-        throw Error(content.secretsInvalid);
-      const updated = await mcpApi.secrets(
-        config.name,
-        server!.config.transport,
-        parsed as Record<string, string>,
-        revision,
-      );
-      setRevision(updated.revision);
-      setSecretText("{}");
-      setSecretStatus(content.secretsSaved);
-      await cache.invalidateQueries({ queryKey: mcpQueryKey });
-    } catch (error) {
-      setError(mcpError(error));
-    } finally {
-      setPending(false);
-    }
-  }
-  const inputClass = "w-full";
-  return (
-    <div className="mt-6 max-w-[720px]">
-      <form
-        className="flex flex-col gap-5"
-        onSubmit={(event) => void save(event)}
-      >
-        <label className="flex flex-col gap-2 text-[13px]">
-          {content.name}
-          <Input
-            className={inputClass}
-            value={config.name}
-            required
-            pattern={"[A-Za-z0-9_\\-]{1,32}"}
-            disabled={pending || server !== null}
-            onChange={(e) => setConfig({ ...config, name: e.target.value })}
+export const McpServerEditorPage = defineComponent(
+  (_props, { slots: _slots }) => {
+    const _route = useRoute(),
+      serverName = computed(() =>
+        _route.params.serverName === undefined
+          ? undefined
+          : String(_route.params.serverName),
+      ),
+      navigate = useNavigation();
+    const query = reactive(
+      useQuery(
+        computed(() => ({
+          queryKey: mcpQueryKey,
+          queryFn: mcpApi.list,
+          enabled: serverName.value !== undefined,
+        })),
+      ),
+    );
+    const server = computed(() =>
+      serverName.value === undefined
+        ? null
+        : query.data?.find((server) => server.config.name === serverName.value),
+    );
+    return () => {
+      const _serverName = serverName.value,
+        _server = server.value;
+      return (
+        <SettingsPageWrapper>
+          <SettingsPageHeader
+            title={
+              _serverName === undefined
+                ? content.add
+                : content.edit(_serverName)
+            }
+            description={content.editorDescription}
+            actions={null}
+            navigation={
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={() => void navigate("/settings/mcp")}
+              >
+                <ArrowLeft class="size-3.5" />
+                {content.back}
+              </Button>
+            }
           />
-        </label>
-        <label className="flex flex-col gap-2 text-[13px]">
-          {content.transport}
-          <select
-            className="h-9 rounded-md border bg-background px-3"
-            value={config.transport}
-            disabled={pending}
-            onChange={(e) => {
-              const transport = e.target.value as McpConfig["transport"];
-              setConfig({
-                ...config,
-                transport,
-                auth_mode: "headers",
-                oauth: null,
-                url: transport === "streamable-http" ? "" : null,
-                command: transport === "stdio" ? "" : null,
-                args: [],
-                cwd: null,
-              });
-              setArgs("[]");
-            }}
-          >
-            <option value="streamable-http">Streamable HTTP</option>
-            <option value="stdio">{content.stdio}</option>
-          </select>
-        </label>
-        {config.transport === "streamable-http" ? (
-          <label className="flex flex-col gap-2 text-[13px]">
-            {content.url}
-            <Input
-              className={inputClass}
-              value={config.url!}
-              required
-              placeholder="https://example.com/mcp"
-              disabled={pending}
-              onChange={(e) => setConfig({ ...config, url: e.target.value })}
+          {_serverName !== undefined && query.isPending ? (
+            <div class="model-loading">
+              <LoaderCircle class="size-5 animate-spin" />
+              {content.loading}
+            </div>
+          ) : query.isError ? (
+            <p role="alert" class="mt-6 text-destructive">
+              {mcpError(query.error)}
+            </p>
+          ) : _server === undefined ? (
+            <p class="mt-6" role="alert">
+              {content.notFound}
+            </p>
+          ) : (
+            <Editor
+              key={_server === null ? "new" : _server.config.name}
+              server={_server}
             />
-          </label>
-        ) : (
-          <>
-            <label className="flex flex-col gap-2 text-[13px]">
-              {content.command}
+          )}
+        </SettingsPageWrapper>
+      );
+    };
+  },
+  {
+    name: "McpServerEditorPage",
+    inheritAttrs: false,
+    props: [],
+  },
+);
+const Editor = defineComponent(
+  (
+    componentProps: {
+      readonly server: McpServer | null;
+    },
+    { slots: _slots },
+  ) => {
+    const server = computed(() => componentProps.server);
+    const config = shallowRef<McpConfig>(
+        server.value === null ? blank : server.value.config,
+      ),
+      args = shallowRef(
+        JSON.stringify(server.value === null ? [] : server.value.config.args),
+      ),
+      error = shallowRef<string | null>(null),
+      pending = shallowRef(false),
+      secretText = shallowRef("{}"),
+      secretStatus = shallowRef<string | null>(null),
+      setConfig = refSetter(config),
+      setArgs = refSetter(args),
+      setError = refSetter(error),
+      setPending = refSetter(pending),
+      setSecretText = refSetter(secretText),
+      setSecretStatus = refSetter(secretStatus);
+    const revision = shallowRef(
+        server.value === null ? 1 : server.value.revision,
+      ),
+      setRevision = refSetter(revision);
+    const cache = useQueryClient(),
+      navigate = useNavigation();
+    async function save(event: SubmitEvent) {
+      event.preventDefault();
+      setError(null);
+      setPending(true);
+      try {
+        const parsed: unknown = JSON.parse(args.value);
+        if (
+          !Array.isArray(parsed) ||
+          parsed.some((arg) => typeof arg !== "string")
+        )
+          throw Error(content.argsInvalid);
+        const body = {
+          ...config.value,
+          args: config.value.transport === "stdio" ? parsed : [],
+        };
+        if (server.value === null) await mcpApi.create(body);
+        else await mcpApi.update(body, revision.value);
+        await cache.invalidateQueries({
+          queryKey: mcpQueryKey,
+        });
+        void navigate("/settings/mcp");
+      } catch (error) {
+        setError(mcpError(error));
+      } finally {
+        setPending(false);
+      }
+    }
+    async function saveSecrets(event: SubmitEvent) {
+      event.preventDefault();
+      setError(null);
+      setSecretStatus(null);
+      setPending(true);
+      try {
+        const parsed: unknown = JSON.parse(secretText.value);
+        if (
+          typeof parsed !== "object" ||
+          parsed === null ||
+          Array.isArray(parsed) ||
+          Object.values(parsed).some((value) => typeof value !== "string")
+        )
+          throw Error(content.secretsInvalid);
+        const updated = await mcpApi.secrets(
+          config.value.name,
+          server.value!.config.transport,
+          parsed as Record<string, string>,
+          revision.value,
+        );
+        setRevision(updated.revision);
+        setSecretText("{}");
+        setSecretStatus(content.secretsSaved);
+        await cache.invalidateQueries({
+          queryKey: mcpQueryKey,
+        });
+      } catch (error) {
+        setError(mcpError(error));
+      } finally {
+        setPending(false);
+      }
+    }
+    const inputClass = "w-full";
+    return () => {
+      const _server2 = server.value;
+      return (
+        <div class="mt-6 max-w-[720px]">
+          <form
+            class="flex flex-col gap-5"
+            onSubmit={(event) => void save(event)}
+          >
+            <label class="flex flex-col gap-2 text-[13px]">
+              {content.name}
               <Input
-                className={inputClass}
-                value={config.command!}
+                class={inputClass}
+                value={config.value.name}
                 required
-                disabled={pending}
-                onChange={(e) =>
-                  setConfig({ ...config, command: e.target.value })
-                }
-              />
-            </label>
-            <label className="flex flex-col gap-2 text-[13px]">
-              {content.args}
-              <Input
-                className={`${inputClass} font-mono text-xs`}
-                value={args}
-                disabled={pending}
-                onChange={(e) => setArgs(e.target.value)}
-              />
-            </label>
-            <label className="flex flex-col gap-2 text-[13px]">
-              {content.cwd}
-              <Input
-                className={inputClass}
-                value={config.cwd === null ? "" : config.cwd}
-                disabled={pending}
-                onChange={(e) =>
+                pattern={"[A-Za-z0-9_\\-]{1,32}"}
+                disabled={pending.value || _server2 !== null}
+                onInput={(e) =>
                   setConfig({
-                    ...config,
-                    cwd: e.target.value === "" ? null : e.target.value,
+                    ...config.value,
+                    name: (e.target as HTMLInputElement).value,
                   })
                 }
               />
             </label>
-          </>
-        )}
-        {config.transport === "streamable-http" && (
-          <McpOAuthSettings
-            config={config}
-            pending={pending}
-            onChange={setConfig}
-          />
-        )}
-        <label className="flex flex-col gap-2 text-[13px]">
-          {content.timeout}
-          <Input
-            type="number"
-            min={1000}
-            max={300000}
-            step={1000}
-            value={config.tool_timeout_ms}
-            disabled={pending}
-            onChange={(e) =>
-              setConfig({ ...config, tool_timeout_ms: Number(e.target.value) })
-            }
-          />
-        </label>
-        <label className="flex items-center gap-2 text-[13px]">
-          <Checkbox
-            checked={config.reconnect.enabled}
-            disabled={pending}
-            onCheckedChange={(value) =>
-              setConfig({
-                ...config,
-                reconnect: { ...config.reconnect, enabled: value === true },
-              })
-            }
-          />
-          {content.autoReconnect}
-        </label>
-        <label className="flex items-center gap-2 text-[13px]">
-          <Checkbox
-            checked={config.enabled}
-            disabled={pending}
-            onCheckedChange={(value) =>
-              setConfig({ ...config, enabled: value === true })
-            }
-          />
-          {content.enabled}
-        </label>
-        <div>
-          <Button type="submit" disabled={pending}>
-            {pending ? <LoaderCircle className="size-4 animate-spin" /> : null}
-            {content.save}
-          </Button>
-        </div>
-      </form>
-      {server !== null && (
-        <form
-          className="mt-8 flex flex-col gap-3 border-t pt-5"
-          onSubmit={(event) => void saveSecrets(event)}
-        >
-          <h2 className="text-sm font-medium">{content.credentials}</h2>
-          <p className="text-xs text-t-secondary">{content.secretHint}</p>
-          <p className="text-xs text-t-secondary">
-            {content.secretNames(server.secret_keys)}
-          </p>
-          <label className="flex flex-col gap-2 text-[13px]">
-            {server.config.transport === "stdio"
-              ? content.env
-              : content.headers}
-            <textarea
-              className="min-h-24 w-full rounded-md border bg-background p-3 font-mono text-xs"
-              value={secretText}
-              disabled={pending}
-              onChange={(e) => setSecretText(e.target.value)}
-            />
-          </label>
-          <div>
-            <Button
-              type="submit"
-              size="sm"
-              variant="outline"
-              disabled={pending}
+            <label class="flex flex-col gap-2 text-[13px]">
+              {content.transport}
+              <select
+                class="h-9 rounded-md border bg-background px-3"
+                value={config.value.transport}
+                disabled={pending.value}
+                onChange={(e) => {
+                  const transport = (e.target as HTMLInputElement)
+                    .value as McpConfig["transport"];
+                  setConfig({
+                    ...config.value,
+                    transport,
+                    auth_mode: "headers",
+                    oauth: null,
+                    url: transport === "streamable-http" ? "" : null,
+                    command: transport === "stdio" ? "" : null,
+                    args: [],
+                    cwd: null,
+                  });
+                  setArgs("[]");
+                }}
+              >
+                <option value="streamable-http">Streamable HTTP</option>
+                <option value="stdio">{content.stdio}</option>
+              </select>
+            </label>
+            {config.value.transport === "streamable-http" ? (
+              <label class="flex flex-col gap-2 text-[13px]">
+                {content.url}
+                <Input
+                  class={inputClass}
+                  value={config.value.url!}
+                  required
+                  placeholder="https://example.com/mcp"
+                  disabled={pending.value}
+                  onInput={(e) =>
+                    setConfig({
+                      ...config.value,
+                      url: (e.target as HTMLInputElement).value,
+                    })
+                  }
+                />
+              </label>
+            ) : (
+              <>
+                <label class="flex flex-col gap-2 text-[13px]">
+                  {content.command}
+                  <Input
+                    class={inputClass}
+                    value={config.value.command!}
+                    required
+                    disabled={pending.value}
+                    onInput={(e) =>
+                      setConfig({
+                        ...config.value,
+                        command: (e.target as HTMLInputElement).value,
+                      })
+                    }
+                  />
+                </label>
+                <label class="flex flex-col gap-2 text-[13px]">
+                  {content.args}
+                  <Input
+                    class={`${inputClass} font-mono text-xs`}
+                    value={args.value}
+                    disabled={pending.value}
+                    onInput={(e) =>
+                      setArgs((e.target as HTMLInputElement).value)
+                    }
+                  />
+                </label>
+                <label class="flex flex-col gap-2 text-[13px]">
+                  {content.cwd}
+                  <Input
+                    class={inputClass}
+                    value={config.value.cwd === null ? "" : config.value.cwd}
+                    disabled={pending.value}
+                    onInput={(e) =>
+                      setConfig({
+                        ...config.value,
+                        cwd:
+                          (e.target as HTMLInputElement).value === ""
+                            ? null
+                            : (e.target as HTMLInputElement).value,
+                      })
+                    }
+                  />
+                </label>
+              </>
+            )}
+            {config.value.transport === "streamable-http" && (
+              <McpOAuthSettings
+                config={config.value}
+                pending={pending.value}
+                onChange={setConfig}
+              />
+            )}
+            <label class="flex flex-col gap-2 text-[13px]">
+              {content.timeout}
+              <Input
+                type="number"
+                min={1000}
+                max={300000}
+                step={1000}
+                value={config.value.tool_timeout_ms}
+                disabled={pending.value}
+                onInput={(e) =>
+                  setConfig({
+                    ...config.value,
+                    tool_timeout_ms: Number(
+                      (e.target as HTMLInputElement).value,
+                    ),
+                  })
+                }
+              />
+            </label>
+            <label class="flex items-center gap-2 text-[13px]">
+              <Checkbox
+                checked={config.value.reconnect.enabled}
+                disabled={pending.value}
+                onUpdate:modelValue={(value) =>
+                  setConfig({
+                    ...config.value,
+                    reconnect: {
+                      ...config.value.reconnect,
+                      enabled: value === true,
+                    },
+                  })
+                }
+              />
+              {content.autoReconnect}
+            </label>
+            <label class="flex items-center gap-2 text-[13px]">
+              <Checkbox
+                checked={config.value.enabled}
+                disabled={pending.value}
+                onUpdate:modelValue={(value) =>
+                  setConfig({
+                    ...config.value,
+                    enabled: value === true,
+                  })
+                }
+              />
+              {content.enabled}
+            </label>
+            <div>
+              <Button type="submit" disabled={pending.value}>
+                {pending.value ? (
+                  <LoaderCircle class="size-4 animate-spin" />
+                ) : null}
+                {content.save}
+              </Button>
+            </div>
+          </form>
+          {_server2 !== null && (
+            <form
+              class="mt-8 flex flex-col gap-3 border-t pt-5"
+              onSubmit={(event) => void saveSecrets(event)}
             >
-              {content.replaceSecrets}
-            </Button>
-          </div>
-          {secretStatus !== null && (
-            <p className="text-xs text-success" role="status">
-              {secretStatus}
+              <h2 class="text-sm font-medium">{content.credentials}</h2>
+              <p class="text-xs text-t-secondary">{content.secretHint}</p>
+              <p class="text-xs text-t-secondary">
+                {content.secretNames(_server2.secret_keys)}
+              </p>
+              <label class="flex flex-col gap-2 text-[13px]">
+                {_server2.config.transport === "stdio"
+                  ? content.env
+                  : content.headers}
+                <textarea
+                  class="min-h-24 w-full rounded-md border bg-background p-3 font-mono text-xs"
+                  value={secretText.value}
+                  disabled={pending.value}
+                  onInput={(e) =>
+                    setSecretText((e.target as HTMLInputElement).value)
+                  }
+                />
+              </label>
+              <div>
+                <Button
+                  type="submit"
+                  size="sm"
+                  variant="outline"
+                  disabled={pending.value}
+                >
+                  {content.replaceSecrets}
+                </Button>
+              </div>
+              {secretStatus.value !== null && (
+                <p class="text-xs text-success" role="status">
+                  {secretStatus.value}
+                </p>
+              )}
+            </form>
+          )}
+          {error.value !== null && (
+            <p class="mt-4 text-sm text-destructive" role="alert">
+              {error.value}
             </p>
           )}
-        </form>
-      )}
-      {error !== null && (
-        <p className="mt-4 text-sm text-destructive" role="alert">
-          {error}
-        </p>
-      )}
-    </div>
-  );
-}
+        </div>
+      );
+    };
+  },
+  {
+    name: "Editor",
+    inheritAttrs: false,
+    props: ["server"],
+  },
+);

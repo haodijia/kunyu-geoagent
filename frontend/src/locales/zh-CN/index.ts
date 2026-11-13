@@ -5,7 +5,6 @@ import { settings } from "./settings";
 import { shell } from "./shell";
 import { trajectory } from "./trajectory";
 import { workspaces } from "./workspaces";
-
 export const zhCN = {
   ...shell,
   ...conversation,

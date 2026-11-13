@@ -1,5 +1,5 @@
 /* Adapted from Mu's ConversationTitleMinimap (Apache-2.0). */
-.panel { display: flex; flex-direction: column; width: min(640px, calc(100vw - 32px)); max-width: var(--radix-popover-content-available-width); height: min(420px, var(--radix-popover-content-available-height)); border-radius: 12px; background: var(--bg-1); box-shadow: var(--mu-shadow-2); overflow: hidden; }
+.panel { display: flex; flex-direction: column; width: min(640px, calc(100vw - 32px)); max-width: var(--reka-popover-content-available-width); height: min(420px, var(--reka-popover-content-available-height)); border-radius: 12px; background: var(--bg-1); box-shadow: var(--mu-shadow-2); overflow: hidden; }
 .header { height: 52px; flex-shrink: 0; display: flex; align-items: center; gap: 8px; padding: 8px 12px 9px; border-bottom: 1px solid var(--color-border-2); }
 .input { display: flex; align-items: center; gap: 8px; height: 34px; min-width: 0; flex: 1; padding-inline: 11px; border: 1px solid var(--color-border-2); border-radius: 12px; background: linear-gradient(180deg, var(--bg-2), var(--color-fill-1)); box-shadow: 0 1px 2px rgba(15,23,42,.04); }
 .input:hover { border-color: var(--bg-4); }

@@ -33,10 +33,20 @@ export function attachRequestDetails(
       );
       result.push({
         ...record,
-        ...(prompt === undefined ? {} : { prompt }),
-        ...(schema === undefined ? {} : { schema }),
+        ...(prompt === undefined
+          ? {}
+          : {
+              prompt,
+            }),
+        ...(schema === undefined
+          ? {}
+          : {
+              schema,
+            }),
         ...(record.kind === "assistant" && header !== undefined
-          ? { index: header.sequence + 0.5 }
+          ? {
+              index: header.sequence + 0.5,
+            }
           : {}),
       });
       continue;
@@ -56,7 +66,11 @@ export function attachRequestDetails(
           : zhCN.trajectory.updatedPrompt,
       requestOnly: !changed,
       prompt,
-      ...(previousPrompt === undefined ? {} : { previousPrompt }),
+      ...(previousPrompt === undefined
+        ? {}
+        : {
+            previousPrompt,
+          }),
     });
     previousPrompt = prompt;
     const messages = header.payload.messages;
@@ -70,11 +84,14 @@ export function attachRequestDetails(
         !isObject(message.source) ||
         message.source.kind !== "context" ||
         [
-          "injected", "skill-catalog", "skill-invocation", "workspace",
-          "runtime-context", "agent-instructions", "time-context",
-        ].includes(
-          String(message.source.producer),
-        )
+          "injected",
+          "skill-catalog",
+          "skill-invocation",
+          "workspace",
+          "runtime-context",
+          "agent-instructions",
+          "time-context",
+        ].includes(String(message.source.producer))
       )
         return;
       const producer = String(message.source.producer);
@@ -107,11 +124,9 @@ export function attachRequestDetails(
   }
   return result.sort((left, right) => left.index - right.index);
 }
-
 function isObject(value: unknown): value is Record<string, unknown> {
   return value !== null && typeof value === "object" && !Array.isArray(value);
 }
-
 function promptFrom(event: TrajectoryEventProjection): TrajectoryPrompt {
   return {
     system: sanitizeTrajectoryValue(event.payload.system_prompt) as string,

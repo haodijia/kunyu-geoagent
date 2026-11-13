@@ -95,7 +95,7 @@ export const workspaces = {
     selectedCount: (count: number) => `已选 ${count} 项`,
     chatCount: (count: number) => `${count} 个会话`,
     loadMore: "加载更多",
-    readOnly: "此会话已归档，恢复后可继续发送消息。",
+    readonly: "此会话已归档，恢复后可继续发送消息。",
   },
   workspaceStart: {
     eyebrow: "继续研判",

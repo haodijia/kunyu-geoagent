@@ -1,19 +1,17 @@
-import type { KunyuRuntimeConnection } from "@/types/runtime";
-import { zhCN } from "@/locales/zh-CN";
-
-export class RuntimeConnectionError extends Error {
-  constructor(message: string) {
-    super(message);
-    this.name = "RuntimeConnectionError";
-  }
+export function getWebRuntime() {
+  return {
+    baseUrl: new URL(".", window.location.href).href,
+    apiVersion: "1" as const,
+  };
 }
-
-export function getRuntimeConnection(): KunyuRuntimeConnection {
-  if (!("kunyu" in window)) {
-    throw new RuntimeConnectionError(
-      zhCN.api.runtimeUnavailable
-    );
-  }
-
-  return window.kunyu.getConnection();
+export function resolveApiUrl(path: string) {
+  if (!path.startsWith("/api/")) throw new Error("Invalid API resource path.");
+  return new URL(path.slice(1), getWebRuntime().baseUrl).href;
+}
+export function resolveResourceUrl(value: string) {
+  const relative =
+    value.startsWith("/api/") || value.startsWith("/openge/")
+      ? value.slice(1)
+      : value;
+  return new URL(relative, getWebRuntime().baseUrl).href;
 }

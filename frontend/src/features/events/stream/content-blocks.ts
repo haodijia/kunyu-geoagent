@@ -1,6 +1,9 @@
 /** Canonical content is ordered by first-seen block, independent of delta arrival. */
 export type ContentBlock =
-  | { readonly type: "text" | "reasoning"; readonly text: string }
+  | {
+      readonly type: "text" | "reasoning";
+      readonly text: string;
+    }
   | {
       readonly type: "tool-call";
       readonly id: string;

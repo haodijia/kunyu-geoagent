@@ -19,7 +19,6 @@ import {
 import type { TrajectoryRecord } from "@/features/events/trajectory/trajectory-model";
 import { attachRequestDetails } from "@/features/events/trajectory/trajectory-requests";
 import type { SessionMessage } from "@/features/messages/api";
-
 export function buildTrajectoryRecords(
   events: readonly TrajectoryEventProjection[],
   messages: readonly SessionMessage[],
@@ -39,7 +38,6 @@ export function buildTrajectoryRecords(
     messageTurns.set(event.entityId, turn);
     if (event.runId !== null) runTurns.set(event.runId, turn);
   }
-
   const grouped = new Map<string, TrajectoryEventProjection[]>();
   for (const event of ordered) {
     const key = `${event.kind}\u0000${event.entityId}`;
@@ -47,7 +45,6 @@ export function buildTrajectoryRecords(
     if (current === undefined) grouped.set(key, [event]);
     else current.push(event);
   }
-
   const runMap = new Map(runs.map((run) => [run.id, run]));
   const context: RecordContext = {
     activeAssistant,
@@ -69,7 +66,6 @@ export function buildTrajectoryRecords(
     ordered.filter((event) => event.kind === "system"),
   );
 }
-
 function buildRecord(
   events: readonly TrajectoryEventProjection[],
   context: RecordContext,

@@ -66,7 +66,6 @@ export type AssistantStreamRecord =
       readonly time: number;
       readonly chunk: StreamChunk;
     };
-
 export function parseAssistantStream(
   value: unknown,
 ): readonly AssistantStreamRecord[] {
@@ -114,13 +113,11 @@ export function parseAssistantStream(
   }
   return value as readonly AssistantStreamRecord[];
 }
-
 export function parseStreamOrigin(value: unknown): StreamOrigin {
   if (value !== "model" && value !== "buffered")
     throw new Error("Unknown assistant stream timing origin.");
   return value;
 }
-
 export function assistantStreamFirstTokenTime(
   stream: readonly AssistantStreamRecord[],
 ): number | null {
@@ -149,7 +146,6 @@ export function assistantStreamFirstTokenTime(
   }
   return null;
 }
-
 export function assistantStreamChunkCount(
   stream: readonly AssistantStreamRecord[],
 ): number {
@@ -164,7 +160,6 @@ export function assistantStreamChunkCount(
     0,
   );
 }
-
 export function assistantStreamText(
   stream: readonly AssistantStreamRecord[],
 ): string {
@@ -186,7 +181,6 @@ export function assistantStreamText(
   }
   return result;
 }
-
 export function streamReasoning(
   stream: readonly AssistantStreamRecord[],
   settledAt: string,
@@ -259,7 +253,6 @@ export function streamReasoning(
           finished === null ? settledAt : new Date(finished).toISOString(),
       };
 }
-
 function firstMemberTime(
   record: PackedRun,
   members: readonly string[],
@@ -289,7 +282,6 @@ export function parseStreamChunk(value: unknown): StreamChunk {
   if (!validChunk(value)) throw new Error("Invalid assistant stream chunk.");
   return value as StreamChunk;
 }
-
 function validChunk(value: unknown): boolean {
   if (!isObject(value)) return false;
   switch (value.type) {
@@ -311,11 +303,17 @@ function validChunk(value: unknown): boolean {
     case "block-end":
       return index(value.index) && validContentBlock(value.block);
     case "usage":
-      return [
-        value.input_tokens,
-        value.output_tokens,
-        value.total_tokens,
-      ].every((count) => count === null || index(count)) && [value.cache_read_input_tokens, value.cache_creation_input_tokens].every(count => count === undefined || count === null || index(count));
+      return (
+        [value.input_tokens, value.output_tokens, value.total_tokens].every(
+          (count) => count === null || index(count),
+        ) &&
+        [
+          value.cache_read_input_tokens,
+          value.cache_creation_input_tokens,
+        ].every(
+          (count) => count === undefined || count === null || index(count),
+        )
+      );
     case "finish":
       return (
         ["stop", "tool_calls", "length", "content_filter"].includes(
@@ -326,13 +324,18 @@ function validChunk(value: unknown): boolean {
       return false;
   }
 }
-
 export function* timedChunks(
   stream: readonly AssistantStreamRecord[],
-): Generator<{ time: number; chunk: StreamChunk }> {
+): Generator<{
+  time: number;
+  chunk: StreamChunk;
+}> {
   for (const record of stream) {
     if (record.type === "chunk") {
-      yield { time: record.time, chunk: record.chunk };
+      yield {
+        time: record.time,
+        chunk: record.chunk,
+      };
       continue;
     }
     const members =

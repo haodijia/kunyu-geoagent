@@ -1,40 +1,60 @@
-import * as DropdownMenuPrimitive from "@radix-ui/react-dropdown-menu";
-import type { ComponentProps } from "react";
 import { cn } from "@/lib/utils";
-
-export const DropdownMenu = DropdownMenuPrimitive.Root;
-export const DropdownMenuTrigger = DropdownMenuPrimitive.Trigger;
-
-export function DropdownMenuContent({
-  className,
-  sideOffset = 6,
-  ...props
-}: ComponentProps<typeof DropdownMenuPrimitive.Content>) {
+import {
+  DropdownMenuContent as Content,
+  DropdownMenuPortal,
+  DropdownMenuRoot,
+  DropdownMenuItem as Item,
+  DropdownMenuTrigger as Trigger,
+  type DropdownMenuContentProps,
+  type DropdownMenuItemProps,
+} from "reka-ui";
+import type { HTMLAttributes, SetupContext } from "vue";
+export const DropdownMenu = DropdownMenuRoot;
+export const DropdownMenuTrigger = Trigger;
+export function DropdownMenuContent(
+  {
+    class: className,
+    sideOffset = 6,
+    ...props
+  }: DropdownMenuContentProps & {
+    class?: HTMLAttributes["class"];
+  },
+  { slots }: SetupContext,
+) {
   return (
-    <DropdownMenuPrimitive.Portal>
-      <DropdownMenuPrimitive.Content
+    <DropdownMenuPortal>
+      <Content
         sideOffset={sideOffset}
-        className={cn(
+        class={cn(
           "z-[100] min-w-52 max-w-[calc(100vw-1rem)] rounded-[var(--mu-radius-md)] border bg-popover p-1 text-popover-foreground shadow-md",
           className,
         )}
         {...props}
-      />
-    </DropdownMenuPrimitive.Portal>
+      >
+        {slots.default?.()}
+      </Content>
+    </DropdownMenuPortal>
   );
 }
-
-export function DropdownMenuItem({
-  className,
-  ...props
-}: ComponentProps<typeof DropdownMenuPrimitive.Item>) {
+export function DropdownMenuItem(
+  {
+    class: className,
+    ...props
+  }: DropdownMenuItemProps & {
+    class?: HTMLAttributes["class"];
+    onSelect?: (event: Event) => void;
+  },
+  { slots }: SetupContext,
+) {
   return (
-    <DropdownMenuPrimitive.Item
-      className={cn(
+    <Item
+      class={cn(
         "relative flex min-h-7 cursor-default items-center gap-2.5 rounded-md px-2 py-1.5 text-[13px] leading-5 outline-none focus:bg-muted focus:text-foreground data-[disabled]:pointer-events-none data-[disabled]:opacity-50 [&_svg]:size-[18px] [&_svg]:shrink-0",
         className,
       )}
       {...props}
-    />
+    >
+      {slots.default?.()}
+    </Item>
   );
 }

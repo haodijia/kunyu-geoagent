@@ -1,6 +1,5 @@
 import { requestJson } from "@/api/client";
 import type { AgentTurnState, StepModelSnapshot } from "@/features/agent/api";
-
 export interface Subagent {
   readonly child_id: string;
   readonly parent_run_id: string;
@@ -19,7 +18,6 @@ export interface Subagent {
   readonly created_sequence: number;
   readonly settled_sequence: number | null;
 }
-
 export const subagentKeys = {
   list: (parent: string) => ["sessions", parent, "subagents"] as const,
   detail: (parent: string, child: string) =>
@@ -28,7 +26,9 @@ export const subagentKeys = {
 const route = (parent: string) =>
   `/api/v1/sessions/${encodeURIComponent(parent)}/subagents`;
 export const listSubagents = (parent: string, signal?: AbortSignal) =>
-  requestJson<Subagent[]>(route(parent), { signal });
+  requestJson<Subagent[]>(route(parent), {
+    signal,
+  });
 export const getSubagent = (
   parent: string,
   child: string,
@@ -40,5 +40,8 @@ export const getSubagent = (
 export const cancelSubagent = (parent: string, child: string) =>
   requestJson<Subagent>(
     `${route(parent)}/${encodeURIComponent(child)}/cancel`,
-    { method: "POST", body: "{}" },
+    {
+      method: "POST",
+      body: "{}",
+    },
   );

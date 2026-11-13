@@ -1,33 +1,61 @@
 import { analysisApi } from "@/features/analysis/api";
-import { useQuery } from "@tanstack/react-query";
-import { useEffect, useState } from "react";
-
+import { refSetter, watchMounted } from "@/lib/lifecycle";
+import { useQuery } from "@tanstack/vue-query";
+import {
+  computed,
+  reactive,
+  shallowReactive,
+  shallowRef,
+  toValue,
+  type MaybeRefOrGetter,
+} from "vue";
 export function useLayerPreview(
-  sessionId: string,
-  layerId: string,
-  enabled = true,
-  revision?: number,
+  sessionId: MaybeRefOrGetter<string>,
+  layerId: MaybeRefOrGetter<string>,
+  enabled: MaybeRefOrGetter<any> = true,
+  revision?: MaybeRefOrGetter<number>,
 ) {
-  const query = useQuery({
-    queryKey: ["map-layer-preview", sessionId, layerId, revision],
-    queryFn: ({ signal }) =>
-      analysisApi.layerPreview(sessionId, layerId, signal),
-    staleTime: Infinity,
-    enabled,
-  });
-  const [url, setUrl] = useState<string | null>(null);
-  useEffect(() => {
+  const query = reactive(
+    useQuery(
+      computed(() => ({
+        queryKey: [
+          "map-layer-preview",
+          toValue(sessionId),
+          toValue(layerId),
+          toValue(revision),
+        ],
+        queryFn: ({ signal }: { signal: AbortSignal }) =>
+          analysisApi.layerPreview(
+            toValue(sessionId),
+            toValue(layerId),
+            signal,
+          ),
+        staleTime: Infinity,
+        enabled: toValue(enabled),
+      })),
+    ),
+  );
+  const url = shallowRef<string | null>(null),
+    setUrl = refSetter(url);
+  watchMounted([() => query.data], () => {
     if (query.data === undefined) return;
     const value = URL.createObjectURL(query.data);
     setUrl(value);
     return () => URL.revokeObjectURL(value);
-  }, [query.data]);
-  useEffect(() => {
+  });
+  watchMounted([() => toValue(layerId), () => query.error], () => {
     if (query.error !== null)
       console.error("[map] Layer preview failed.", {
-        layerId,
+        layerId: toValue(layerId),
         error: query.error,
       });
-  }, [layerId, query.error]);
-  return { url, error: query.isError };
+  });
+  return shallowReactive({
+    get url() {
+      return url.value;
+    },
+    get error() {
+      return query.isError;
+    },
+  });
 }

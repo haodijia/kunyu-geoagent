@@ -31,11 +31,11 @@ const RAIL_EDGE_PADDING = 16;
  * tall the window is.
  */
 export const MAX_VISIBLE_TICKS = 20;
-
 const TICK_STRIDE = TICK_HEIGHT + TICK_GAP;
 
 /** Tallest the tick viewport is ever allowed to get. */
-export const MAX_VIEWPORT_HEIGHT = MAX_VISIBLE_TICKS * TICK_HEIGHT + (MAX_VISIBLE_TICKS - 1) * TICK_GAP;
+export const MAX_VIEWPORT_HEIGHT =
+  MAX_VISIBLE_TICKS * TICK_HEIGHT + (MAX_VISIBLE_TICKS - 1) * TICK_GAP;
 
 /**
  * Total height the tick stack occupies. There is one gap *between* ticks, so a
@@ -47,7 +47,8 @@ export const tickStackHeight = (count: number): number => {
 };
 
 /** Offset of a tick's vertical centre, measured from the top of the stack. */
-export const tickCenterOffset = (index: number): number => index * TICK_STRIDE + TICK_HEIGHT / 2;
+export const tickCenterOffset = (index: number): number =>
+  index * TICK_STRIDE + TICK_HEIGHT / 2;
 
 /**
  * Height the rail's scroll viewport gets.
@@ -57,9 +58,16 @@ export const tickCenterOffset = (index: number): number => index * TICK_STRIDE +
  * tall window does not turn the strip into a wall of ticks). Whichever limit is
  * tighter wins, and a short conversation shrinks below both.
  */
-export const resolveViewportHeight = (railHeight: number, count = MAX_VISIBLE_TICKS): number => {
+export const resolveViewportHeight = (
+  railHeight: number,
+  count = MAX_VISIBLE_TICKS,
+): number => {
   const available = Math.max(0, railHeight - RAIL_EDGE_PADDING * 2);
-  return Math.min(available, MAX_VIEWPORT_HEIGHT, Math.max(0, tickStackHeight(count)));
+  return Math.min(
+    available,
+    MAX_VIEWPORT_HEIGHT,
+    Math.max(0, tickStackHeight(count)),
+  );
 };
 
 /**
@@ -83,7 +91,10 @@ export const resolveStackTop = (railHeight: number, count: number): number =>
  * rail's column, and the closest tick wins.
  * Returns null only when there is nothing to select.
  */
-export const resolveTickIndexAtOffset = (offsetY: number, count: number): number | null => {
+export const resolveTickIndexAtOffset = (
+  offsetY: number,
+  count: number,
+): number | null => {
   if (count <= 0) return null;
   const raw = Math.round((offsetY - TICK_HEIGHT / 2) / TICK_STRIDE);
   return Math.min(count - 1, Math.max(0, raw));
@@ -94,7 +105,11 @@ export const resolveTickIndexAtOffset = (offsetY: number, count: number): number
  * Used to follow the conversation as new turns arrive and to keep a
  * keyboard-focused tick on screen.
  */
-export const resolveScrollTopForIndex = (index: number, count: number, viewportHeight: number): number => {
+export const resolveScrollTopForIndex = (
+  index: number,
+  count: number,
+  viewportHeight: number,
+): number => {
   const maxScroll = Math.max(0, tickStackHeight(count) - viewportHeight);
   const centred = tickCenterOffset(index) - viewportHeight / 2;
   return Math.min(maxScroll, Math.max(0, centred));

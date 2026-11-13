@@ -1,16 +1,13 @@
 import type { TrajectoryEventKind } from "@/features/events/projection/events";
 import type { TrajectoryTranslate } from "@/features/events/trajectory/trajectory-locales";
-
 export type TrajectoryCellKind =
   "system" | "user" | "context" | "compacted" | "message" | "tool" | "subtool";
-
 export interface AssistantMetricDetail {
   stepStartTime: number | null;
   firstTokenTime: number | null;
   completedTime: number | null;
   timingRecorded: boolean;
 }
-
 export interface TrajectoryCellProps {
   index: number;
   kind: TrajectoryCellKind;
@@ -21,18 +18,17 @@ export interface TrajectoryCellProps {
   requestOnly?: boolean;
   assistantMetrics?: AssistantMetricDetail;
 }
-
 export interface TrajectoryTurnModel {
   turn: number | null;
-  groups: { cells: TrajectoryCellProps[] }[];
+  groups: {
+    cells: TrajectoryCellProps[];
+  }[];
 }
-
 export interface TrajectoryUsage {
   readonly inputTokens: number | null;
   readonly outputTokens: number | null;
   readonly totalTokens: number | null;
 }
-
 export interface TrajectoryRecord {
   readonly id: string;
   readonly index: number;
@@ -59,13 +55,11 @@ export interface TrajectoryRecord {
   readonly prompt?: TrajectoryPrompt;
   readonly previousPrompt?: TrajectoryPrompt;
 }
-
 export interface TrajectoryPrompt {
   readonly system: string;
   readonly tools: readonly unknown[];
   readonly model: Readonly<Record<string, unknown>>;
 }
-
 export function trajectoryTurns(
   records: readonly TrajectoryRecord[],
 ): TrajectoryTurnModel[] {
@@ -73,7 +67,14 @@ export function trajectoryTurns(
   for (const record of records) {
     let current = turns.at(-1);
     if (current === undefined || current.turn !== record.turn) {
-      current = { turn: record.turn, groups: [{ cells: [] }] };
+      current = {
+        turn: record.turn,
+        groups: [
+          {
+            cells: [],
+          },
+        ],
+      };
       turns.push(current);
     }
     current.groups[0]!.cells.push({
@@ -87,12 +88,13 @@ export function trajectoryTurns(
       requestOnly: record.requestOnly,
       ...(record.assistantMetrics === undefined
         ? {}
-        : { assistantMetrics: record.assistantMetrics }),
+        : {
+            assistantMetrics: record.assistantMetrics,
+          }),
     });
   }
   return turns;
 }
-
 export function formatDurationMillis(
   milliseconds: number | null,
   t: TrajectoryTranslate,
@@ -102,7 +104,6 @@ export function formatDurationMillis(
     value: Math.round(milliseconds).toLocaleString("zh-CN"),
   });
 }
-
 function cellKind(kind: TrajectoryEventKind): TrajectoryCellKind {
   switch (kind) {
     case "system":
@@ -121,7 +122,6 @@ function cellKind(kind: TrajectoryEventKind): TrajectoryCellKind {
       return "system";
   }
 }
-
 function timestamp(value: string): number | null {
   const parsed = Date.parse(value);
   return Number.isFinite(parsed) ? parsed : null;

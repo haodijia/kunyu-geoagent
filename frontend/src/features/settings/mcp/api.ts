@@ -1,9 +1,7 @@
 import { requestJson } from "@/api/client";
-
 export interface McpOAuthOptions {
   readonly client_id: string | null;
   readonly client_metadata_url: string | null;
-  readonly callback_port: number;
   readonly scopes: readonly string[];
 }
 export interface McpOAuthFlow {
@@ -37,7 +35,9 @@ export interface McpTool {
   readonly public_name: string;
   readonly description?: string;
   readonly inputSchema: Readonly<Record<string, unknown>>;
-  readonly annotations?: { readonly readOnlyHint?: boolean };
+  readonly annotations?: {
+    readonly readOnlyHint?: boolean;
+  };
 }
 export interface McpServer {
   readonly config: McpConfig;
@@ -71,17 +71,23 @@ export const mcpApi = {
   login: (name: string, revision: number) =>
     requestJson<McpOAuthFlow>(`${path(name)}/oauth/login`, {
       method: "POST",
-      body: JSON.stringify({ expected_revision: revision }),
+      body: JSON.stringify({
+        expected_revision: revision,
+      }),
     }),
   cancelLogin: (name: string, flowId: string) =>
     requestJson<McpServer>(`${path(name)}/oauth/cancel`, {
       method: "POST",
-      body: JSON.stringify({ flow_id: flowId }),
+      body: JSON.stringify({
+        flow_id: flowId,
+      }),
     }),
   logout: (name: string, revision: number) =>
     requestJson<McpServer>(`${path(name)}/oauth/logout`, {
       method: "POST",
-      body: JSON.stringify({ expected_revision: revision }),
+      body: JSON.stringify({
+        expected_revision: revision,
+      }),
     }),
   list: () => requestJson<readonly McpServer[]>("/api/v1/mcp-servers"),
   create: (config: McpConfig) =>
@@ -92,14 +98,20 @@ export const mcpApi = {
   update: (config: McpConfig, expectedRevision: number) =>
     requestJson<McpServer>(path(config.name), {
       method: "PUT",
-      body: JSON.stringify({ config, expected_revision: expectedRevision }),
+      body: JSON.stringify({
+        config,
+        expected_revision: expectedRevision,
+      }),
     }),
   reconnect: (name: string) =>
     requestJson<McpServer>(`${path(name)}/reconnect`, {
       method: "POST",
       body: "{}",
     }),
-  remove: (name: string) => requestJson<void>(path(name), { method: "DELETE" }),
+  remove: (name: string) =>
+    requestJson<void>(path(name), {
+      method: "DELETE",
+    }),
   secrets: (
     name: string,
     transport: McpConfig["transport"],
@@ -111,8 +123,14 @@ export const mcpApi = {
       body: JSON.stringify({
         secrets:
           transport === "stdio"
-            ? { env: values, headers: {} }
-            : { headers: values, env: {} },
+            ? {
+                env: values,
+                headers: {},
+              }
+            : {
+                headers: values,
+                env: {},
+              },
         expected_revision: expectedRevision,
       }),
     }),

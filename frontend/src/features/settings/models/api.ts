@@ -1,6 +1,6 @@
 import { requestJson } from "@/api/client";
-
-export type ModelProtocol = "openai_compatible" | "deepseek_messages" | "openai_responses";
+export type ModelProtocol =
+  "openai_compatible" | "deepseek_messages" | "openai_responses";
 export type ModelProviderType =
   | "openai"
   | "deepseek"
@@ -27,39 +27,44 @@ export type ModelCheckStatus = "unchecked" | "passed" | "failed";
 export type CatalogAvailability = "available" | "unavailable";
 export type CatalogSource = "fetched" | "manual";
 export type CapabilityStatus = "unknown" | "supported" | "unsupported";
-export type CapabilitySource = "unknown" | "provider_metadata" | "protocol" | "validation" | "configuration";
-export type DiscoveryStatus = "idle" | "pending" | "succeeded" | "failed" | "interrupted";
+export type CapabilitySource =
+  "unknown" | "provider_metadata" | "protocol" | "validation" | "configuration";
+export type DiscoveryStatus =
+  "idle" | "pending" | "succeeded" | "failed" | "interrupted";
 export type ManagementStatus = "ready";
-
 interface RetryBackoff {
   readonly initial_delay_ms: number;
   readonly max_delay_ms: number;
   readonly jitter_ratio: number;
 }
-export type RetryPolicy = RetryBackoff & (
-  | { readonly mode: "normal"; readonly max_retries: number; readonly retryable_codes: readonly string[] }
-  | { readonly mode: "always" }
-);
-
+export type RetryPolicy = RetryBackoff &
+  (
+    | {
+        readonly mode: "normal";
+        readonly max_retries: number;
+        readonly retryable_codes: readonly string[];
+      }
+    | {
+        readonly mode: "always";
+      }
+  );
 export interface ModelCheck {
   readonly status: ModelCheckStatus;
   readonly checked_at: string | null;
   readonly error_code: string | null;
 }
-
 export interface ModelImageInput {
   readonly enabled: boolean;
   readonly pixel_budget: number | "low" | null;
   readonly max_bytes: number;
 }
-
-export type ReasoningLevel = "off" | "minimal" | "low" | "medium" | "high" | "xhigh" | "max" | "on";
+export type ReasoningLevel =
+  "off" | "minimal" | "low" | "medium" | "high" | "xhigh" | "max" | "on";
 export interface ModelReasoningSettings {
   readonly mode: "none" | "effort" | "thinking" | "deepseek" | "kimi" | "zai";
   readonly levels: Partial<Record<ReasoningLevel, string | null>>;
   readonly default_level: ReasoningLevel | null;
 }
-
 export interface ModelSettings {
   readonly context_window: number | null;
   readonly retention_tokens: number;
@@ -67,7 +72,6 @@ export interface ModelSettings {
   readonly max_output_tokens: number;
   readonly image_input: ModelImageInput;
 }
-
 export interface ModelCatalogEntry {
   readonly context_window: number | null;
   readonly retention_tokens: number;
@@ -91,7 +95,6 @@ export interface ModelCatalogEntry {
   readonly image_input: ModelImageInput;
   readonly discovered_at: string | null;
 }
-
 export interface ModelConnection {
   readonly id: string;
   readonly display_name: string;
@@ -123,7 +126,6 @@ export interface ModelConnection {
   readonly created_at: string;
   readonly updated_at: string;
 }
-
 export interface CreateModelConnectionInput {
   readonly retry_policy?: RetryPolicy;
   readonly display_name: string;
@@ -134,7 +136,6 @@ export interface CreateModelConnectionInput {
   readonly max_tokens_field: MaxTokensField;
   readonly include_usage: boolean;
 }
-
 export type UpdateModelConnectionInput = Partial<
   Pick<
     ModelConnection,
@@ -149,8 +150,9 @@ export type UpdateModelConnectionInput = Partial<
     | "include_usage"
     | "retry_policy"
   >
-> & { readonly is_default?: false };
-
+> & {
+  readonly is_default?: false;
+};
 export interface ModelTestResult {
   readonly model_id: string;
   readonly revision: number;
@@ -162,10 +164,8 @@ export interface ModelTestResult {
   readonly latency_ms: number;
   readonly error_code: string | null;
 }
-
 const pathFor = (connectionId: string) =>
   `/api/v1/model-connections/${encodeURIComponent(connectionId)}`;
-
 export const modelConnectionsApi = {
   list: () => requestJson<ModelConnection[]>("/api/v1/model-connections"),
   get: (connectionId: string) =>
@@ -173,51 +173,74 @@ export const modelConnectionsApi = {
   create: (input: CreateModelConnectionInput) =>
     requestJson<ModelConnection>("/api/v1/model-connections", {
       method: "POST",
-      body: JSON.stringify(input)
+      body: JSON.stringify(input),
     }),
   update: (connectionId: string, input: UpdateModelConnectionInput) =>
     requestJson<ModelConnection>(pathFor(connectionId), {
       method: "PATCH",
-      body: JSON.stringify(input)
+      body: JSON.stringify(input),
     }),
   delete: (connectionId: string) =>
-    requestJson<void>(pathFor(connectionId), { method: "DELETE" }),
+    requestJson<void>(pathFor(connectionId), {
+      method: "DELETE",
+    }),
   setDefault: (connectionId: string) =>
     requestJson<ModelConnection>(`${pathFor(connectionId)}/default`, {
       method: "PUT",
-      body: "{}"
+      body: "{}",
     }),
   setCredential: (connectionId: string, apiKey: string) =>
     requestJson<ModelConnection>(`${pathFor(connectionId)}/credential`, {
       method: "PUT",
-      body: JSON.stringify({ api_key: apiKey })
+      body: JSON.stringify({
+        api_key: apiKey,
+      }),
     }),
   clearCredential: (connectionId: string) =>
     requestJson<ModelConnection>(`${pathFor(connectionId)}/credential`, {
-      method: "DELETE"
+      method: "DELETE",
     }),
   discover: (connectionId: string) =>
     requestJson(`${pathFor(connectionId)}/discover-models`, {
       method: "POST",
-      body: "{}"
+      body: "{}",
     }),
   addManualModel: (connectionId: string, modelId: string) =>
     requestJson<ModelCatalogEntry>(`${pathFor(connectionId)}/manual-models`, {
       method: "POST",
-      body: JSON.stringify({ model_id: modelId })
+      body: JSON.stringify({
+        model_id: modelId,
+      }),
     }),
   deleteManualModel: (connectionId: string, modelId: string) =>
     requestJson<void>(
-      `${pathFor(connectionId)}/manual-models?${new URLSearchParams({ model_id: modelId })}`,
-      { method: "DELETE" }
+      `${pathFor(connectionId)}/manual-models?${new URLSearchParams({
+        model_id: modelId,
+      })}`,
+      {
+        method: "DELETE",
+      },
     ),
-  setModelSettings: (connectionId: string, modelId: string, input: ModelSettings) =>
-    requestJson<ModelCatalogEntry>(`${pathFor(connectionId)}/model-settings?${new URLSearchParams({ model_id: modelId })}`, {
-      method: "PUT", body: JSON.stringify(input),
-    }),
+  setModelSettings: (
+    connectionId: string,
+    modelId: string,
+    input: ModelSettings,
+  ) =>
+    requestJson<ModelCatalogEntry>(
+      `${pathFor(connectionId)}/model-settings?${new URLSearchParams({
+        model_id: modelId,
+      })}`,
+      {
+        method: "PUT",
+        body: JSON.stringify(input),
+      },
+    ),
   test: (connectionId: string, modelId: string, mode: "text" | "tools") =>
     requestJson<ModelTestResult>(`${pathFor(connectionId)}/test`, {
       method: "POST",
-      body: JSON.stringify({ model_id: modelId, mode })
-    })
+      body: JSON.stringify({
+        model_id: modelId,
+        mode,
+      }),
+    }),
 };

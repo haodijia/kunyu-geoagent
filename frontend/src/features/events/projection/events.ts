@@ -1,6 +1,5 @@
 import type { SessionEvent } from "@/features/events/api";
 import { zhCN } from "@/locales/zh-CN";
-
 export type TrajectoryEventKind =
   | "system"
   | "context"
@@ -9,7 +8,6 @@ export type TrajectoryEventKind =
   | "tool"
   | "confirmation"
   | "unsupported";
-
 export interface TrajectoryEventProjection {
   readonly id: string;
   readonly kind: TrajectoryEventKind;
@@ -21,7 +19,6 @@ export interface TrajectoryEventProjection {
   readonly sequence: number;
   readonly eventType: string;
 }
-
 const RUN_CONTROL_EVENTS = new Set([
   "run.created",
   "run.model_selected",
@@ -37,7 +34,6 @@ const RUN_CONTROL_EVENTS = new Set([
   "run.failed",
   "run.cancelled",
 ]);
-
 export function projectSessionEvent(
   event: SessionEvent,
 ): TrajectoryEventProjection | null {
@@ -52,7 +48,10 @@ export function projectSessionEvent(
   if (event.event_type === "message.user.appended") {
     return projection(
       event,
-      (event.payload.source === "tool-jobs" || event.payload.source === "tool-subagents") ? "context" : "user",
+      event.payload.source === "tool-jobs" ||
+        event.payload.source === "tool-subagents"
+        ? "context"
+        : "user",
       requiredString(event, "message_id"),
     );
   }
@@ -128,7 +127,12 @@ export function projectSessionEvent(
     }
     const owner = (metadata as Readonly<Record<string, unknown>>).run_id;
     const record = projection(event, "context", event.id);
-    return typeof owner === "string" ? { ...record, runId: owner } : record;
+    return typeof owner === "string"
+      ? {
+          ...record,
+          runId: owner,
+        }
+      : record;
   }
   if (
     event.event_type === "question.requested" ||
@@ -175,7 +179,6 @@ export function projectSessionEvent(
   }
   return projection(event, "unsupported", event.id);
 }
-
 function projection(
   event: SessionEvent,
   kind: TrajectoryEventKind,
@@ -194,7 +197,6 @@ function projection(
     eventType: event.event_type,
   };
 }
-
 function requiredString(event: SessionEvent, field: string): string {
   const value = event.payload[field];
   if (typeof value !== "string" || value.length === 0) {
@@ -202,7 +204,6 @@ function requiredString(event: SessionEvent, field: string): string {
   }
   return value;
 }
-
 function requiredInteger(event: SessionEvent, field: string): number {
   const value = event.payload[field];
   if (!Number.isSafeInteger(value) || (value as number) < 0) {
@@ -210,7 +211,6 @@ function requiredInteger(event: SessionEvent, field: string): number {
   }
   return value as number;
 }
-
 function requiredRunId(event: SessionEvent): string {
   if (event.run_id === null || event.run_id.length === 0) {
     throw new Error(

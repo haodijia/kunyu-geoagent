@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" role="img" aria-labelledby="title description">
+  <title id="title">坤舆智枢·坤舆图</title>
+  <desc id="description">六段坤卦悬于折叠地图线稿之上的标志</desc>
+  <defs>
+    <rect id="kun-map-field" width="23" height="9" rx="4.5" fill="currentColor"/>
+  </defs>
+  <g fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="3" opacity=".18">
+    <path d="M14 24 36 18l26 7 24-7v58l-24 7-26-7-22 7V24Z"/>
+    <path d="M36 18v58M62 25v58"/>
+  </g>
+  <g>
+    <use href="#kun-map-field" x="20" y="30"/>
+    <use href="#kun-map-field" x="56" y="30"/>
+    <use href="#kun-map-field" x="22" y="46"/>
+    <use href="#kun-map-field" x="58" y="46"/>
+    <use href="#kun-map-field" x="18" y="62"/>
+    <use href="#kun-map-field" x="54" y="62"/>
+  </g>
+</svg>

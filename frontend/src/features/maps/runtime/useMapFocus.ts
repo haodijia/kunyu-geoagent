@@ -1,13 +1,24 @@
 import { useAppUiStore } from "@/app/store";
 import type { useSessionMap } from "@/features/maps/runtime/useSessionMap";
-import { useEffect } from "react";
-
+import { watchMounted } from "@/lib/lifecycle";
+import { computed, toValue, type MaybeRefOrGetter } from "vue";
 /** Consume a local focus request once the map exists, including after navigation. */
-export function useMapFocus(sessionId: string, map: ReturnType<typeof useSessionMap>) {
-  const bounds = useAppUiStore(state => state.mapFocusBySession[sessionId]);
-  useEffect(() => {
-    if (!map.ready || bounds === undefined) return;
-    map.focusBounds([[bounds[0], bounds[1]], [bounds[2], bounds[3]]]);
-    useAppUiStore.getState().clearMapFocus(sessionId);
-  }, [sessionId, map, bounds]);
+export function useMapFocus(
+  sessionId: MaybeRefOrGetter<string>,
+  map: MaybeRefOrGetter<ReturnType<typeof useSessionMap>>,
+) {
+  const bounds = computed(() =>
+    ((state) => state.mapFocusBySession[toValue(sessionId)])(useAppUiStore()),
+  );
+  watchMounted(
+    [() => toValue(sessionId), () => toValue(map), () => bounds.value],
+    () => {
+      if (!toValue(map).ready || bounds.value === undefined) return;
+      toValue(map).focusBounds([
+        [bounds.value[0], bounds.value[1]],
+        [bounds.value[2], bounds.value[3]],
+      ]);
+      useAppUiStore().clearMapFocus(toValue(sessionId));
+    },
+  );
 }
