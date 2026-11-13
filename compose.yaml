@@ -1,0 +1,20 @@
+services:
+  web:
+    image: kunyu-web:latest
+    platform: linux/amd64
+    build:
+      context: .
+    ports:
+      - "${KUNYU_HOST_PORT:-8080}:80"
+    environment:
+      KUNYU_PUBLIC_URL: ${KUNYU_PUBLIC_URL:?Set the public application URL}
+      KUNYU_ACCESS_PASSWORD: ${KUNYU_ACCESS_PASSWORD:?Set an instance password of at least 12 characters}
+      OGE_APP_KEY: ${OGE_APP_KEY:?Set the application AppKey}
+    volumes:
+      - kunyu-data:/data
+    init: true
+    stop_grace_period: 30s
+    restart: unless-stopped
+
+volumes:
+  kunyu-data:

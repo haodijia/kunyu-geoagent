@@ -1,14 +1,18 @@
 import { spawn } from "node:child_process";
-import { createRequire } from "node:module";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
-const FORCE_EXIT_TIMEOUT_MS = 10_000;
+const FORCE_EXIT_TIMEOUT_MS = 25_000;
 const VITE_READY_TIMEOUT_MS = 15_000;
-const repositoryRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
-const electronDirectory = path.join(repositoryRoot, "electron");
+const repositoryRoot = path.resolve(
+  path.dirname(fileURLToPath(import.meta.url)),
+  "..",
+);
 const frontendDirectory = path.join(repositoryRoot, "frontend");
-const electronTypeScript = path.join(electronDirectory, "node_modules/typescript/bin/tsc");
+const viteBinary = path.join(
+  frontendDirectory,
+  "node_modules/vite/bin/vite.js",
+);
 
 const activeProcesses = new Set();
 let resolveShutdown;
@@ -28,58 +32,55 @@ await main();
 
 async function main() {
   try {
+    process.loadEnvFile(path.join(repositoryRoot, ".env"));
+    if (process.env.KUNYU_PUBLIC_URL !== "http://localhost:5173/") {
+      throw new Error(
+        "Set KUNYU_PUBLIC_URL=http://localhost:5173/ for development.",
+      );
+    }
     const build = startProcess(
       "build",
-      process.execPath,
-      [electronTypeScript, "--project", path.join(electronDirectory, "tsconfig.json")],
-      electronDirectory
+      "npm",
+      ["run", "build"],
+      frontendDirectory,
     );
     const buildResult = await build.exited;
-    if (stopping) {
-      await shutdownComplete;
-      return;
-    }
-    if (buildResult.code !== 0) {
-      throw new Error(`Electron build failed with exit code ${String(buildResult.code)}.`);
-    }
-
+    if (stopping) return await shutdownComplete;
+    if (buildResult.code !== 0) throw new Error("Frontend build failed.");
+    process.env.KUNYU_FRONTEND_DIST = path.join(frontendDirectory, "dist");
+    process.env.PORT = "3000";
+    const backend = startProcess(
+      "backend",
+      "uv",
+      ["run", "--project", "backend", "python", "-m", "kunyu.main"],
+      repositoryRoot,
+    );
     const vite = startProcess(
       "vite",
       process.execPath,
-      [path.join(frontendDirectory, "node_modules/vite/bin/vite.js"), "--host", "127.0.0.1"],
-      frontendDirectory
+      [viteBinary, "--host", "localhost"],
+      frontendDirectory,
     );
     await waitForVite(vite);
-    if (stopping) {
-      await shutdownComplete;
-      return;
+    if (stopping) return await shutdownComplete;
+    for (const service of [backend, vite]) {
+      void service.exited.then((result) => {
+        if (!stopping) {
+          console.error(
+            `[dev] ${service.name} exited (${formatExit(result)}).`,
+          );
+          void shutdown(result.code ?? 1);
+        }
+      });
     }
-
-    const electronRequire = createRequire(path.join(electronDirectory, "package.json"));
-    const electronBinary = electronRequire("electron");
-    const electron = startProcess(
-      "electron",
-      electronBinary,
-      ["."],
-      electronDirectory
-    );
-
-    void vite.exited.then((result) => {
-      if (!stopping) {
-        console.error(`[dev] Vite exited unexpectedly (${formatExit(result)}).`);
-        void shutdown(1);
-      }
-    });
-    void electron.exited.then((result) => {
-      if (!stopping) {
-        void shutdown(result.code ?? 1);
-      }
-    });
-
+    console.log("[dev] Open http://localhost:5173/ in your browser.");
     await shutdownComplete;
   } catch (error) {
     if (!stopping) {
-      const message = error instanceof Error ? error.message : "Unknown development startup error.";
+      const message =
+        error instanceof Error
+          ? error.message
+          : "Unknown development startup error.";
       console.error(`[dev] ${message}`);
       await shutdown(1);
     } else {
@@ -93,8 +94,7 @@ function startProcess(name, command, args, cwd) {
     cwd,
     env: process.env,
     stdio: ["ignore", "pipe", "pipe"],
-    // Electron is a GUI process and must not be launched hidden.
-    windowsHide: name !== "electron"
+    windowsHide: true,
   });
   let exited = false;
   const service = {
@@ -116,7 +116,7 @@ function startProcess(name, command, args, cwd) {
         console.error(`[${name}] Failed to start: ${error.message}`);
         finish(1, null);
       });
-    })
+    }),
   };
 
   activeProcesses.add(service);
@@ -155,7 +155,11 @@ function waitForVite(vite) {
       }
     };
     const timeout = setTimeout(() => {
-      finish(new Error(`Vite did not become ready within ${VITE_READY_TIMEOUT_MS}ms.`));
+      finish(
+        new Error(
+          `Vite did not become ready within ${VITE_READY_TIMEOUT_MS}ms.`,
+        ),
+      );
     }, VITE_READY_TIMEOUT_MS);
 
     const finish = (error) => {

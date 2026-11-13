@@ -85,3 +85,8 @@ temp/
 *.sqlite
 *.sqlite3
 *.db-journal
+
+# Web runtime data and offline image delivery
+/data/
+/deliverables/
+/kunyu-web.tar
