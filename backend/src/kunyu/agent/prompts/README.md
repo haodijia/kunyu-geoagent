@@ -16,10 +16,10 @@
 
 Skill 本身的指令不放在这些包装文件中：
 
-- 内置灾情研判：`../skills/bundled/disaster-assessment/SKILL.md`，配套文本在该 Skill 的 `references/`。
+- 内置 OGE 洪水监测服务：`../skills/bundled/oge-flood-monitoring/SKILL.md`，输入参数与成果解读在 `references/service-guide.md`。
 - 用户级 Skill：应用数据目录的 `skills/<名称>/SKILL.md`。
 - 工作区级 Skill：应用数据目录的 `workspaces/<工作区 ID>/skills/<名称>/SKILL.md`。
-- 桌面开发版应用数据目录为 `~/Library/Application Support/kunyu-electron/`。
+- 应用数据目录由服务端 `KUNYU_APP_DATA_DIR` 指定，容器中为 `/data`。
 - MCP 服务返回的工具说明和 instructions 来自该服务；本目录只编辑本项目的 MCP 包装文本。
 
 ## 修改与生效
