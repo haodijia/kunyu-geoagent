@@ -4,6 +4,8 @@ import logging
 from typing import TypeVar
 
 import httpx
+
+from kunyu.integrations.oge.headers import oge_headers
 from pydantic import (
     BaseModel,
     ConfigDict,
@@ -74,13 +76,14 @@ class OgeClient:
             )
         )
 
-    async def preview(self, base_url: str, image_id: int) -> bytes:
+    async def preview(self, base_url: str, image_id: int, token: SecretStr) -> bytes:
         response = await self._request(
             base_url,
             "GET",
             "/data-product/image/getImagePreview",
             params={"imageId": str(image_id)},
             limit=MAX_ATTACHMENT_BYTES,
+            token=token,
         )
         if (
             response.headers.get("content-type", "").split(";", 1)[0].strip().lower()
@@ -115,7 +118,7 @@ class OgeClient:
                 base_url + path,
                 params=params,
                 json=body,
-                headers={"Authorization": "Bearer " + token.get_secret_value()}
+                headers=oge_headers(token)
                 if token is not None
                 else None,
                 files={key: (None, value) for key, value in fields.items()}

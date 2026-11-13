@@ -21,7 +21,6 @@ from kunyu.api.settings.mcp import router as mcp_router
 from kunyu.api.settings.models.routes import router as model_connections_router
 from kunyu.api.settings.oge import router as oge_router
 from kunyu.api.settings.skills import router as skills_router
-from kunyu.api.system.routes import router as system_router
 from kunyu.api.system.storage import router as storage_router
 from kunyu.api.workspaces.files import router as workspace_files_router
 from kunyu.api.workspaces.knowledge import router as workspace_knowledge_router
@@ -30,7 +29,6 @@ from kunyu.api.workspaces.references import router as workspace_references_route
 from kunyu.api.workspaces.routes import router as workspaces_router
 
 router = APIRouter()
-router.include_router(system_router)
 router.include_router(storage_router)
 router.include_router(model_connections_router)
 router.include_router(oge_router)

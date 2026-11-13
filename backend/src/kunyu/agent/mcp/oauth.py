@@ -24,6 +24,7 @@ from kunyu.integrations.mcp.oauth_storage import (
 )
 from kunyu.integrations.mcp.transport import connect_transport
 from kunyu.persistence.mcp.oauth import McpOAuthRepository
+from kunyu.web.config import WebConfig
 
 logger = logging.getLogger(__name__)
 
@@ -81,7 +82,7 @@ class OAuthAttempt:
                 raise ValueError("OAuth configuration changed before authorization.")
             options = config.oauth
             self.callback = OAuthCallback()
-            redirect_uri = await self.callback.open(options.callback_port)
+            redirect_uri = WebConfig.read().public_url + "api/v1/mcp/oauth/callback"
             metadata = OAuthClientMetadata(
                 client_name="Kunyu",
                 software_version="0.1.0",

@@ -10,6 +10,8 @@ from uuid import UUID
 
 import httpx
 
+from kunyu.integrations.oge.headers import oge_headers
+
 from kunyu.domain.geospatial.analysis import AnalysisError
 from kunyu.domain.geospatial.oge import OgeAccount, OgeError
 from kunyu.integrations.oge.auth import OgeAuth
@@ -99,9 +101,7 @@ class ExecutionGateway:
             BASE_URL + path,
             json=body,
             params=params,
-            headers={
-                "Authorization": "Bearer " + account.tokens.token.get_secret_value()
-            },
+            headers=oge_headers(account.tokens.token),
             timeout=httpx.Timeout(90, connect=15),
             follow_redirects=False,
         ) as response:
@@ -324,9 +324,7 @@ class ExecutionGateway:
                 "GET",
                 BASE_URL + path,
                 params=params,
-                headers={
-                    "Authorization": "Bearer " + account.tokens.token.get_secret_value()
-                },
+                headers=oge_headers(account.tokens.token),
                 timeout=httpx.Timeout(180, connect=15),
                 follow_redirects=False,
             ) as response:

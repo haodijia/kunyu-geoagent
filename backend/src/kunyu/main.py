@@ -1,30 +1,12 @@
-"""Desktop backend command-line entry point."""
-
-import argparse
-
-from kunyu.desktop import DesktopConfigurationError, run_desktop
+"""Single-process web application entry point."""
+import logging
+import os
+import uvicorn
 from kunyu.server import create_app
 
-
-def main() -> int:
-    parser = argparse.ArgumentParser(description="Run the Kunyu backend.")
-    parser.add_argument(
-        "--desktop",
-        action="store_true",
-        help="Run as a desktop sidecar on the loopback interface.",
-    )
-    args = parser.parse_args()
-
-    if not args.desktop:
-        parser.error("the --desktop option is required")
-
-    try:
-        run_desktop(create_app)
-    except DesktopConfigurationError as error:
-        parser.error(str(error))
-
-    return 0
-
+def main() -> None:
+    logging.basicConfig(level=logging.INFO)
+    uvicorn.run(create_app(), host="0.0.0.0", port=int(os.environ.get("PORT", "80")), proxy_headers=False, access_log=False)
 
 if __name__ == "__main__":
-    raise SystemExit(main())
+    main()

@@ -14,7 +14,7 @@ from pydantic import (
     model_validator,
 )
 
-DEFAULT_OGE_BASE_URL = "http://openge.org.cn/api"
+DEFAULT_OGE_BASE_URL = "https://openge.org.cn/api"
 
 
 class OgeError(RuntimeError):

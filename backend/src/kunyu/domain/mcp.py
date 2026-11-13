@@ -27,7 +27,6 @@ class McpReconnect(McpValue):
 class McpOAuthOptions(McpValue):
     client_id: str | None = Field(default=None, min_length=1, max_length=2048)
     client_metadata_url: str | None = Field(default=None, max_length=2048)
-    callback_port: int = Field(default=0, ge=0, le=65535, strict=True)
     scopes: tuple[str, ...] = ()
 
     @model_validator(mode="after")

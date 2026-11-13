@@ -78,18 +78,16 @@ class OgeService:
         return DEFAULT_OGE_BASE_URL if account is None else account.base_url
 
     async def search_images(self, fields: dict[str, str]) -> OgeImagePage:
-        data = await self._client.json(
-            self._base_url(), "POST", "/data-product/retrieval", fields=fields
-        )
+        data = await self.auth.run(lambda account: self._client.json(
+            account.base_url, "POST", "/data-product/retrieval", fields=fields, token=account.tokens.token
+        ))
         return self._client.validate(OgeImagePage, data)
 
     async def image_detail(self, image_id: int) -> dict[str, JsonValue]:
-        data = await self._client.json(
-            self._base_url(),
-            "GET",
-            "/data-product/image/detail",
-            params={"imageId": str(image_id)},
-        )
+        data = await self.auth.run(lambda account: self._client.json(
+            account.base_url, "GET", "/data-product/image/detail",
+            params={"imageId": str(image_id)}, token=account.tokens.token
+        ))
         if data is None:
             raise OgeError(
                 "OGE_IMAGE_NOT_FOUND", f"OGE image {image_id} does not exist.", 404
@@ -103,7 +101,7 @@ class OgeService:
         return detail
 
     async def image_preview(self, image_id: int) -> bytes:
-        return await self._client.preview(self._base_url(), image_id)
+        return await self.auth.run(lambda account: self._client.preview(account.base_url, image_id, account.tokens.token))
 
     async def list_my_data(self, body: dict[str, JsonValue]) -> OgeAssetPage:
         data = await self.auth.run(
@@ -185,9 +183,9 @@ class OgeService:
                 and cache[1] > time.monotonic()
             ):
                 return cache[2]
-            data = await self._client.json(
-                base_url, "GET", "/data-product/administrative-region/tree"
-            )
+            data = await self.auth.run(lambda account: self._client.json(
+                account.base_url, "GET", "/data-product/administrative-region/tree", token=account.tokens.token
+            ))
             roots = self._client.validate(list[OgeRegionNode], data)
             self._region_cache = (
                 base_url,

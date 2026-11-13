@@ -5,6 +5,8 @@ from pathlib import Path
 
 import httpx
 
+from kunyu.integrations.oge.headers import oge_headers
+
 from kunyu.domain.geospatial.oge import OgeError
 from kunyu.integrations.oge.auth import OgeAuth
 from kunyu.integrations.oge.client import OgeClient
@@ -41,9 +43,7 @@ class OgeAssets:
         with path.open("rb") as stream:
             response = await self.http.post(
                 account.base_url + "/asset/myData/upload",
-                headers={
-                    "Authorization": "Bearer " + account.tokens.token.get_secret_value()
-                },
+                headers=oge_headers(account.tokens.token),
                 files={"file": (name + ".tif", stream, "image/tiff")},
                 data={
                     "assetName": name,
@@ -84,9 +84,7 @@ class OgeAssets:
                 "GET",
                 account.base_url + "/asset/myData/download",
                 params={"assetUuid": asset_uuid},
-                headers={
-                    "Authorization": "Bearer " + account.tokens.token.get_secret_value()
-                },
+                headers=oge_headers(account.tokens.token),
                 timeout=httpx.Timeout(120, connect=15),
                 follow_redirects=False,
             ) as response:
@@ -127,9 +125,7 @@ class OgeAssets:
         response = await self.http.get(
             account.base_url + "/asset/myData/delete",
             params={"assetUuid": asset_uuid},
-            headers={
-                "Authorization": "Bearer " + account.tokens.token.get_secret_value()
-            },
+            headers=oge_headers(account.tokens.token),
             timeout=30,
             follow_redirects=False,
         )
