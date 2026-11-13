@@ -26,7 +26,7 @@ export const WorkspaceStartPage = defineComponent(
     const workspaces = computed(() => componentProps.workspaces);
     const client = useQueryClient();
     const navigate = useNavigation();
-    const creating = shallowRef(workspaces.value.length === 0),
+    const creating = shallowRef(false),
       setCreating = refSetter(creating);
     const create = reactive(
       useMutation({
