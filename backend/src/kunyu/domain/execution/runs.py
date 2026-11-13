@@ -5,8 +5,8 @@ from typing import Literal
 
 from pydantic import JsonValue
 
-from kunyu.agent.runtime.contracts.tool_output import ToolCompaction, ToolDisplay
 from kunyu.agent.runtime.contracts.tool_content import ToolContentBlock
+from kunyu.agent.runtime.contracts.tool_output import ToolCompaction, ToolDisplay
 from kunyu.agent.runtime.events.base import TERMINAL_RUN_STATES, ResumePhase, RunState
 from kunyu.domain.models.model_connections import (
     MaxTokensField,

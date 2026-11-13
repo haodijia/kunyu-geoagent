@@ -40,9 +40,7 @@ class MapGeocoder:
                         "layer": "address",
                         "accept-language": "zh-CN",
                     },
-                    headers={
-                        "User-Agent": "Kunyu-GeoAgent/0.1 (desktop map city lookup)"
-                    },
+                    headers={"User-Agent": "Kunyu-GeoAgent/0.1 (map city lookup)"},
                     timeout=10,
                 )
                 response.raise_for_status()

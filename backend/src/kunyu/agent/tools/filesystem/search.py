@@ -133,7 +133,7 @@ class SearchTool(BaseTool):
         binary = os.environ.get("KUNYU_RIPGREP_PATH")
         if not binary or not Path(binary).is_absolute():
             raise ToolExecutionError(
-                "The packaged ripgrep executable is not configured.",
+                "KUNYU_RIPGREP_PATH must point to the server's ripgrep executable.",
                 code="SEARCH_FAILED",
             )
         try:

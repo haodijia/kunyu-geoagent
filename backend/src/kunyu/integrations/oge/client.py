@@ -4,8 +4,6 @@ import logging
 from typing import TypeVar
 
 import httpx
-
-from kunyu.integrations.oge.headers import oge_headers
 from pydantic import (
     BaseModel,
     ConfigDict,
@@ -17,6 +15,7 @@ from pydantic import (
 
 from kunyu.domain.conversation.attachments import MAX_ATTACHMENT_BYTES
 from kunyu.domain.geospatial.oge import OgeError, OgeLogin, OgeTokens
+from kunyu.integrations.oge.headers import oge_headers
 
 logger = logging.getLogger(__name__)
 T = TypeVar("T")
@@ -118,9 +117,7 @@ class OgeClient:
                 base_url + path,
                 params=params,
                 json=body,
-                headers=oge_headers(token)
-                if token is not None
-                else None,
+                headers=oge_headers(token) if token is not None else None,
                 files={key: (None, value) for key, value in fields.items()}
                 if fields is not None
                 else None,

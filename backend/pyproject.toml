@@ -1,7 +1,7 @@
 [project]
 name = "kunyu"
 version = "0.1.0"
-description = "Kunyu desktop backend"
+description = "Kunyu geospatial agent web backend"
 requires-python = ">=3.12"
 dependencies = [
     "anthropic>=1.12,<2",
@@ -15,7 +15,6 @@ dependencies = [
     "numpy>=2,<3",
     "openai>=3.26,<4",
     "pillow>=12,<13",
-    "platformdirs>=4.11.12",
     "pydantic>=2.13.5",
     "pydantic-ai-slim[anthropic,openai]==2.54.0",
     "pyproj>=3.7,<4",

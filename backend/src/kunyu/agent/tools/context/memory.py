@@ -1,9 +1,5 @@
 """Workspace memory read/write tools and the confirmed local write handler."""
 
-from kunyu.agent.tools.outputs.workflow import MEMORY
-from kunyu.agent.tools.outputs.workflow import MEMORY_SAVED
-from kunyu.agent.runtime.contracts.tools import BaseTool
-
 from collections.abc import Callable, Mapping
 from datetime import datetime
 from typing import Annotated
@@ -13,6 +9,7 @@ from sqlalchemy.orm import Session
 
 from kunyu.agent.prompts.loader import tool_description
 from kunyu.agent.runtime.contracts.tools import (
+    BaseTool,
     ToolApproval,
     ToolCall,
     ToolConfirmationRequiredError,
@@ -20,6 +17,7 @@ from kunyu.agent.runtime.contracts.tools import (
     ToolRiskLevel,
     ToolSpec,
 )
+from kunyu.agent.tools.outputs.workflow import MEMORY, MEMORY_SAVED
 from kunyu.agent.tools.shared import (
     MAX_TOOL_RESULT_BYTES,
     ToolArguments,

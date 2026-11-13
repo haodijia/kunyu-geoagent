@@ -5,6 +5,7 @@ import inspect
 from builtins import BaseExceptionGroup
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
+from threading import RLock
 from typing import cast
 
 
@@ -195,13 +196,22 @@ class AgentScopes:
         self._owner = owner
         self._parent_session = parent_session
         self._sessions: dict[str, Context] = {}
+        self._lock = RLock()
 
     def for_session(self, session_id: str) -> Context:
-        self._owner.assert_active()
-        if session_id not in self._sessions:
-            parent_id = self._parent_session(session_id)
-            parent = self._owner if parent_id is None else self.for_session(parent_id)
-            context = parent.child()
-            context.effect(lambda: self._sessions.pop(session_id))
-            self._sessions[session_id] = context
-        return self._sessions[session_id]
+        # FastAPI sync dependencies may create a session from multiple worker threads.
+        with self._lock:
+            self._owner.assert_active()
+            if session_id not in self._sessions:
+                parent_id = self._parent_session(session_id)
+                parent = (
+                    self._owner if parent_id is None else self.for_session(parent_id)
+                )
+                context = parent.child()
+                context.effect(lambda: self._remove(session_id))
+                self._sessions[session_id] = context
+            return self._sessions[session_id]
+
+    def _remove(self, session_id: str) -> None:
+        with self._lock:
+            del self._sessions[session_id]

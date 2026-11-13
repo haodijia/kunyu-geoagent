@@ -1,20 +1,19 @@
 """Run-bound task list updates; the runner commits snapshot and result together."""
 
-from kunyu.agent.tools.outputs.workflow import TODO
-from kunyu.agent.runtime.contracts.tools import BaseTool
-
 from collections.abc import Mapping
 from datetime import UTC, datetime
 
 from kunyu.agent.prompts.loader import tool_description
 from kunyu.agent.runtime.contracts.todos import TodoList
 from kunyu.agent.runtime.contracts.tools import (
+    BaseTool,
     ToolCall,
     ToolResult,
     ToolRiskLevel,
     ToolSpec,
 )
 from kunyu.agent.runtime.events.tools import TodoWriteEvent, TodoWritePayload
+from kunyu.agent.tools.outputs.workflow import TODO
 from kunyu.agent.tools.shared import (
     ToolArguments,
     load_source,

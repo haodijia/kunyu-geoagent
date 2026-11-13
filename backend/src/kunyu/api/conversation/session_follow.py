@@ -111,7 +111,10 @@ async def follow_session(
                 "assistant_stream": baseline,
             },
         )
+        last_heartbeat = loop.time()
         while not closed.is_set() and not request.app.state.closing_event.is_set():
+            if not request.app.state.web_sessions.authenticated(request):
+                return
             if overflow.is_set():
                 raise RuntimeError(
                     "Session follower exceeded its frame buffer; reconnect required."
@@ -123,6 +126,9 @@ async def follow_session(
                     pending.get(), timeout=0.25
                 )
             except TimeoutError:
+                if loop.time() - last_heartbeat >= 15:
+                    yield ": keepalive\n\n"
+                    last_heartbeat = loop.time()
                 continue
             # Flush only through the observed frame boundary, never a future settlement.
             if cursor > current:

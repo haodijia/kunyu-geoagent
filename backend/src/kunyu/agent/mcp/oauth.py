@@ -29,6 +29,11 @@ from kunyu.web.config import WebConfig
 logger = logging.getLogger(__name__)
 
 
+def matches_public_callback(record: dict) -> bool:
+    expected = WebConfig.read().public_url + "api/v1/mcp/oauth/callback"
+    return record["client_metadata"]["redirect_uris"] == [expected]
+
+
 def valid_browser_url(url: str) -> bool:
     parsed = urlsplit(url)
     return (
@@ -179,6 +184,10 @@ class McpOAuthManager:
 
     def auth_for(self, config, revision: int):
         storage = StoredOAuthStorage(self.repository, config.name, config.url, revision)
+        if not matches_public_callback(storage.record()):
+            raise OAuthLoginRequired(
+                "The public application URL changed; sign in again."
+            )
         metadata = OAuthClientMetadata.model_validate(
             storage.record()["client_metadata"]
         )
@@ -220,10 +229,14 @@ class McpOAuthManager:
             if config.auth_mode == "oauth"
             else None
         )
-        available = record is not None and (
-            record["expires_at"] is None
-            or record["expires_at"] > datetime.now(UTC)
-            or bool(record["tokens"].get("refresh_token"))
+        available = (
+            record is not None
+            and matches_public_callback(record)
+            and (
+                record["expires_at"] is None
+                or record["expires_at"] > datetime.now(UTC)
+                or bool(record["tokens"].get("refresh_token"))
+            )
         )
         attempt = self.attempts.get(config.name)
         return {

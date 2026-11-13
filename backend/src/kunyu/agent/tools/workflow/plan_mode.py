@@ -1,8 +1,5 @@
 """Present complete plans through the shared human-question channel."""
 
-from kunyu.agent.tools.outputs.workflow import PLAN
-from kunyu.agent.runtime.contracts.tools import BaseTool
-
 from collections.abc import Mapping
 from datetime import UTC, datetime
 from typing import Self
@@ -19,6 +16,7 @@ from kunyu.agent.runtime.contracts.questions import (
     QuestionSet,
 )
 from kunyu.agent.runtime.contracts.tools import (
+    BaseTool,
     ToolCall,
     ToolExecutionError,
     ToolResult,
@@ -29,6 +27,7 @@ from kunyu.agent.runtime.events.tools import (
     PlanExitSelectedEvent,
     PlanExitSelectedPayload,
 )
+from kunyu.agent.tools.outputs.workflow import PLAN
 from kunyu.agent.tools.shared import (
     ToolArguments,
     load_source,

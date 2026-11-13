@@ -3,6 +3,7 @@
 import asyncio
 from builtins import BaseExceptionGroup
 from datetime import UTC, datetime
+from threading import RLock
 from typing import Literal
 
 from kunyu.agent.core import services as s
@@ -186,6 +187,7 @@ class AgentDirectory:
     def __init__(self, owner: Context) -> None:
         self._owner = owner
         self._agents: dict[str, SessionAgent] = {}
+        self._lock = RLock()
         owner.effect(self._close_scopes)
         unsubscribe = owner.require(s.DATABASE).publications.subscribe(self._committed)
         owner.effect(unsubscribe, before_children=True)
@@ -219,6 +221,14 @@ class AgentDirectory:
         return self._agents.get(session_id)
 
     def for_session(self, session_id: str) -> SessionAgent:
+        with self._lock:
+            return self._create_or_get(session_id)
+
+    def _remove(self, session_id: str) -> None:
+        with self._lock:
+            del self._agents[session_id]
+
+    def _create_or_get(self, session_id: str) -> SessionAgent:
         self._owner.assert_active()
         agent = self._agents.get(session_id)
         if agent is None:
@@ -232,7 +242,7 @@ class AgentDirectory:
             )
             context.provide(s.SESSION_ID, session_id)
             context.provide(s.SESSION_AGENT, agent)
-            context.effect(lambda: self._agents.pop(session_id))
+            context.effect(lambda: self._remove(session_id))
             scheduler = context.require(s.SCHEDULER)
             lifecycle = context.require(s.LIFECYCLE)
             runtime = context.require(s.RUNTIME)

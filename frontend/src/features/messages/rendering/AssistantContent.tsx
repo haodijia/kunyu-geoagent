@@ -42,18 +42,21 @@ export const AssistantContent = defineComponent(
       tools = computed(() => componentProps.tools),
       confirmations = computed(() => componentProps.confirmations),
       runState = computed(() => componentProps.runState);
-    const groups: ContentGroup[] = [];
-    for (const block of blocks.value) {
-      const previous = groups.at(-1);
-      if (block.type !== "tool-call") groups.push(block);
-      else if (previous?.type === "tools") previous.blocks.push(block);
-      else
-        groups.push({
-          type: "tools",
-          index: block.index,
-          blocks: [block],
-        });
-    }
+    const groups = computed(() => {
+      const result: ContentGroup[] = [];
+      for (const block of blocks.value) {
+        const previous = result.at(-1);
+        if (block.type !== "tool-call") result.push(block);
+        else if (previous?.type === "tools") previous.blocks.push(block);
+        else
+          result.push({
+            type: "tools",
+            index: block.index,
+            blocks: [block],
+          });
+      }
+      return result;
+    });
     return () => {
       const _messageId = messageId.value,
         _active = active.value,
@@ -62,7 +65,7 @@ export const AssistantContent = defineComponent(
         _confirmations = confirmations.value,
         _runState = runState.value,
         _generating = generating.value;
-      return groups.map((group) => {
+      return groups.value.map((group) => {
         if (group.type === "reasoning")
           return group.startedAt === null ? null : (
             <MessageReasoning

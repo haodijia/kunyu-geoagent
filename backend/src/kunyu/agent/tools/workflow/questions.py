@@ -1,8 +1,5 @@
 """Model-facing consumer of the human-question interaction seam."""
 
-from kunyu.agent.tools.outputs.workflow import QUESTIONS
-from kunyu.agent.runtime.contracts.tools import BaseTool
-
 from collections.abc import Mapping
 
 from pydantic import Field
@@ -15,12 +12,14 @@ from kunyu.agent.runtime.contracts.questions import (
     QuestionSet,
 )
 from kunyu.agent.runtime.contracts.tools import (
+    BaseTool,
     ToolCall,
     ToolExecutionError,
     ToolResult,
     ToolRiskLevel,
     ToolSpec,
 )
+from kunyu.agent.tools.outputs.workflow import QUESTIONS
 from kunyu.agent.tools.shared import (
     ToolArguments,
     require_bound_call,

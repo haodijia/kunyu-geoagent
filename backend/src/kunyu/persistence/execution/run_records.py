@@ -2,8 +2,8 @@ from uuid import uuid4
 
 from pydantic import TypeAdapter
 
-from kunyu.agent.runtime.contracts.tool_output import TOOL_DISPLAY, ToolCompaction
 from kunyu.agent.runtime.contracts.tool_content import ToolContentBlock
+from kunyu.agent.runtime.contracts.tool_output import TOOL_DISPLAY, ToolCompaction
 from kunyu.agent.runtime.events.base import ResumePhase, RunState
 from kunyu.agent.runtime.events.store import AgentEvent, EventDraft
 from kunyu.domain.conversation.messages import Message

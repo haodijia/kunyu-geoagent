@@ -1,8 +1,8 @@
 import json
 from dataclasses import dataclass
 
-from kunyu.agent.core.scope import Context
 from kunyu.agent.context.map_selection import selection_question
+from kunyu.agent.core.scope import Context
 from kunyu.agent.orchestration.inbox import SessionInbox
 from kunyu.agent.prompts.loader import read_prompt
 from kunyu.agent.runtime.contracts.content import ToolCallBlock, text_content
@@ -158,7 +158,9 @@ def build_model_history_nodes(source: RunContextSource) -> tuple[ModelHistoryNod
                 ModelMessage(
                     role=ModelRole.USER,
                     content=user_content(
-                        selection_question(message.content, map_contexts[message.message_id]),
+                        selection_question(
+                            message.content, map_contexts[message.message_id]
+                        ),
                         message.attachments,
                     ),
                     context_source=message.source if message.source != "user" else None,
@@ -198,7 +200,9 @@ def build_model_history_nodes(source: RunContextSource) -> tuple[ModelHistoryNod
                 ModelMessage(
                     ModelRole.USER,
                     user_content(
-                        selection_question(message.content, map_contexts.get(message.message_id)),
+                        selection_question(
+                            message.content, map_contexts.get(message.message_id)
+                        ),
                         message.attachments,
                     ),
                     context_source=message.source if message.source != "user" else None,

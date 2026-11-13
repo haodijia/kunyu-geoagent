@@ -5,11 +5,10 @@ from pathlib import Path
 
 import httpx
 
-from kunyu.integrations.oge.headers import oge_headers
-
 from kunyu.domain.geospatial.oge import OgeError
 from kunyu.integrations.oge.auth import OgeAuth
 from kunyu.integrations.oge.client import OgeClient
+from kunyu.integrations.oge.headers import oge_headers
 
 logger = logging.getLogger(__name__)
 

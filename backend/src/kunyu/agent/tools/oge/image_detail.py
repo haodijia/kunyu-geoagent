@@ -1,10 +1,9 @@
 """Full metadata for one OGE image; absent images are explicit failures."""
 
-from kunyu.agent.tools.outputs.oge import IMAGE_DETAIL
-
 from kunyu.agent.runtime.contracts.tools import ToolCall, ToolResult
 from kunyu.agent.tools.oge.arguments import ImageArguments
 from kunyu.agent.tools.oge.shared import OgeTool, oge_tool_error
+from kunyu.agent.tools.outputs.oge import IMAGE_DETAIL
 from kunyu.agent.tools.shared import tool_result
 from kunyu.application.analysis.oge import OgeService
 from kunyu.domain.conversation.agent_context import RunContextRepository
