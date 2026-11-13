@@ -32,6 +32,10 @@ await main();
 
 async function main() {
   try {
+    const npmCli = process.env.npm_execpath;
+    if (!npmCli || !path.isAbsolute(npmCli)) {
+      throw new Error('Start development with "npm run dev".');
+    }
     process.loadEnvFile(path.join(repositoryRoot, ".env"));
     if (process.env.KUNYU_PUBLIC_URL !== "http://localhost:5173/") {
       throw new Error(
@@ -40,8 +44,8 @@ async function main() {
     }
     const build = startProcess(
       "build",
-      "npm",
-      ["run", "build"],
+      process.execPath,
+      [npmCli, "run", "build"],
       frontendDirectory,
     );
     const buildResult = await build.exited;
