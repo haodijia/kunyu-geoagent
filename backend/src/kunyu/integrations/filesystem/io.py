@@ -70,7 +70,7 @@ def io_error(error: OSError, path: str, verb: str) -> FilesystemError:
 def require_resolved_target(target: FsTarget) -> None:
     base = target.read_root if target.read_root is not None else "/workspace"
     if (
-        not Path(base).is_absolute()
+        (target.read_root is not None and not Path(base).is_absolute())
         or re.fullmatch(r"[A-Za-z0-9_-]{1,64}", target.scope.workspace_id) is None
         or any(
             part in {"", ".", ".."} or "/" in part or "\x00" in part
