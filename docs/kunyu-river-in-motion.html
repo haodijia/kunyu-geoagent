@@ -183,7 +183,7 @@
   .seek::-moz-range-track { height:2px; background:linear-gradient(90deg,var(--brand) var(--progress),#485b53 var(--progress)); }
   .seek::-webkit-slider-thumb { appearance:none; width:9px; height:9px; margin-top:-3.5px; background:var(--brand); border-radius:50%; }
   .seek::-moz-range-thumb { width:9px; height:9px; border:0; border-radius:50%; background:var(--brand); }
-  .chapters { display:grid; grid-template-columns:28fr 24fr 25fr 44fr 55fr 40fr 22fr; gap:1px; }
+  .chapters { display:grid; grid-template-columns:15fr 30fr 20fr 34fr 45fr 35fr 21fr; gap:1px; }
   .chapters button { padding:1px 3px 2px 0; border:0; background:transparent; color:#b0c0b7; text-align:left; white-space:nowrap; font-size:10px; }
   .chapters button[aria-current], .chapters button:hover { color:var(--brand); }
   .utility { display:flex; align-items:center; gap:12px; }
@@ -286,47 +286,86 @@
     font-size:10px; color:#cce8dc;
   }
   .approval-action.accepted { background:var(--brand); color:#11312a; border-color:var(--brand); }
+
+  .tool-feed { display:grid; gap:4px; margin:-5px 0 0 41px; width:min(90%,680px); }
+  .tool-row { display:grid; grid-template-columns:13px minmax(0,1fr) auto; gap:8px; align-items:center; min-height:34px; padding:4px 9px; border:1px solid #465854; border-radius:7px; background:#192522ef; color:#dbe6df; }
+  .tool-feed[hidden], .tool-row[hidden] { display:none; }
+  .tool-dot { width:8px; height:8px; border-radius:50%; background:#70d7ac; justify-self:center; }
+  .tool-row[data-state="running"] .tool-dot { border:1.5px solid #506f63; border-top-color:#9ceee0; background:none; transform:rotate(var(--spin,0deg)); }
+  .tool-row[data-state="approval"] .tool-dot { background:#e7c78a; }
+  .tool-meta { min-width:0; }
+  .tool-meta strong { font-size:12px; font-weight:560; }
+  .tool-meta code { margin-left:7px; color:#9cbab1; font:11px var(--mono); overflow-wrap:anywhere; }
+  .tool-row .tool-result { color:#a4d7be; font-size:10px; text-align:right; white-space:nowrap; }
+  .tool-row[data-state="approval"] .tool-result { color:#e7c78a; }
+  .turns.floating .tool-feed { margin:6px 0 0; width:min(100%,548px); }
   .overview {
-    z-index:3; inset:0; padding:clamp(16px,4.5vh,42px) max(5%,24px);
-    background:radial-gradient(ellipse at 79% 11%, #243c34, #141e1a 44%, #141b18 80%);
-    display:grid; grid-template-rows:auto minmax(0,1fr); gap:clamp(10px,2.2vh,20px);
-    transform-origin:50% 74%;
+    --accent:#ad98e6;
+    z-index:3; inset:0; padding:clamp(14px,3.3vh,34px) max(6%,24px);
+    background:radial-gradient(ellipse at 87% 0%, #211b2d 0%, transparent 49%),#101111;
+    display:grid; grid-template-rows:auto minmax(0,1fr); gap:clamp(10px,2vh,19px); transform-origin:50% 74%;
   }
-  .overview-heading { max-width:1010px; width:100%; margin:auto; }
-  .overview-heading p { margin:0 0 2px; color:var(--brand); font-size:11px; letter-spacing:.1em; }
-  .overview-heading h2 { margin:0; font-size:clamp(23px,3.3vw,46px); line-height:1.2; }
-  .overview-grid {
-    width:100%; max-width:1010px; margin:0 auto;
-    display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); grid-template-rows:repeat(2,minmax(0,1fr)); gap:11px;
-  }
-  .overview-card {
-    min-height:0; min-width:0; overflow:hidden; padding:clamp(9px,1.45vw,19px);
-    border:1px solid #476256; border-radius:12px; background:#172521;
-  }
-  .overview-card h3 { margin:0 0 7px; color:#c2dfd3; font-size:clamp(11px,1.25vw,15px); font-weight:620; }
-  .overview-card p { margin:0; color:#e5efe7; font-size:clamp(11px,1.17vw,15px); }
-  .overview-card small { color:#b0c3b9; font-size:clamp(9px,.96vw,12px); }
-  .overview-result-body { min-height:0; display:grid; grid-template-columns:1fr 1fr; align-items:center; gap:12px; }
-  .overview-thumb { position:relative; min-height:clamp(56px,12vh,130px); overflow:hidden; border-radius:7px; background:#23372f; }
-  .overview-thumb img { position:absolute; inset:0; width:100%; height:100%; object-fit:cover; object-position:47% 63%; }
-  .overview-thumb img:first-child { filter:brightness(.64); }
-  .overview-number { margin:9px 0 0; color:#ffa178; font:650 clamp(15px,2.2vw,29px)/1 var(--mono); }
-  .review-list { display:grid; gap:6px; margin:8px 0 0; padding:0; list-style:none; }
-  .review-list li { display:flex; align-items:center; justify-content:space-between; gap:6px; color:#d8e7de; font-size:clamp(9px,1vw,12px); }
+  .overview-heading { max-width:1100px; width:100%; margin:0 auto; display:flex; align-items:center; justify-content:space-between; gap:12px; }
+  .overview-heading p { margin:0 0 4px; color:var(--accent); font:550 9px var(--mono); letter-spacing:.22em; }
+  .overview-heading h2 { margin:0; font-size:clamp(21px,2.96vw,36px); line-height:1.15; font-weight:680; letter-spacing:-.035em; }
+  .overview-heading small { display:block; margin-top:7px; color:#a5a5a9; font-size:11px; }
+  .overview-heading .counts { flex:none; color:#a9a5af; font-size:10px; line-height:1.65; text-align:right; }
+  .overview-heading .counts b { color:#ebe7ef; font-size:15px; }
+  .overview-grid { width:100%; max-width:1100px; margin:0 auto; min-height:0; display:grid; grid-template-columns:minmax(0,.95fr) minmax(0,1.25fr); grid-template-rows:minmax(0,1.36fr) minmax(0,1fr); gap:13px; }
+  .overview-card { min-width:0; min-height:0; overflow:hidden; padding:clamp(8px,1.35vw,17px); display:flex; flex-direction:column; gap:8px; border:1px solid #333039; border-radius:15px; background:#141417; box-shadow:0 6px 24px #08070b40; }
+  .overview-card h3 { display:flex; align-items:center; gap:8px; margin:0; color:#ece8f1; font-size:clamp(11px,1.15vw,14px); font-weight:600; }
+  .overview-icon { display:inline-grid; place-content:center; flex:none; width:27px; height:27px; background:#22202a; border:1px solid #3b3448; border-radius:8px; color:var(--accent); font:14px var(--mono); }
+  .overview-card p { margin:0; color:#e1dce7; font-size:clamp(10px,1.11vw,14px); }
+  .overview-card small { color:#a9a5af; font-size:clamp(9px,.9vw,11px); }
+  .file-list, .memory-row { min-width:0; padding:8px 9px; border:1px solid #302c35; background:#18171c; border-radius:8px; }
+  .file-list code { color:#b2a6c4; font:10px var(--mono); }
+  .file-list p { overflow-wrap:anywhere; }
+  .review-list { display:grid; gap:4px; margin:6px 0 0; padding:0; list-style:none; }
+  .review-list li { display:flex; align-items:center; justify-content:space-between; gap:5px; border-top:1px solid #37303c; padding-top:3px; color:#dddae3; font-size:clamp(9px,1vw,11px); }
   .review-list li span:last-child { color:var(--tone); white-space:nowrap; }
-  .run-strip { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:10px; margin:8px 0; }
-  .run-strip b { display:block; color:var(--brand); font:650 clamp(15px,2vw,24px)/1 var(--mono); }
+  .gallery-window { position:relative; flex:1 0 66px; min-height:66px; overflow:hidden; border-radius:8px; background:radial-gradient(ellipse at 50% 50%,#302738,#1b1922 67%,#19181e); isolation:isolate; }
+  .gallery-frame { position:absolute; top:8%; bottom:8%; left:19.5%; width:61%; overflow:hidden; border:3px solid #151318; border-radius:7px; box-shadow:0 6px 14px #0d0810a1; background:#1f2925; }
+  .gallery-frame img { position:absolute; inset:0; width:100%; height:100%; object-fit:cover; object-position:47% 61%; }
+  .gallery-frame.primary { z-index:2; }
+  .gallery-frame.primary .photo { filter:brightness(.57); }
+  .gallery-frame.secondary { opacity:.56; }
+  .gallery-caption { display:flex; justify-content:space-between; align-items:center; gap:6px; min-width:0; }
+  .gallery-caption p { font-weight:550; }
+  .gallery-caption strong { flex:none; color:#eeb49a; font:630 clamp(12px,1.65vw,19px) var(--mono); white-space:nowrap; }
+  .gallery-stat { text-align:right; }
+  .gallery-stat small { display:block; }
+  .gallery-dots { display:flex; justify-content:center; gap:4px; }
+  .gallery-dots i { width:4px; height:4px; background:#564d65; border-radius:6px; }
+  .gallery-dots i:nth-child(2) { width:13px; background:var(--accent); }
+  .run-strip { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:6px; }
+  .run-strip div { padding:6px; border:1px solid #383141; border-radius:7px; background:#1b1820; }
+  .run-strip b { display:block; color:#ede6fa; font:620 clamp(14px,1.85vw,23px)/1.13 var(--mono); }
+  .run-bar { display:flex; align-items:center; gap:7px; }
+  .run-bar i { height:3px; flex:1; background:var(--accent); transform-origin:left; border-radius:3px; }
+  .memory-choice { display:flex; align-items:center; gap:5px; color:#aca5b5; font-size:9px; }
+  .memory-choice b { color:#e1d3f7; background:#2a2333; border:1px solid #44394f; padding:1px 4px; border-radius:4px; font-weight:500; }
+  .memory-row p { margin:3px 0 4px; line-height:1.46; }
   @media(max-width:760px) {
     .skill-card { width:92%; top:43%; padding:9px 8px; }
     .skill-card ul { gap:2px; }
     .skill-card li { padding:3px; font-size:9px; }
     .approval { width:92%; bottom:12%; }
-    .overview { padding:14px 10px; gap:9px; }
-    .overview-grid { gap:6px; }
-    .overview-card { padding:7px; border-radius:7px; }
-    .overview-result-body { display:block; }
-    .overview-thumb { margin-bottom:5px; }
-    .overview-number { margin-top:5px; }
+    .tool-feed { margin:-3px 0 0 29px; width:calc(100% - 29px); gap:3px; }
+    .tool-row { min-height:28px; gap:4px; grid-template-columns:8px minmax(0,1fr) auto; padding:3px 4px; }
+    .tool-meta strong { font-size:10px; }
+    .tool-meta code { margin-left:4px; font-size:8px; }
+    .tool-row .tool-result { font-size:8px; }
+    .overview { padding:13px 8px; gap:9px; }
+    .overview-grid { grid-template-columns:repeat(2,minmax(0,1fr)); grid-template-rows:minmax(0,1.22fr) minmax(0,1fr); gap:6px; }
+    .overview-card { padding:6px; gap:6px; border-radius:8px; }
+    .overview-heading small { font-size:9px; margin-top:4px; }
+    .overview-heading .counts { font-size:9px; }
+    .overview-icon { width:21px; height:21px; font-size:10px; border-radius:5px; }
+    .overview-card h3 { gap:4px; }
+    .gallery-caption { align-items:flex-start; flex-direction:column; gap:2px; }
+    .gallery-stat { text-align:left; }
+    .gallery-dots { display:none; }
+    .file-list,.memory-row { padding:6px 4px; }
     .review-list { gap:3px; }
   }
 
@@ -356,6 +395,11 @@
       <section class="turns layer" id="turns" aria-label="值守人员与坤舆的会话">
         <article class="turn" id="prior"><span class="avatar"></span><div class="content"><small></small><p></p><span class="file-chip" hidden>西岸现场复核记录.md</span></div></article>
         <article class="turn" id="current"><span class="avatar"></span><div class="content"><small></small><p></p><span class="file-chip" hidden>西岸现场复核记录.md</span></div></article>
+
+      <div class="tool-feed" id="tool-feed" aria-label="Agent 工具调用" hidden>
+        <div class="tool-row" hidden><span class="tool-dot" aria-hidden="true"></span><div class="tool-meta"><strong></strong><code></code></div><span class="tool-result"></span></div>
+        <div class="tool-row" hidden><span class="tool-dot" aria-hidden="true"></span><div class="tool-meta"><strong></strong><code></code></div><span class="tool-result"></span></div>
+      </div>
       </section>
 
       <section class="skill-card layer" id="skill-card" aria-label="加载 GeoSkill">
@@ -418,34 +462,46 @@
         <p>保存复核口径，下一期影像仍沿用本次选区。</p>
         <span class="approval-action" id="approve-review">确认保存</span>
       </section>
+
       <section class="overview layer" id="overview" aria-label="工作区总览">
-        <header class="overview-heading"><p>工作区总览</p><h2>贵港洪涝研判</h2></header>
+        <header class="overview-heading">
+          <div><p>WORKSPACE</p><h2>贵港洪涝研判</h2><small>文件、成果与工作记忆</small></div>
+          <span class="counts"><b>1</b> 项分析成果<br>西岸现场复核</span>
+        </header>
         <div class="overview-grid">
           <article class="overview-card">
-            <h3>文件空间</h3>
-            <p><span class="file-chip">西岸现场复核记录.md</span></p>
-            <ul class="review-list">
-              <li><span>新增候选点</span><span style="--tone:var(--brand)">已巡查</span></li>
-              <li><span>分歧点</span><span style="--tone:var(--violet)">待补拍</span></li>
-              <li><span>缺测点</span><span style="--tone:var(--missing)">待新影像</span></li>
-            </ul>
-          </article>
-          <article class="overview-card">
-            <h3>成果画廊</h3>
-            <div class="overview-result-body">
-              <div class="overview-thumb"><img id="overview-base" alt=""><img id="overview-mask" alt="原水体变化成果"></div>
-              <div><p>郁江双期水体变化</p><small>06.22 / 07.12 · 21 波段</small><div class="overview-number">1.63 km²</div><small>西岸选区新增水体</small></div>
+            <h3><span class="overview-icon" aria-hidden="true">▱</span>文件空间</h3>
+            <div class="file-list"><code>工作区 / files</code><p>西岸现场复核记录.md</p>
+              <ul class="review-list">
+                <li><span>新增候选点</span><span style="--tone:var(--brand)">已巡查</span></li>
+                <li><span>分歧点</span><span style="--tone:var(--violet)">待补拍</span></li>
+                <li><span>缺测点</span><span style="--tone:var(--missing)">待新影像</span></li>
+              </ul>
             </div>
           </article>
           <article class="overview-card">
-            <h3>Agent 活动</h3>
-            <div class="run-strip"><div><b>1</b><small>OGE 作业</small></div><div><b>1</b><small>成果</small></div></div>
-            <small>用原成果完成上图、质量核查和区域统计。</small>
+            <h3><span class="overview-icon" aria-hidden="true">▤</span>成果画廊</h3>
+            <div class="gallery-window" aria-label="变化成果与两期原影像">
+              <div class="gallery-frame secondary" id="overview-previous"><img class="photo" id="overview-before" alt=""></div>
+              <div class="gallery-frame secondary" id="overview-next"><img class="photo" id="overview-after" alt=""></div>
+              <div class="gallery-frame primary"><img class="photo" id="overview-base" alt=""><img class="mask" id="overview-mask" alt="双期水体变化"></div>
+            </div>
+            <div class="gallery-caption">
+              <div><p>郁江双期水体变化</p><small>06.22 / 07.12 · 21 波段</small></div>
+              <div class="gallery-stat"><strong>1.63 km²</strong><small>西岸选区新增</small></div>
+            </div>
+            <div class="gallery-dots" aria-hidden="true"><i></i><i></i><i></i></div>
           </article>
           <article class="overview-card">
-            <h3>记忆与规范</h3>
-            <p>沿用西岸选区复核。缺测位置等新影像补齐，再对照现场记录更新结论。</p>
-            <small>复核口径 · 已确认保存</small>
+            <h3><span class="overview-icon" aria-hidden="true">⌁</span>Agent 活动</h3>
+            <div class="run-strip"><div><b>1</b><small>OGE 作业</small></div><div><b>1</b><small>数值成果</small></div></div>
+            <div class="run-bar"><small>已完成</small><i id="overview-run-bar"></i></div>
+            <small>复用成果上图、核查质量和统计选区</small>
+          </article>
+          <article class="overview-card">
+            <h3><span class="overview-icon" aria-hidden="true">≡</span>记忆与规范</h3>
+            <div class="memory-choice"><b>工作记忆</b><span>工作区规范</span></div>
+            <div class="memory-row"><small>西岸复核口径</small><p>保留本次选区。新影像到达后，补查缺测位置，再对照现场记录。</p><small>已确认保存</small></div>
           </article>
         </div>
       </section>
@@ -456,18 +512,18 @@
   <div class="player" aria-label="动画播放控制">
     <button type="button" class="control play" id="play" aria-label="播放"><span aria-hidden="true"></span></button>
     <div class="track">
-      <input class="seek" id="seek" type="range" min="0" max="238" step="0.01" value="0" style="--progress:0%" aria-label="播放进度">
+      <input class="seek" id="seek" type="range" min="0" max="200" step="0.01" value="0" style="--progress:0%" aria-label="播放进度">
       <nav class="chapters" aria-label="动画章节">
         <button type="button" data-time="0" aria-current="step">提问</button>
-        <button type="button" data-time="28">找影像</button>
-        <button type="button" data-time="52">选片</button>
-        <button type="button" data-time="77">计算</button>
-        <button type="button" data-time="121">上图解释</button>
-        <button type="button" data-time="176">协作</button>
-        <button type="button" data-time="216">复核</button>
+        <button type="button" data-time="15">找影像</button>
+        <button type="button" data-time="45">选片</button>
+        <button type="button" data-time="65">计算</button>
+        <button type="button" data-time="99">上图解释</button>
+        <button type="button" data-time="144">协作</button>
+        <button type="button" data-time="179">复核</button>
       </nav>
     </div>
-    <div class="utility"><span class="clock"><b id="elapsed">00:00</b> / 03:58</span><button type="button" class="control fullscreen" id="fullscreen" aria-label="全屏"><span aria-hidden="true"></span></button></div>
+    <div class="utility"><span class="clock"><b id="elapsed">00:00</b> / 03:20</span><button type="button" class="control fullscreen" id="fullscreen" aria-label="全屏"><span aria-hidden="true"></span></button></div>
   </div>
   <footer class="credits"><p>Copernicus Sentinel‑2 · OGE 郁江水体变化实算 · 操作流程与现场复核为动画演绎</p><p>空格播放或暂停 · ← → 跳转</p></footer>
 </main>
@@ -476,7 +532,9 @@
 
 (() => {
   "use strict";
-  const DURATION = 238;
+  const DURATION = 200;
+  // Playback seconds mapped to the existing animation cues.
+  const editPoints=[[0,0],[24,28],[45,52],[65,77],[99,121],[144,176],[179,216],[200,238]];
   const el = (id) => document.getElementById(id);
   const ui = Object.fromEntries([
     "film", "stage", "map", "welcome", "turns", "prior", "current", "search", "imageset",
@@ -487,6 +545,7 @@
     "composer", "draft", "draft-context", "send", "chat-tab", "map-tab", "status", "play",
     "skill-card", "skill-status", "review-file", "review-approval", "approve-review",
     "overview", "overview-tab", "overview-base", "overview-mask",
+    "tool-feed", "overview-before", "overview-after", "overview-previous", "overview-next", "overview-run-bar",
     "seek", "elapsed", "fullscreen", "error",
   ].map((id) => [id, el(id)]));
   const ctx = ui.map.getContext("2d", { alpha: false });
@@ -501,6 +560,9 @@
   const routeItems = Array.from(ui.route.querySelectorAll("li"));
   const skillSteps = Array.from(ui["skill-card"].querySelectorAll("li"));
   const overviewCards = Array.from(ui.overview.querySelectorAll(".overview-card"));
+  const toolRows = Array.from(ui["tool-feed"].querySelectorAll(".tool-row"),(node)=>({
+    node, label:node.querySelector("strong"), name:node.querySelector("code"), result:node.querySelector(".tool-result"),
+  }));
   const bindTurn = (node) => ({
     node,
     avatar: node.querySelector(".avatar"),
@@ -533,6 +595,22 @@
     { from: 216.2, at: 221.1, person: true, file: true, text: "现场回来了。新增点已巡查，分歧点待补拍，缺测点等新影像。" },
     { at: 223.1, text: "收到现场记录。我把它和这次西岸选区一起留在工作区，等补到新影像再继续对照。" },
   ];
+
+  const calls = [
+    [16.6,19.2,23.1,"skill","加载 GeoSkill","洪涝监测已加载"],
+    [22.9,24.8,28.1,"oge_find_regions","定位贵港郁江","研究区已定位"],
+    [24.8,27.9,33.7,"oge_search_images","检索两期影像","找到两期候选影像"],
+    [43.5,46.1,50.4,"oge_list_my_data","核对输入影像资产","覆盖范围一致"],
+    [53.3,55.4,63.0,"map_compare","打开影像卷帘","两期影像已对齐"],
+    [76.7,79.8,85.1,"oge_get_service_definition","读取洪涝服务定义","输入与参数已核对"],
+    [80.8,83.2,88.1,"oge_execute_service","提交 OGE 作业","已提交一次"],
+    [119.9,122,128.4,"job_output","读取异步任务结果","21 波段 GeoTIFF"],
+    [129.8,135.2,141.4,"map_present","展示水体变化图","图层已添加"],
+    [153,155.4,163.3,"map_sample_raster","读取所点像元","无共同有效观测"],
+    [187.4,191.1,199.2,"map_region_statistics","统计西岸圈选范围","已返回三类面积"],
+    [225.8,228.25,229.7,"memory_write","保存复核口径","已获授权并保存"],
+  ];
+
   const cameraKeys = [
     // second, image size, angle, vertical scale, centered pixel X/Y, horizontal position
     [0,   .92, -.19, .93, .52, .51, .78],
@@ -964,6 +1042,34 @@
     write(view.text,entry.person||!animate?entry.text:type(entry.text,t-entry.at,Math.min(3.5,entry.text.length/18)));
   }
 
+
+  function renderCalls(t,floating) {
+    const active=calls.filter(([start,,end])=>t>=start&&t<end).slice(floating?-1:-2);
+    ui["tool-feed"].hidden=active.length===0;
+    for(const [i,row] of toolRows.entries()){
+      const call=active[i];
+      row.node.hidden=!call;
+      if(!call) continue;
+      const [start,done,end,name,label,result]=call;
+      const completed=t>=done;
+      const state=completed?"completed":name==="memory_write"?"approval":"running";
+      row.node.dataset.state=state;
+      row.node.style.setProperty("--spin",reduce.matches?"0deg":((t-start)*450%360).toFixed(1)+"deg");
+      row.node.style.opacity=showBetween(t,start,start+.28,end-.35,end).toFixed(3);
+      write(row.label,label);
+      write(row.name,name);
+      write(row.result,completed?result:state==="approval"?"待确认":"执行中");
+    }
+  }
+
+  function storySecond(position) {
+    const next=editPoints.findIndex(([elapsed])=>elapsed>position);
+    if(next<0) return editPoints.at(-1)[1];
+    const [start,from]=editPoints[next-1];
+    const [end,to]=editPoints[next];
+    return mix(from,to,(position-start)/(end-start));
+  }
+
   function renderConversation(t) {
     const opening=1-smooth(t,9.5,13);
     display(ui.welcome,opening,"translate(-50%,-50%) translateY("+(-18*(1-opening))+"px)");
@@ -977,6 +1083,7 @@
     const rowCount = floating || (t >= 28 && t < 52.3) || (t >= 120 && t < 138) ? 1 : 2;
     message(prior,rowCount===2 ? messages[index-1] : null,t,false);
     message(current,latest,t,true);
+    renderCalls(t,floating);
 
     const draft=messages.find((entry)=>entry.person && t>=entry.from && t<entry.at);
     const writing=Boolean(draft);
@@ -1100,6 +1207,11 @@
 
     const overview=smooth(t,228.9,231.1);
     ui.turns.inert=overview>.75;
+    const fan=smooth(t,230,233.4);
+    const scale=.92-.14*fan;
+    ui["overview-previous"].style.transform="translateX("+(-51*fan)+"%) scale("+scale+") rotate("+(-6*fan)+"deg)";
+    ui["overview-next"].style.transform="translateX("+(51*fan)+"%) scale("+scale+") rotate("+(6*fan)+"deg)";
+    ui["overview-run-bar"].style.transform="scaleX("+smooth(t,231.1,234.6)+")";
     display(ui.overview,overview,"translateY("+((1-overview)*21)+"px) scale("+(.977+.023*overview)+")");
     overviewCards.forEach((card,i)=>{
       const enter=smooth(t,229.35+i*.26,230.9+i*.26);
@@ -1113,12 +1225,12 @@
     return String(Math.floor(n/60)).padStart(2,"0")+":"+String(n%60).padStart(2,"0");
   }
 
-  function renderPlayer(t) {
+  function renderPlayer(t,story) {
     const statuses=[[0,"等待需求"],[11.8,"收到问题"],[17,"检索与核对"],[52,"影像对照"],[76,"准备计算"],[82,"OGE 运行中"],
       [119.5,"成果已收集"],[136,"已上图"],[175,"地图圈选"],[189,"统计选区"],[207,"协作核查"],[216,"现场回传"],[226,"确认授权"],[229,"工作区总览"]];
-    write(ui.status,statuses.findLast(([at])=>t>=at)[1]);
-    const map=shade(t)>.45;
-    const overview=t>=229;
+    write(ui.status,statuses.findLast(([at])=>story>=at)[1]);
+    const map=shade(story)>.45;
+    const overview=story>=229;
     ui["overview-tab"].hidden=!overview;
     ui["overview-tab"].classList.toggle("active",overview);
     ui["map-tab"].classList.toggle("active",map&&!overview);
@@ -1142,11 +1254,12 @@
 
   function render() {
     if(!textures || !width || !height) return;
-    renderMapControls(time,renderMap(time));
-    renderConversation(time);
-    renderTools(time);
-    renderReview(time);
-    renderPlayer(time);
+    const story=storySecond(time);
+    renderMapControls(story,renderMap(story));
+    renderConversation(story);
+    renderTools(story);
+    renderReview(story);
+    renderPlayer(time,story);
   }
 
   function resize() {
@@ -1261,6 +1374,8 @@
     ui["late-image"].src=source.after;
     ui["result-base"].src=source.after;
     ui["result-mask"].src=source.change;
+    ui["overview-before"].src=source.before;
+    ui["overview-after"].src=source.after;
     ui["overview-base"].src=source.after;
     ui["overview-mask"].src=source.change;
     new ResizeObserver(resize).observe(ui.map);
