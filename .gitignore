@@ -90,3 +90,6 @@ temp/
 /data/
 /deliverables/
 /kunyu-web.tar
+
+# Pneuma session/preference state
+.pneuma/
