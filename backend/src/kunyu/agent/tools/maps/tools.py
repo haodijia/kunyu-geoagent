@@ -47,7 +47,10 @@ from kunyu.persistence.geospatial.maps import MapRepository
 
 
 class ContextArguments(ToolArguments):
-    pass
+    include_screenshot: bool = Field(
+        default=True,
+        description="Set false to read layer and rendering status without capturing the map.",
+    )
 
 
 class PresentArguments(ToolArguments):
@@ -147,7 +150,7 @@ class MapTool(BaseTool):
         source = load_source(self._contexts, self._run_id)
         session_id = source.session.id
         try:
-            if self.spec.name == "map_get_context":
+            if isinstance(args, ContextArguments):
                 snapshot = self._contexts.get_request_snapshot(self._run_id)
                 if snapshot is None:
                     raise ToolExecutionError(
@@ -155,7 +158,7 @@ class MapTool(BaseTool):
                     )
                 image = (
                     await self._screenshot(call, session_id, snapshot.image_input)
-                    if snapshot.image_input.enabled
+                    if args.include_screenshot and snapshot.image_input.enabled
                     else None
                 )
                 value = {

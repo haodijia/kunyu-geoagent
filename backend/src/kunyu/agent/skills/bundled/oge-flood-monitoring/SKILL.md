@@ -1,66 +1,30 @@
 ---
 name: oge-flood-monitoring
-description: 调用 OGE 已发布的 flood_monitoring_bundle 洪水监测服务，完成双期水体变化、观测质量和阈值敏感性分析，并展示、点查与统计同一份21波段成果。用于郁江默认案例、兼容输入替换和已有服务成果解读。
+description: 对河道洪涝、水面扩张及退水做双期遥感研判。在 OGE 检索可用影像并用发布服务计算，按需要上图、对照、点查和统计。适用于郁江、榕江及具备兼容影像的区域。
 ---
 
-# OGE 洪水监测服务
+# OGE 洪涝遥感研判
 
-使用已登记的 `flood_monitoring_bundle`。它根据双期光学、SWIR、SCL 和关注点栅格，在 OGE 计算水体变化，返回一个21波段数值 GeoTIFF。运行前读取 `oge_get_service_definition` 返回的当前版本、参数、默认值、presentation 与 limitations；服务定义是已登记契约，不证明远端服务在线或账号有权访问数据。
+适用于用户要求从双期影像获取新增水体、持续水体、退水、观测质量或阈值敏感性。根据用户问题、已有成果和工具回执选择动作。需要核实案例数据或参数时，从技能资源目录读取 [服务指南](references/service-guide.md) 和 [案例资料](references/cases.md)。
 
-用户仅询问服务用法时解释操作，不提交计算。需要参考文档时，将相对路径拼到技能返回的资源目录，再用 `read` 读取。
+## 影像和服务的选择
 
-## 选择输入与参数
+新分析需要找到能计算的前后期观测。按区域和时间在 OGE 检索，结合完整覆盖、实际采集时间、波段、云影和输入契约筛选。可在公开影像目录使用 `oge_find_regions`、`oge_search_images`，或在个人数据中使用 `oge_list_my_data`、`oge_get_my_data_detail`。已上传的案例影像可在个人数据直接检索。公开目录条目与个人数据是不同资源。根据匹配到的资产名称、后缀、日期与案例资料核实本次输入。
 
-默认案例为广西贵港郁江，前期观测 **2026-06-22**，后期观测 **2026-07-12**。用户要求使用默认案例时，可使用空 `parameters`；先说明区域和两期日期。用户指定其他区域或日期时，不得把默认案例冒充对应分析。
+`oge_get_service_definition` 提供 `flood_monitoring_bundle` 的版本、参数及成果契约。计算读取范围由资产的预对齐网格决定。地图选区、日期和行政区用于发现数据或查询既有成果，不能作为该服务的计算参数。区域或时间改变时确认六份影像及对应关注点栅格，避免沿用其他案例的默认输入。缺少兼容的前后期观测时说明缺口，或请用户确认有依据的可选时相。实际日期和有效覆盖随结论呈现。
 
-这个服务没有 `geometry`、`bbox`、行政区、起止日期或 `outputProduct` 参数。计算覆盖输入栅格范围；地图视口不定义计算范围。消息附带的 `map_selection.geometry` 用于既有成果的点查和区域统计，不会裁剪服务输入。替换输入前使用 `oge_list_my_data`、`oge_get_my_data_detail` 核实账号下的真实资产；读取 [输入与参数](references/service-guide.md#输入与参数)，确认七份输入与固定网格兼容。缺少兼容资产时，说明需要准备的数据，不提交默认案例替代任务。
+用户明确要求计算且数据和参数已核实时，可用 `oge_execute_service`。同一组输入仅在需要新计算时提交。阈值对比固定影像、关注点和统计范围，保留原成果，并记录改变的阈值及新的任务和成果引用。说明服务用法、查阅既有成果、切换视图和局部统计时无需提交计算。
 
-## 调用与等待
+## 跟踪和上图
 
-1. 读取服务定义：
+`oge_execute_service` 返回进行中的应用任务时，用 `job_output` 等待或查询同一个 `job.id`。超时后可继续查询；未知任务 ID 时先用 `job_list`，提交状态不明时确认已有回执。应用任务 ID 与远端 `jobId` 分开记录。遇到鉴权、参数、输入或执行错误时报告实际错误及对应修正条件。
 
-   ```json
-   {"service_name":"flood_monitoring_bundle"}
-   ```
+成果可用后，从实际返回的 `analysis_output_id` 和视图元数据选择符合问题的图层。需要空间展示时调用 `map_present`，传入 `{ "rasters": [{ "output_id": "实际成果ID", "view_id": "实际视图ID" }] }`。主分类、质量、指数和敏感性视图都可选；比较已有的两期水体或两次阈值运行时可呈现对应图层。用 `map_get_context` 传入 `{"include_screenshot":false}` 就能核对当前图层修订和渲染状态。未收到地图客户端报告时，说明图层已添加且可打开核查。只有确实需要观察地图画面时才请求截图。
 
-   以上为 `oge_get_service_definition` 的参数。
+对“这里”“这片”使用消息附带的 `map_selection` 或地图上下文。将 `layer_id` 对应到 `output_id`、`view_id`，用 `map_sample_raster` 点查，用 `map_region_statistics` 统计同一几何。面积报告说明统计区域、共同有效覆盖和口径。全幅面积直接读取波段 summary 的类别计数与投影网格像元面积。选区统计按像元中心与 WGS84 椭球面积。需要定位核查候选时可先看成果预览或地图，再对与问题有关的河段点查或圈选；只有指定选区超过统计限制时才按业务范围分区。
 
-2. 使用 `oge_execute_service` 提交一次计算。默认案例的参数示例：
+## 研判证据
 
-   ```json
-   {
-     "service_name":"flood_monitoring_bundle",
-     "title":"郁江双期水体变化分析",
-     "parameters":{}
-   }
-   ```
+分类含 0 稳定非水体、1 持续水体、2 新增水体候选、3 退水、4 指数分歧、5 无共同有效观测。0 虽透明仍计入相应统计；5 有明确含义，研究区外为 NoData。敏感性票数是九组阈值组合中的计数，九组一致只说明在指定扰动范围内稳定。点位需由实际 `poi_id` 与来源关联。
 
-   只覆盖已确认需要调整的字段，其余使用服务默认值。OGE 登录在设置中完成，AppKey 由服务端配置；工具参数不包含口令、令牌或 AppKey。按工具返回的实际审批要求继续。
-
-3. 返回 `job.status` 尚未完成时，用 `job_output` 查询同一个应用任务的 `job.id`，例如 `{"job_id":"实际返回的job.id","wait":true,"timeout_ms":30000}`。超时仅表示本次等待结束，不重复调用服务。丢失任务身份时先用 `job_list` 查找；应用任务 ID 与 OGE 远端 `jobId` 分开记录。提交结果不明时先查已有任务，不通过重提来查询状态，也不声称远端任务已取消。
-4. 成功后读取终态结果中的 `analysis_output_id`、`output.metadata` 和 `limitations`；大结果按 `result_file_path` 用 `read` 读取。以实际返回的波段与视图为准，不把任务 ID、资产路径或 `processId` 当成图片地址。缺少登录、输入不可访问、参数错误或任务失败时，报告实际错误及修正方法。
-
-## 展示与继续分析
-
-先用 `map_present` 展示主分类视图，参数形式为：
-
-```json
-{"rasters":[{"output_id":"实际返回的analysis_output_id","view_id":"change_class"}]}
-```
-
-- 水体变化：`change_class`、`before_water`、`after_water`、`new_flood`、`persistent_water`、`receded_water`。
-- 质量追问：`quality_class`、`common_valid_mask`、`comparison_valid_mask`、`uncertain_mask`。
-- 阈值敏感性：`flood_vote_count`、`stable_flood`、`sensitivity_class`。
-- 指数与关注点：按当前服务定义选择相应视图，含义见 [成果与解释](references/service-guide.md#成果与解释)。
-
-所有视图引用同一个 `output_id`。切换波段、质量分析、卷帘、透明度、点查和区域统计都复用原始成果；只有输入或科学计算参数改变时，才另行提交计算。`map_present` 成功只表示已添加图层；需由 `map_get_context` 确认当前图层 revision 的渲染状态，才能声称显示完成。
-
-用户选点或圈选后，使用消息中的 `map_selection`，或通过 `map_get_context` 获取图层与当前选择，将 `layer_id` 对应到 `output_id`、`view_id`。用 `map_sample_raster` 读取该点原值，用 `map_region_statistics` 传递同一 geometry 统计；无需让用户重复填写坐标。统计超过四百万像元限制时缩小或合理分区，不重跑 OGE。
-
-## 解读与交付
-
-主分类为：0稳定非水体、1持续水体、2新增水体候选、3退水、4指数分歧、5无共同有效观测。类别0虽然透明，仍参与对应统计；类别5与研究区外 NoData 分开。分类编码均值没有业务意义。
-
-报告引用实际任务、输入日期、参数、成果 ID、视图与统计区域。全幅 summary 的面积为分类像元数乘 `grid_pixel_area_m2`，标注“投影网格面积”；区域统计使用像元中心纳入规则与 WGS84 椭球面积，两者分开说明。结论中的面积和数量取自本次结果，不复用历史验收数字。
-
-新增水体候选不等于已核实洪涝，持续水体不等于永久水体。九组阈值票数不是概率或精度，九组一致仅说明本组参数范围内稳定；NoData 不计为0票。两期观测不能代表洪峰最大范围，也不提供水深、人口、设施整体受灾或损失结论。关注点需以实际 `poi_id` 关联源矢量；`poiMaxId` 是编号上限，不是点位数量。
+引用本次观测、服务参数、作业、成果和视图。给出有观测支撑的水面变化和核查线索，同时指出未覆盖区域及易混淆条件。洪峰范围、水深、人口和损失需要独立资料。用户只问局部或解释时，聚焦该问题的证据。

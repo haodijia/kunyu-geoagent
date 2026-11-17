@@ -99,6 +99,6 @@ uv run --project backend python scripts/upgrade_web_storage.py \
 
 stdio MCP 的程序和工作目录位于服务器或容器中。基础镜像包含 Python、uv 和 ripgrep；需要 Node.js 或其他程序的 MCP 服务应通过扩展镜像显式安装。
 
-架构说明见 [开发架构设计](docs/开发架构设计.md)，业务细节见 [Agent 技能](docs/develop/Agent技能.md)、[工具结果契约](docs/develop/工具结果契约.md)、[地图服务](docs/develop/地图服务.md) 和 [OGE 平台接入](docs/develop/OGE平台接入.md)。
+架构说明见 [后端 Agent 结构](docs/develop/后端Agent结构.md)，业务细节见 [Agent 技能](docs/develop/Agent技能.md)、[工具结果契约](docs/develop/工具结果契约.md)、[地图服务](docs/develop/地图服务.md) 和 [OGE 平台接入](docs/develop/OGE平台接入.md)。正赛复演见 [自然语言案例与接口清单](docs/正赛/README.md)。
 
 [Apache License 2.0](LICENSE)

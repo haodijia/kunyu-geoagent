@@ -1,7 +1,7 @@
 {
   "name": "flood_monitoring_bundle",
   "version": "2.0.0",
-  "title": "郁江双期水体变化与质量分析",
+  "title": "双期水体变化与质量分析",
   "description": "一次OGE服务计算，返回21波段数值成果。渲染、点查、圈选统计复用成果，不重复计算。",
   "parameters": {
     "type": "object",
