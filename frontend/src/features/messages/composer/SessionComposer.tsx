@@ -7,7 +7,7 @@ import {
   type ComposerModelGroup,
   type ModelPickerPane,
 } from "@/features/messages/composer/ComposerModelPicker";
-import { projectContextUsage } from "@/features/messages/composer/context-usage";
+import { prepareContextUsage } from "@/features/messages/composer/context-usage";
 import { ConversationComposer } from "@/features/messages/composer/ConversationComposer";
 import { QueuedMessages } from "@/features/messages/composer/QueuedMessages";
 import { useComposerCommands } from "@/features/messages/composer/useComposerCommands";
@@ -22,8 +22,11 @@ export const SessionComposer = defineComponent(
   (_props, { slots: _slots }) => {
     const queryClient = useQueryClient();
     const { records, activeAssistant } = toRefs(useSessionEvents());
+    const projectContextUsage = computed(() =>
+      prepareContextUsage(records.value),
+    );
     const contextUsage = computed(() =>
-      projectContextUsage(records.value, activeAssistant.value),
+      projectContextUsage.value(activeAssistant.value),
     );
     const modelPickerPane = shallowRef<ModelPickerPane | null>(null),
       setModelPickerPane = refSetter(modelPickerPane);

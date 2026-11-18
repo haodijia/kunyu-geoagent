@@ -76,6 +76,7 @@ export const ToolActivity = defineComponent(
     { slots: _slots },
   ) => {
     const stream = useSessionEvents();
+    const detailsMounted = shallowRef(false);
     const items = computed(() =>
       componentProps.tools.map((tool) => {
         const confirmation = componentProps.confirmations.find(
@@ -99,7 +100,13 @@ export const ToolActivity = defineComponent(
     return () => {
       const { label, active, failed, iconTool } = activity.value;
       return (
-        <details class={styles.activity}>
+        <details
+          class={styles.activity}
+          onToggle={(event) => {
+            if ((event.currentTarget as HTMLDetailsElement).open)
+              detailsMounted.value = true;
+          }}
+        >
           <summary class={styles.activityHeader}>
             {active ? (
               <LoaderCircle
@@ -124,19 +131,21 @@ export const ToolActivity = defineComponent(
               aria-hidden="true"
             />
           </summary>
-          <div class={styles.activityItems}>
-            {items.value.map(({ tool, confirmation, status }) => (
-              <ToolCallRow
-                key={tool.id}
-                tool={tool}
-                confirmation={confirmation}
-                status={status}
-              />
-            ))}
-            {componentProps.generatingTools.map((tool) => (
-              <GeneratingToolRow key={tool.id} tool={tool} />
-            ))}
-          </div>
+          {detailsMounted.value && (
+            <div class={styles.activityItems}>
+              {items.value.map(({ tool, confirmation, status }) => (
+                <ToolCallRow
+                  key={tool.id}
+                  tool={tool}
+                  confirmation={confirmation}
+                  status={status}
+                />
+              ))}
+              {componentProps.generatingTools.map((tool) => (
+                <GeneratingToolRow key={tool.id} tool={tool} />
+              ))}
+            </div>
+          )}
         </details>
       );
     };

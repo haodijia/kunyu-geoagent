@@ -25,7 +25,20 @@ export type PresentedBlock =
   | ({
       readonly type: "tool-call";
     } & GeneratingTool);
+const presentations = new WeakMap<
+  readonly AssistantStreamRecord[],
+  ReturnType<typeof buildStreamPresentation>
+>();
+
 export function streamPresentation(stream: readonly AssistantStreamRecord[]) {
+  const cached = presentations.get(stream);
+  if (cached !== undefined) return cached;
+  const result = buildStreamPresentation(stream);
+  presentations.set(stream, result);
+  return result;
+}
+
+function buildStreamPresentation(stream: readonly AssistantStreamRecord[]) {
   type Partial = {
     kind: "text" | "reasoning" | "tool-call";
     text: string;

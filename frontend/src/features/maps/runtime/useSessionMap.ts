@@ -199,7 +199,17 @@ export function useSessionMap(
           bearing: map.getBearing(),
           pitch: map.getPitch(),
         };
-        useAppUiStore().setMapView(toValue(sessionId), viewport, camera);
+        const previous = store.mapContextBySession[toValue(sessionId)]!;
+        if (
+          previous.viewport.longitude !== viewport.longitude ||
+          previous.viewport.latitude !== viewport.latitude ||
+          previous.viewport.zoom !== viewport.zoom ||
+          previous.camera.dimension !== camera.dimension ||
+          previous.camera.bearing !== camera.bearing ||
+          previous.camera.pitch !== camera.pitch
+        ) {
+          store.setMapView(toValue(sessionId), viewport, camera);
+        }
       };
       const onStyleLoad = () => {
         applyDimension(map, dimensionRef.value);
@@ -241,10 +251,14 @@ export function useSessionMap(
         attributes: true,
         attributeFilter: ["data-theme"],
       });
-      const resize = () => {
-        const overlayHeight =
+      let previousOverlayHeight: number | undefined;
+      const updateOverlayPadding = () => {
+        const overlayHeight = Math.round(
           container.getBoundingClientRect().bottom -
-          overlay.getBoundingClientRect().top;
+            overlay.getBoundingClientRect().top,
+        );
+        if (overlayHeight === previousOverlayHeight) return;
+        previousOverlayHeight = overlayHeight;
         overlayHeightRef.value = overlayHeight;
         container.style.setProperty(
           "--map-overlay-height",
@@ -254,12 +268,11 @@ export function useSessionMap(
           ...map.getPadding(),
           bottom: overlayHeight,
         });
-        map.resize();
       };
-      const resizeObserver = new ResizeObserver(resize);
-      resizeObserver.observe(target);
+      // MapLibre already tracks changes to the canvas container.
+      const resizeObserver = new ResizeObserver(updateOverlayPadding);
       resizeObserver.observe(overlay);
-      resize();
+      updateOverlayPadding();
       map.on("style.load", onStyleLoad);
       map.on("moveend", rememberView);
       map.on("idle", onIdle);

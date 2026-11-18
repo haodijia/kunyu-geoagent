@@ -1,11 +1,14 @@
-import type { AgentTurn } from "@/features/agent/api";
+import type { AgentTurn, ToolCall } from "@/features/agent/api";
 import {
   toolLabel,
   toolTarget,
 } from "@/features/agent/tools/tool-presentation";
 import type { TrajectoryEventProjection } from "@/features/events/projection/events";
 import type { ActiveAssistant } from "@/features/events/stream/live-assistant";
-import { streamPresentation } from "@/features/events/stream/stream-presentation";
+import {
+  streamPresentation,
+  type PresentedBlock,
+} from "@/features/events/stream/stream-presentation";
 import type { SessionMessage } from "@/features/messages/api";
 import { collectMessageBlocks } from "@/features/messages/model/message-blocks";
 import { zhCN } from "@/locales/zh-CN";
@@ -14,6 +17,7 @@ import remarkGfm from "remark-gfm";
 import remarkParse from "remark-parse";
 import { unified } from "unified";
 const parser = unified().use(remarkParse).use(remarkGfm);
+const PREVIEW_TEXT_LIMIT = 2_048;
 export interface FlowMessage {
   readonly id: string;
   readonly text: string;
@@ -21,8 +25,16 @@ export interface FlowMessage {
   readonly kind: "text" | "reasoning" | "tool-call";
 }
 function markdownText(text: string): string {
+  const tail = text.slice(-PREVIEW_TEXT_LIMIT);
+  const paragraph = tail.indexOf("\n\n");
+  const preview =
+    text.length > PREVIEW_TEXT_LIMIT &&
+    paragraph >= 0 &&
+    paragraph < tail.length / 2
+      ? tail.slice(paragraph + 2)
+      : tail;
   return parser
-    .parse(text)
+    .parse(preview)
     .children.map((block) => {
       if (block.type === "table")
         return block.children
@@ -35,31 +47,42 @@ function markdownText(text: string): string {
     .join("\n")
     .trim();
 }
-export function mapConversationRows(
+export function prepareMapConversation(
   messages: readonly SessionMessage[],
   turns: readonly AgentTurn[],
   records: readonly TrajectoryEventProjection[],
-  active: ActiveAssistant | null,
-): FlowMessage[] {
+): (active: ActiveAssistant | null) => FlowMessage[] {
   const settled = collectMessageBlocks(records);
-  const live = active === null ? null : streamPresentation(active.stream);
-  const tools = turns.flatMap((turn) => turn.tool_calls);
-  const rows: FlowMessage[] = [];
-  function append(
+  const recent = messages.slice(-8);
+  const locations = new Map<string, Map<string, ToolCall>>();
+  for (const turn of turns) {
+    for (const tool of turn.tool_calls) {
+      let tools = locations.get(tool.message_id);
+      if (tools === undefined)
+        locations.set(tool.message_id, (tools = new Map()));
+      tools.set(tool.provider_call_id, tool);
+    }
+  }
+  const savedRows = new Map<string, readonly FlowMessage[]>();
+  function blockRows(
     messageId: string,
-    blocks: ReturnType<typeof streamPresentation>["blocks"],
-  ) {
-    for (const block of blocks) {
+    blocks: readonly PresentedBlock[],
+  ): FlowMessage[] {
+    const rows: FlowMessage[] = [];
+    const tools = locations.get(messageId);
+    for (
+      let index = blocks.length - 1;
+      index >= 0 && rows.length < 2;
+      index--
+    ) {
+      const block = blocks[index]!;
       const id = `${messageId}:${block.index}`;
       if (block.type === "tool-call") {
-        const tool = tools.find(
-          (call) =>
-            call.message_id === messageId && call.provider_call_id === block.id,
-        );
+        const tool = tools?.get(block.id);
         const target =
           tool === undefined ? undefined : toolTarget(tool.arguments);
         const name = tool?.name ?? block.name;
-        rows.push({
+        rows.unshift({
           id,
           role: "assistant",
           kind: block.type,
@@ -77,7 +100,7 @@ export function mapConversationRows(
         });
       } else if (block.text.trim() !== "") {
         const text = markdownText(block.text);
-        rows.push({
+        rows.unshift({
           id,
           role: "assistant",
           kind: block.type,
@@ -88,35 +111,53 @@ export function mapConversationRows(
         });
       }
     }
+    return rows;
   }
-  for (const message of messages.slice(-8)) {
-    if (message.role === "user") {
-      if (message.content.trim() !== "")
-        rows.push({
-          id: message.id,
-          role: "user",
-          kind: "text",
-          text: markdownText(message.content),
-        });
-    } else if (message.id === active?.attempt_id && live !== null) {
-      append(message.id, live.blocks);
-    } else {
-      const blocks = settled.get(message.id);
-      if (blocks !== undefined) append(message.id, [...blocks]);
-      else if (message.content.trim() !== "")
-        rows.push({
-          id: message.id,
-          role: "assistant",
-          kind: "text",
-          text: markdownText(message.content),
-        });
+  function settledRows(message: SessionMessage): readonly FlowMessage[] {
+    const cached = savedRows.get(message.id);
+    if (cached !== undefined) return cached;
+    const blocks =
+      message.role === "assistant" ? settled.get(message.id) : undefined;
+    const rows: FlowMessage[] =
+      blocks !== undefined
+        ? blockRows(message.id, blocks)
+        : message.content.trim() === ""
+          ? []
+          : [
+              {
+                id: message.id,
+                role: message.role,
+                kind: "text",
+                text: markdownText(message.content),
+              },
+            ];
+    savedRows.set(message.id, rows);
+    return rows;
+  }
+  const messageIds = new Set(messages.map((message) => message.id));
+  return (active) => {
+    const rows: FlowMessage[] = [];
+    const activeRows = () =>
+      active === null
+        ? []
+        : blockRows(
+            active.attempt_id,
+            streamPresentation(active.stream).blocks,
+          );
+    if (active !== null && !messageIds.has(active.attempt_id))
+      rows.push(...activeRows());
+    for (
+      let index = recent.length - 1;
+      index >= 0 && rows.length < 2;
+      index--
+    ) {
+      const message = recent[index]!;
+      rows.unshift(
+        ...(message.id === active?.attempt_id
+          ? activeRows()
+          : settledRows(message)),
+      );
     }
-  }
-  if (
-    active !== null &&
-    live !== null &&
-    !messages.some((message) => message.id === active.attempt_id)
-  )
-    append(active.attempt_id, live.blocks);
-  return rows.slice(-2);
+    return rows.slice(-2);
+  };
 }

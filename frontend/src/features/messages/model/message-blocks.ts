@@ -5,6 +5,12 @@ import {
   streamPresentation,
   type PresentedBlock,
 } from "@/features/events/stream/stream-presentation";
+
+const settledBlocks = new WeakMap<
+  TrajectoryEventProjection,
+  readonly PresentedBlock[]
+>();
+
 export function collectMessageBlocks(
   records: readonly TrajectoryEventProjection[],
 ) {
@@ -15,46 +21,53 @@ export function collectMessageBlocks(
       record.messageId === null
     )
       continue;
-    const observed = streamPresentation(
-      parseAssistantStream(record.payload.stream),
-    ).blocks;
-    const interrupted =
-      !["stop", "tool_calls", "length"].includes(
-        String(record.payload.outcome),
-      ) || record.payload.error_code === "OUTPUT_LIMIT";
-    const thoughts = observed.filter(
-      (
-        block,
-      ): block is Extract<
-        PresentedBlock,
-        {
-          type: "reasoning";
-        }
-      > =>
-        block.type === "reasoning" &&
-        (!interrupted || block.text.trim() !== ""),
-    );
-    let thoughtIndex = 0;
-    result.set(
-      record.messageId,
-      parseContentBlocks(record.payload.blocks).map(
-        (block, index): PresentedBlock => {
-          if (block.type === "tool-call")
-            return {
-              ...block,
-              index,
-            };
-          const timing =
-            block.type === "reasoning" ? thoughts[thoughtIndex++] : undefined;
-          return {
-            ...block,
-            index,
-            startedAt: timing?.startedAt ?? null,
-            finishedAt: timing?.finishedAt ?? record.occurredAt,
-          };
-        },
-      ),
-    );
+    let blocks = settledBlocks.get(record);
+    if (blocks === undefined) {
+      blocks = presentSettledBlocks(record);
+      settledBlocks.set(record, blocks);
+    }
+    result.set(record.messageId, blocks);
   }
   return result;
+}
+
+function presentSettledBlocks(
+  record: TrajectoryEventProjection,
+): readonly PresentedBlock[] {
+  const observed = streamPresentation(
+    parseAssistantStream(record.payload.stream),
+  ).blocks;
+  const interrupted =
+    !["stop", "tool_calls", "length"].includes(
+      String(record.payload.outcome),
+    ) || record.payload.error_code === "OUTPUT_LIMIT";
+  const thoughts = observed.filter(
+    (
+      block,
+    ): block is Extract<
+      PresentedBlock,
+      {
+        type: "reasoning";
+      }
+    > =>
+      block.type === "reasoning" && (!interrupted || block.text.trim() !== ""),
+  );
+  let thoughtIndex = 0;
+  return parseContentBlocks(record.payload.blocks).map(
+    (block, index): PresentedBlock => {
+      if (block.type === "tool-call")
+        return {
+          ...block,
+          index,
+        };
+      const timing =
+        block.type === "reasoning" ? thoughts[thoughtIndex++] : undefined;
+      return {
+        ...block,
+        index,
+        startedAt: timing?.startedAt ?? null,
+        finishedAt: timing?.finishedAt ?? record.occurredAt,
+      };
+    },
+  );
 }

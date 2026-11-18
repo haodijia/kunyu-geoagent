@@ -70,6 +70,24 @@ export const SessionEventProvider = defineComponent(
       const cancelStream = () => controller.abort();
       window.addEventListener("beforeunload", cancelStream);
       const assistant = new LiveAssistantStream();
+      let visibleAssistant: ActiveAssistant | null = null;
+      let assistantFrame: number | null = null;
+      function publishAssistant(
+        next: ActiveAssistant | null,
+        immediate: boolean,
+      ) {
+        visibleAssistant = next;
+        if (immediate) {
+          if (assistantFrame !== null) cancelAnimationFrame(assistantFrame);
+          assistantFrame = null;
+          setActiveAssistant(next);
+        } else if (assistantFrame === null) {
+          assistantFrame = requestAnimationFrame(() => {
+            assistantFrame = null;
+            setActiveAssistant(visibleAssistant);
+          });
+        }
+      }
       let planState: PlanState = {
         active: false,
         pending: null,
@@ -116,8 +134,9 @@ export const SessionEventProvider = defineComponent(
                 continue;
               }
               if (publication.type === "assistant") {
-                setActiveAssistant(
+                publishAssistant(
                   assistant.accept(publication.frame, lastSequenceRef.value),
+                  publication.frame.type !== "chunk",
                 );
               } else {
                 if (
@@ -150,11 +169,12 @@ export const SessionEventProvider = defineComponent(
                   setRecords((current) => [...current, ...projected]);
                 }
                 if (publication.type === "opened")
-                  setActiveAssistant(
+                  publishAssistant(
                     assistant.replace(
                       publication.assistant,
                       publication.cursor,
                     ),
+                    true,
                   );
               }
               setStatus("connected");
@@ -194,6 +214,7 @@ export const SessionEventProvider = defineComponent(
       void connect();
       return () => {
         window.removeEventListener("beforeunload", cancelStream);
+        if (assistantFrame !== null) cancelAnimationFrame(assistantFrame);
         cancelStream();
       };
     });

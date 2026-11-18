@@ -62,7 +62,7 @@ export const ToolCallRow = defineComponent(
     const hasDetails = computed(
       () =>
         Object.keys(tool.value.arguments).length > 0 ||
-        (display.value !== null && display.value.kind !== "none") ||
+        (tool.value.display !== null && tool.value.display.kind !== "none") ||
         error.value !== null ||
         confirmation.value !== undefined,
     );
@@ -78,17 +78,17 @@ export const ToolCallRow = defineComponent(
           : { text: tool.value.compact.summary, path: false }),
     );
     return () => {
+      const open = expanded.value;
       const _tool = tool.value,
         _waitingQuestion = waitingQuestion.value,
         _status = status.value,
         _hasDetails = hasDetails.value,
         _target = target.value,
-        _duration = duration.value,
         _denied = denied.value,
         _error = error.value,
-        _display = display.value,
-        _imageOffloads = imageOffloads.value,
         _confirmation = confirmation.value;
+      const result = open ? display.value : null;
+      const elapsed = open ? duration.value : null;
       const label =
         _status === "completed"
           ? completedToolLabel(_tool.name)
@@ -140,14 +140,14 @@ export const ToolCallRow = defineComponent(
               {content.denied}
             </p>
           )}
-          {expanded.value ? (
+          {open ? (
             <div class={styles.detailPanel}>
-              {_display !== null && (
+              {result !== null && (
                 <ToolResultView
-                  display={_display}
+                  display={result}
                   sessionId={_tool.session_id}
                   toolCallId={_tool.id}
-                  offloadedIds={_imageOffloads.get(_tool.id)}
+                  offloadedIds={imageOffloads.value.get(_tool.id)}
                 />
               )}
               {!_denied && _error !== null ? (
@@ -156,9 +156,9 @@ export const ToolCallRow = defineComponent(
               {Object.keys(_tool.arguments).length > 0 && (
                 <ToolParameters arguments={_tool.arguments} />
               )}
-              {_duration !== null && (
+              {elapsed !== null && (
                 <div class={styles.detailMetadata}>
-                  {content.duration} · {formatDuration(_duration)}
+                  {content.duration} · {formatDuration(elapsed)}
                 </div>
               )}
               {_confirmation !== undefined && (

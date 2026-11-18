@@ -43,10 +43,9 @@ type UsageChunk = Extract<
 >;
 
 /** Harness-style measured prompt anchor plus signed estimated surface movement. */
-export function projectContextUsage(
+export function prepareContextUsage(
   events: readonly TrajectoryEventProjection[],
-  active: ActiveAssistant | null,
-): ContextUsage | null {
+): (active: ActiveAssistant | null) => ContextUsage | null {
   let header: TrajectoryEventProjection | null = null;
   let snapshot: Readonly<Record<string, unknown>> | null = null;
   let route: string | null = null;
@@ -61,39 +60,6 @@ export function projectContextUsage(
   let compactionStart: TrajectoryEventProjection | null = null;
   let compactionSelection: TrajectoryEventProjection | null = null;
   let historyCompacted = false;
-  function observeStream(
-    stream: readonly AssistantStreamRecord[],
-    settlement?: Readonly<Record<string, unknown>>,
-  ) {
-    const sampleIndex = lastUsageIndex(stream);
-    const sampleRecord = sampleIndex === -1 ? null : stream[sampleIndex]!;
-    const sample =
-      sampleRecord?.type === "chunk" && sampleRecord.chunk.type === "usage"
-        ? sampleRecord.chunk
-        : null;
-    const nextUsage =
-      settlement === undefined
-        ? sample === null
-          ? null
-          : knownUsage(sample, sample)
-        : knownUsage(settlement, sample);
-    const estimatedOutput = estimateStream(stream);
-    outputTokens = estimatedOutput;
-    estimated = true;
-    if (nextUsage === null) return;
-    usage = nextUsage;
-    const measuredInput = promptTokens(nextUsage, snapshot!.protocol);
-    if (measuredInput !== null) inputTokens = measuredInput;
-    if (nextUsage.outputTokens !== null) {
-      const sampledOutput =
-        settlement !== undefined || sampleIndex === -1
-          ? estimatedOutput
-          : estimateStream(stream.slice(0, sampleIndex));
-      const growth = Math.max(0, estimatedOutput - sampledOutput);
-      outputTokens = nextUsage.outputTokens + growth;
-      estimated = measuredInput === null || growth !== 0;
-    }
-  }
   for (const event of events) {
     if (event.eventType === "request.header") {
       const nextSnapshot = record(event.payload.model_snapshot);
@@ -135,7 +101,15 @@ export function projectContextUsage(
         settled
       )
         throw new Error("Usage settlement belongs to another request.");
-      observeStream(parseAssistantStream(event.payload.stream), event.payload);
+      const tokens = streamUsage(
+        parseAssistantStream(event.payload.stream),
+        snapshot!.protocol,
+        event.payload,
+      );
+      inputTokens = tokens.inputTokens ?? inputTokens;
+      outputTokens = tokens.outputTokens;
+      estimated = tokens.estimated;
+      usage = tokens.usage ?? usage;
       settled = true;
     }
     if (
@@ -236,17 +210,9 @@ export function projectContextUsage(
       estimated = historyCompacted = true;
     }
   }
-  if (header === null || snapshot === null) return null;
-  if (
-    !settled &&
-    active !== null &&
-    active.run_id === header.runId &&
-    active.step === header.payload.step &&
-    active.attempt === header.payload.attempt &&
-    active.started_after_sequence >= header.sequence
-  ) {
-    observeStream(active.stream);
-  }
+  if (header === null || snapshot === null) return () => null;
+  const request = header;
+  const protocol = snapshot.protocol;
   const modelId = snapshot.model_id;
   if (
     typeof snapshot.provider_type !== "string" ||
@@ -258,7 +224,7 @@ export function projectContextUsage(
     throw new Error("Invalid usage model route.");
   const contextWindow = tokenCount(snapshot.context_window);
   if (contextWindow === 0) throw new Error("Invalid usage context window.");
-  return {
+  const base: ContextUsage = {
     modelId,
     providerType,
     contextWindow,
@@ -268,6 +234,60 @@ export function projectContextUsage(
     usage,
     historyCompacted,
     compaction,
+  };
+  return (active) => {
+    if (
+      settled ||
+      active === null ||
+      active.run_id !== request.runId ||
+      active.step !== request.payload.step ||
+      active.attempt !== request.payload.attempt ||
+      active.started_after_sequence < request.sequence
+    )
+      return base;
+    const tokens = streamUsage(active.stream, protocol);
+    return {
+      ...base,
+      contextTokens:
+        (tokens.inputTokens ?? inputTokens) + tokens.outputTokens + toolTokens,
+      estimated: tokens.estimated,
+      usage: tokens.usage ?? usage,
+    };
+  };
+}
+
+function streamUsage(
+  stream: readonly AssistantStreamRecord[],
+  protocol: unknown,
+  settlement?: Readonly<Record<string, unknown>>,
+) {
+  const sampleIndex = lastUsageIndex(stream);
+  const sampleRecord = stream[sampleIndex];
+  const sample =
+    sampleRecord?.type === "chunk" && sampleRecord.chunk.type === "usage"
+      ? sampleRecord.chunk
+      : null;
+  const source = settlement ?? sample;
+  const usage = source === null ? null : knownUsage(source, sample);
+  const inputTokens = usage === null ? null : promptTokens(usage, protocol);
+  const estimatedOutput = estimateStream(stream);
+  if (usage?.outputTokens == null)
+    return {
+      usage,
+      inputTokens,
+      outputTokens: estimatedOutput,
+      estimated: true,
+    };
+  const sampledOutput =
+    settlement !== undefined || sampleIndex === -1
+      ? estimatedOutput
+      : estimateStream(stream.slice(0, sampleIndex));
+  const growth = Math.max(0, estimatedOutput - sampledOutput);
+  return {
+    usage,
+    inputTokens,
+    outputTokens: usage.outputTokens + growth,
+    estimated: inputTokens === null || growth !== 0,
   };
 }
 function lastUsageIndex(stream: readonly AssistantStreamRecord[]): number {

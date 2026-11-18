@@ -1,7 +1,7 @@
 import { Button } from "@/components/ui/button";
 import { EventStreamNotice } from "@/features/events/EventStreamNotice";
 import { useSessionEvents } from "@/features/events/SessionEventContext";
-import { mapConversationRows } from "@/features/maps/conversation/map-conversation";
+import { prepareMapConversation } from "@/features/maps/conversation/map-conversation";
 import { MapMessageFlow } from "@/features/maps/conversation/MapMessageFlow";
 import { useMessageNavigation } from "@/features/messages/navigation/MessageNavigationContext";
 import { MessageList } from "@/features/messages/rendering/MessageList";
@@ -19,17 +19,17 @@ export const MapConversation = defineComponent(
     const navigation = useMessageNavigation();
     const expanded = shallowRef(false),
       setExpanded = refSetter(expanded);
-    const rows = computed(() =>
-      mapConversationRows(
+    const projectRows = computed(() =>
+      prepareMapConversation(
         messagesQuery.value.data ?? [],
         agentTurnsQuery.value.data ?? [],
         stream.records,
-        stream.activeAssistant,
       ),
     );
+    const rows = computed(() => projectRows.value(stream.activeAssistant));
     const latestTurn = computed(() => agentTurnsQuery.value.data?.at(-1));
     return () => {
-      const _rows = rows.value,
+      const _rows = expanded.value ? [] : rows.value,
         _latestTurn = latestTurn.value;
       return (
         <div class="map-conversation">

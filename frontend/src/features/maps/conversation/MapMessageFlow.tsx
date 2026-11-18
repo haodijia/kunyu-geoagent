@@ -2,7 +2,7 @@ import type { FlowMessage } from "@/features/maps/conversation/map-conversation"
 import { refSetter, watchMounted } from "@/lib/lifecycle";
 import { zhCN } from "@/locales/zh-CN";
 import { Brain, Wrench } from "lucide-vue-next";
-import { computed, defineComponent, shallowRef } from "vue";
+import { computed, defineComponent, shallowRef, watch } from "vue";
 /** Read real browser line boxes, so a long reply contributes its last lines. */
 function lastLines(
   element: HTMLElement,
@@ -83,13 +83,15 @@ export const MapMessageFlow = defineComponent(
     const measure = shallowRef<HTMLDivElement | null>(null);
     const lines = shallowRef<FlowMessage[]>([]),
       setLines = refSetter(lines);
-    watchMounted([() => rows.value], () => {
+    watchMounted([], () => {
       const container = root.value;
       const track = measure.value;
       if (container === null || track === null) return;
       let active = true;
+      let frame: number | null = null;
+      let width: number | undefined;
       function update() {
-        if (!active) return;
+        frame = null;
         const next: FlowMessage[] = [];
         const elements =
           track!.querySelectorAll<HTMLElement>("[data-flow-text]");
@@ -128,12 +130,23 @@ export const MapMessageFlow = defineComponent(
             : next,
         );
       }
-      update();
-      const observer = new ResizeObserver(update);
+      const schedule = () => {
+        if (active && frame === null) frame = requestAnimationFrame(update);
+      };
+      const stop = watch(rows, schedule, { flush: "post" });
+      const observer = new ResizeObserver(([entry]) => {
+        const nextWidth = entry?.contentRect.width;
+        if (nextWidth === width) return;
+        width = nextWidth;
+        schedule();
+      });
       observer.observe(container);
-      void document.fonts.ready.then(update);
+      schedule();
+      void document.fonts.ready.then(schedule);
       return () => {
         active = false;
+        if (frame !== null) cancelAnimationFrame(frame);
+        stop();
         observer.disconnect();
       };
     });
