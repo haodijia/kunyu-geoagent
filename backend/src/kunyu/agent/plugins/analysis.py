@@ -132,6 +132,7 @@ class AnalysisPlugin:
         for name in (
             "map_get_context",
             "map_present",
+            "map_focus",
             "map_set_layer_style",
             "map_compare",
         ):

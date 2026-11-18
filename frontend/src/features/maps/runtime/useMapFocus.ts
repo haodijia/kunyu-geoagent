@@ -11,7 +11,7 @@ export function useMapFocus(
     ((state) => state.mapFocusBySession[toValue(sessionId)])(useAppUiStore()),
   );
   watchMounted(
-    [() => toValue(sessionId), () => toValue(map), () => bounds.value],
+    [() => toValue(sessionId), () => toValue(map).ready, () => bounds.value],
     () => {
       if (!toValue(map).ready || bounds.value === undefined) return;
       toValue(map).focusBounds([

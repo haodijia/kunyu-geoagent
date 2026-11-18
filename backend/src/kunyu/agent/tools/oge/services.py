@@ -17,6 +17,7 @@ from kunyu.agent.runtime.contracts.tools import (
     ToolResult,
     ToolRiskLevel,
     ToolSpec,
+    ToolValidationError,
 )
 from kunyu.agent.tools.outputs.oge import ANALYSIS
 from kunyu.agent.tools.outputs.shared import (
@@ -30,7 +31,6 @@ from kunyu.agent.tools.shared import (
     load_source,
     require_bound_call,
     tool_result,
-    validate_arguments,
     validate_model,
 )
 from kunyu.application.analysis.analysis import AnalysisService
@@ -106,7 +106,14 @@ class PublishedServiceTool(BaseTool):
         )
 
     def validate(self, arguments: object) -> Mapping[str, object]:
-        return validate_arguments(self.spec.name, self._arguments, arguments)
+        args = validate_model(self.spec.name, self._arguments, arguments)
+        if isinstance(args, ServiceDefinitionArguments):
+            return args.model_dump()
+        try:
+            _, parameters = service_parameters(args.service_name, args.parameters)
+        except AnalysisError as error:
+            raise ToolValidationError(str(error)) from error
+        return args.model_dump() | {"parameters": parameters}
 
     async def execute(self, call: ToolCall) -> ToolResult:
         require_bound_call(call, self._run_id, self.spec.name)

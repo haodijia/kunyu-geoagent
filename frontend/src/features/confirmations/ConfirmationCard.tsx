@@ -1,6 +1,7 @@
 import { Button } from "@/components/ui/button";
 import { toolLabel } from "@/features/agent/tools/tool-presentation";
 import type { Confirmation } from "@/features/confirmations/api";
+import { FloodInputReview } from "@/features/confirmations/FloodInputReview";
 import { cn } from "@/lib/utils";
 import { zhCN } from "@/locales/zh-CN";
 import {
@@ -42,6 +43,14 @@ export const ConfirmationCard = defineComponent(
         _onReject = onReject.value,
         _onApprove = onApprove.value,
         _error = error.value;
+      const floodReview =
+        _confirmation.name === "oge_execute_service" &&
+        _confirmation.arguments.service_name === "flood_monitoring_bundle";
+      const parameters = (
+        <pre class="m-0 max-h-48 overflow-auto rounded-lg bg-muted px-3 py-2.5 font-mono text-xs leading-5 whitespace-pre-wrap text-foreground [overflow-wrap:anywhere]">
+          {JSON.stringify(_confirmation.arguments, null, 2)}
+        </pre>
+      );
       return (
         <aside
           class={_className}
@@ -60,40 +69,54 @@ export const ConfirmationCard = defineComponent(
                 id={`confirmation-${_confirmation.id}`}
                 class="m-0 font-semibold text-foreground"
               >
-                {content.title}
+                {floodReview ? content.imagery.title : content.title}
               </h3>
               <p class="mt-1 mb-0 leading-5 text-muted-foreground">
-                {_confirmation.summary}
+                {floodReview
+                  ? String(_confirmation.arguments.title)
+                  : _confirmation.summary}
               </p>
             </div>
           </div>
-          <dl class="m-0 divide-y divide-border px-4">
-            <ConfirmationRow label={content.operation}>
-              <span>{_label}</span>
-              {_label !== _confirmation.name && (
+          {floodReview ? (
+            <div class="px-4 py-3">
+              <FloodInputReview
+                parameters={_confirmation.arguments.parameters}
+              />
+              <details class="mt-3 text-xs text-muted-foreground">
+                <summary class="mb-2 w-fit cursor-pointer">
+                  {content.parameters}
+                </summary>
+                {parameters}
+              </details>
+            </div>
+          ) : (
+            <dl class="m-0 divide-y divide-border px-4">
+              <ConfirmationRow label={content.operation}>
+                <span>{_label}</span>
+                {_label !== _confirmation.name && (
+                  <code class="ml-2 text-xs text-muted-foreground">
+                    {_confirmation.name}
+                  </code>
+                )}
+              </ConfirmationRow>
+              <ConfirmationRow label={content.scope}>
+                <span>{content.currentWorkspace}</span>
                 <code class="ml-2 text-xs text-muted-foreground">
-                  {_confirmation.name}
+                  {_confirmation.workspace_id}
                 </code>
-              )}
-            </ConfirmationRow>
-            <ConfirmationRow label={content.scope}>
-              <span>{content.currentWorkspace}</span>
-              <code class="ml-2 text-xs text-muted-foreground">
-                {_confirmation.workspace_id}
-              </code>
-            </ConfirmationRow>
-            <ConfirmationRow label={content.parameters} vertical>
-              <pre class="m-0 max-h-48 overflow-auto rounded-lg bg-muted px-3 py-2.5 font-mono text-xs leading-5 whitespace-pre-wrap text-foreground [overflow-wrap:anywhere]">
-                {JSON.stringify(_confirmation.arguments, null, 2)}
-              </pre>
-            </ConfirmationRow>
-            <ConfirmationRow label={content.sideEffect}>
-              <span class="text-foreground">{_confirmation.side_effect}</span>
-            </ConfirmationRow>
-          </dl>
+              </ConfirmationRow>
+              <ConfirmationRow label={content.parameters} vertical>
+                {parameters}
+              </ConfirmationRow>
+              <ConfirmationRow label={content.sideEffect}>
+                <span class="text-foreground">{_confirmation.side_effect}</span>
+              </ConfirmationRow>
+            </dl>
+          )}
           <div class="flex flex-wrap items-center justify-between gap-3 border-t border-border px-4 py-3">
             <p class="m-0 min-w-0 flex-1 text-xs leading-5 text-muted-foreground">
-              {content.exactSnapshot}
+              {floodReview ? content.imagery.submit : content.exactSnapshot}
             </p>
             <div class="flex shrink-0 gap-2">
               <Button
@@ -112,7 +135,9 @@ export const ConfirmationCard = defineComponent(
                 )}
                 {_pendingAction === "reject"
                   ? content.rejecting
-                  : content.reject}
+                  : floodReview
+                    ? content.imagery.reject
+                    : content.reject}
               </Button>
               <Button
                 size="sm"
@@ -129,7 +154,9 @@ export const ConfirmationCard = defineComponent(
                 )}
                 {_pendingAction === "approve"
                   ? content.approving
-                  : content.approve}
+                  : floodReview
+                    ? content.imagery.approve
+                    : content.approve}
               </Button>
             </div>
             {_error !== null ? (

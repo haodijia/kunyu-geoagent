@@ -1,19 +1,14 @@
 import type { AgentTurnState, ToolCall } from "@/features/agent/api";
-import {
-  GeneratingToolActivity,
-  ToolActivity,
-} from "@/features/agent/tools/ToolActivity";
+import { ToolActivity } from "@/features/agent/tools/ToolActivity";
 import type { Confirmation } from "@/features/confirmations/api";
 import type { GeneratingTool } from "@/features/events/stream/stream-presentation";
 import { type VNodeChild } from "vue";
 interface ConversationSlots {
-  readonly "message.generating-tools": {
-    readonly tools: readonly GeneratingTool[];
-  };
   readonly "message.tools": {
     readonly runState: AgentTurnState | null;
     readonly confirmations: readonly Confirmation[];
     readonly tools: readonly ToolCall[];
+    readonly generatingTools: readonly GeneratingTool[];
   };
 }
 type SlotRenderer<Props> = (props: Props) => VNodeChild;
@@ -43,16 +38,6 @@ class ConversationSlotRegistry {
   }
 }
 export const conversationSlots = new ConversationSlotRegistry();
-conversationSlots.register("message.generating-tools", ({ tools }) => (
-  <GeneratingToolActivity tools={tools} />
+conversationSlots.register("message.tools", (props) => (
+  <ToolActivity {...props} />
 ));
-conversationSlots.register(
-  "message.tools",
-  ({ confirmations, tools, runState }) => (
-    <ToolActivity
-      confirmations={confirmations}
-      tools={tools}
-      runState={runState}
-    />
-  ),
-);

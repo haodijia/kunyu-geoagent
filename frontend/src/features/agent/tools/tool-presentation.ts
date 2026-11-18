@@ -4,10 +4,12 @@
 import type { AgentTurnState, ToolCall } from "@/features/agent/api";
 import type { Confirmation } from "@/features/confirmations/api";
 import type { TrajectoryEventProjection } from "@/features/events/projection/events";
+import type { GeneratingTool } from "@/features/events/stream/stream-presentation";
 import { toolJob } from "@/features/jobs/job-state";
 import { zhCN } from "@/locales/zh-CN";
 type ToolKind =
-  "read" | "edit" | "shell" | "search" | "web" | "agent" | "other";
+  "read" | "edit" | "shell" | "search" | "web" | "map" | "agent" | "other";
+const content = zhCN.conversation.tools;
 export type ToolDisplayStatus =
   | ToolCall["status"]
   | "denied"
@@ -43,6 +45,20 @@ const kinds: readonly (readonly [readonly string[], ToolKind])[] = [
   ],
 ];
 export function toolKind(name: string): ToolKind {
+  if (name.startsWith("map_")) return "map";
+  if (
+    name === "skill" ||
+    name === "oge_get_my_data_detail" ||
+    name === "oge_get_image_detail" ||
+    name === "oge_get_service_definition"
+  )
+    return "read";
+  if (
+    name === "oge_list_my_data" ||
+    name === "oge_search_images" ||
+    name === "oge_find_regions"
+  )
+    return "search";
   if (name.startsWith("oge_")) return "web";
   const words = name
     .replace(/([a-z0-9])([A-Z])/g, "$1 $2")
@@ -53,9 +69,76 @@ export function toolKind(name: string): ToolKind {
   return "other";
 }
 export function toolLabel(name: string): string {
-  const names = zhCN.conversation.tools.names;
+  const names = content.names;
   return Object.hasOwn(names, name) ? names[name as keyof typeof names] : name;
 }
+
+export function completedToolLabel(name: string): string {
+  const labels: Readonly<Record<string, string>> = content.completed;
+  return Object.hasOwn(labels, name) ? labels[name]! : toolLabel(name);
+}
+
+export function toolActivitySummary(
+  items: readonly {
+    readonly tool: ToolCall;
+    readonly status: ToolDisplayStatus;
+  }[],
+  generating: readonly GeneratingTool[],
+) {
+  const recent = items.findLast(
+    ({ status }) =>
+      status === "running" ||
+      status === "waiting" ||
+      status === "waiting_input",
+  );
+  const lastGenerating = generating.at(-1);
+  const failed = items.filter(({ status }) => status === "failed").length;
+  if (lastGenerating !== undefined)
+    return {
+      label:
+        lastGenerating.name === null
+          ? content.generating
+          : toolLabel(lastGenerating.name),
+      active: true,
+      failed,
+    };
+  if (recent !== undefined)
+    return {
+      label: content.callAria(
+        toolLabel(recent.tool.name),
+        content.status[recent.status],
+      ),
+      active: recent.status === "running",
+      failed,
+      iconTool: recent.tool.name,
+    };
+  if (!items.every(({ status }) => status === "completed"))
+    return {
+      label: content.activity.calls(items.length),
+      active: false,
+      failed,
+    };
+
+  const first = items[0]?.tool.name;
+  const counts = new Map<ToolKind, number>();
+  for (const { tool } of items) {
+    const kind = toolKind(tool.name);
+    counts.set(kind, (counts.get(kind) ?? 0) + 1);
+  }
+  const label =
+    items.length === 1 && first !== undefined
+      ? completedToolLabel(first)
+      : [...counts]
+          .map(([kind, count]) => content.activity[kind](count))
+          .join(" · ");
+  return {
+    label,
+    active: false,
+    failed,
+    iconTool: counts.size === 1 ? first : undefined,
+  };
+}
+
 export function toolTarget(
   arguments_: ToolCall["arguments"],
 ): ToolTargetValue | undefined {
@@ -102,6 +185,7 @@ export function toolTarget(
     "file_path",
     "path",
     "query",
+    "keywords",
     "pattern",
     "url",
     "description",
@@ -117,6 +201,24 @@ export function toolTarget(
         path: key === "file_path" || key === "path",
       };
   }
+  return undefined;
+}
+
+export function toolResultTarget(tool: ToolCall): ToolTargetValue | undefined {
+  const { name, result } = tool;
+  if (typeof result !== "object" || result === null) return undefined;
+  if (
+    name === "oge_get_my_data_detail" &&
+    "assetName" in result &&
+    typeof result.assetName === "string"
+  )
+    return { text: result.assetName, path: false };
+  if (
+    name === "map_focus" &&
+    "title" in result &&
+    typeof result.title === "string"
+  )
+    return { text: result.title, path: false };
   return undefined;
 }
 export function toolStatus(

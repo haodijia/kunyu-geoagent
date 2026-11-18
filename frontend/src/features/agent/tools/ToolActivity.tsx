@@ -1,5 +1,9 @@
 import type { AgentTurnState, ToolCall } from "@/features/agent/api";
-import { toolLabel } from "@/features/agent/tools/tool-presentation";
+import {
+  toolActivitySummary,
+  toolLabel,
+  toolStatus,
+} from "@/features/agent/tools/tool-presentation";
 import styles from "@/features/agent/tools/ToolActivity.module.css";
 import {
   ToolDetail,
@@ -8,41 +12,13 @@ import {
 } from "@/features/agent/tools/ToolActivityParts";
 import { ToolCallRow } from "@/features/agent/tools/ToolCallRow";
 import type { Confirmation } from "@/features/confirmations/api";
+import { useSessionEvents } from "@/features/events/SessionEventContext";
 import type { GeneratingTool } from "@/features/events/stream/stream-presentation";
 import { refSetter } from "@/lib/lifecycle";
 import { zhCN } from "@/locales/zh-CN";
-import { Down, Right } from "@icon-park/vue-next";
+import { ChevronRight, Layers, LoaderCircle } from "lucide-vue-next";
 import { computed, defineComponent, shallowRef } from "vue";
 const content = zhCN.conversation.tools;
-export const GeneratingToolActivity = defineComponent(
-  (
-    componentProps: {
-      readonly tools: readonly GeneratingTool[];
-    },
-    { slots: _slots },
-  ) => {
-    const tools = computed(() => componentProps.tools);
-    return () => {
-      const _tools = tools.value;
-      return (
-        <div
-          class={styles.summary}
-          role="group"
-          aria-label={content.generating}
-        >
-          {_tools.map((tool) => (
-            <GeneratingToolRow key={tool.index} tool={tool} />
-          ))}
-        </div>
-      );
-    };
-  },
-  {
-    name: "GeneratingToolActivity",
-    inheritAttrs: false,
-    props: ["tools"],
-  },
-);
 const GeneratingToolRow = defineComponent(
   (
     componentProps: {
@@ -72,11 +48,7 @@ const GeneratingToolRow = defineComponent(
             {_tool.name !== null && <ToolKindIcon name={_tool.name} />}
             <span class={styles.callName}>{_name}</span>
             <code class={styles.callPreview}>{_tool.arguments}</code>
-            {expanded.value ? (
-              <Down size={12} aria-hidden="true" />
-            ) : (
-              <Right size={12} aria-hidden="true" />
-            )}
+            <ChevronRight size={12} aria-hidden="true" />
           </button>
           {expanded.value && (
             <div class={styles.detailPanel}>
@@ -98,37 +70,80 @@ export const ToolActivity = defineComponent(
     componentProps: {
       readonly confirmations: readonly Confirmation[];
       readonly tools: readonly ToolCall[];
+      readonly generatingTools: readonly GeneratingTool[];
       readonly runState: AgentTurnState | null;
     },
     { slots: _slots },
   ) => {
-    const confirmations = computed(() => componentProps.confirmations),
-      tools = computed(() => componentProps.tools),
-      runState = computed(() => componentProps.runState);
+    const stream = useSessionEvents();
+    const items = computed(() =>
+      componentProps.tools.map((tool) => {
+        const confirmation = componentProps.confirmations.find(
+          (item) => item.tool_call_id === tool.id,
+        );
+        return {
+          tool,
+          confirmation,
+          status: toolStatus(
+            tool,
+            componentProps.runState,
+            confirmation,
+            stream.records,
+          ),
+        };
+      }),
+    );
+    const activity = computed(() =>
+      toolActivitySummary(items.value, componentProps.generatingTools),
+    );
     return () => {
-      const _tools2 = tools.value,
-        _confirmations = confirmations.value,
-        _runState = runState.value;
-      if (_tools2.length === 0) return null;
+      const { label, active, failed, iconTool } = activity.value;
       return (
-        <div class={styles.summary} role="group" aria-label={content.title}>
-          {_tools2.map((tool) => (
-            <ToolCallRow
-              key={tool.id}
-              tool={tool}
-              confirmation={_confirmations.find(
-                (item) => item.tool_call_id === tool.id,
-              )}
-              runState={_runState}
+        <details class={styles.activity}>
+          <summary class={styles.activityHeader}>
+            {active ? (
+              <LoaderCircle
+                size={14}
+                class="shrink-0 animate-spin motion-reduce:animate-none"
+                aria-hidden="true"
+              />
+            ) : iconTool ? (
+              <ToolKindIcon name={iconTool} />
+            ) : (
+              <Layers size={14} aria-hidden="true" />
+            )}
+            <span class={styles.activityLabel}>{label}</span>
+            {failed > 0 && (
+              <span class="text-destructive">
+                {content.activity.failed(failed)}
+              </span>
+            )}
+            <ChevronRight
+              size={14}
+              class={styles.disclosureIcon}
+              aria-hidden="true"
             />
-          ))}
-        </div>
+          </summary>
+          <div class={styles.activityItems}>
+            {items.value.map(({ tool, confirmation, status }) => (
+              <ToolCallRow
+                key={tool.id}
+                tool={tool}
+                confirmation={confirmation}
+                status={status}
+              />
+            ))}
+            {componentProps.generatingTools.map((tool) => (
+              <GeneratingToolRow key={tool.id} tool={tool} />
+            ))}
+          </div>
+        </details>
       );
     };
   },
   {
     name: "ToolActivity",
     inheritAttrs: false,
-    props: ["confirmations", "tools", "runState"],
+    props: ["confirmations", "tools", "generatingTools", "runState"],
   },
 );

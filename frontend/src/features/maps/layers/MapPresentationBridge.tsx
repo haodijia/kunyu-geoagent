@@ -5,36 +5,60 @@ import { useSessionWorkspace } from "@/features/sessions/SessionWorkspaceContext
 import type { MapBounds } from "@/features/sessions/map-context";
 import { sessionMapPath } from "@/features/sessions/routes";
 import { watchMounted } from "@/lib/lifecycle";
-import { defineComponent, shallowRef, toRefs } from "vue";
+import { defineComponent, toRefs } from "vue";
 import { useRoute } from "vue-router";
+
+function isMapBounds(value: unknown): value is MapBounds {
+  return (
+    Array.isArray(value) &&
+    value.length === 4 &&
+    value.every(
+      (coordinate) =>
+        typeof coordinate === "number" && Number.isFinite(coordinate),
+    )
+  );
+}
+
 export const MapPresentationBridge = defineComponent(
   (_props, { slots: _slots }) => {
     const { events, records, replayCursor } = toRefs(useSessionEvents());
     const session = useSessionWorkspace();
     const navigate = useNavigation();
     const location = useRoute();
-    const handled = shallowRef(new Set<string>());
+    const handled = new Set<string>();
+    const ui = useAppUiStore();
+    const mapPath = () => sessionMapPath(session.workspace_id, session.id);
     watchMounted(
-      [
-        () => events.value,
-        () => records.value,
-        () => replayCursor.value,
-        () => session,
-        () => navigate,
-        () => location.path,
-      ],
+      [() => events.value, () => records.value, () => replayCursor.value],
       () => {
+        let openMap = false;
         for (const event of events.value) {
           if (
             event.sequence <= replayCursor.value ||
             event.event_type !== "tool.completed"
           )
             continue;
+          const toolId = event.payload.tool_call_id;
+          if (typeof toolId !== "string" || handled.has(toolId)) continue;
           const call = records.value.find(
             (record) =>
               record.eventType === "tool.requested" &&
-              record.payload.tool_call_id === event.payload.tool_call_id,
+              record.payload.tool_call_id === toolId,
           );
+          if (call?.payload.name === "map_focus") {
+            const result = event.payload.result;
+            if (
+              typeof result !== "object" ||
+              result === null ||
+              !("bounds" in result) ||
+              !isMapBounds(result.bounds)
+            )
+              throw new Error("Invalid map focus result.");
+            handled.add(toolId);
+            ui.focusMap(session.id, result.bounds);
+            openMap = true;
+            continue;
+          }
           if (call?.payload.name === "map_compare") {
             const result = event.payload.result;
             if (
@@ -49,22 +73,14 @@ export const MapPresentationBridge = defineComponent(
                   !result.layer_ids.every((id) => typeof id === "string")))
             )
               throw new Error("Invalid map comparison result.");
-            const toolId = event.payload.tool_call_id;
-            if (typeof toolId !== "string")
-              throw new Error("Invalid comparison tool identity.");
-            if (handled.value.has(toolId)) continue;
-            handled.value.add(toolId);
-            useAppUiStore().setMapComparison(
+            handled.add(toolId);
+            ui.setMapComparison(
               session.id,
               result.layer_ids === null
                 ? null
                 : [result.layer_ids[0]!, result.layer_ids[1]!],
             );
-            if (
-              result.open_map &&
-              location.path !== sessionMapPath(session.workspace_id, session.id)
-            )
-              void navigate(sessionMapPath(session.workspace_id, session.id));
+            openMap ||= result.open_map;
             continue;
           }
           if (call?.payload.name !== "map_present") continue;
@@ -97,13 +113,7 @@ export const MapPresentationBridge = defineComponent(
               throw new Error("Invalid presented layer.");
             const extent = layer.bounds;
             if (extent === null) continue;
-            if (
-              !Array.isArray(extent) ||
-              extent.length !== 4 ||
-              !extent.every(
-                (value) => typeof value === "number" && Number.isFinite(value),
-              )
-            )
+            if (!isMapBounds(extent))
               throw new Error("Invalid presented layer bounds.");
             bounds =
               bounds === null
@@ -115,19 +125,15 @@ export const MapPresentationBridge = defineComponent(
                     Math.max(bounds[3], extent[3]),
                   ];
           }
-          const toolId = event.payload.tool_call_id;
-          if (typeof toolId !== "string")
-            throw new Error("Invalid presentation tool identity.");
-          if (handled.value.has(toolId)) continue;
-          handled.value.add(toolId);
+          handled.add(toolId);
           if (arguments_.focus && bounds !== null)
-            useAppUiStore().focusMap(session.id, bounds);
-          if (
-            arguments_.open_map &&
-            location.path !== sessionMapPath(session.workspace_id, session.id)
-          )
-            void navigate(sessionMapPath(session.workspace_id, session.id));
+            ui.focusMap(session.id, bounds);
+          openMap ||= arguments_.open_map;
         }
+        if (openMap && location.path !== mapPath())
+          void navigate(mapPath()).catch((error) => {
+            console.error("[map] Navigation failed.", error);
+          });
       },
     );
     return () => {

@@ -1,7 +1,35 @@
 /* Copyright 2025 AionUi (aionui.com)
    SPDX-License-Identifier: Apache-2.0 */
 /* Adapted from Mu/AionUi MessageToolGroupSummary (Apache-2.0). */
-.summary { display: flex; flex-direction: column; gap: 2px; min-width: 0; margin: 4px 0; }
+.activity { min-width: 0; margin: 4px 0; color: var(--text-secondary); }
+.activityHeader {
+  display: flex;
+  width: fit-content;
+  max-width: 100%;
+  align-items: center;
+  gap: 8px;
+  padding: 3px 4px;
+  border-radius: 5px;
+  cursor: pointer;
+  list-style: none;
+  font-size: 13px;
+  line-height: 20px;
+}
+.activityHeader::-webkit-details-marker { display: none; }
+.activityHeader:hover { color: var(--text-primary); }
+.activityHeader:focus-visible {
+  outline: 2px solid var(--mu-accent-border);
+  outline-offset: 2px;
+}
+.activityLabel { min-width: 0; overflow-wrap: anywhere; }
+.disclosureIcon { flex: none; }
+.activity[open] > .activityHeader .disclosureIcon,
+.callButton[aria-expanded="true"] > svg:last-child { transform: rotate(90deg); }
+.activityItems {
+  margin: 4px 0 6px 11px;
+  padding-inline-start: 12px;
+  border-inline-start: 1px solid var(--border-base);
+}
 .call { min-width: 0; }
 .callButton {
   display: flex;
@@ -9,7 +37,7 @@
   width: 100%;
   min-width: 0;
   height: auto;
-  gap: 6px;
+  gap: 8px;
   min-height: 28px;
   padding: 2px 6px;
   border-radius: 6px;
@@ -26,14 +54,9 @@
   outline: 2px solid var(--mu-accent-border);
   outline-offset: 2px;
 }
-.callButton > :global(.i-icon) {
-  flex-shrink: 0;
-  color: var(--text-secondary);
-}
+.callButton > svg { flex-shrink: 0; }
 .kindIcon { display: inline-flex; flex-shrink: 0; align-items: center; color: var(--text-secondary); opacity: 0.7; }
-.callName { flex: 0 1 auto; max-width: 35%; overflow: hidden; text-overflow: ellipsis; font-weight: 400; white-space: nowrap; }
-.separator { flex: none; width: 2px; height: 2px; margin-inline: 2px; border-radius: 50%; background: var(--color-text-3); }
-.callDuration { flex: none; margin-inline-start: auto; color: var(--color-text-3); font-size: 11px; line-height: 20px; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.callName { flex: 0 1 auto; overflow: hidden; text-overflow: ellipsis; font-weight: 400; white-space: nowrap; }
 .callPreview {
   min-width: 0;
   flex: 1;
@@ -41,7 +64,7 @@
   text-overflow: ellipsis;
   white-space: nowrap;
   color: var(--text-secondary);
-  font: 12px/1.6 var(--font-mono);
+  font: inherit;
 }
 .pathPreview { display: flex; direction: ltr; unicode-bidi: isolate; }
 .pathHead { flex: 0 100000 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

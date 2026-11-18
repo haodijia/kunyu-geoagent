@@ -1,10 +1,12 @@
-import type { AgentTurnState, ToolCall } from "@/features/agent/api";
+import type { ToolCall } from "@/features/agent/api";
 import { parseToolDisplay } from "@/features/agent/tools/tool-output";
 import {
+  completedToolLabel,
   toolDuration,
   toolLabel,
-  toolStatus,
+  toolResultTarget,
   toolTarget,
+  type ToolDisplayStatus,
 } from "@/features/agent/tools/tool-presentation";
 import styles from "@/features/agent/tools/ToolActivity.module.css";
 import {
@@ -22,7 +24,7 @@ import { jobError, toolJob } from "@/features/jobs/job-state";
 import { SubagentCard } from "@/features/subagents/SubagentCard";
 import { refSetter } from "@/lib/lifecycle";
 import { zhCN } from "@/locales/zh-CN";
-import { Down, Right } from "@icon-park/vue-next";
+import { ChevronRight } from "lucide-vue-next";
 import { computed, defineComponent, shallowRef, toRefs } from "vue";
 const content = zhCN.conversation.tools;
 export const ToolCallRow = defineComponent(
@@ -30,13 +32,13 @@ export const ToolCallRow = defineComponent(
     componentProps: {
       readonly confirmation: Confirmation | undefined;
       readonly tool: ToolCall;
-      readonly runState: AgentTurnState | null;
+      readonly status: ToolDisplayStatus;
     },
     { slots: _slots },
   ) => {
     const confirmation = computed(() => componentProps.confirmation),
       tool = computed(() => componentProps.tool),
-      runState = computed(() => componentProps.runState);
+      status = computed(() => componentProps.status);
     const expanded = shallowRef(false),
       setExpanded = refSetter(expanded);
     const { records } = toRefs(useSessionEvents());
@@ -65,28 +67,15 @@ export const ToolCallRow = defineComponent(
         confirmation.value !== undefined,
     );
     const duration = computed(() => toolDuration(tool.value.id, records.value));
-    const status = computed(() =>
-      toolStatus(tool.value, runState.value, confirmation.value, records.value),
-    );
     const denied = computed(() => status.value === "denied");
     const waitingQuestion = computed(() => status.value === "waiting_input");
-    const target = computed(() =>
-      waitingQuestion.value
-        ? {
-            text: zhCN.questions.waiting,
-            path: false,
-          }
-        : job.value !== undefined
-          ? {
-              text: `${job.value.label} · ${content.status[status.value]}`,
-              path: false,
-            }
-          : !expanded.value && tool.value.compact !== null
-            ? {
-                text: tool.value.compact.summary,
-                path: false,
-              }
-            : toolTarget(tool.value.arguments),
+    const target = computed(
+      () =>
+        toolResultTarget(tool.value) ??
+        toolTarget(tool.value.arguments) ??
+        (tool.value.compact === null
+          ? undefined
+          : { text: tool.value.compact.summary, path: false }),
     );
     return () => {
       const _tool = tool.value,
@@ -100,45 +89,43 @@ export const ToolCallRow = defineComponent(
         _display = display.value,
         _imageOffloads = imageOffloads.value,
         _confirmation = confirmation.value;
+      const label =
+        _status === "completed"
+          ? completedToolLabel(_tool.name)
+          : toolLabel(_tool.name);
+      const statusLabel = _waitingQuestion
+        ? zhCN.questions.waiting
+        : content.status[_status];
       return (
         <div class={styles.call} data-tool-call={_tool.id}>
           <button
             type="button"
             class={styles.callButton}
             aria-label={content.callAria(
-              toolLabel(_tool.name),
-              _waitingQuestion
-                ? zhCN.questions.waiting
-                : content.status[_status],
+              [label, _target?.text].filter(Boolean).join(" "),
+              statusLabel,
             )}
             disabled={!_hasDetails}
             aria-expanded={_hasDetails ? expanded.value : undefined}
             onClick={() => setExpanded((value) => !value)}
           >
-            <ToolStatusBadge status={_status} label={content.status[_status]} />
-            <ToolKindIcon name={_tool.name} />
-            <span class={styles.callName} title={toolLabel(_tool.name)}>
-              {toolLabel(_tool.name)}
-            </span>
-            {_target !== undefined && (
-              <span class={styles.separator} aria-hidden="true" />
+            {_status === "running" ? (
+              <ToolStatusBadge status={_status} label={statusLabel} />
+            ) : (
+              <ToolKindIcon name={_tool.name} />
             )}
+            <span class={styles.callName} title={label}>
+              {label}
+            </span>
             <ToolTarget target={_target} />
-            {_duration !== null && (
+            {_status !== "completed" && _status !== "running" && (
               <span
-                class={styles.callDuration}
-                title={`${content.duration} · ${formatDuration(_duration)}`}
+                class={_status === "failed" ? "text-destructive" : undefined}
               >
-                {formatDuration(_duration)}
+                {statusLabel}
               </span>
             )}
-            {_hasDetails ? (
-              expanded.value ? (
-                <Down size={12} aria-hidden="true" />
-              ) : (
-                <Right size={12} aria-hidden="true" />
-              )
-            ) : null}
+            {_hasDetails && <ChevronRight size={12} aria-hidden="true" />}
           </button>
           {!_denied && _status === "failed" && !expanded.value ? (
             <p class={styles.callError} title={_error ?? undefined}>
@@ -169,6 +156,11 @@ export const ToolCallRow = defineComponent(
               {Object.keys(_tool.arguments).length > 0 && (
                 <ToolParameters arguments={_tool.arguments} />
               )}
+              {_duration !== null && (
+                <div class={styles.detailMetadata}>
+                  {content.duration} · {formatDuration(_duration)}
+                </div>
+              )}
               {_confirmation !== undefined && (
                 <div class={styles.detailMetadata}>
                   <span>
@@ -186,7 +178,7 @@ export const ToolCallRow = defineComponent(
   {
     name: "ToolCallRow",
     inheritAttrs: false,
-    props: ["confirmation", "tool", "runState"],
+    props: ["confirmation", "tool", "status"],
   },
 );
 function formatDuration(milliseconds: number): string {

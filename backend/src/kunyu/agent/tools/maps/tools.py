@@ -17,7 +17,7 @@ from kunyu.agent.runtime.contracts.tools import (
     ToolRiskLevel,
     ToolSpec,
 )
-from kunyu.agent.tools.outputs.maps import COMPARISON, CONTEXT, PRESENT, STYLE
+from kunyu.agent.tools.outputs.maps import COMPARISON, CONTEXT, FOCUS, PRESENT, STYLE
 from kunyu.agent.tools.shared import (
     ToolArguments,
     load_source,
@@ -100,6 +100,26 @@ class ComparisonArguments(ToolArguments):
         return self
 
 
+class FocusArguments(ToolArguments):
+    layer_id: str | None = Field(default=None, min_length=1, max_length=64)
+    bounds: list[Annotated[float, Field(allow_inf_nan=False)]] | None = Field(
+        default=None,
+        min_length=4,
+        max_length=4,
+        description="WGS84 [west, south, east, north].",
+    )
+
+    @model_validator(mode="after")
+    def valid_target(self):
+        if (self.layer_id is None) == (self.bounds is None):
+            raise ValueError("Supply exactly one of layer_id or bounds.")
+        if self.bounds is not None:
+            west, south, east, north = self.bounds
+            if not (-180 <= west < east <= 180 and -90 <= south < north <= 90):
+                raise ValueError("Bounds must have a positive WGS84 extent.")
+        return self
+
+
 class MapTool(BaseTool):
     def __init__(
         self,
@@ -114,6 +134,7 @@ class MapTool(BaseTool):
         self.output_contract = {
             "map_get_context": CONTEXT,
             "map_present": PRESENT,
+            "map_focus": FOCUS,
             "map_set_layer_style": STYLE,
             "map_compare": COMPARISON,
         }[name]
@@ -123,6 +144,7 @@ class MapTool(BaseTool):
             "map_get_context": ContextArguments,
             "map_set_layer_style": StyleArguments,
             "map_present": PresentArguments,
+            "map_focus": FocusArguments,
             "map_compare": ComparisonArguments,
         }[name]
         self.spec = ToolSpec(
@@ -198,6 +220,19 @@ class MapTool(BaseTool):
                     {"layers": [layer.model_dump(mode="json") for layer in layers]},
                     max_bytes=1024 * 1024,
                 )
+            elif isinstance(args, FocusArguments):
+                bounds = args.bounds
+                title = None
+                if args.layer_id is not None:
+                    layer = self._maps.layer(session_id, args.layer_id)
+                    if layer.bounds is None:
+                        raise ToolExecutionError(
+                            "This layer has no geographic bounds.",
+                            code="INVALID_FOCUS_LAYER",
+                        )
+                    bounds = list(layer.bounds)
+                    title = layer.title
+                value = {"bounds": bounds, "layer_id": args.layer_id, "title": title}
             elif self.spec.name == "map_compare":
                 layers = {layer.id: layer for layer in self._maps.layers(session_id)}
                 if args.layer_ids is not None:

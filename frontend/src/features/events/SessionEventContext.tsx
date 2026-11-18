@@ -120,7 +120,10 @@ export const SessionEventProvider = defineComponent(
                   assistant.accept(publication.frame, lastSequenceRef.value),
                 );
               } else {
-                if (publication.type === "opened")
+                if (
+                  publication.type === "opened" &&
+                  replayCursor.value === Number.POSITIVE_INFINITY
+                )
                   setReplayCursor(publication.cursor);
                 const incoming =
                   publication.type === "opened"

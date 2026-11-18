@@ -16,6 +16,8 @@ import {
   Earth,
   Editor,
   FileText,
+  FolderOpen,
+  Local,
   PeopleSpeak,
   Search,
   Terminal,
@@ -28,6 +30,7 @@ const icons = {
   shell: Terminal,
   search: Search,
   web: Earth,
+  map: Local,
   agent: PeopleSpeak,
   other: Api,
 };
@@ -39,11 +42,14 @@ export const ToolKindIcon = defineComponent(
     { slots: _slots },
   ) => {
     const name = computed(() => componentProps.name);
-    const Icon = computed(() => icons[toolKind(name.value)]);
+    const icon = computed(() =>
+      name.value === "glob" ? FolderOpen : icons[toolKind(name.value)],
+    );
     return () => {
+      const Icon = icon.value;
       return (
         <span class={styles.kindIcon} aria-hidden="true">
-          <Icon.value size={14} theme="outline" />
+          <Icon size={14} theme="outline" />
         </span>
       );
     };

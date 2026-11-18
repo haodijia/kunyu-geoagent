@@ -23,6 +23,19 @@ def present_compact(result):
 PRESENT = ToolOutputContract(agent_content, present_display, present_compact)
 
 
+def focus_display(result):
+    data = object_result(result)
+    summary = label("map_focus")
+    return TextDisplay(summary=summary, text=data["title"] or summary)
+
+
+FOCUS = ToolOutputContract(
+    agent_content,
+    focus_display,
+    lambda result: compact(focus_display(result).summary, object_result(result)),
+)
+
+
 def context_display(result):
     data = object_result(result)
     if refs := images(result):

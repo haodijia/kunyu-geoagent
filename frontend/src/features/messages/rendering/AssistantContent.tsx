@@ -94,23 +94,21 @@ export const AssistantContent = defineComponent(
         const committed = _tools.filter((tool) =>
           identities.has(tool.provider_call_id),
         );
-        const pending = group.blocks.filter(
-          (block) =>
-            !committed.some((tool) => tool.provider_call_id === block.id),
-        );
+        const pending = _generating
+          ? group.blocks.filter(
+              (block) =>
+                !committed.some((tool) => tool.provider_call_id === block.id),
+            )
+          : [];
+        if (committed.length === 0 && pending.length === 0) return null;
         return (
           <div key={`tools:${group.index}`} class="w-full">
-            {committed.length > 0 &&
-              conversationSlots.render("message.tools", {
-                confirmations: _confirmations,
-                runState: _runState,
-                tools: committed,
-              })}
-            {_generating &&
-              pending.length > 0 &&
-              conversationSlots.render("message.generating-tools", {
-                tools: pending,
-              })}
+            {conversationSlots.render("message.tools", {
+              confirmations: _confirmations,
+              runState: _runState,
+              tools: committed,
+              generatingTools: pending,
+            })}
           </div>
         );
       });
