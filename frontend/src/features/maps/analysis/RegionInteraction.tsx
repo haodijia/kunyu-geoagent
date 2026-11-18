@@ -49,11 +49,10 @@ export const RegionInteraction = defineComponent(
         useAppUiStore(),
       ),
     );
-    const geometry = computed(() =>
-      selection.value != null && selection.value.geometry.type !== "Point"
-        ? selection.value.geometry
-        : null,
-    );
+    const geometry = computed(() => {
+      const drawing = selection.value?.geometry;
+      return drawing && drawing.type !== "Point" ? drawing : null;
+    });
     const error = shallowRef<string | null>(null),
       setError = refSetter(error);
     const fileInput = shallowRef<HTMLInputElement | null>(null);

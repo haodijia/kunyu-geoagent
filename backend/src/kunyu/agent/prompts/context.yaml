@@ -26,6 +26,11 @@
   以下是用户发送本问题时在地图中明确选择的 WGS84 几何范围或点位；它是本问题的输入数据。layer_id（如有）是来源图层，可用 map_get_context 核实对应成果或影像。直接使用 geometry，不需要创建或读取 GeoJSON 文件。它不是地图视口，也不代表其他问题的计算范围。
   {{selection}}
   </map_selection>
+"map_object_selection": |-
+  <map_object_selection>
+  这是用户发送本条问题时点选的目录对象。用 object 中的 output_id、dataset_id 和 feature_index 调用 result_review_object 获取该对象的遥感统计及本会话的现场记录。名称只用于显示。用户说“这个”“这里”或只说对象名字时，优先使用本条点选。若用户明确指向另一个对象，以其明确要求为准。
+  {{selection}}
+  </map_object_selection>
 "project_instructions": |-
   当前适用的项目指令。此完整快照替换此前的项目指令快照；子目录指令仅适用于对应目录。
 

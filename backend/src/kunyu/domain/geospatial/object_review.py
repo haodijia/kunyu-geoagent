@@ -59,6 +59,23 @@ class ReviewDataset(BaseModel):
 ObjectKind = Literal["point", "line", "area"]
 
 
+class ReviewObjectReference(BaseModel):
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    output_id: str = Field(min_length=1, max_length=64)
+    dataset_id: str = Field(pattern=r"^[a-z0-9][a-z0-9_-]{0,79}$")
+    feature_index: int = Field(ge=0)
+
+
+class ReviewTarget(BaseModel):
+    reference: ReviewObjectReference
+    name: str | None
+    kind: ObjectKind
+    bounds: tuple[float, float, float, float]
+    output_title: str
+    dataset: ReviewDataset
+
+
 class ReviewVectorProperties(BaseModel):
     name: str | None
     kind: ObjectKind
@@ -90,5 +107,7 @@ class ObjectMeasurement(BaseModel):
 
 
 class ObjectReview(BaseModel):
+    target: ReviewTarget
+    profile: ObjectReviewProfile
     status: Literal["measured", "outside", "excluded"]
     measurement: ObjectMeasurement | None = None

@@ -4,6 +4,7 @@ import {
   uploadAttachments,
   type AttachmentUpload,
 } from "@/features/attachments/api";
+import { prepareAttachment } from "./prepare-upload";
 import { refSetter, watchMounted } from "@/lib/lifecycle";
 import { zhCN } from "@/locales/zh-CN";
 import {
@@ -14,12 +15,6 @@ import {
   type MaybeRefOrGetter,
 } from "vue";
 const content = zhCN.conversation.attachments;
-const IMAGE_TYPES = new Set([
-  "image/png",
-  "image/jpeg",
-  "image/webp",
-  "image/gif",
-]);
 const EMPTY_ATTACHMENTS = [] as const;
 export function useComposerAttachments(sessionId: MaybeRefOrGetter<string>) {
   const attachments = computed(() =>
@@ -101,23 +96,7 @@ export function useComposerAttachments(sessionId: MaybeRefOrGetter<string>) {
     const abort = new AbortController();
     controller.value = abort;
     try {
-      const items = await Promise.all(
-        files.map(async (file): Promise<AttachmentUpload> => {
-          const bytes = new Uint8Array(await file.arrayBuffer());
-          const parts: string[] = [];
-          for (let offset = 0; offset < bytes.length; offset += 32_768)
-            parts.push(
-              String.fromCharCode(...bytes.subarray(offset, offset + 32_768)),
-            );
-          return {
-            id: crypto.randomUUID(),
-            name: file.name,
-            kind: IMAGE_TYPES.has(file.type) ? "image" : "file",
-            media_type: IMAGE_TYPES.has(file.type) ? file.type : null,
-            data_base64: btoa(parts.join("")),
-          };
-        }),
-      );
+      const items = await Promise.all(files.map(prepareAttachment));
       if (!abort.signal.aborted) await publish(items, abort);
     } catch (failure) {
       if (abort.signal.aborted) return;

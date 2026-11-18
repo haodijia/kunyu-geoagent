@@ -30,10 +30,17 @@ from kunyu.agent.tools.shared import (
     validate_arguments,
     validate_model,
 )
+from kunyu.application.analysis.object_review import ObjectReviewService
 from kunyu.application.analysis.results import ResultService
 from kunyu.application.analysis.views import RasterViewService
 from kunyu.domain.conversation.agent_context import RunContextRepository
+from kunyu.domain.conversation.attachments import attachment_path
 from kunyu.domain.geospatial.analysis import AnalysisError
+from kunyu.domain.geospatial.field_observation import (
+    FIELD_OBSERVATION,
+    FieldObservation,
+)
+from kunyu.domain.geospatial.object_review import ReviewObjectReference
 from kunyu.domain.geospatial.raster import RasterView
 from kunyu.integrations.filesystem.operation import filesystem_operation
 
@@ -44,6 +51,10 @@ class ResultArguments(ToolArguments):
 
 class InfoArguments(ToolArguments):
     file_path: str = Field(min_length=1, max_length=4096)
+
+
+class ReviewObjectArguments(ToolArguments):
+    object: ReviewObjectReference
 
 
 class RasterReadArguments(ResultArguments):
@@ -100,6 +111,7 @@ class ResultTool(BaseTool):
             "result_set_views": ViewArguments,
             "map_sample_raster": SampleArguments,
             "map_region_statistics": StatisticsArguments,
+            "result_review_object": ReviewObjectArguments,
         }[name]
         self.spec = ToolSpec(
             name=name,
@@ -119,7 +131,8 @@ class ResultTool(BaseTool):
     async def execute(self, call: ToolCall):
         require_bound_call(call, self.run_id, self.spec.name)
         args = validate_model(self.spec.name, self.arguments, call.arguments)
-        workspace = load_source(self.contexts, self.run_id).session.workspace_id
+        source = load_source(self.contexts, self.run_id)
+        workspace = source.session.workspace_id
         try:
             if call.name == "result_set_views":
                 data = await filesystem_operation(
@@ -138,6 +151,41 @@ class ResultTool(BaseTool):
             elif call.name == "result_get_info":
                 data = self.service.info(workspace, args.file_path)
                 summary = data["title"]
+            elif isinstance(args, ReviewObjectArguments):
+                reference = args.object
+                review = await filesystem_operation(
+                    lambda cancelled: ObjectReviewService(
+                        self.service.analysis
+                    ).inspect(
+                        workspace,
+                        reference.output_id,
+                        reference.dataset_id,
+                        reference.feature_index,
+                        cancelled,
+                    )
+                )
+                observations = [
+                    observation
+                    for item in source.injected_context
+                    if item.producer == FIELD_OBSERVATION
+                    for observation in [FieldObservation.model_validate(item.metadata)]
+                    if observation.reference == reference
+                ]
+                data = review.model_dump(mode="json")
+                data["field_observation_count"] = len(observations)
+                data["field_observations"] = [
+                    {
+                        "observed_at": observation.observed_at.isoformat(),
+                        "note": observation.note,
+                        "photo_paths": [
+                            attachment_path(photo) for photo in observation.photos
+                        ],
+                    }
+                    for observation in observations[-12:]
+                ]
+                summary = label(
+                    "object_review", name=review.target.name or "未命名对象"
+                )
             elif call.name == "map_sample_raster":
                 data = await filesystem_operation(
                     lambda _: self.service.sample(

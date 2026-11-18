@@ -36,23 +36,26 @@ export function useReviewOverlay(
       id: fill,
       type: "fill",
       source,
-      paint: { "fill-color": "#14838a", "fill-opacity": 0.12 },
+      filter: ["==", ["geometry-type"], "Polygon"],
+      paint: { "fill-color": "#ee8e46", "fill-opacity": 0.03 },
     });
     instance.addLayer({
       id: outline,
       type: "line",
       source,
-      paint: { "line-color": "#197d87", "line-width": 1.8 },
+      filter: ["in", ["geometry-type"], ["literal", ["LineString", "Polygon"]]],
+      paint: { "line-color": "#33576a", "line-width": 1 },
     });
     instance.addLayer({
       id: points,
       type: "circle",
       source,
+      filter: ["==", ["geometry-type"], "Point"],
       paint: {
-        "circle-color": "#197d87",
-        "circle-radius": 4,
+        "circle-color": "#33576a",
+        "circle-radius": 2,
         "circle-stroke-color": "#fff",
-        "circle-stroke-width": 1,
+        "circle-stroke-width": 0.6,
       },
     });
 
@@ -101,18 +104,33 @@ export function useReviewOverlay(
     const color: ExpressionSpecification = [
       "case",
       match,
-      "#f07926",
-      "#197d87",
+      "#e86d24",
+      "#33576a",
     ];
     instance.setPaintProperty(outline, "line-color", color);
-    instance.setPaintProperty(outline, "line-width", ["case", match, 4, 1.8]);
-    instance.setPaintProperty(points, "circle-color", color);
-    instance.setPaintProperty(points, "circle-radius", ["case", match, 7, 4]);
-    instance.setPaintProperty(fill, "fill-opacity", [
+    instance.setPaintProperty(outline, "line-width", ["case", match, 3, 1]);
+    instance.setPaintProperty(outline, "line-opacity", [
       "case",
       match,
-      0.33,
-      0.12,
+      1,
+      0.45,
     ]);
+    instance.setPaintProperty(points, "circle-color", color);
+    instance.setPaintProperty(points, "circle-radius", [
+      "interpolate",
+      ["linear"],
+      ["zoom"],
+      10,
+      ["case", match, 5, 1.6],
+      16,
+      ["case", match, 5, 2.8],
+    ]);
+    instance.setPaintProperty(points, "circle-opacity", [
+      "case",
+      match,
+      1,
+      0.55,
+    ]);
+    instance.setPaintProperty(fill, "fill-opacity", ["case", match, 0.2, 0.03]);
   });
 }

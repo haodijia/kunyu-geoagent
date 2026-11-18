@@ -27,6 +27,7 @@ from kunyu.domain.conversation.agent_context import (
     RunContextRepository,
     RunContextSource,
 )
+from kunyu.domain.geospatial.field_observation import FIELD_OBSERVATION
 
 
 class RunContextNotFoundError(LookupError):
@@ -282,6 +283,8 @@ def build_model_history_nodes(source: RunContextSource) -> tuple[ModelHistoryNod
 
 
 def _visible_injection(item: InjectedContext, source: RunContextSource) -> bool:
+    if item.producer == FIELD_OBSERVATION:
+        return False
     if item.producer == "workspace":
         return False
     if item.producer not in {

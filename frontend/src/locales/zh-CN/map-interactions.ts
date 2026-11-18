@@ -17,6 +17,7 @@ export const interactionCopy = {
   clear: "清除选择",
   selectedRegion: "已圈选",
   selectedPoint: "已选点",
+  selectedObject: "已选对象",
   noRaster: "选择一个成果图层，即可点击查看数值",
   attachedHint: "已带入对话，直接输入问题即可",
   calculating: "正在统计所选范围…",

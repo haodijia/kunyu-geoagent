@@ -29,7 +29,7 @@ export const PixelInteraction = defineComponent(
       ),
     );
     const point = computed(() =>
-      selection.value?.geometry.type === "Point"
+      selection.value?.geometry?.type === "Point"
         ? selection.value.geometry.coordinates
         : null,
     );
@@ -73,7 +73,7 @@ export const PixelInteraction = defineComponent(
       [() => selection.value, () => layerId.value, () => sessionId.value],
       () => {
         if (
-          selection.value?.geometry.type === "Point" &&
+          selection.value?.geometry?.type === "Point" &&
           selection.value.layer_id !== layerId.value
         )
           useAppUiStore().setMapSelection(sessionId.value, {
@@ -134,7 +134,7 @@ export const PixelInteraction = defineComponent(
               </span>
             )}
           </MapToolHint>
-          {_point !== null && _selection?.geometry.type === "Point" && (
+          {_point !== null && _selection?.geometry?.type === "Point" && (
             <section class="map-inspection" aria-label={copy.pixel}>
               <div class="flex items-center gap-2 border-b border-border/60 px-3 py-2">
                 <Crosshair class="size-3.5 text-muted-foreground" />

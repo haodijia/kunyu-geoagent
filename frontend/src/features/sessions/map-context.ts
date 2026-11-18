@@ -1,9 +1,22 @@
 import type { RegionGeometry } from "@/features/analysis/raster";
 import type { Point } from "geojson";
-export interface MapSelection {
+export interface MapObjectReference {
+  readonly output_id: string;
+  readonly dataset_id: string;
+  readonly feature_index: number;
+}
+interface GeometrySelection {
   readonly geometry: Point | RegionGeometry;
   readonly layer_id: string | null;
+  readonly object?: never;
 }
+interface ObjectSelection {
+  readonly object: MapObjectReference;
+  readonly name: string | null;
+  readonly layer_id: string | null;
+  readonly geometry?: never;
+}
+export type MapSelection = GeometrySelection | ObjectSelection;
 export interface MapViewport {
   readonly latitude: number;
   readonly longitude: number;

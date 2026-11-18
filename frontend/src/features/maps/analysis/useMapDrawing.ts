@@ -207,7 +207,7 @@ export function useMapDrawing(
 export function useSelectionOverlay(
   map: MaybeRefOrGetter<Map | null>,
   ready: MaybeRefOrGetter<boolean>,
-  geometry: MaybeRefOrGetter<MapSelection["geometry"] | null>,
+  geometry: MaybeRefOrGetter<NonNullable<MapSelection["geometry"]> | null>,
 ) {
   watchMounted(
     [() => toValue(map), () => toValue(ready), () => toValue(geometry)],

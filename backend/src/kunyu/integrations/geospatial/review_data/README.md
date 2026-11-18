@@ -5,3 +5,5 @@
 数据版权属于 © OpenStreetMap contributors。本目录的 GeoJSON 数据按 [Open Database License 1.0](https://opendatacommons.org/licenses/odbl/1-0/) 分发，署名说明见 [OpenStreetMap 版权与许可](https://www.openstreetmap.org/copyright)。
 
 新区域按覆盖范围拆成矢量分区，使用 WGS84 GeoJSON FeatureCollection。目录条目的 `id` 对应同名 `.geojson`，覆盖范围内的点、线和面进入地图，使用者可点选其中的对象核查。单个分区最多 20,000 个要素和 4 MiB。
+
+现场记录与会话使用分区 `id` 和要素位置引用。已发布分区的内容和要素顺序随该快照保留。

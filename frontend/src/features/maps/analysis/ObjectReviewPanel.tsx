@@ -1,13 +1,16 @@
+import { useAppUiStore } from "@/app/store";
 import { Button } from "@/components/ui/button";
 import type {
   AnalysisOutput,
   ObjectReviewProfile,
 } from "@/features/analysis/api";
 import type { useSessionMap } from "@/features/maps/runtime/useSessionMap";
+import { useSessionWorkspace } from "@/features/sessions/SessionWorkspaceContext";
 import { objectReview as copy } from "@/locales/zh-CN/object-review";
 import { skipToken, useQuery } from "@tanstack/vue-query";
 import { Eye, EyeOff } from "lucide-vue-next";
 import { computed, defineComponent, reactive, shallowRef } from "vue";
+import { FieldObservationSection } from "./FieldObservationSection";
 import {
   fetchObjectVectors,
   inspectVector,
@@ -20,8 +23,11 @@ export const ObjectReviewPanel = defineComponent(
   (props: {
     readonly output: AnalysisOutput;
     readonly map: ReturnType<typeof useSessionMap>;
+    readonly layerId: string | null;
     readonly inspectable: boolean;
   }) => {
+    const session = useSessionWorkspace();
+    const ui = useAppUiStore();
     const vectors = reactive(
       useQuery(
         computed(() => ({
@@ -36,7 +42,21 @@ export const ObjectReviewPanel = defineComponent(
         })),
       ),
     );
-    const selected = shallowRef<ReviewVector | null>(null);
+    const reference = computed(() => {
+      const ref = ui.mapContextBySession[session.id]?.selection?.object;
+      return ref?.output_id === props.output.id ? ref : null;
+    });
+    const featuresById = computed(
+      () =>
+        new Map(vectors.data?.features.map((feature) => [feature.id, feature])),
+    );
+    const selected = computed(() => {
+      const ref = reference.value;
+      return ref === null
+        ? null
+        : (featuresById.value.get(`${ref.dataset_id}:${ref.feature_index}`) ??
+            null);
+    });
     const preview = shallowRef<ReviewVector | null>(null);
     const choices = shallowRef<ReviewVector[]>([]);
     const visible = shallowRef(true);
@@ -66,7 +86,12 @@ export const ObjectReviewPanel = defineComponent(
     function select(feature: ReviewVector) {
       choices.value = [];
       preview.value = null;
-      selected.value = feature;
+      const { dataset_id, feature_index, name } = feature.properties;
+      ui.setMapSelection(session.id, {
+        object: { output_id: props.output.id, dataset_id, feature_index },
+        name,
+        layer_id: props.layerId,
+      });
     }
 
     useReviewOverlay(
@@ -81,7 +106,7 @@ export const ObjectReviewPanel = defineComponent(
           select(features[0]!);
         } else {
           preview.value = null;
-          selected.value = null;
+          ui.setMapSelection(session.id, null);
           choices.value = features;
         }
       },
@@ -212,6 +237,12 @@ export const ObjectReviewPanel = defineComponent(
               {result && result.status !== "measured" && (
                 <p class="m-0 text-muted-foreground">{copy[result.status]}</p>
               )}
+              {reference.value && (
+                <FieldObservationSection
+                  key={feature.id}
+                  reference={reference.value}
+                />
+              )}
             </div>
           )}
           {catalog && catalog.datasets.length > 0 && (
@@ -235,7 +266,10 @@ export const ObjectReviewPanel = defineComponent(
       );
     };
   },
-  { name: "ObjectReviewPanel", props: ["output", "map", "inspectable"] },
+  {
+    name: "ObjectReviewPanel",
+    props: ["output", "map", "layerId", "inspectable"],
+  },
 );
 
 const Measurements = defineComponent(

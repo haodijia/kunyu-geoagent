@@ -3,7 +3,7 @@
 import json
 
 from kunyu.agent.prompts.loader import prompt_text
-from kunyu.domain.geospatial.map_context import TurnMapContext
+from kunyu.domain.geospatial.map_context import MapObjectSelection, TurnMapContext
 
 
 def selection_question(content: str, map_context: dict | None) -> str:
@@ -12,7 +12,9 @@ def selection_question(content: str, map_context: dict | None) -> str:
     selection = TurnMapContext.model_validate(map_context).selection
     context = prompt_text(
         "context.yaml",
-        "map_selection",
+        "map_object_selection"
+        if isinstance(selection, MapObjectSelection)
+        else "map_selection",
         selection=json.dumps(selection.model_dump(mode="json"), ensure_ascii=False),
     )
     return f"{context}\n\n{content}"

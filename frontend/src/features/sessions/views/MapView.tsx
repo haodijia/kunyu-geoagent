@@ -357,6 +357,7 @@ const MapCanvas = defineComponent(
                 key={_reviewOutput.id}
                 map={map}
                 output={_reviewOutput}
+                layerId={targetLayer.value?.id ?? null}
                 inspectable={_activeInteraction === null}
               />
             )}

@@ -14,6 +14,8 @@ from kunyu.domain.geospatial.object_review import (
     ObjectReview,
     ObjectReviewProfile,
     ObjectVectors,
+    ReviewObjectReference,
+    ReviewTarget,
     ReviewVector,
     ReviewVectorProperties,
 )
@@ -83,15 +85,12 @@ class ObjectReviewService:
                 if parsed is None:
                     continue
                 geometry, properties = parsed
-                name = properties.get("name:zh") or properties.get("name")
                 vectors.append(
                     ReviewVector(
                         id=f"{dataset.id}:{index}",
                         geometry=json.loads(shapely.to_geojson(geometry)),
                         properties=ReviewVectorProperties(
-                            name=name.strip()
-                            if isinstance(name, str) and name.strip()
-                            else None,
+                            name=_name(properties),
                             kind=_KIND_BY_GEOMETRY[geometry.geom_type],
                             dataset_id=dataset.id,
                             feature_index=index,
@@ -115,24 +114,13 @@ class ObjectReviewService:
         feature_index: int,
         cancelled: Event,
     ) -> ObjectReview:
-        output, (profile, class_band, evidence_band, codes) = self._result(
-            workspace, output_id
+        reference = ReviewObjectReference(
+            output_id=output_id, dataset_id=dataset_id, feature_index=feature_index
         )
-        for dataset, footprint in matched_partitions(box(*output.bounds)):
-            if dataset.id != dataset_id:
-                continue
-            features = vector_features(dataset)
-            if 0 <= feature_index < len(features):
-                parsed = _vector(features[feature_index], footprint, dataset.name)
-                if parsed is not None:
-                    geometry, properties = parsed
-                    break
-        else:
-            raise AnalysisError(
-                "REVIEW_OBJECT_NOT_FOUND", "该对象不在当前成果的矢量图层中。", 404
-            )
-
-        kind = _KIND_BY_GEOMETRY[geometry.geom_type]
+        target, resolved, geometry, properties = self._object(workspace, reference)
+        profile, class_band, evidence_band, codes = resolved
+        kind = target.kind
+        facts = {"target": target, "profile": profile}
         if (
             kind == "line"
             and profile.exclude_elevated_lines
@@ -141,7 +129,7 @@ class ObjectReviewService:
                 or str(properties.get("layer", "0")) != "0"
             )
         ):
-            return ObjectReview(status="excluded")
+            return ObjectReview(**facts, status="excluded")
 
         cog, _ = self.analysis.repository.files(workspace, output_id)
         measurement = measure_object(
@@ -155,8 +143,40 @@ class ObjectReviewService:
             cancelled,
         )
         if measurement is None:
-            return ObjectReview(status="outside")
-        return ObjectReview(status="measured", measurement=measurement)
+            return ObjectReview(**facts, status="outside")
+        return ObjectReview(**facts, status="measured", measurement=measurement)
+
+    def target(self, workspace: str, reference: ReviewObjectReference) -> ReviewTarget:
+        return self._object(workspace, reference)[0]
+
+    def _object(self, workspace: str, reference: ReviewObjectReference):
+        output, resolved = self._result(workspace, reference.output_id)
+        for dataset, footprint in matched_partitions(box(*output.bounds)):
+            if dataset.id != reference.dataset_id:
+                continue
+            features = vector_features(dataset)
+            if reference.feature_index < len(features):
+                parsed = _vector(
+                    features[reference.feature_index], footprint, dataset.name
+                )
+                if parsed is not None:
+                    geometry, properties = parsed
+                    return (
+                        ReviewTarget(
+                            reference=reference,
+                            name=_name(properties),
+                            kind=_KIND_BY_GEOMETRY[geometry.geom_type],
+                            bounds=_focus_bounds(geometry),
+                            output_title=output.title,
+                            dataset=dataset,
+                        ),
+                        resolved,
+                        geometry,
+                        properties,
+                    )
+        raise AnalysisError(
+            "REVIEW_OBJECT_NOT_FOUND", "该对象不在当前成果的矢量图层中。", 404
+        )
 
     def _result(self, workspace: str, output_id: str):
         output = self.analysis.repository.workspace_output(workspace, output_id)
@@ -166,6 +186,20 @@ class ObjectReviewService:
                 "REVIEW_RESULT_UNSUPPORTED", "该成果契约未声明对象核查。", 422
             )
         return output, resolved
+
+
+def _name(properties):
+    name = properties.get("name:zh") or properties.get("name")
+    return name.strip()[:255] if isinstance(name, str) and name.strip() else None
+
+
+def _focus_bounds(geometry):
+    west, south, east, north = geometry.bounds
+    if west == east:
+        west, east = max(-180, west - 0.00005), min(180, east + 0.00005)
+    if south == north:
+        south, north = max(-90, south - 0.00005), min(90, north + 0.00005)
+    return west, south, east, north
 
 
 def _vector(feature, footprint, source):

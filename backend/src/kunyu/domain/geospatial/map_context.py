@@ -2,6 +2,8 @@
 
 from pydantic import BaseModel, ConfigDict, Field, JsonValue, field_validator
 
+from kunyu.domain.geospatial.object_review import ReviewObjectReference
+
 
 class MapSelection(BaseModel):
     model_config = ConfigDict(extra="forbid")
@@ -43,13 +45,22 @@ class MapSelection(BaseModel):
                 raise ValueError("Polygon must contain rings.")
             for ring in polygon:
                 if not isinstance(ring, list) or len(ring) < 4 or ring[0] != ring[-1]:
-                    raise ValueError("Polygon rings must be closed and have four positions.")
+                    raise ValueError(
+                        "Polygon rings must be closed and have four positions."
+                    )
                 for point in ring:
                     position(point)
         return value
 
 
+class MapObjectSelection(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    object: ReviewObjectReference
+    name: str | None = Field(default=None, max_length=255)
+    layer_id: str | None = Field(default=None, min_length=1, max_length=64)
+
+
 class TurnMapContext(BaseModel):
     model_config = ConfigDict(extra="forbid")
     workspace_id: str = Field(min_length=1, max_length=64)
-    selection: MapSelection | None = None
+    selection: MapSelection | MapObjectSelection | None = None

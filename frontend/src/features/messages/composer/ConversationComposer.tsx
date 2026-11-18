@@ -587,15 +587,17 @@ export const ConversationComposer = defineComponent(
                 {_mapSelection !== null && (
                   <button
                     type="button"
-                    class="composer-chip inline-flex shrink-0 items-center rounded px-1 py-1 text-[11px] text-muted-foreground outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
+                    class="composer-chip inline-flex min-w-0 max-w-36 items-center rounded px-1 py-1 text-[11px] text-muted-foreground outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
                     title={interactionCopy.clear}
-                    aria-label={`${_mapSelection.geometry.type === "Point" ? interactionCopy.selectedPoint : interactionCopy.selectedRegion}，${interactionCopy.clear}`}
+                    aria-label={`${_mapSelection.object ? (_mapSelection.name ?? interactionCopy.selectedObject) : _mapSelection.geometry.type === "Point" ? interactionCopy.selectedPoint : interactionCopy.selectedRegion}，${interactionCopy.clear}`}
                     onClick={_onMapSelectionClear}
                   >
-                    <span role="status">
-                      {_mapSelection.geometry.type === "Point"
-                        ? interactionCopy.selectedPoint
-                        : interactionCopy.selectedRegion}
+                    <span role="status" class="truncate">
+                      {_mapSelection.object
+                        ? (_mapSelection.name ?? interactionCopy.selectedObject)
+                        : _mapSelection.geometry.type === "Point"
+                          ? interactionCopy.selectedPoint
+                          : interactionCopy.selectedRegion}
                     </span>
                   </button>
                 )}
