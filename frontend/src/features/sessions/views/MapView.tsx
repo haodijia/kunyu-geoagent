@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button";
 import { AgentControls } from "@/features/agent/controls/AgentControls";
 import { AnalysisPanel } from "@/features/analysis/AnalysisPanel";
 import { analysisApi, analysisKeys } from "@/features/analysis/api";
+import { useSessionEvents } from "@/features/events/SessionEventContext";
 import { MapToolbar } from "@/features/maps/MapToolbar";
 import type { ComparisonCapture } from "@/features/maps/analysis/MapComparison";
 import { MapComparison } from "@/features/maps/analysis/MapComparison";
@@ -12,7 +13,7 @@ import {
 } from "@/features/maps/analysis/MapInteractions";
 import { ObjectReviewPanel } from "@/features/maps/analysis/ObjectReviewPanel";
 import { captureComparedMap } from "@/features/maps/analysis/comparison-capture";
-import type { ObjectReviewItem } from "@/features/maps/analysis/object-review";
+import { latestObjectReview } from "@/features/maps/analysis/object-review";
 import { useSelectionOverlay } from "@/features/maps/analysis/useMapDrawing";
 import { useMapStatus } from "@/features/maps/analysis/useMapStatus";
 import { MapConversation } from "@/features/maps/conversation/MapConversation";
@@ -182,29 +183,18 @@ const MapCanvas = defineComponent(
         selectedLayer.value ??
         spatialLayers.value.find((layer) => layer.visible),
     );
-    const reviewOutput = computed(() => {
-      const outputId = targetLayer.value?.output_id;
-      return outputs.data?.find(
-        (item) => item.id === outputId && item.object_review !== null,
-      );
-    });
-    const reviewOpenedFor = shallowRef<string | null>(null);
-    const reviewSelection = shallowRef<{
-      outputId: string;
-      item: ObjectReviewItem;
-    } | null>(null);
-    const selectedReviewObject = computed(() =>
-      reviewSelection.value !== null &&
-      reviewSelection.value.outputId === reviewOutput.value?.id
-        ? reviewSelection.value.item
-        : null,
+    const sessionEvents = useSessionEvents();
+    const review = computed(() =>
+      latestObjectReview(
+        sessionEvents.records,
+        new Set(
+          layers.value.flatMap((layer) =>
+            layer.output_id ? [layer.output_id] : [],
+          ),
+        ),
+      ),
     );
-    useSelectionOverlay(
-      () => map.getMap(),
-      () => map.ready,
-      () => selectedReviewObject.value?.geometry ?? null,
-      "object-review-selection",
-    );
+    const collapsedReviewId = shallowRef<string | null>(null);
     const activeInteraction = computed<MapInteraction | null>(() =>
       interaction.value === null
         ? null
@@ -213,12 +203,7 @@ const MapCanvas = defineComponent(
             layerId: targetLayer.value?.id ?? null,
           },
     );
-    function closeReview() {
-      reviewOpenedFor.value = null;
-      reviewSelection.value = null;
-    }
     function toggleInteraction(mode: MapInteraction["mode"]) {
-      closeReview();
       setComparisonError(null);
       setPair(null);
       useAppUiStore().setMapSelection(session.id, null);
@@ -330,7 +315,7 @@ const MapCanvas = defineComponent(
         _spatialLayers = spatialLayers.value,
         _layers = layers.value,
         _pair = pair.value,
-        _reviewOutput = reviewOutput.value,
+        _review = review.value,
         _interactionContent = interactionContent.value;
       return (
         <div
@@ -375,38 +360,31 @@ const MapCanvas = defineComponent(
               statuses={rendering.layers}
             />
             {_interactionContent}
-            {_reviewOutput !== undefined &&
+            {_review !== null &&
               _activeInteraction === null &&
-              (reviewOpenedFor.value === _reviewOutput.id ? (
-                <ObjectReviewPanel
-                  key={_reviewOutput.id}
-                  output={_reviewOutput}
-                  sessionId={session.id}
-                  selected={selectedReviewObject.value}
-                  onClose={closeReview}
-                  onClear={() => {
-                    reviewSelection.value = null;
-                  }}
-                  onLocate={(item) => {
-                    reviewSelection.value = {
-                      outputId: _reviewOutput.id,
-                      item,
-                    };
-                    useAppUiStore().focusMap(session.id, item.bounds);
-                  }}
-                />
-              ) : (
+              (collapsedReviewId.value === _review.id ? (
                 <Button
                   class="self-start"
                   type="button"
                   variant="outline"
                   size="sm"
                   onClick={() => {
-                    reviewOpenedFor.value = _reviewOutput.id;
+                    collapsedReviewId.value = null;
                   }}
                 >
                   {objectReview.open}
                 </Button>
+              ) : (
+                <ObjectReviewPanel
+                  key={_review.id}
+                  report={_review.report}
+                  onClose={() => {
+                    collapsedReviewId.value = _review.id;
+                  }}
+                  onLocate={(item) =>
+                    useAppUiStore().focusMap(session.id, item.bounds)
+                  }
+                />
               ))}
             {comparisonError.value !== null && (
               <div

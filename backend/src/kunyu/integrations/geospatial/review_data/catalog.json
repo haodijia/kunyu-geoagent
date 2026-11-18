@@ -1,0 +1,30 @@
+[
+  {
+    "id": "beijiang",
+    "name": "英德北江 · 大站镇附近",
+    "bounds": [
+      113.38255470978767,
+      24.125701787273243,
+      113.48502872540718,
+      24.219714746519358
+    ],
+    "attribution": "© OpenStreetMap contributors",
+    "license": "ODbL-1.0",
+    "license_url": "https://opendatacommons.org/licenses/odbl/1-0/",
+    "snapshot_at": "2026-11-18T06:49:29+00:00"
+  },
+  {
+    "id": "yujiang",
+    "name": "贵港郁江 · 市区河段",
+    "bounds": [
+      109.51496691291693,
+      22.99305978139648,
+      109.71677092672095,
+      23.179760461279045
+    ],
+    "attribution": "© OpenStreetMap contributors",
+    "license": "ODbL-1.0",
+    "license_url": "https://opendatacommons.org/licenses/odbl/1-0/",
+    "snapshot_at": "2026-11-18T06:49:29+00:00"
+  }
+]

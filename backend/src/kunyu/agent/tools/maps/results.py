@@ -48,7 +48,6 @@ class InfoArguments(ToolArguments):
 
 
 class ReviewObjectsArguments(ResultArguments):
-    file_path: str = Field(min_length=1, max_length=4096)
     query: str = Field(
         default="", max_length=80, description="Name or partial name of an object."
     )
@@ -108,7 +107,6 @@ class ResultTool(BaseTool):
             "result_set_views": ViewArguments,
             "map_sample_raster": SampleArguments,
             "map_region_statistics": StatisticsArguments,
-            "result_list_review_datasets": ResultArguments,
             "result_review_objects": ReviewObjectsArguments,
         }[name]
         self.spec = ToolSpec(
@@ -148,18 +146,6 @@ class ResultTool(BaseTool):
             elif call.name == "result_get_info":
                 data = self.service.info(workspace, args.file_path)
                 summary = data["title"]
-            elif call.name == "result_list_review_datasets":
-                datasets = await filesystem_operation(
-                    lambda cancelled: ObjectReviewService(
-                        self.service.analysis
-                    ).datasets(workspace, args.output_id, cancelled)
-                )
-                data = {
-                    "datasets": [
-                        dataset.model_dump(mode="json") for dataset in datasets
-                    ]
-                }
-                summary = label("review_datasets", count=len(datasets))
             elif isinstance(args, ReviewObjectsArguments):
                 review = await filesystem_operation(
                     lambda cancelled: ObjectReviewService(
@@ -167,7 +153,6 @@ class ResultTool(BaseTool):
                     ).inspect(
                         workspace,
                         args.output_id,
-                        args.file_path,
                         args.query.strip(),
                         cancelled,
                     )

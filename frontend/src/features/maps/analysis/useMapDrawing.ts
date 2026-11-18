@@ -1,7 +1,7 @@
 import type { RegionGeometry } from "@/features/analysis/raster";
 import type { MapSelection } from "@/features/sessions/map-context";
 import { refSetter, watchMounted } from "@/lib/lifecycle";
-import type { LineString, MultiLineString, Position } from "geojson";
+import type { Position } from "geojson";
 import { GeoJSONSource, type Map, type MapMouseEvent } from "maplibre-gl";
 import {
   shallowReactive,
@@ -207,10 +207,7 @@ export function useMapDrawing(
 export function useSelectionOverlay(
   map: MaybeRefOrGetter<Map | null>,
   ready: MaybeRefOrGetter<boolean>,
-  geometry: MaybeRefOrGetter<
-    MapSelection["geometry"] | LineString | MultiLineString | null
-  >,
-  id = "map-selection",
+  geometry: MaybeRefOrGetter<MapSelection["geometry"] | null>,
 ) {
   watchMounted(
     [() => toValue(map), () => toValue(ready), () => toValue(geometry)],
@@ -218,8 +215,7 @@ export function useSelectionOverlay(
       const instance = toValue(map);
       const selection = toValue(geometry);
       if (instance === null || !toValue(ready) || selection === null) return;
-      const isReview = id === "object-review-selection";
-      const color = isReview ? "#087f8c" : selectionColor;
+      const id = "map-selection";
       instance.addSource(id, {
         type: "geojson",
         data: {
@@ -235,7 +231,7 @@ export function useSelectionOverlay(
           source: id,
           paint: {
             "circle-radius": 5,
-            "circle-color": color,
+            "circle-color": selectionColor,
             "circle-stroke-width": 2.5,
             "circle-stroke-color": "#ffffff",
           },
@@ -247,7 +243,7 @@ export function useSelectionOverlay(
             type: "fill",
             source: id,
             paint: {
-              "fill-color": color,
+              "fill-color": selectionColor,
               "fill-opacity": 0.07,
             },
           });
@@ -256,8 +252,8 @@ export function useSelectionOverlay(
           type: "line",
           source: id,
           paint: {
-            "line-color": color,
-            "line-width": isReview ? 3 : 1.5,
+            "line-color": selectionColor,
+            "line-width": 1.5,
           },
         });
       }

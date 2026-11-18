@@ -1,5 +1,6 @@
 """Contract and results for object-level review of a classified raster."""
 
+from datetime import datetime
 from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, JsonValue, model_validator
@@ -37,8 +38,22 @@ class ObjectReviewProfile(BaseModel):
 
 
 class ReviewDataset(BaseModel):
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    id: str = Field(pattern=r"^[a-z0-9][a-z0-9_-]{0,79}$")
     name: str
-    file_path: str
+    bounds: tuple[float, float, float, float]
+    attribution: str
+    license: str
+    license_url: str = Field(pattern=r"^https://[^\s]+$")
+    snapshot_at: datetime
+
+    @model_validator(mode="after")
+    def valid_bounds(self):
+        west, south, east, north = self.bounds
+        if not (-180 <= west < east <= 180 and -85 <= south < north <= 85):
+            raise ValueError("Review dataset requires valid WGS84 bounds.")
+        return self
 
 
 class ObjectReviewItem(BaseModel):
@@ -56,7 +71,8 @@ class ObjectReviewItem(BaseModel):
 
 class ObjectReview(BaseModel):
     output_id: str
-    dataset: ReviewDataset
-    attribution: str | None
+    output_title: str
+    datasets: list[ReviewDataset]
+    coverage: Literal["full", "partial"]
     profile: ObjectReviewProfile
     items: list[ObjectReviewItem]
