@@ -50,5 +50,3 @@ raster_sample: "原始像元值：{{values}}"
 raster_statistics: "区域统计：{{count}} 个有效存储值像元"
 
 service_definition: "OGE 服务定义"
-object_review: "已读取 {{count}} 项对象核查结果"
-object_review_mapped: "已请求叠加 {{count}} 项核查对象"

@@ -56,11 +56,31 @@ class ReviewDataset(BaseModel):
         return self
 
 
-class ObjectReviewItem(BaseModel):
-    name: str
-    kind: Literal["area", "line"]
+ObjectKind = Literal["point", "line", "area"]
+
+
+class ReviewVectorProperties(BaseModel):
+    name: str | None
+    kind: ObjectKind
+    dataset_id: str
+    feature_index: int
+
+
+class ReviewVector(BaseModel):
+    type: Literal["Feature"] = "Feature"
+    id: str
     geometry: dict[str, JsonValue]
-    bounds: tuple[float, float, float, float]
+    properties: ReviewVectorProperties
+
+
+class ObjectVectors(BaseModel):
+    type: Literal["FeatureCollection"] = "FeatureCollection"
+    datasets: list[ReviewDataset]
+    coverage: Literal["full", "partial", "none"]
+    features: list[ReviewVector]
+
+
+class ObjectMeasurement(BaseModel):
     extent: float
     covered: float
     candidate: float
@@ -70,9 +90,5 @@ class ObjectReviewItem(BaseModel):
 
 
 class ObjectReview(BaseModel):
-    output_id: str
-    output_title: str
-    datasets: list[ReviewDataset]
-    coverage: Literal["full", "partial"]
-    profile: ObjectReviewProfile
-    items: list[ObjectReviewItem]
+    status: Literal["measured", "outside", "excluded"]
+    measurement: ObjectMeasurement | None = None

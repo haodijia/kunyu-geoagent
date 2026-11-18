@@ -116,7 +116,6 @@ class AnalysisPlugin:
             "result_set_views",
             "map_sample_raster",
             "map_region_statistics",
-            "result_review_objects",
         ):
             tools.register(
                 context,

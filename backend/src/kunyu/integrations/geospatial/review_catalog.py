@@ -2,7 +2,7 @@
 
 import json
 import logging
-from functools import cache
+from functools import cache, lru_cache
 from pathlib import Path
 
 from pydantic import TypeAdapter
@@ -39,6 +39,7 @@ def matched_partitions(
     ]
 
 
+@lru_cache(maxsize=8)
 def vector_features(dataset: ReviewDataset) -> list[dict]:
     try:
         with (_ROOT / f"{dataset.id}.geojson").open("rb") as file:

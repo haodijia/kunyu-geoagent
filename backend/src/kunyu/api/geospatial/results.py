@@ -13,7 +13,7 @@ from kunyu.application.analysis.removal import ResultRemovalService
 from kunyu.application.analysis.results import ResultService
 from kunyu.application.analysis.views import RasterViewService
 from kunyu.application.workspaces.service import WorkspaceNotFoundError
-from kunyu.domain.geospatial.object_review import ObjectReview
+from kunyu.domain.geospatial.object_review import ObjectReview, ObjectVectors
 from kunyu.domain.geospatial.raster import RasterView
 from kunyu.integrations.filesystem.operation import filesystem_operation
 from kunyu.persistence.database import Database
@@ -32,7 +32,17 @@ Service = Annotated[ResultService, Depends(result_service)]
 
 class ObjectReviewRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
-    query: str = Field(default="", max_length=80)
+    dataset_id: str = Field(pattern=r"^[a-z0-9][a-z0-9_-]{0,79}$")
+    feature_index: int = Field(ge=0)
+
+
+@router.get("/{output_id}/object-vectors", response_model=ObjectVectors)
+async def object_vectors(workspace_id: str, output_id: str, service: Service):
+    return await filesystem_operation(
+        lambda cancelled: ObjectReviewService(service.analysis).vectors(
+            workspace_id, output_id, cancelled
+        )
+    )
 
 
 @router.post("/{output_id}/object-review", response_model=ObjectReview)
@@ -41,7 +51,7 @@ async def object_review(
 ):
     return await filesystem_operation(
         lambda cancelled: ObjectReviewService(service.analysis).inspect(
-            workspace_id, output_id, body.query.strip(), cancelled
+            workspace_id, output_id, body.dataset_id, body.feature_index, cancelled
         )
     )
 

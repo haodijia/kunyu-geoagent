@@ -1,9 +1,11 @@
-import type { ObjectReviewProfile } from "@/features/analysis/api";
-import type { TrajectoryEventProjection } from "@/features/events/projection/events";
-import type { MapBounds } from "@/features/sessions/map-context";
-import type { FeatureCollection } from "geojson";
+import { requestJson } from "@/api/client";
+import {
+  workspaceResultsPath,
+  type AnalysisOutput,
+} from "@/features/analysis/api";
+import type { Feature, FeatureCollection, Geometry } from "geojson";
 
-interface ReviewDataset {
+interface VectorSource {
   readonly id: string;
   readonly name: string;
   readonly attribution: string;
@@ -12,10 +14,27 @@ interface ReviewDataset {
   readonly snapshot_at: string;
 }
 
-export interface ObjectReviewItem {
-  readonly name: string;
-  readonly kind: "area" | "line";
-  readonly bounds: MapBounds;
+export interface ReviewVectorProperties {
+  readonly name: string | null;
+  readonly kind: "point" | "line" | "area";
+  readonly dataset_id: string;
+  readonly feature_index: number;
+}
+
+export type ReviewVector = Feature<Geometry, ReviewVectorProperties> & {
+  readonly id: string;
+};
+
+export type ObjectVectors = Omit<
+  FeatureCollection<Geometry, ReviewVectorProperties>,
+  "features"
+> & {
+  readonly features: ReviewVector[];
+  readonly datasets: readonly VectorSource[];
+  readonly coverage: "full" | "partial" | "none";
+};
+
+export interface ObjectMeasurement {
   readonly extent: number;
   readonly covered: number;
   readonly candidate: number;
@@ -24,50 +43,31 @@ export interface ObjectReviewItem {
   readonly ambiguous: number;
 }
 
-export interface ObjectReview {
-  readonly output_id: string;
-  readonly output_title: string;
-  readonly datasets: readonly ReviewDataset[];
-  readonly coverage: "full" | "partial";
-  readonly profile: ObjectReviewProfile;
-  readonly items: readonly ObjectReviewItem[];
-  readonly map_overlay?: FeatureCollection;
+export type ObjectReview =
+  | { readonly status: "measured"; readonly measurement: ObjectMeasurement }
+  | { readonly status: "outside" | "excluded"; readonly measurement: null };
+
+function resultPath(output: AnalysisOutput) {
+  return `${workspaceResultsPath(output.workspace_id)}/${encodeURIComponent(output.id)}`;
 }
 
-export function latestObjectReview(
-  records: readonly TrajectoryEventProjection[],
-  displayedOutputs: ReadonlySet<string>,
-): { id: string; report: ObjectReview } | null {
-  if (displayedOutputs.size === 0) return null;
-  const requests = new Set<string>();
-  let latest = null;
-  for (const record of records) {
-    if (
-      record.eventType === "tool.requested" &&
-      record.payload.name === "result_review_objects"
-    ) {
-      requests.add(record.entityId);
-    }
-    if (record.eventType !== "tool.completed" || !requests.has(record.entityId))
-      continue;
-    const result = record.payload.result;
-    if (
-      typeof result === "object" &&
-      result !== null &&
-      "output_id" in result &&
-      typeof result.output_id === "string" &&
-      displayedOutputs.has(result.output_id) &&
-      "output_title" in result &&
-      typeof result.output_title === "string" &&
-      "datasets" in result &&
-      Array.isArray(result.datasets) &&
-      "items" in result &&
-      Array.isArray(result.items) &&
-      "coverage" in result &&
-      (result.coverage === "full" || result.coverage === "partial")
-    ) {
-      latest = { id: record.id, report: result as unknown as ObjectReview };
-    }
-  }
-  return latest;
+export function fetchObjectVectors(
+  output: AnalysisOutput,
+  signal: AbortSignal,
+) {
+  return requestJson<ObjectVectors>(`${resultPath(output)}/object-vectors`, {
+    signal,
+  });
+}
+
+export function inspectVector(
+  output: AnalysisOutput,
+  { dataset_id, feature_index }: ReviewVectorProperties,
+  signal: AbortSignal,
+) {
+  return requestJson<ObjectReview>(`${resultPath(output)}/object-review`, {
+    method: "POST",
+    body: JSON.stringify({ dataset_id, feature_index }),
+    signal,
+  });
 }

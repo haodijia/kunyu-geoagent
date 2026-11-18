@@ -1,181 +1,298 @@
 import { Button } from "@/components/ui/button";
-import type { ObjectReviewProfile } from "@/features/analysis/api";
+import type {
+  AnalysisOutput,
+  ObjectReviewProfile,
+} from "@/features/analysis/api";
+import type { useSessionMap } from "@/features/maps/runtime/useSessionMap";
 import { objectReview as copy } from "@/locales/zh-CN/object-review";
-import { Eye, EyeOff, LocateFixed, X } from "lucide-vue-next";
-import { defineComponent, shallowRef } from "vue";
-import type { ObjectReview, ObjectReviewItem } from "./object-review";
+import { skipToken, useQuery } from "@tanstack/vue-query";
+import { Eye, EyeOff } from "lucide-vue-next";
+import { computed, defineComponent, reactive, shallowRef } from "vue";
+import {
+  fetchObjectVectors,
+  inspectVector,
+  type ObjectMeasurement,
+  type ReviewVector,
+} from "./object-review";
+import { useReviewOverlay } from "./useReviewOverlay";
 
 export const ObjectReviewPanel = defineComponent(
   (props: {
-    readonly report: ObjectReview;
-    readonly overlayVisible: boolean;
-    readonly onToggleOverlay: () => void;
-    readonly onLocate: (item: ObjectReviewItem) => void;
-    readonly onClose: () => void;
+    readonly output: AnalysisOutput;
+    readonly map: ReturnType<typeof useSessionMap>;
+    readonly inspectable: boolean;
   }) => {
-    const selected = shallowRef<ObjectReviewItem | null>(null);
-    return () => (
-      <section
-        class="map-inspection map-object-review space-y-2 p-3"
-        aria-label={copy.title}
-      >
-        <div class="flex items-center justify-between gap-2">
-          <h2 class="m-0 text-sm font-semibold">{copy.title}</h2>
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon-sm"
-            aria-label={copy.close}
-            onClick={props.onClose}
-          >
-            <X class="size-3.5" />
-          </Button>
-        </div>
-        <p
-          class="m-0 truncate text-xs text-muted-foreground"
-          title={props.report.output_title}
+    const vectors = reactive(
+      useQuery(
+        computed(() => ({
+          queryKey: [
+            "object-vectors",
+            props.output.workspace_id,
+            props.output.id,
+          ],
+          queryFn: ({ signal }: { signal: AbortSignal }) =>
+            fetchObjectVectors(props.output, signal),
+          staleTime: Infinity,
+        })),
+      ),
+    );
+    const selected = shallowRef<ReviewVector | null>(null);
+    const preview = shallowRef<ReviewVector | null>(null);
+    const choices = shallowRef<ReviewVector[]>([]);
+    const visible = shallowRef(true);
+    const review = reactive(
+      useQuery(
+        computed(() => {
+          const feature = selected.value;
+          return {
+            queryKey: [
+              "object-review",
+              props.output.workspace_id,
+              props.output.id,
+              feature?.id,
+            ],
+            queryFn:
+              feature === null
+                ? skipToken
+                : ({ signal }: { signal: AbortSignal }) =>
+                    inspectVector(props.output, feature.properties, signal),
+            staleTime: Infinity,
+            retry: false,
+          };
+        }),
+      ),
+    );
+
+    function select(feature: ReviewVector) {
+      choices.value = [];
+      preview.value = null;
+      selected.value = feature;
+    }
+
+    useReviewOverlay(
+      () => props.map.getMap(),
+      () => props.map.ready,
+      () =>
+        visible.value && vectors.data?.features.length ? vectors.data : null,
+      () => (preview.value ?? selected.value)?.properties ?? null,
+      () => props.inspectable,
+      (features) => {
+        if (features.length === 1) {
+          select(features[0]!);
+        } else {
+          preview.value = null;
+          selected.value = null;
+          choices.value = features;
+        }
+      },
+    );
+
+    return () => {
+      const profile = props.output.object_review;
+      if (!props.inspectable || profile === null) return null;
+      const catalog = vectors.data;
+      const feature = selected.value;
+      const result = review.data;
+      return (
+        <section
+          class="map-inspection map-object-review space-y-2 p-3"
+          aria-label={copy.title}
         >
-          {props.report.output_title}
-        </p>
-        {props.report.coverage === "partial" && (
-          <p class="m-0 text-xs text-muted-foreground">{copy.partial}</p>
-        )}
-        {props.report.map_overlay && (
-          <div class="space-y-1">
-            <Button
-              type="button"
-              size="sm"
-              variant="outline"
-              aria-pressed={props.overlayVisible}
-              onClick={props.onToggleOverlay}
-            >
-              {props.overlayVisible ? <Eye /> : <EyeOff />}
-              {copy.overlay}
-            </Button>
-            {props.overlayVisible && (
-              <div class="flex flex-wrap gap-x-2 gap-y-1 text-[11px] text-muted-foreground">
-                <span>
-                  <span
-                    class="me-1 inline-block size-2 rounded-full bg-[#e56826]"
-                    aria-hidden="true"
-                  />
-                  {copy.candidateObjects}
-                </span>
-                <span>
-                  <span
-                    class="me-1 inline-block size-2 rounded-full bg-[#7161b3]"
-                    aria-hidden="true"
-                  />
-                  {copy.otherObjects}
-                </span>
-              </div>
-            )}
-          </div>
-        )}
-        {props.report.items.length === 0 ? (
-          <p class="m-0 text-xs text-muted-foreground">{copy.empty}</p>
-        ) : (
-          <>
-            <ul class="m-0 grid list-none gap-1 p-0">
-              {props.report.items.map((item) => (
-                <li key={`${item.kind}:${item.name}`}>
-                  <ReviewRow
-                    item={item}
-                    profile={props.report.profile}
-                    selected={item === selected.value}
-                    onLocate={() => {
-                      selected.value = item;
-                      props.onLocate(item);
-                    }}
-                  />
+          <h2 class="m-0 text-sm font-semibold">{copy.title}</h2>
+          {vectors.isPending && (
+            <p role="status" class="m-0 text-xs text-muted-foreground">
+              {copy.loadingVectors}
+            </p>
+          )}
+          {vectors.isError && (
+            <p role="alert" class="m-0 text-xs text-destructive">
+              {vectors.error.message}
+            </p>
+          )}
+          {catalog && (
+            <>
+              {catalog.features.length > 0 && (
+                <div class="space-y-2">
+                  <div class="flex flex-wrap items-center gap-2">
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      aria-pressed={visible.value}
+                      onClick={() => {
+                        visible.value = !visible.value;
+                        preview.value = null;
+                        choices.value = [];
+                      }}
+                    >
+                      {visible.value ? <Eye /> : <EyeOff />}
+                      {copy.overlay}
+                    </Button>
+                    <span class="text-xs text-muted-foreground">
+                      {copy.vectorCount(catalog.features.length)}
+                    </span>
+                  </div>
+                  {visible.value &&
+                    feature === null &&
+                    choices.value.length === 0 && (
+                      <p class="m-0 text-xs text-muted-foreground">
+                        {copy.guidance}
+                      </p>
+                    )}
+                </div>
+              )}
+              {catalog.coverage !== "full" && (
+                <p class="m-0 text-xs text-muted-foreground">
+                  {copy[catalog.coverage]}
+                </p>
+              )}
+              {catalog.coverage !== "none" && catalog.features.length === 0 && (
+                <p class="m-0 text-xs text-muted-foreground">{copy.empty}</p>
+              )}
+            </>
+          )}
+          {choices.value.length > 0 && (
+            <div class="space-y-1">
+              <p class="m-0 text-xs text-muted-foreground">{copy.choose}</p>
+              <ul class="m-0 grid list-none gap-1 p-0">
+                {choices.value.map((choice) => (
+                  <li key={choice.id}>
+                    <button
+                      type="button"
+                      class="flex w-full items-center justify-between gap-2 rounded border border-border px-2 py-1 text-left text-xs hover:bg-muted focus-visible:bg-muted"
+                      onPointerenter={() => {
+                        preview.value = choice;
+                      }}
+                      onPointerleave={() => {
+                        preview.value = null;
+                      }}
+                      onFocus={() => {
+                        preview.value = choice;
+                      }}
+                      onBlur={() => {
+                        preview.value = null;
+                      }}
+                      onClick={() => select(choice)}
+                    >
+                      <span class="truncate">
+                        {choice.properties.name ?? copy.unnamed}
+                      </span>
+                      <span class="shrink-0 text-muted-foreground">
+                        {copy.kind[choice.properties.kind]}
+                      </span>
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+          {feature && (
+            <div class="space-y-1 rounded-md border border-border p-2 text-xs">
+              <h3 class="m-0 font-semibold">
+                {feature.properties.name ?? copy.unnamed} ·{" "}
+                {copy.kind[feature.properties.kind]}
+              </h3>
+              {review.isPending && (
+                <p role="status" class="m-0 text-muted-foreground">
+                  {copy.loadingObject}
+                </p>
+              )}
+              {review.isError && (
+                <p role="alert" class="m-0 text-destructive">
+                  {review.error.message}
+                </p>
+              )}
+              {result && result.status === "measured" && (
+                <Measurements
+                  measurement={result.measurement}
+                  profile={profile}
+                  kind={feature.properties.kind}
+                />
+              )}
+              {result && result.status !== "measured" && (
+                <p class="m-0 text-muted-foreground">{copy[result.status]}</p>
+              )}
+            </div>
+          )}
+          {catalog && catalog.datasets.length > 0 && (
+            <ul class="m-0 list-none space-y-1 p-0 text-[11px] text-muted-foreground">
+              {catalog.datasets.map((source) => (
+                <li key={source.id}>
+                  {source.name} · {source.snapshot_at.slice(0, 10)} ·{" "}
+                  <a
+                    href={source.license_url}
+                    class="underline"
+                    target="_blank"
+                    rel="noreferrer"
+                  >
+                    {source.attribution} · {source.license}
+                  </a>
                 </li>
               ))}
             </ul>
-            <p class="m-0 text-[11px] leading-4 text-muted-foreground">
-              {copy.evidence}
-            </p>
-          </>
-        )}
-        <ul class="m-0 list-none space-y-1 p-0 text-[11px] text-muted-foreground">
-          {props.report.datasets.map((dataset) => (
-            <li key={dataset.id}>
-              {dataset.name} · {dataset.snapshot_at.slice(0, 10)} ·{" "}
-              <a
-                href={dataset.license_url}
-                class="underline"
-                target="_blank"
-                rel="noreferrer"
-              >
-                {dataset.attribution} · {dataset.license}
-              </a>
-            </li>
-          ))}
-        </ul>
-      </section>
-    );
+          )}
+        </section>
+      );
+    };
   },
-  {
-    name: "ObjectReviewPanel",
-    props: [
-      "report",
-      "overlayVisible",
-      "onToggleOverlay",
-      "onLocate",
-      "onClose",
-    ],
-  },
+  { name: "ObjectReviewPanel", props: ["output", "map", "inspectable"] },
 );
 
-const ReviewRow = defineComponent(
+const Measurements = defineComponent(
   (props: {
-    readonly item: ObjectReviewItem;
+    readonly measurement: ObjectMeasurement;
     readonly profile: ObjectReviewProfile;
-    readonly selected: boolean;
-    readonly onLocate: () => void;
+    readonly kind: ReviewVector["properties"]["kind"];
   }) =>
     () => {
-      const { item, profile } = props;
-      const format = copy[item.kind];
+      const { measurement, profile, kind } = props;
+      const format = copy[kind];
       return (
-        <button
-          type="button"
-          aria-label={copy.locate(item.name)}
-          aria-pressed={props.selected}
-          onClick={props.onLocate}
-          class="flex w-full items-start gap-2 rounded-md border border-border px-2 py-1.5 text-left hover:bg-muted focus-visible:outline-2 focus-visible:outline-ring aria-pressed:border-primary aria-pressed:bg-accent"
-        >
-          <span class="min-w-0 flex-1">
-            <span class="block truncate text-xs font-medium">{item.name}</span>
-            <span class="block text-[11px] leading-4 text-muted-foreground">
-              {profile.candidate_label} {format(item.candidate)}
-            </span>
-            {item.evidence !== null && item.evidence > 0 && (
-              <span class="block text-[11px] text-muted-foreground">
-                {profile.evidence_label} {format(item.evidence)}
-              </span>
+        <>
+          <dl class="m-0 space-y-0.5">
+            <Measurement
+              label={profile.candidate_label}
+              value={format(measurement.candidate)}
+            />
+            {measurement.evidence !== null &&
+              profile.evidence_label !== null && (
+                <Measurement
+                  label={profile.evidence_label}
+                  value={format(measurement.evidence)}
+                />
+              )}
+            {measurement.missing > 0 && (
+              <Measurement
+                label={profile.missing_label}
+                value={format(measurement.missing)}
+              />
             )}
-            {item.missing > 0 && (
-              <span class="block text-[11px] text-muted-foreground">
-                {profile.missing_label} {format(item.missing)}
-              </span>
+            {measurement.ambiguous > 0 && (
+              <Measurement
+                label={profile.ambiguous_label}
+                value={format(measurement.ambiguous)}
+              />
             )}
-            {item.ambiguous > 0 && (
-              <span class="block text-[11px] text-muted-foreground">
-                {profile.ambiguous_label} {format(item.ambiguous)}
-              </span>
-            )}
-            {props.selected && (
-              <span class="mt-1 block text-[11px] text-muted-foreground">
-                {copy.covered} {format(item.covered)} / {format(item.extent)}
-              </span>
-            )}
-          </span>
-          <LocateFixed
-            class="mt-0.5 size-3.5 shrink-0 text-muted-foreground"
-            aria-hidden="true"
-          />
-        </button>
+            <Measurement
+              label={copy.covered}
+              value={`${format(measurement.covered)} / ${format(measurement.extent)}`}
+            />
+          </dl>
+          <p class="m-0 text-[11px] text-muted-foreground">
+            {copy.evidence[kind]}
+          </p>
+        </>
       );
     },
-  { name: "ReviewRow", props: ["item", "profile", "selected", "onLocate"] },
+  { name: "Measurements", props: ["measurement", "profile", "kind"] },
+);
+
+const Measurement = defineComponent(
+  (props: { readonly label: string; readonly value: string }) => () => (
+    <div class="flex justify-between gap-1">
+      <dt class="text-muted-foreground">{props.label}</dt>
+      <dd class="m-0 text-right tabular-nums">{props.value}</dd>
+    </div>
+  ),
+  { name: "Measurement", props: ["label", "value"] },
 );

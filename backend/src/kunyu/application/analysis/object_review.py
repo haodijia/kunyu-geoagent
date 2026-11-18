@@ -1,8 +1,7 @@
 """Review a result using vector partitions that intersect its footprint."""
 
-from collections import defaultdict
+import json
 from threading import Event
-from typing import Literal
 
 import shapely
 from shapely.errors import GEOSException
@@ -14,9 +13,12 @@ from kunyu.domain.geospatial.analysis import AnalysisError, AnalysisOutput
 from kunyu.domain.geospatial.object_review import (
     ObjectReview,
     ObjectReviewProfile,
+    ObjectVectors,
+    ReviewVector,
+    ReviewVectorProperties,
 )
 from kunyu.integrations.filesystem.io import check_cancelled
-from kunyu.integrations.geospatial.object_review import ReviewObject, measure_objects
+from kunyu.integrations.geospatial.object_review import measure_object
 from kunyu.integrations.geospatial.review_catalog import (
     matched_partitions,
     vector_features,
@@ -25,12 +27,13 @@ from kunyu.integrations.oge.service_catalog import registered_object_review
 
 MAX_FEATURE_COORDINATES = 10_000
 _KIND_BY_GEOMETRY = {
+    "Point": "point",
+    "MultiPoint": "point",
     "Polygon": "area",
     "MultiPolygon": "area",
     "LineString": "line",
     "MultiLineString": "line",
 }
-Kind = Literal["area", "line"]
 
 
 def review_profile(output: AnalysisOutput) -> ObjectReviewProfile | None:
@@ -63,107 +66,73 @@ class ObjectReviewService:
     def __init__(self, analysis: AnalysisService) -> None:
         self.analysis = analysis
 
+    def vectors(
+        self, workspace: str, output_id: str, cancelled: Event
+    ) -> ObjectVectors:
+        output, _ = self._result(workspace, output_id)
+        extent = box(*output.bounds)
+        partitions = matched_partitions(extent)
+        if not partitions:
+            return ObjectVectors(datasets=[], coverage="none", features=[])
+
+        vectors = []
+        for dataset, footprint in partitions:
+            for index, feature in enumerate(vector_features(dataset)):
+                check_cancelled(cancelled, "read object vectors")
+                parsed = _vector(feature, footprint, dataset.name)
+                if parsed is None:
+                    continue
+                geometry, properties = parsed
+                name = properties.get("name:zh") or properties.get("name")
+                vectors.append(
+                    ReviewVector(
+                        id=f"{dataset.id}:{index}",
+                        geometry=json.loads(shapely.to_geojson(geometry)),
+                        properties=ReviewVectorProperties(
+                            name=name.strip()
+                            if isinstance(name, str) and name.strip()
+                            else None,
+                            kind=_KIND_BY_GEOMETRY[geometry.geom_type],
+                            dataset_id=dataset.id,
+                            feature_index=index,
+                        ),
+                    )
+                )
+
+        footprints = [footprint for _, footprint in partitions]
+        coverage = "full" if shapely.union_all(footprints).covers(extent) else "partial"
+        return ObjectVectors(
+            datasets=[dataset for dataset, _ in partitions],
+            coverage=coverage,
+            features=vectors,
+        )
+
     def inspect(
         self,
         workspace: str,
         output_id: str,
-        query: str,
+        dataset_id: str,
+        feature_index: int,
         cancelled: Event,
     ) -> ObjectReview:
-        output = self.analysis.repository.workspace_output(workspace, output_id)
-        resolved = _resolved_review(output)
-        if resolved is None:
-            raise AnalysisError(
-                "REVIEW_RESULT_UNSUPPORTED", "该成果契约未声明对象核查。", 422
-            )
-        profile, class_band, evidence_band, codes = resolved
-        extent = box(*output.bounds)
-        partitions = matched_partitions(extent)
-        if not partitions:
-            raise AnalysisError(
-                "REVIEW_NO_VECTOR_COVERAGE", "矢量数据目录暂未覆盖该成果区域。", 422
-            )
-        footprints = [coverage for _, coverage in partitions]
-        coverage = "full" if shapely.union_all(footprints).covers(extent) else "partial"
-        groups: dict[tuple[Kind, str], list[BaseGeometry]] = defaultdict(list)
-        for dataset, footprint in partitions:
-            check_cancelled(cancelled, "read review dataset")
-            for key, geometry in _dataset_objects(
-                vector_features(dataset),
-                footprint,
-                profile,
-                dataset.name,
-                query,
-                cancelled,
-            ):
-                groups[key].append(geometry)
-        objects = [
-            ReviewObject(name, kind, shapely.union_all(geometries))
-            for (kind, name), geometries in groups.items()
-        ]
-        items = []
-        if objects:
-            cog, _ = self.analysis.repository.files(workspace, output_id)
-            items = measure_objects(
-                self.analysis.raster.path(cog),
-                profile,
-                class_band,
-                evidence_band,
-                codes,
-                objects,
-                cancelled,
-            )
-        ranked = []
-        for kind in ("area", "line"):
-            ranked.extend(
-                sorted(
-                    (
-                        item
-                        for item in items
-                        if item.kind == kind
-                        and (query or item.candidate or item.missing or item.ambiguous)
-                    ),
-                    key=lambda item: (
-                        -(item.evidence or 0),
-                        -item.candidate,
-                        -item.missing,
-                        -item.ambiguous,
-                        item.name,
-                    ),
-                )[:5]
-            )
-        return ObjectReview(
-            output_id=output_id,
-            output_title=output.title,
-            datasets=[dataset for dataset, _ in partitions],
-            coverage=coverage,
-            profile=profile,
-            items=ranked,
+        output, (profile, class_band, evidence_band, codes) = self._result(
+            workspace, output_id
         )
-
-
-def _dataset_objects(features, extent, profile, source, query, cancelled):
-    term = query.casefold()
-    for feature in features:
-        check_cancelled(cancelled, "read object review features")
-        if not isinstance(feature, dict) or feature.get("type") != "Feature":
+        for dataset, footprint in matched_partitions(box(*output.bounds)):
+            if dataset.id != dataset_id:
+                continue
+            features = vector_features(dataset)
+            if 0 <= feature_index < len(features):
+                parsed = _vector(features[feature_index], footprint, dataset.name)
+                if parsed is not None:
+                    geometry, properties = parsed
+                    break
+        else:
             raise AnalysisError(
-                "INVALID_REVIEW_DATASET", f"{source} 存在无效要素。", 422
+                "REVIEW_OBJECT_NOT_FOUND", "该对象不在当前成果的矢量图层中。", 404
             )
-        properties, raw = feature.get("properties"), feature.get("geometry")
-        if not isinstance(properties, dict) or not isinstance(raw, dict):
-            continue
-        name = properties.get("name:zh") or properties.get("name")
-        kind = _KIND_BY_GEOMETRY.get(raw.get("type"))
-        if (
-            not isinstance(name, str)
-            or not name.strip()
-            or len(name) > 160
-            or kind is None
-        ):
-            continue
-        if term and term not in name.casefold():
-            continue
+
+        kind = _KIND_BY_GEOMETRY[geometry.geom_type]
         if (
             kind == "line"
             and profile.exclude_elevated_lines
@@ -172,16 +141,60 @@ def _dataset_objects(features, extent, profile, source, query, cancelled):
                 or str(properties.get("layer", "0")) != "0"
             )
         ):
-            continue
-        geometry = _geometry(raw, source)
-        clipped = extent.intersection(geometry)
-        parts = [
-            part
-            for part in shapely.get_parts(clipped)
-            if not part.is_empty and _KIND_BY_GEOMETRY.get(part.geom_type) == kind
-        ]
-        if parts:
-            yield (kind, name.strip()), shapely.union_all(parts)
+            return ObjectReview(status="excluded")
+
+        cog, _ = self.analysis.repository.files(workspace, output_id)
+        measurement = measure_object(
+            self.analysis.raster.path(cog),
+            profile,
+            class_band,
+            evidence_band,
+            codes,
+            geometry,
+            kind,
+            cancelled,
+        )
+        if measurement is None:
+            return ObjectReview(status="outside")
+        return ObjectReview(status="measured", measurement=measurement)
+
+    def _result(self, workspace: str, output_id: str):
+        output = self.analysis.repository.workspace_output(workspace, output_id)
+        resolved = _resolved_review(output)
+        if resolved is None:
+            raise AnalysisError(
+                "REVIEW_RESULT_UNSUPPORTED", "该成果契约未声明对象核查。", 422
+            )
+        return output, resolved
+
+
+def _vector(feature, footprint, source):
+    if not isinstance(feature, dict) or feature.get("type") != "Feature":
+        raise AnalysisError("INVALID_REVIEW_DATASET", f"{source} 存在无效要素。", 422)
+    raw = feature.get("geometry")
+    if raw is None:
+        return None
+    properties = feature.get("properties")
+    if properties is not None and not isinstance(properties, dict):
+        raise AnalysisError(
+            "INVALID_REVIEW_DATASET", f"{source} 存在无效要素属性。", 422
+        )
+    if (
+        not isinstance(raw, dict)
+        or (kind := _KIND_BY_GEOMETRY.get(raw.get("type"))) is None
+    ):
+        raise AnalysisError(
+            "INVALID_REVIEW_GEOMETRY", f"{source} 含有不受支持的几何。", 422
+        )
+    clipped = footprint.intersection(_geometry(raw, source))
+    parts = [
+        part
+        for part in shapely.get_parts(clipped)
+        if not part.is_empty and _KIND_BY_GEOMETRY.get(part.geom_type) == kind
+    ]
+    if parts:
+        return shapely.union_all(parts), properties or {}
+    return None
 
 
 def _geometry(raw: dict, source: str) -> BaseGeometry:

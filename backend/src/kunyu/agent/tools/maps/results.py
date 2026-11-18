@@ -7,7 +7,6 @@ from typing import Annotated
 from pydantic import Field, JsonValue
 
 from kunyu.agent.prompts.loader import tool_description
-from kunyu.agent.runtime.contracts.content import TextBlock
 from kunyu.agent.runtime.contracts.tool_output import TextDisplay
 from kunyu.agent.runtime.contracts.tools import (
     BaseTool,
@@ -25,14 +24,12 @@ from kunyu.agent.tools.outputs.shared import (
 )
 from kunyu.agent.tools.shared import (
     ToolArguments,
-    encode_json,
     load_source,
     require_bound_call,
     tool_result,
     validate_arguments,
     validate_model,
 )
-from kunyu.application.analysis.object_review import ObjectReviewService
 from kunyu.application.analysis.results import ResultService
 from kunyu.application.analysis.views import RasterViewService
 from kunyu.domain.conversation.agent_context import RunContextRepository
@@ -47,16 +44,6 @@ class ResultArguments(ToolArguments):
 
 class InfoArguments(ToolArguments):
     file_path: str = Field(min_length=1, max_length=4096)
-
-
-class ReviewObjectsArguments(ResultArguments):
-    query: str = Field(
-        default="", max_length=80, description="Name or partial name of an object."
-    )
-    show_on_map: bool = Field(
-        default=False,
-        description="Overlay the returned vector features on the session map.",
-    )
 
 
 class RasterReadArguments(ResultArguments):
@@ -92,29 +79,12 @@ def compact_result(result):
     data = object_result(result)
     return compact(
         data["summary"],
-        {
-            key: value
-            for key, value in data.items()
-            if key not in {"source_metadata", "map_overlay"}
-        },
-    )
-
-
-def result_content(result):
-    data = object_result(result)
-    if "map_overlay" not in data:
-        return agent_content(result)
-    return (
-        TextBlock(
-            text=encode_json(
-                {key: value for key, value in data.items() if key != "map_overlay"}
-            ).decode("utf-8")
-        ),
+        {key: value for key, value in data.items() if key != "source_metadata"},
     )
 
 
 class ResultTool(BaseTool):
-    output_contract = ToolOutputContract(result_content, display, compact_result)
+    output_contract = ToolOutputContract(agent_content, display, compact_result)
 
     def __init__(
         self,
@@ -130,7 +100,6 @@ class ResultTool(BaseTool):
             "result_set_views": ViewArguments,
             "map_sample_raster": SampleArguments,
             "map_region_statistics": StatisticsArguments,
-            "result_review_objects": ReviewObjectsArguments,
         }[name]
         self.spec = ToolSpec(
             name=name,
@@ -169,42 +138,6 @@ class ResultTool(BaseTool):
             elif call.name == "result_get_info":
                 data = self.service.info(workspace, args.file_path)
                 summary = data["title"]
-            elif isinstance(args, ReviewObjectsArguments):
-                review = await filesystem_operation(
-                    lambda cancelled: ObjectReviewService(
-                        self.service.analysis
-                    ).inspect(
-                        workspace,
-                        args.output_id,
-                        args.query.strip(),
-                        cancelled,
-                    )
-                )
-                data = review.model_dump(
-                    mode="json", exclude={"items": {"__all__": {"geometry"}}}
-                )
-                data["overlay_count"] = len(review.items) if args.show_on_map else 0
-                if data["overlay_count"]:
-                    data["map_overlay"] = {
-                        "type": "FeatureCollection",
-                        "features": [
-                            {
-                                "type": "Feature",
-                                "geometry": item.geometry,
-                                "properties": {
-                                    "name": item.name,
-                                    "candidate": item.candidate > 0,
-                                },
-                            }
-                            for item in review.items
-                        ],
-                    }
-                summary = label(
-                    "object_review_mapped"
-                    if data["overlay_count"]
-                    else "object_review",
-                    count=len(review.items),
-                )
             elif call.name == "map_sample_raster":
                 data = await filesystem_operation(
                     lambda _: self.service.sample(
