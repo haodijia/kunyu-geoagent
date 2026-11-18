@@ -1,6 +1,7 @@
 import type { ObjectReviewProfile } from "@/features/analysis/api";
 import type { TrajectoryEventProjection } from "@/features/events/projection/events";
 import type { MapBounds } from "@/features/sessions/map-context";
+import type { FeatureCollection } from "geojson";
 
 interface ReviewDataset {
   readonly id: string;
@@ -30,6 +31,7 @@ export interface ObjectReview {
   readonly coverage: "full" | "partial";
   readonly profile: ObjectReviewProfile;
   readonly items: readonly ObjectReviewItem[];
+  readonly map_overlay?: FeatureCollection;
 }
 
 export function latestObjectReview(

@@ -16,6 +16,7 @@ import { captureComparedMap } from "@/features/maps/analysis/comparison-capture"
 import { latestObjectReview } from "@/features/maps/analysis/object-review";
 import { useSelectionOverlay } from "@/features/maps/analysis/useMapDrawing";
 import { useMapStatus } from "@/features/maps/analysis/useMapStatus";
+import { useReviewOverlay } from "@/features/maps/analysis/useReviewOverlay";
 import { MapConversation } from "@/features/maps/conversation/MapConversation";
 import { MapLayers } from "@/features/maps/layers/MapLayers";
 import "@/features/maps/map.css";
@@ -195,6 +196,19 @@ const MapCanvas = defineComponent(
       ),
     );
     const collapsedReviewId = shallowRef<string | null>(null);
+    const hiddenReviewOverlayId = shallowRef<string | null>(null);
+    const reviewOverlay = computed(() => {
+      const activeReview = review.value;
+      return activeReview !== null &&
+        hiddenReviewOverlayId.value !== activeReview.id
+        ? (activeReview.report.map_overlay ?? null)
+        : null;
+    });
+    useReviewOverlay(
+      () => map.getMap(),
+      () => map.ready,
+      () => reviewOverlay.value,
+    );
     const activeInteraction = computed<MapInteraction | null>(() =>
       interaction.value === null
         ? null
@@ -378,6 +392,11 @@ const MapCanvas = defineComponent(
                 <ObjectReviewPanel
                   key={_review.id}
                   report={_review.report}
+                  overlayVisible={reviewOverlay.value !== null}
+                  onToggleOverlay={() => {
+                    hiddenReviewOverlayId.value =
+                      reviewOverlay.value === null ? null : _review.id;
+                  }}
                   onClose={() => {
                     collapsedReviewId.value = _review.id;
                   }}

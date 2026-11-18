@@ -1,13 +1,15 @@
 import { Button } from "@/components/ui/button";
 import type { ObjectReviewProfile } from "@/features/analysis/api";
 import { objectReview as copy } from "@/locales/zh-CN/object-review";
-import { LocateFixed, X } from "lucide-vue-next";
+import { Eye, EyeOff, LocateFixed, X } from "lucide-vue-next";
 import { defineComponent, shallowRef } from "vue";
 import type { ObjectReview, ObjectReviewItem } from "./object-review";
 
 export const ObjectReviewPanel = defineComponent(
   (props: {
     readonly report: ObjectReview;
+    readonly overlayVisible: boolean;
+    readonly onToggleOverlay: () => void;
     readonly onLocate: (item: ObjectReviewItem) => void;
     readonly onClose: () => void;
   }) => {
@@ -37,6 +39,38 @@ export const ObjectReviewPanel = defineComponent(
         </p>
         {props.report.coverage === "partial" && (
           <p class="m-0 text-xs text-muted-foreground">{copy.partial}</p>
+        )}
+        {props.report.map_overlay && (
+          <div class="space-y-1">
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              aria-pressed={props.overlayVisible}
+              onClick={props.onToggleOverlay}
+            >
+              {props.overlayVisible ? <Eye /> : <EyeOff />}
+              {copy.overlay}
+            </Button>
+            {props.overlayVisible && (
+              <div class="flex flex-wrap gap-x-2 gap-y-1 text-[11px] text-muted-foreground">
+                <span>
+                  <span
+                    class="me-1 inline-block size-2 rounded-full bg-[#e56826]"
+                    aria-hidden="true"
+                  />
+                  {copy.candidateObjects}
+                </span>
+                <span>
+                  <span
+                    class="me-1 inline-block size-2 rounded-full bg-[#7161b3]"
+                    aria-hidden="true"
+                  />
+                  {copy.otherObjects}
+                </span>
+              </div>
+            )}
+          </div>
         )}
         {props.report.items.length === 0 ? (
           <p class="m-0 text-xs text-muted-foreground">{copy.empty}</p>
@@ -80,7 +114,16 @@ export const ObjectReviewPanel = defineComponent(
       </section>
     );
   },
-  { name: "ObjectReviewPanel", props: ["report", "onLocate", "onClose"] },
+  {
+    name: "ObjectReviewPanel",
+    props: [
+      "report",
+      "overlayVisible",
+      "onToggleOverlay",
+      "onLocate",
+      "onClose",
+    ],
+  },
 );
 
 const ReviewRow = defineComponent(
