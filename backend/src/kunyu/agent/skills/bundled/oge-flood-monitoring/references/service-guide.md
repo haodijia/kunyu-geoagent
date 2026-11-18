@@ -4,43 +4,23 @@
 
 ## 输入与参数
 
-七个路径均为 OGE 账号下可访问的 `myData/文件名`，不是本机路径、资产 UUID 或下载 URL。前后期各三份影像必须互不相同，波段顺序必须符合下表；重命名文件不能修正波段或网格。服务固定使用 EPSG:32649、10米分析网格，源数据需已核实同原点、同范围。SWIR、SCL 最近邻重采样到10米不会增加原始空间细节。
+调用时显式提供七个 `myData/完整文件名` 参数。用 OGE 资产的名称和扩展名组成路径。两期各三份影像必须互不相同，按下表核对波段顺序。服务固定使用 EPSG:32649、10 米分析网格，源数据需已核实同投影、同原点、同范围。SWIR、SCL 最近邻重采样到 10 米不会增加原始空间细节。服务按资产范围计算。日期、行政区和地图选区用于发现与核实资产或统计已完成的成果。
 
-| 参数 | 含义与输入要求 | 已登记默认值 |
+| 输入 | 前期参数 | 后期参数 |
 | --- | --- | --- |
-| `coverageID` | 后期光学，依次 B02/B03/B04/B08 | `myData/guigang_20260712_optical10m_yujiang_v1.tif` |
-| `beforeCoverageID` | 前期光学，依次 B02/B03/B04/B08 | `myData/guigang_20260622_optical10m_yujiang_v1.tif` |
-| `swirPath` | 后期短波红外，依次 B11/B12 | `myData/guigang_20260712_swir20m_yujiang_v1.tif` |
-| `beforeSwirPath` | 前期短波红外，依次 B11/B12 | `myData/guigang_20260622_swir20m_yujiang_v1.tif` |
-| `sclPath` | 后期单波段 SCL | `myData/guigang_20260712_scl20m_yujiang_v1.tif` |
-| `beforeSclPath` | 前期单波段 SCL | `myData/guigang_20260622_scl20m_yujiang_v1.tif` |
-| `poiRasterPath` | 同网格单波段关注点正整数 ID 栅格 | `myData/guigang_yujiang_poi10m_v1.tif` |
-| `poiMaxId` | 接纳的最大点位 ID，整数1–65535 | `30` |
-| `ndwiThreshold` | NDWI 水体基准阈值，范围[-1,1] | `0` |
-| `mndwiThreshold` | MNDWI 水体基准阈值，范围[-1,1] | `0` |
-| `thresholdStep` | 各指数阈值的正负扰动步长，范围(0,1] | `0.05` |
-| `reflectanceScale` | 已处理偏移的源反射率乘数，有限正数 | `0.0001` |
-| `targetCrs` | 固定分析投影 | `EPSG:32649` |
-| `resolution` | 固定分析像元大小，米 | `10` |
-| `outputName` | 1–80位英文字母、数字、下划线或短横线 | `yujiang_flood_analysis` |
+| 光学，依次 B02/B03/B04/B08 | `beforeCoverageID` | `coverageID` |
+| 短波红外，依次 B11/B12 | `beforeSwirPath` | `swirPath` |
+| 单波段场景分类 SCL | `beforeSclPath` | `sclPath` |
 
-默认反射率已处理偏移，只乘0.0001，不再减0.1；替换数据需核实同一辐射解释。参与指数波段的源值必须为正，分母有效，指数落在[-1,1]内；有效观测还要求 SCL 为4、5或6。
+另传 `poiRasterPath`，指向同网格单波段关注点正整数 ID 栅格。`poiMaxId` 是纳入计算的 ID 上限。
+
+反射率乘数默认为 0.0001，要求源数据已处理偏移。参与指数波段的源值必须为正，分母有效，指数落在[-1,1]内；有效观测还要求 SCL 为 4、5 或 6。
 
 NDWI=(Green−NIR)/(Green+NIR)，MNDWI=(Green−SWIR1)/(Green+SWIR1)。单期两指数都严格大于各自阈值时判为水体；两者分歧单列。双期均有效且各期无指数分歧时，才进入水体变化比较。
 
 敏感性分析分别对两个指数取基准、减步长、加步长，组成九组阈值。基准阈值±步长均须仍在[-1,1]内，远端不会自动截断。阈值未经校准，不把默认0称为普适阈值。
 
-仅在用户要求调整阈值时，`oge_execute_service` 示例为：
-
-```json
-{
-  "service_name":"flood_monitoring_bundle",
-  "title":"郁江水体变化阈值对比",
-  "parameters":{"ndwiThreshold":0.02,"mndwiThreshold":0.01,"thresholdStep":0.05}
-}
-```
-
-保留原成果用于对比。更换区域或日期需要成套兼容资产；本服务没有自动影像搜索、裁剪或最小图斑筛选参数。
+阈值对比时，沿用原作业的明确输入和统计范围，按需求调整 `ndwiThreshold`、`mndwiThreshold` 或 `thresholdStep`，保留原成果。
 
 ## 成果与解释
 

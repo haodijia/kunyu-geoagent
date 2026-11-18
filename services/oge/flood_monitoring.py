@@ -1,41 +1,41 @@
-"""郁江双期水体变化；在 OGE Python 环境执行，每次只导出一个 Coverage。"""
+"""在 OGE Python 环境计算双期水体变化并导出一个 Coverage。"""
 
 import oge
 
 """"" begin param definition
 Args:
-    coverageID (String): 灾后B02/B03/B04/B08光学影像
-    beforeCoverageID (String): 灾前B02/B03/B04/B08光学影像
-    swirPath (String): 灾后B11/B12影像
-    beforeSwirPath (String): 灾前B11/B12影像
-    sclPath (String): 灾后SCL影像
-    beforeSclPath (String): 灾前SCL影像
+    coverageID (String): 本次选用的后期B02/B03/B04/B08光学影像
+    beforeCoverageID (String): 本次选用的前期B02/B03/B04/B08光学影像
+    swirPath (String): 本次选用的后期B11/B12影像
+    beforeSwirPath (String): 本次选用的前期B11/B12影像
+    sclPath (String): 本次选用的后期SCL影像
+    beforeSclPath (String): 本次选用的前期SCL影像
     poiRasterPath (String): 同网格关注点ID栅格
     poiMaxId (Integer): 关注点最大正整数ID
     ndwiThreshold (Double): NDWI基准阈值，严格大于为水体
     mndwiThreshold (Double): MNDWI基准阈值，严格大于为水体
     thresholdStep (Double): 敏感性分析中各指数阈值的正负扰动步长
     reflectanceScale (Double): 已处理偏移的源数据反射率乘数
-    targetCrs (String): 本案例固定EPSG:32649
-    resolution (Double): 本案例固定10米分析网格
+    targetCrs (String): 服务固定EPSG:32649
+    resolution (Double): 服务固定10米分析网格
     outputName (String): 本次导出名称，仅英文数字下划线和短横线
 end param definition """ ""
 
-coverageID = "myData/guigang_20260712_optical10m_yujiang_v1.tif"
-beforeCoverageID = "myData/guigang_20260622_optical10m_yujiang_v1.tif"
-swirPath = "myData/guigang_20260712_swir20m_yujiang_v1.tif"
-beforeSwirPath = "myData/guigang_20260622_swir20m_yujiang_v1.tif"
-sclPath = "myData/guigang_20260712_scl20m_yujiang_v1.tif"
-beforeSclPath = "myData/guigang_20260622_scl20m_yujiang_v1.tif"
-poiRasterPath = "myData/guigang_yujiang_poi10m_v1.tif"
-poiMaxId = 30
+coverageID = ""
+beforeCoverageID = ""
+swirPath = ""
+beforeSwirPath = ""
+sclPath = ""
+beforeSclPath = ""
+poiRasterPath = ""
+poiMaxId = 65535
 ndwiThreshold = 0.0
 mndwiThreshold = 0.0
 thresholdStep = 0.05
 reflectanceScale = 0.0001
 targetCrs = "EPSG:32649"
 resolution = 10.0
-outputName = "yujiang_flood_analysis"
+outputName = "water_change_analysis"
 
 
 def validate():
@@ -69,7 +69,7 @@ def validate():
         or type(resolution) not in (int, float)
         or resolution != 10
     ):
-        raise ValueError("本案例仅支持已核查的EPSG:32649、10米网格")
+        raise ValueError("本服务仅支持已核查的EPSG:32649、10米网格")
     if type(reflectanceScale) not in (int, float) or not 0 < reflectanceScale < float(
         "inf"
     ):
@@ -235,7 +235,7 @@ def build_products(before, after):
     classes = add(classes, scale(change["receded_water"], 3))
     classes = add(classes, scale(change["uncertain_mask"], 4))
     classes = add(classes, scale(missing, 5))
-    # 0双方有效，1仅灾前无效，2仅灾后无效，3双方无效。
+    # 0双方有效，1仅前期无效，2仅后期无效，3双方无效。
     quality = add(invert(before["valid"]), scale(invert(after["valid"]), 2))
     products = {
         "change_class": named(classes, "change_class", [0, 5]),

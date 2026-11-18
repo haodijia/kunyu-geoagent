@@ -1,7 +1,6 @@
 import { Button } from "@/components/ui/button";
 import { toolLabel } from "@/features/agent/tools/tool-presentation";
 import type { Confirmation } from "@/features/confirmations/api";
-import { FloodInputReview } from "@/features/confirmations/FloodInputReview";
 import { cn } from "@/lib/utils";
 import { zhCN } from "@/locales/zh-CN";
 import {
@@ -43,9 +42,21 @@ export const ConfirmationCard = defineComponent(
         _onReject = onReject.value,
         _onApprove = onApprove.value,
         _error = error.value;
-      const floodReview =
-        _confirmation.name === "oge_execute_service" &&
-        _confirmation.arguments.service_name === "flood_monitoring_bundle";
+      const serviceReview = _confirmation.name === "oge_execute_service";
+      const {
+        title,
+        service_name: serviceName,
+        parameters: serviceParameters,
+      } = _confirmation.arguments;
+      const assets =
+        serviceReview &&
+        typeof serviceParameters === "object" &&
+        serviceParameters !== null
+          ? Object.entries(serviceParameters).filter(
+              (entry): entry is [string, string] =>
+                typeof entry[1] === "string" && entry[1].startsWith("myData/"),
+            )
+          : [];
       const parameters = (
         <pre class="m-0 max-h-48 overflow-auto rounded-lg bg-muted px-3 py-2.5 font-mono text-xs leading-5 whitespace-pre-wrap text-foreground [overflow-wrap:anywhere]">
           {JSON.stringify(_confirmation.arguments, null, 2)}
@@ -69,27 +80,46 @@ export const ConfirmationCard = defineComponent(
                 id={`confirmation-${_confirmation.id}`}
                 class="m-0 font-semibold text-foreground"
               >
-                {floodReview ? content.imagery.title : content.title}
+                {serviceReview ? content.ogeService.title : content.title}
               </h3>
               <p class="mt-1 mb-0 leading-5 text-muted-foreground">
-                {floodReview
-                  ? String(_confirmation.arguments.title)
+                {serviceReview && typeof title === "string"
+                  ? title
                   : _confirmation.summary}
               </p>
             </div>
           </div>
-          {floodReview ? (
-            <div class="px-4 py-3">
-              <FloodInputReview
-                parameters={_confirmation.arguments.parameters}
-              />
-              <details class="mt-3 text-xs text-muted-foreground">
+          {serviceReview ? (
+            <>
+              <dl class="m-0 divide-y divide-border px-4">
+                <ConfirmationRow label={content.ogeService.service}>
+                  <code class="text-xs">
+                    {typeof serviceName === "string" && serviceName}
+                  </code>
+                </ConfirmationRow>
+                {assets.length > 0 && (
+                  <ConfirmationRow label={content.ogeService.assets} vertical>
+                    <ul class="m-0 grid list-none gap-1 p-0 font-mono text-xs leading-5">
+                      {assets.map(([key, path]) => (
+                        <li
+                          key={key}
+                          class="grid gap-x-3 sm:grid-cols-[minmax(8rem,max-content)_1fr]"
+                        >
+                          <span class="text-muted-foreground">{key}</span>
+                          <span>{path}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </ConfirmationRow>
+                )}
+              </dl>
+              <details class="mx-4 border-t border-border py-3 text-xs text-muted-foreground">
                 <summary class="mb-2 w-fit cursor-pointer">
                   {content.parameters}
                 </summary>
                 {parameters}
               </details>
-            </div>
+            </>
           ) : (
             <dl class="m-0 divide-y divide-border px-4">
               <ConfirmationRow label={content.operation}>
@@ -116,7 +146,9 @@ export const ConfirmationCard = defineComponent(
           )}
           <div class="flex flex-wrap items-center justify-between gap-3 border-t border-border px-4 py-3">
             <p class="m-0 min-w-0 flex-1 text-xs leading-5 text-muted-foreground">
-              {floodReview ? content.imagery.submit : content.exactSnapshot}
+              {serviceReview
+                ? content.ogeService.submit
+                : content.exactSnapshot}
             </p>
             <div class="flex shrink-0 gap-2">
               <Button
@@ -135,8 +167,8 @@ export const ConfirmationCard = defineComponent(
                 )}
                 {_pendingAction === "reject"
                   ? content.rejecting
-                  : floodReview
-                    ? content.imagery.reject
+                  : serviceReview
+                    ? content.ogeService.reject
                     : content.reject}
               </Button>
               <Button
@@ -154,8 +186,8 @@ export const ConfirmationCard = defineComponent(
                 )}
                 {_pendingAction === "approve"
                   ? content.approving
-                  : floodReview
-                    ? content.imagery.approve
+                  : serviceReview
+                    ? content.ogeService.approve
                     : content.approve}
               </Button>
             </div>

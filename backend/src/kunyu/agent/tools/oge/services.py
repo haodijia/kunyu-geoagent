@@ -50,7 +50,9 @@ class ServiceDefinitionArguments(ToolArguments):
 class ExecuteServiceArguments(ToolArguments):
     title: str = Field(min_length=1, max_length=120)
     service_name: str = Field(pattern=r"^[a-zA-Z0-9_-]{1,80}$")
-    parameters: dict[str, JsonValue] = Field(default_factory=dict)
+    parameters: dict[str, JsonValue] = Field(
+        description="Verified inputs and parameter values for the selected service."
+    )
 
 
 def definition_display(result):

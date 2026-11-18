@@ -2,49 +2,59 @@
   "name": "flood_monitoring_bundle",
   "version": "2.0.0",
   "title": "双期水体变化与质量分析",
-  "description": "一次OGE服务计算，返回21波段数值成果。渲染、点查、圈选统计复用成果，不重复计算。",
+  "description": "使用两期已对齐的 Sentinel-2 L2A 栅格和同范围关注点栅格，计算水体变化、观测质量、指数与阈值敏感性，返回 21 波段栅格成果。",
   "parameters": {
     "type": "object",
     "additionalProperties": false,
+    "required": [
+      "beforeCoverageID",
+      "beforeSwirPath",
+      "beforeSclPath",
+      "coverageID",
+      "swirPath",
+      "sclPath",
+      "poiRasterPath"
+    ],
     "properties": {
-      "coverageID": {
-        "type": "string",
-        "default": "myData/guigang_20260712_optical10m_yujiang_v1.tif",
-        "pattern": "^myData/[^\\s]+$"
-      },
       "beforeCoverageID": {
         "type": "string",
-        "default": "myData/guigang_20260622_optical10m_yujiang_v1.tif",
-        "pattern": "^myData/[^\\s]+$"
-      },
-      "swirPath": {
-        "type": "string",
-        "default": "myData/guigang_20260712_swir20m_yujiang_v1.tif",
+        "description": "前期光学栅格，波段顺序为 B02、B03、B04、B08。",
         "pattern": "^myData/[^\\s]+$"
       },
       "beforeSwirPath": {
         "type": "string",
-        "default": "myData/guigang_20260622_swir20m_yujiang_v1.tif",
-        "pattern": "^myData/[^\\s]+$"
-      },
-      "sclPath": {
-        "type": "string",
-        "default": "myData/guigang_20260712_scl20m_yujiang_v1.tif",
+        "description": "前期短波红外栅格，波段顺序为 B11、B12。",
         "pattern": "^myData/[^\\s]+$"
       },
       "beforeSclPath": {
         "type": "string",
-        "default": "myData/guigang_20260622_scl20m_yujiang_v1.tif",
+        "description": "前期场景分类栅格，单波段 SCL。",
+        "pattern": "^myData/[^\\s]+$"
+      },
+      "coverageID": {
+        "type": "string",
+        "description": "后期光学栅格，波段顺序为 B02、B03、B04、B08。",
+        "pattern": "^myData/[^\\s]+$"
+      },
+      "swirPath": {
+        "type": "string",
+        "description": "后期短波红外栅格，波段顺序为 B11、B12。",
+        "pattern": "^myData/[^\\s]+$"
+      },
+      "sclPath": {
+        "type": "string",
+        "description": "后期场景分类栅格，单波段 SCL。",
         "pattern": "^myData/[^\\s]+$"
       },
       "poiRasterPath": {
         "type": "string",
-        "default": "myData/guigang_yujiang_poi10m_v1.tif",
+        "description": "与两期影像同范围、同原点的单波段关注点 ID 栅格。",
         "pattern": "^myData/[^\\s]+$"
       },
       "poiMaxId": {
         "type": "integer",
-        "default": 30,
+        "description": "参与分析的关注点 ID 上限。",
+        "default": 65535,
         "minimum": 1,
         "maximum": 65535
       },
@@ -83,13 +93,13 @@
       },
       "outputName": {
         "type": "string",
-        "default": "yujiang_flood_analysis",
+        "default": "water_change_analysis",
         "pattern": "^[a-zA-Z0-9_-]{1,80}$"
       }
     }
   },
   "limitations": [
-    "默认输入为2026-06-22与2026-07-12，不能代表洪峰最大淹没范围。",
+    "结果反映实际输入的两期观测及共同有效覆盖；洪峰最大淹没范围需要支持洪峰时段的独立观测。",
     "阈值为未校准基线，九组一致性不代表精度、概率或实际损失。",
     "SWIR/SCL重采样为10米不增加原始空间细节。",
     "仅支持已核查的EPSG:32649、同原点、同范围数据；替换数据前必须核查元数据。",
@@ -108,21 +118,21 @@
         "index": 2,
         "name": "quality_class",
         "title": "观测质量",
-        "description": "0双方有效；1仅灾前无效；2仅灾后无效；3双方无效。有效要求SCL为4/5/6、参与指数波段为正且指数在[-1,1]。",
+        "description": "0双方有效；1仅前期无效；2仅后期无效；3双方无效。有效要求SCL为4/5/6、参与指数波段为正且指数在[-1,1]。",
         "unit": null
       },
       {
         "index": 3,
         "name": "before_water",
-        "title": "灾前水体",
-        "description": "1表示灾前水体，0表示不满足；NoData表示本产品不可判定。",
+        "title": "前期水体",
+        "description": "1表示前期水体，0表示不满足；NoData表示本产品不可判定。",
         "unit": null
       },
       {
         "index": 4,
         "name": "after_water",
-        "title": "灾后水体",
-        "description": "1表示灾后水体，0表示不满足；NoData表示本产品不可判定。",
+        "title": "后期水体",
+        "description": "1表示后期水体，0表示不满足；NoData表示本产品不可判定。",
         "unit": null
       },
       {
@@ -170,14 +180,14 @@
       {
         "index": 11,
         "name": "before_ndwi",
-        "title": "灾前 NDWI",
+        "title": "前期 NDWI",
         "description": "原始数值指数；按该指数有效观测掩膜，NoData不参与统计。",
         "unit": null
       },
       {
         "index": 12,
         "name": "after_ndwi",
-        "title": "灾后 NDWI",
+        "title": "后期 NDWI",
         "description": "原始数值指数；按该指数有效观测掩膜，NoData不参与统计。",
         "unit": null
       },
@@ -185,20 +195,20 @@
         "index": 13,
         "name": "ndwi_change",
         "title": "NDWI 变化",
-        "description": "灾后减灾前；仅两期该指数有效时计算。",
+        "description": "后期减前期；仅两期该指数有效时计算。",
         "unit": null
       },
       {
         "index": 14,
         "name": "before_mndwi",
-        "title": "灾前 MNDWI",
+        "title": "前期 MNDWI",
         "description": "原始数值指数；按该指数有效观测掩膜，NoData不参与统计。",
         "unit": null
       },
       {
         "index": 15,
         "name": "after_mndwi",
-        "title": "灾后 MNDWI",
+        "title": "后期 MNDWI",
         "description": "原始数值指数；按该指数有效观测掩膜，NoData不参与统计。",
         "unit": null
       },
@@ -206,7 +216,7 @@
         "index": 16,
         "name": "mndwi_change",
         "title": "MNDWI 变化",
-        "description": "灾后减灾前；仅两期该指数有效时计算。",
+        "description": "后期减前期；仅两期该指数有效时计算。",
         "unit": null
       },
       {
@@ -296,7 +306,7 @@
       {
         "id": "quality_class",
         "title": "观测质量",
-        "description": "0双方有效；1仅灾前无效；2仅灾后无效；3双方无效。有效要求SCL为4/5/6、参与指数波段为正且指数在[-1,1]。",
+        "description": "0双方有效；1仅前期无效；2仅后期无效；3双方无效。有效要求SCL为4/5/6、参与指数波段为正且指数在[-1,1]。",
         "group": "质量",
         "bands": [
           2
@@ -311,12 +321,12 @@
             },
             {
               "value": 1,
-              "label": "灾前无效",
+              "label": "前期无效",
               "color": "#dfa16a"
             },
             {
               "value": 2,
-              "label": "灾后无效",
+              "label": "后期无效",
               "color": "#9a81c2"
             },
             {
@@ -332,8 +342,8 @@
       },
       {
         "id": "before_water",
-        "title": "灾前水体",
-        "description": "1表示灾前水体，0表示不满足；NoData表示本产品不可判定。",
+        "title": "前期水体",
+        "description": "1表示前期水体，0表示不满足；NoData表示本产品不可判定。",
         "group": "变化",
         "bands": [
           3
@@ -348,7 +358,7 @@
             },
             {
               "value": 1,
-              "label": "灾前水体",
+              "label": "前期水体",
               "color": "#2878b8"
             }
           ],
@@ -359,8 +369,8 @@
       },
       {
         "id": "after_water",
-        "title": "灾后水体",
-        "description": "1表示灾后水体，0表示不满足；NoData表示本产品不可判定。",
+        "title": "后期水体",
+        "description": "1表示后期水体，0表示不满足；NoData表示本产品不可判定。",
         "group": "变化",
         "bands": [
           4
@@ -375,7 +385,7 @@
             },
             {
               "value": 1,
-              "label": "灾后水体",
+              "label": "后期水体",
               "color": "#2878b8"
             }
           ],
@@ -548,7 +558,7 @@
       },
       {
         "id": "before_ndwi",
-        "title": "灾前 NDWI",
+        "title": "前期 NDWI",
         "description": "原始数值指数；按该指数有效观测掩膜，NoData不参与统计。",
         "group": "指数",
         "bands": [
@@ -570,7 +580,7 @@
       },
       {
         "id": "after_ndwi",
-        "title": "灾后 NDWI",
+        "title": "后期 NDWI",
         "description": "原始数值指数；按该指数有效观测掩膜，NoData不参与统计。",
         "group": "指数",
         "bands": [
@@ -593,7 +603,7 @@
       {
         "id": "ndwi_change",
         "title": "NDWI 变化",
-        "description": "灾后减灾前；仅两期该指数有效时计算。",
+        "description": "后期减前期；仅两期该指数有效时计算。",
         "group": "指数",
         "bands": [
           13
@@ -614,7 +624,7 @@
       },
       {
         "id": "before_mndwi",
-        "title": "灾前 MNDWI",
+        "title": "前期 MNDWI",
         "description": "原始数值指数；按该指数有效观测掩膜，NoData不参与统计。",
         "group": "指数",
         "bands": [
@@ -636,7 +646,7 @@
       },
       {
         "id": "after_mndwi",
-        "title": "灾后 MNDWI",
+        "title": "后期 MNDWI",
         "description": "原始数值指数；按该指数有效观测掩膜，NoData不参与统计。",
         "group": "指数",
         "bands": [
@@ -659,7 +669,7 @@
       {
         "id": "mndwi_change",
         "title": "MNDWI 变化",
-        "description": "灾后减灾前；仅两期该指数有效时计算。",
+        "description": "后期减前期；仅两期该指数有效时计算。",
         "group": "指数",
         "bands": [
           16

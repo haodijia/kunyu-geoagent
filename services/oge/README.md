@@ -6,9 +6,9 @@
 
 2026-10-24 已通过在线开发中心发布 `flood_monitoring_bundle`，版本契约为 2.0.0。OGE 的“编辑服务”只允许修改名称和描述，故新版以独立名称发布；既有 `flood_monitoring` 保持原状态，未删除。
 
-- 源码：`flood_monitoring.py`，直接粘贴到 OGE 开发中心，保存脚本后在资源行“…”选择“发布为服务”。不要在本机安装 OGE 来执行这个算法。
-- 平台契约：`backend/src/kunyu/integrations/oge/services/flood_monitoring_bundle.json`。包含默认参数、21个波段的名称与意义、推荐视图、分类图例、分组及解释限制。新增服务只需登记对应契约，不添加案例专用地图按钮。
-- 调用：`POST https://openge.org.cn/api/management/gp-service/process/flood_monitoring_bundle/api`，使用 OGE 登录得到的 Bearer Authorization。请求体 `{}` 使用全部已发布默认值；如 `{"ndwiThreshold":0.02,"mndwiThreshold":0.01,"thresholdStep":0.05}` 调整方法参数。
+- 源码：`flood_monitoring.py`，在 OGE 开发中心保存和发布。运行时填入本次选定的七份资产路径。
+- 坤舆的调用契约：`backend/src/kunyu/integrations/oge/services/flood_monitoring_bundle.json`。声明必填资产、算法参数、21 个波段、地图视图和解释限制。
+- 调用：`POST https://openge.org.cn/api/management/gp-service/process/flood_monitoring_bundle/api`，使用 OGE 登录得到的 Bearer Authorization。显式提供两个时相的光学、SWIR、SCL 及关注点栅格路径，调整阈值时随同输入提交。
 - 返回 `processId=job-...` 是异步任务，不是图像地址。状态 `/computation-api/process/{jobId}`；引擎结果 `/computation-api/process/result/{jobId}`；数值 TIFF `/computation-api/styles/cog/{jobId}`。
 - 实测 GP 成功状态为 `resultStatus=1`、`resultFileStatus=1`、引擎 `status=success`；不套用旧文档的“2=成功”。结果中的 `processId=DAGJSON` 是过程类型，任务身份以 `jobId` 为准。
 
@@ -32,7 +32,7 @@
 
 ## 平台与 Agent
 
-`oge_get_service_definition` → `oge_execute_service` → 持久化任务 / `job_output` → 完整成果收集 → `map_present`。
+`oge_get_service_definition` → 核实输入 → `oge_execute_service` 审批 → 持久化任务 / `job_output` → `map_present` → `map_focus`。
 
 执行前记录任务，编译或提交失败保存诊断；提交结果不明时不自动重试。重启只恢复状态查询与下载，不重复发起计算。代码执行与已发布GP服务使用各自明确的协议。
 
@@ -59,7 +59,7 @@
 发布后GP任务：`job-53f16951-bbe2-4036-a86d-bb31831e443b`。
 两次21波段逐像元完全相同，包括NoData掩膜。主分类与六份源影像的独立复算在4,000,000个源窗口像元上完全一致。OGE按瓦片填充到2048×2048，填充区不参加统计。
 
-| 默认结果 | 像元数 | 投影网格面积 km² |
+| 郁江案例结果 | 像元数 | 投影网格面积 km² |
 | --- | ---: | ---: |
 | 持续水体 | 108,578 | 10.8578 |
 | 新增水体 | 222,912 | 22.2912 |
