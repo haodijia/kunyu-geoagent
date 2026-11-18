@@ -11,8 +11,10 @@ from kunyu.api.errors import ApiError
 from kunyu.application.analysis.removal import ResultRemovalService
 from kunyu.application.analysis.results import ResultService
 from kunyu.application.analysis.views import RasterViewService
+from kunyu.application.analysis.water_review import WaterReviewService
 from kunyu.application.workspaces.service import WorkspaceNotFoundError
 from kunyu.domain.geospatial.raster import RasterView
+from kunyu.domain.geospatial.water_review import WaterReview
 from kunyu.integrations.filesystem.operation import filesystem_operation
 from kunyu.persistence.database import Database
 
@@ -26,6 +28,20 @@ def result_service(request: Request) -> ResultService:
 
 
 Service = Annotated[ResultService, Depends(result_service)]
+
+
+@router.get("/{output_id}/water-review", response_model=WaterReview)
+async def water_review(
+    workspace_id: str,
+    output_id: str,
+    service: Service,
+    query: Annotated[str, Query(max_length=80)] = "",
+):
+    return await filesystem_operation(
+        lambda cancelled: WaterReviewService(service.analysis).inspect(
+            workspace_id, output_id, query.strip(), cancelled
+        )
+    )
 
 
 @router.delete("/{output_id}")

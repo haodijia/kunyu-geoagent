@@ -13,6 +13,8 @@ import {
 import { captureComparedMap } from "@/features/maps/analysis/comparison-capture";
 import { useSelectionOverlay } from "@/features/maps/analysis/useMapDrawing";
 import { useMapStatus } from "@/features/maps/analysis/useMapStatus";
+import { WaterReviewPanel } from "@/features/maps/analysis/WaterReviewPanel";
+import type { WaterReviewItem } from "@/features/maps/analysis/water-review";
 import { MapConversation } from "@/features/maps/conversation/MapConversation";
 import { MapLayers } from "@/features/maps/layers/MapLayers";
 import "@/features/maps/map.css";
@@ -179,6 +181,40 @@ const MapCanvas = defineComponent(
         selectedLayer.value ??
         spatialLayers.value.find((layer) => layer.visible),
     );
+    const reviewOutput = computed(() => {
+      const reviewLayers = [
+        targetLayer.value,
+        ...spatialLayers.value.filter((layer) => layer.visible),
+      ];
+      for (const layer of reviewLayers) {
+        const output = outputs.data?.find(
+          (item) => item.id === layer?.output_id,
+        );
+        const bands = output?.metadata.bands;
+        if (
+          bands?.some((band) => band.name === "change_class") &&
+          bands.some((band) => band.name === "stable_flood")
+        )
+          return output;
+      }
+      return undefined;
+    });
+    const reviewSelection = shallowRef<{
+      outputId: string;
+      item: WaterReviewItem;
+    } | null>(null);
+    const selectedReviewObject = computed(() =>
+      reviewSelection.value !== null &&
+      reviewSelection.value.outputId === reviewOutput.value?.id
+        ? reviewSelection.value.item
+        : null,
+    );
+    useSelectionOverlay(
+      () => map.getMap(),
+      () => map.ready,
+      () => selectedReviewObject.value?.geometry ?? null,
+      "water-review-selection",
+    );
     const activeInteraction = computed<MapInteraction | null>(() =>
       interaction.value === null
         ? null
@@ -299,6 +335,7 @@ const MapCanvas = defineComponent(
         _spatialLayers = spatialLayers.value,
         _layers = layers.value,
         _pair = pair.value,
+        _reviewOutput = reviewOutput.value,
         _interactionContent = interactionContent.value;
       return (
         <div
@@ -343,6 +380,20 @@ const MapCanvas = defineComponent(
               statuses={rendering.layers}
             />
             {_interactionContent}
+            {_reviewOutput !== undefined && _activeInteraction === null && (
+              <WaterReviewPanel
+                key={_reviewOutput.id}
+                output={_reviewOutput}
+                selected={selectedReviewObject.value}
+                onClear={() => {
+                  reviewSelection.value = null;
+                }}
+                onLocate={(item) => {
+                  reviewSelection.value = { outputId: _reviewOutput.id, item };
+                  useAppUiStore().focusMap(session.id, item.bounds);
+                }}
+              />
+            )}
             {comparisonError.value !== null && (
               <div
                 role="alert"

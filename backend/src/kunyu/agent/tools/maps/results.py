@@ -32,6 +32,7 @@ from kunyu.agent.tools.shared import (
 )
 from kunyu.application.analysis.results import ResultService
 from kunyu.application.analysis.views import RasterViewService
+from kunyu.application.analysis.water_review import WaterReviewService
 from kunyu.domain.conversation.agent_context import RunContextRepository
 from kunyu.domain.geospatial.analysis import AnalysisError
 from kunyu.domain.geospatial.raster import RasterView
@@ -44,6 +45,12 @@ class ResultArguments(ToolArguments):
 
 class InfoArguments(ToolArguments):
     file_path: str = Field(min_length=1, max_length=4096)
+
+
+class WaterReviewArguments(ResultArguments):
+    query: str = Field(
+        default="", max_length=80, description="Name or partial name of a park or road."
+    )
 
 
 class RasterReadArguments(ResultArguments):
@@ -100,6 +107,7 @@ class ResultTool(BaseTool):
             "result_set_views": ViewArguments,
             "map_sample_raster": SampleArguments,
             "map_region_statistics": StatisticsArguments,
+            "result_review_water_objects": WaterReviewArguments,
         }[name]
         self.spec = ToolSpec(
             name=name,
@@ -138,6 +146,16 @@ class ResultTool(BaseTool):
             elif call.name == "result_get_info":
                 data = self.service.info(workspace, args.file_path)
                 summary = data["title"]
+            elif isinstance(args, WaterReviewArguments):
+                review = await filesystem_operation(
+                    lambda cancelled: WaterReviewService(self.service.analysis).inspect(
+                        workspace, args.output_id, args.query.strip(), cancelled
+                    )
+                )
+                data = review.model_dump(
+                    mode="json", exclude={"items": {"__all__": {"geometry"}}}
+                )
+                summary = label("water_review", count=len(review.items))
             elif call.name == "map_sample_raster":
                 data = await filesystem_operation(
                     lambda _: self.service.sample(

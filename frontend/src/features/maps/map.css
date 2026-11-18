@@ -52,6 +52,11 @@
   box-shadow: 0 4px 20px #0000000a;
   backdrop-filter: blur(12px);
 }
+.map-water-review {
+  min-height: 0;
+  max-height: none;
+  flex-shrink: 1;
+}
 
 @media (max-width: 1000px) {
   .map-tool-hint {

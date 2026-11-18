@@ -1,7 +1,7 @@
 import type { RegionGeometry } from "@/features/analysis/raster";
 import type { MapSelection } from "@/features/sessions/map-context";
 import { refSetter, watchMounted } from "@/lib/lifecycle";
-import type { Position } from "geojson";
+import type { LineString, MultiLineString, Position } from "geojson";
 import { GeoJSONSource, type Map, type MapMouseEvent } from "maplibre-gl";
 import {
   shallowReactive,
@@ -207,7 +207,10 @@ export function useMapDrawing(
 export function useSelectionOverlay(
   map: MaybeRefOrGetter<Map | null>,
   ready: MaybeRefOrGetter<boolean>,
-  geometry: MaybeRefOrGetter<MapSelection["geometry"] | null>,
+  geometry: MaybeRefOrGetter<
+    MapSelection["geometry"] | LineString | MultiLineString | null
+  >,
+  id = "map-selection",
 ) {
   watchMounted(
     [() => toValue(map), () => toValue(ready), () => toValue(geometry)],
@@ -215,7 +218,8 @@ export function useSelectionOverlay(
       const instance = toValue(map);
       const selection = toValue(geometry);
       if (instance === null || !toValue(ready) || selection === null) return;
-      const id = "map-selection";
+      const isReview = id === "water-review-selection";
+      const color = isReview ? "#087f8c" : selectionColor;
       instance.addSource(id, {
         type: "geojson",
         data: {
@@ -231,28 +235,29 @@ export function useSelectionOverlay(
           source: id,
           paint: {
             "circle-radius": 5,
-            "circle-color": selectionColor,
+            "circle-color": color,
             "circle-stroke-width": 2.5,
             "circle-stroke-color": "#ffffff",
           },
         });
       } else {
-        instance.addLayer({
-          id: id + "-fill",
-          type: "fill",
-          source: id,
-          paint: {
-            "fill-color": selectionColor,
-            "fill-opacity": 0.07,
-          },
-        });
+        if (selection.type === "Polygon" || selection.type === "MultiPolygon")
+          instance.addLayer({
+            id: id + "-fill",
+            type: "fill",
+            source: id,
+            paint: {
+              "fill-color": color,
+              "fill-opacity": 0.07,
+            },
+          });
         instance.addLayer({
           id,
           type: "line",
           source: id,
           paint: {
-            "line-color": selectionColor,
-            "line-width": 1.5,
+            "line-color": color,
+            "line-width": isReview ? 3 : 1.5,
           },
         });
       }
