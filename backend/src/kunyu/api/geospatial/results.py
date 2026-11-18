@@ -8,13 +8,13 @@ from pydantic import BaseModel, ConfigDict, Field, JsonValue
 
 from kunyu.api.dependencies import get_database
 from kunyu.api.errors import ApiError
+from kunyu.application.analysis.object_review import ObjectReviewService
 from kunyu.application.analysis.removal import ResultRemovalService
 from kunyu.application.analysis.results import ResultService
 from kunyu.application.analysis.views import RasterViewService
-from kunyu.application.analysis.water_review import WaterReviewService
 from kunyu.application.workspaces.service import WorkspaceNotFoundError
+from kunyu.domain.geospatial.object_review import ObjectReview, ReviewDataset
 from kunyu.domain.geospatial.raster import RasterView
-from kunyu.domain.geospatial.water_review import WaterReview
 from kunyu.integrations.filesystem.operation import filesystem_operation
 from kunyu.persistence.database import Database
 
@@ -30,16 +30,28 @@ def result_service(request: Request) -> ResultService:
 Service = Annotated[ResultService, Depends(result_service)]
 
 
-@router.get("/{output_id}/water-review", response_model=WaterReview)
-async def water_review(
-    workspace_id: str,
-    output_id: str,
-    service: Service,
-    query: Annotated[str, Query(max_length=80)] = "",
+@router.get("/{output_id}/object-review/datasets", response_model=list[ReviewDataset])
+async def review_datasets(workspace_id: str, output_id: str, service: Service):
+    return await filesystem_operation(
+        lambda cancelled: ObjectReviewService(service.analysis).datasets(
+            workspace_id, output_id, cancelled
+        )
+    )
+
+
+class ObjectReviewRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    file_path: str = Field(min_length=1, max_length=4096)
+    query: str = Field(default="", max_length=80)
+
+
+@router.post("/{output_id}/object-review", response_model=ObjectReview)
+async def object_review(
+    workspace_id: str, output_id: str, body: ObjectReviewRequest, service: Service
 ):
     return await filesystem_operation(
-        lambda cancelled: WaterReviewService(service.analysis).inspect(
-            workspace_id, output_id, query.strip(), cancelled
+        lambda cancelled: ObjectReviewService(service.analysis).inspect(
+            workspace_id, output_id, body.file_path, body.query.strip(), cancelled
         )
     )
 

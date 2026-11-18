@@ -1,6 +1,7 @@
 """Read persisted numeric results without assigning business meaning to their values."""
 
 from kunyu.application.analysis.analysis import AnalysisService
+from kunyu.application.analysis.object_review import review_profile
 from kunyu.domain.geospatial.analysis import AnalysisError
 from kunyu.domain.geospatial.raster import raster_view
 from kunyu.integrations.geospatial.raster_inspection import (
@@ -17,8 +18,12 @@ class ResultService:
         for output in self.analysis.repository.workspace_outputs(workspace_id):
             if file_path == output.file_path:
                 parameters = output.source_metadata.get("parameters", {})
+                profile = review_profile(output)
                 return {
                     **output.model_dump(mode="json", exclude={"source_metadata"}),
+                    "object_review": profile.model_dump(mode="json")
+                    if profile
+                    else None,
                     "source_metadata": {
                         "origin": output.source_metadata.get("origin"),
                         "parameters": {

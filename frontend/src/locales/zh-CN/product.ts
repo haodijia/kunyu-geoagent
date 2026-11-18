@@ -18,7 +18,7 @@ export const productCopy = {
   modelHint: "所有智能分析均需要可用模型",
   ogeHint: "检索影像、远端计算时需要登录",
   region: "研究区域",
-  regionPlaceholder: "例如：贵州省榕江县，或说明使用地图圈选范围",
+  regionPlaceholder: "输入地点，或说明使用地图圈选范围",
   period: "时间范围",
   periodPlaceholder: "例如：2025 年 6 月 20 日至 30 日",
   generateDraft: "填入任务草稿",
@@ -35,11 +35,11 @@ export const productCopy = {
     },
     {
       id: "change",
-      title: "比较水体变化",
-      description: "对照前后时期，定位变化区域",
+      title: "灾害监测研判",
+      description: "按灾害类型和时段选择监测方法",
       remote: true,
       prompt:
-        "比较研究区域在前后两个时期的水体变化。先确认可用影像、分析方法和时间窗口，再进行计算，给出变化范围、统计依据和局限。",
+        "研判研究区域在指定时段的灾害情况。先确认灾害类型、可用数据、监测方法和时间窗口，等我确认后再计算，并展示监测发现、证据和观测缺口。",
     },
     {
       id: "local",

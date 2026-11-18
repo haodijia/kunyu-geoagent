@@ -218,7 +218,7 @@ export function useSelectionOverlay(
       const instance = toValue(map);
       const selection = toValue(geometry);
       if (instance === null || !toValue(ready) || selection === null) return;
-      const isReview = id === "water-review-selection";
+      const isReview = id === "object-review-selection";
       const color = isReview ? "#087f8c" : selectionColor;
       instance.addSource(id, {
         type: "geojson",

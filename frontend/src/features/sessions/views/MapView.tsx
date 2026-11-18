@@ -10,11 +10,11 @@ import {
   MapInteractions,
   type MapInteraction,
 } from "@/features/maps/analysis/MapInteractions";
+import { ObjectReviewPanel } from "@/features/maps/analysis/ObjectReviewPanel";
 import { captureComparedMap } from "@/features/maps/analysis/comparison-capture";
+import type { ObjectReviewItem } from "@/features/maps/analysis/object-review";
 import { useSelectionOverlay } from "@/features/maps/analysis/useMapDrawing";
 import { useMapStatus } from "@/features/maps/analysis/useMapStatus";
-import { WaterReviewPanel } from "@/features/maps/analysis/WaterReviewPanel";
-import type { WaterReviewItem } from "@/features/maps/analysis/water-review";
 import { MapConversation } from "@/features/maps/conversation/MapConversation";
 import { MapLayers } from "@/features/maps/layers/MapLayers";
 import "@/features/maps/map.css";
@@ -28,6 +28,7 @@ import { SessionComposer } from "@/features/messages/composer/SessionComposer";
 import { useSessionWorkspace } from "@/features/sessions/SessionWorkspaceContext";
 import { refSetter, watchMounted } from "@/lib/lifecycle";
 import { zhCN } from "@/locales/zh-CN";
+import { objectReview } from "@/locales/zh-CN/object-review";
 import { useQuery } from "@tanstack/vue-query";
 import { AlertCircle, LoaderCircle } from "lucide-vue-next";
 import "maplibre-gl/dist/maplibre-gl.css";
@@ -182,26 +183,15 @@ const MapCanvas = defineComponent(
         spatialLayers.value.find((layer) => layer.visible),
     );
     const reviewOutput = computed(() => {
-      const reviewLayers = [
-        targetLayer.value,
-        ...spatialLayers.value.filter((layer) => layer.visible),
-      ];
-      for (const layer of reviewLayers) {
-        const output = outputs.data?.find(
-          (item) => item.id === layer?.output_id,
-        );
-        const bands = output?.metadata.bands;
-        if (
-          bands?.some((band) => band.name === "change_class") &&
-          bands.some((band) => band.name === "stable_flood")
-        )
-          return output;
-      }
-      return undefined;
+      const outputId = targetLayer.value?.output_id;
+      return outputs.data?.find(
+        (item) => item.id === outputId && item.object_review !== null,
+      );
     });
+    const reviewOpenedFor = shallowRef<string | null>(null);
     const reviewSelection = shallowRef<{
       outputId: string;
-      item: WaterReviewItem;
+      item: ObjectReviewItem;
     } | null>(null);
     const selectedReviewObject = computed(() =>
       reviewSelection.value !== null &&
@@ -213,7 +203,7 @@ const MapCanvas = defineComponent(
       () => map.getMap(),
       () => map.ready,
       () => selectedReviewObject.value?.geometry ?? null,
-      "water-review-selection",
+      "object-review-selection",
     );
     const activeInteraction = computed<MapInteraction | null>(() =>
       interaction.value === null
@@ -223,7 +213,12 @@ const MapCanvas = defineComponent(
             layerId: targetLayer.value?.id ?? null,
           },
     );
+    function closeReview() {
+      reviewOpenedFor.value = null;
+      reviewSelection.value = null;
+    }
     function toggleInteraction(mode: MapInteraction["mode"]) {
+      closeReview();
       setComparisonError(null);
       setPair(null);
       useAppUiStore().setMapSelection(session.id, null);
@@ -380,20 +375,39 @@ const MapCanvas = defineComponent(
               statuses={rendering.layers}
             />
             {_interactionContent}
-            {_reviewOutput !== undefined && _activeInteraction === null && (
-              <WaterReviewPanel
-                key={_reviewOutput.id}
-                output={_reviewOutput}
-                selected={selectedReviewObject.value}
-                onClear={() => {
-                  reviewSelection.value = null;
-                }}
-                onLocate={(item) => {
-                  reviewSelection.value = { outputId: _reviewOutput.id, item };
-                  useAppUiStore().focusMap(session.id, item.bounds);
-                }}
-              />
-            )}
+            {_reviewOutput !== undefined &&
+              _activeInteraction === null &&
+              (reviewOpenedFor.value === _reviewOutput.id ? (
+                <ObjectReviewPanel
+                  key={_reviewOutput.id}
+                  output={_reviewOutput}
+                  sessionId={session.id}
+                  selected={selectedReviewObject.value}
+                  onClose={closeReview}
+                  onClear={() => {
+                    reviewSelection.value = null;
+                  }}
+                  onLocate={(item) => {
+                    reviewSelection.value = {
+                      outputId: _reviewOutput.id,
+                      item,
+                    };
+                    useAppUiStore().focusMap(session.id, item.bounds);
+                  }}
+                />
+              ) : (
+                <Button
+                  class="self-start"
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    reviewOpenedFor.value = _reviewOutput.id;
+                  }}
+                >
+                  {objectReview.open}
+                </Button>
+              ))}
             {comparisonError.value !== null && (
               <div
                 role="alert"

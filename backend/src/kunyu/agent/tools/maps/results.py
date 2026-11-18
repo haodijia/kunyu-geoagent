@@ -30,9 +30,9 @@ from kunyu.agent.tools.shared import (
     validate_arguments,
     validate_model,
 )
+from kunyu.application.analysis.object_review import ObjectReviewService
 from kunyu.application.analysis.results import ResultService
 from kunyu.application.analysis.views import RasterViewService
-from kunyu.application.analysis.water_review import WaterReviewService
 from kunyu.domain.conversation.agent_context import RunContextRepository
 from kunyu.domain.geospatial.analysis import AnalysisError
 from kunyu.domain.geospatial.raster import RasterView
@@ -47,9 +47,10 @@ class InfoArguments(ToolArguments):
     file_path: str = Field(min_length=1, max_length=4096)
 
 
-class WaterReviewArguments(ResultArguments):
+class ReviewObjectsArguments(ResultArguments):
+    file_path: str = Field(min_length=1, max_length=4096)
     query: str = Field(
-        default="", max_length=80, description="Name or partial name of a park or road."
+        default="", max_length=80, description="Name or partial name of an object."
     )
 
 
@@ -107,7 +108,8 @@ class ResultTool(BaseTool):
             "result_set_views": ViewArguments,
             "map_sample_raster": SampleArguments,
             "map_region_statistics": StatisticsArguments,
-            "result_review_water_objects": WaterReviewArguments,
+            "result_list_review_datasets": ResultArguments,
+            "result_review_objects": ReviewObjectsArguments,
         }[name]
         self.spec = ToolSpec(
             name=name,
@@ -146,16 +148,34 @@ class ResultTool(BaseTool):
             elif call.name == "result_get_info":
                 data = self.service.info(workspace, args.file_path)
                 summary = data["title"]
-            elif isinstance(args, WaterReviewArguments):
+            elif call.name == "result_list_review_datasets":
+                datasets = await filesystem_operation(
+                    lambda cancelled: ObjectReviewService(
+                        self.service.analysis
+                    ).datasets(workspace, args.output_id, cancelled)
+                )
+                data = {
+                    "datasets": [
+                        dataset.model_dump(mode="json") for dataset in datasets
+                    ]
+                }
+                summary = label("review_datasets", count=len(datasets))
+            elif isinstance(args, ReviewObjectsArguments):
                 review = await filesystem_operation(
-                    lambda cancelled: WaterReviewService(self.service.analysis).inspect(
-                        workspace, args.output_id, args.query.strip(), cancelled
+                    lambda cancelled: ObjectReviewService(
+                        self.service.analysis
+                    ).inspect(
+                        workspace,
+                        args.output_id,
+                        args.file_path,
+                        args.query.strip(),
+                        cancelled,
                     )
                 )
                 data = review.model_dump(
                     mode="json", exclude={"items": {"__all__": {"geometry"}}}
                 )
-                summary = label("water_review", count=len(review.items))
+                summary = label("object_review", count=len(review.items))
             elif call.name == "map_sample_raster":
                 data = await filesystem_operation(
                     lambda _: self.service.sample(
@@ -185,9 +205,13 @@ class ResultTool(BaseTool):
                 )
             return tool_result({**data, "summary": summary}, max_bytes=256 * 1024)
         except OSError as error:
-            logging.getLogger(__name__).exception("Raster view update failed")
+            logging.getLogger(__name__).exception("Result tool %s failed", call.name)
+            if call.name == "result_set_views":
+                raise ToolExecutionError(
+                    "Could not save raster view files.", code="VIEW_SAVE_FAILED"
+                ) from error
             raise ToolExecutionError(
-                "Could not save raster view files.", code="VIEW_SAVE_FAILED"
+                "Could not access result files.", code="RESULT_FILES_UNAVAILABLE"
             ) from error
         except AnalysisError as error:
             raise ToolExecutionError(str(error), code=error.code) from None

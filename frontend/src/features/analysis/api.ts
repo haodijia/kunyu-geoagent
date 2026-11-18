@@ -1,5 +1,12 @@
 import { requestBlob, requestJson } from "@/api/client";
 import type { RasterMetadata } from "./raster-views";
+export interface ObjectReviewProfile {
+  readonly candidate_label: string;
+  readonly missing_label: string;
+  readonly ambiguous_label: string;
+  readonly evidence_label: string | null;
+}
+
 export interface AnalysisOutput {
   readonly workspace_id: string;
   readonly id: string;
@@ -13,6 +20,7 @@ export interface AnalysisOutput {
   readonly kind: "raster";
   readonly metadata: RasterMetadata;
   readonly source_metadata: Readonly<Record<string, unknown>>;
+  readonly object_review: ObjectReviewProfile | null;
   readonly bounds: readonly [number, number, number, number];
   readonly original_status: number;
   readonly revision: number;

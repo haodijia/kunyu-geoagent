@@ -105,6 +105,21 @@
     "仅支持已核查的EPSG:32649、同原点、同范围数据；替换数据前必须核查元数据。",
     "关注点ID栅格可能只包含部分点；不能用poiMaxId充当点位数量。"
   ],
+  "object_review": {
+    "class_view": "change_class",
+    "candidate_values": [2],
+    "missing_values": [5],
+    "ambiguous_values": [4],
+    "evidence": {
+      "band": "stable_flood",
+      "values": [1]
+    },
+    "exclude_elevated_lines": true,
+    "candidate_label": "新增水体候选",
+    "missing_label": "无共同有效观测",
+    "ambiguous_label": "指数分歧",
+    "evidence_label": "九组阈值一致"
+  },
   "presentation": {
     "bands": [
       {

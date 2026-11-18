@@ -8,11 +8,13 @@ from fastapi.responses import FileResponse
 
 from kunyu.api.errors import ApiError
 from kunyu.application.analysis.analysis import AnalysisService
+from kunyu.application.analysis.object_review import review_profile
 from kunyu.domain.geospatial.analysis import (
     AnalysisOutput,
     LayerStyleWrite,
     MapLayer,
 )
+from kunyu.domain.geospatial.object_review import ObjectReviewProfile
 from kunyu.domain.geospatial.oge import OgeError
 from kunyu.domain.geospatial.raster import RasterReference, raster_view
 from kunyu.persistence.geospatial.maps import MapRepository
@@ -30,6 +32,14 @@ def maps(request: Request) -> MapRepository:
 
 Analysis = Annotated[AnalysisService, Depends(analysis)]
 Maps = Annotated[MapRepository, Depends(maps)]
+
+
+class ResultResponse(AnalysisOutput):
+    object_review: ObjectReviewProfile | None
+
+
+def result_response(output: AnalysisOutput) -> ResultResponse:
+    return ResultResponse(**output.model_dump(), object_review=review_profile(output))
 
 
 def preview_path(
@@ -65,16 +75,19 @@ async def layer_preview(
     )
 
 
-@router.get("/workspaces/{workspace_id}/results", response_model=list[AnalysisOutput])
+@router.get("/workspaces/{workspace_id}/results", response_model=list[ResultResponse])
 def workspace_outputs(workspace_id: str, service: Analysis):
-    return service.repository.workspace_outputs(workspace_id)
+    return [
+        result_response(output)
+        for output in service.repository.workspace_outputs(workspace_id)
+    ]
 
 
 @router.get(
-    "/workspaces/{workspace_id}/results/{output_id}", response_model=AnalysisOutput
+    "/workspaces/{workspace_id}/results/{output_id}", response_model=ResultResponse
 )
 def workspace_output(workspace_id: str, output_id: str, service: Analysis):
-    return service.repository.workspace_output(workspace_id, output_id)
+    return result_response(service.repository.workspace_output(workspace_id, output_id))
 
 
 @router.get("/workspaces/{workspace_id}/results/{output_id}/preview")
