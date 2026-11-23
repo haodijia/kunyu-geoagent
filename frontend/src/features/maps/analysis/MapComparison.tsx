@@ -4,7 +4,7 @@ import type { useSessionMap } from "@/features/maps/runtime/useSessionMap";
 import { refSetter, watchMounted } from "@/lib/lifecycle";
 import { interactionCopy as copy } from "@/locales/zh-CN/map-interactions";
 import { GripVertical } from "lucide-vue-next";
-import { Map, type ErrorEvent } from "maplibre-gl";
+import { Map, type ErrorEvent, type StyleSpecification } from "maplibre-gl";
 import { computed, defineComponent, shallowRef, type ShallowRef } from "vue";
 export interface ComparisonCapture {
   map: Map;
@@ -92,7 +92,10 @@ export const MapComparison = defineComponent(
           return;
         if (pair.value.some((id) => activeMap.getLayer(id) === undefined))
           return;
-        const style = structuredClone(activeMap.getStyle());
+        // MapLibre styles are JSON, but their nested data can contain Vue proxies.
+        const style = JSON.parse(
+          JSON.stringify(activeMap.getStyle()),
+        ) as StyleSpecification;
         for (const layer of style.layers) {
           if (!layers.value.some((item) => item.id === layer.id)) continue;
           layer.layout = {

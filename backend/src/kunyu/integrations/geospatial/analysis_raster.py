@@ -101,7 +101,10 @@ def _render_tile(path: Path, z: int, x: int, y: int, view_json: str) -> bytes:
             transform=from_bounds(*bounds, size, size),
             width=size,
             height=size,
+            # Alpha masks uncovered pixels; the destination has no NoData value.
             add_alpha=True,
+            init_dest_nodata=False,
+            INIT_DEST="0",
             resampling=Resampling.nearest,
         ) as vrt,
     ):
